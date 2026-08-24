@@ -120,6 +120,9 @@ export interface WarToolsDeps {
   /** V5-R3 (staff-goal): 惰性取宿主 goal 服务面（inject 捕获，可能缺席）。
    * 缺席 → goal 代管诚实降级（不武装/不结算，账本记不了就跳过）。 */
   goals?: () => GoalsFace | undefined
+  /** V5-R4 (staff-wake)：结算点唤醒参谋（分级推+去抖在引擎侧）。旗关或
+   * 未接线 → 无唤醒（行为等价）。 */
+  wakeStaff?: (taskId: string, kind: 'reported' | 'failed', detail: string) => void
 }
 
 function requireAgent(exec: WarToolExec): { id: string } {
@@ -296,6 +299,25 @@ async function settleCommanderGoal(deps: WarToolsDeps, taskId: string, outcome: 
   }
 }
 
+/**
+ * V5-R4 确定性发布 lint（flag staff-triage）：验收非空可判——title/brief
+ * 长度下限 + acceptance 必须是「可核对的结构」（分行或分隔符列举，或足够
+ * 长的一句话陈述）。纯函数，系统拦不靠自觉。
+ */
+export function lintPublish(args: { title?: unknown; brief?: unknown; acceptance?: unknown }): { ok: boolean; reason: string } {
+  const title = typeof args.title === 'string' ? args.title.trim() : ''
+  const brief = typeof args.brief === 'string' ? args.brief.trim() : ''
+  const acceptance = typeof args.acceptance === 'string' ? args.acceptance.trim() : ''
+  if (title.length < 4) return { ok: false, reason: '标题太短（≥4 字）：一句话说清做什么。' }
+  if (brief.length < 10) return { ok: false, reason: '任务书正文太短（≥10 字）：背景、执行指引、边界至少各一句。' }
+  if (acceptance.length < 10) return { ok: false, reason: '验收标准太短（≥10 字）：司令提交时要逐项核对的。' }
+  const listy = acceptance.includes('\n') || acceptance.includes('；') || acceptance.includes(';') || acceptance.includes('、')
+  if (!listy && acceptance.length < 30) {
+    return { ok: false, reason: '验收标准不可判定：用分行或「；、」列举可核对项（或写成 ≥30 字的明确完成定义）。' }
+  }
+  return { ok: true, reason: '' }
+}
+
 /** Build the v0.2 tool surface bound to live wiring. */
 export function warTools(deps: WarToolsDeps) {
   const warPublish = defineTool({
@@ -333,6 +355,11 @@ export function warTools(deps: WarToolsDeps) {
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
       const secretary = requireAgent(exec)
+      // V5-R4（flag staff-triage）确定性 lint：系统拦不可判定的任务书。
+      if (featureEnabled(deps.flags, 'staff-triage')) {
+        const lint = lintPublish(args)
+        if (!lint.ok) throw new Error(`任务书不过 lint：${lint.reason}`)
+      }
       const taskId = newCampaignId()
       const priority = args.priority === 'high' ? 'high' : 'normal'
       const quality = qualityOf(args.quality)
@@ -570,6 +597,9 @@ export function warTools(deps: WarToolsDeps) {
           return { taskId: args.task_id, status: 'closed', evidenceSummary: green.why, ...(nextTaskId !== undefined ? { note: `已为同工作区的 ${nextTaskId} 征召司令` } : {}) }
         }
       }
+      // V5-R4（flag staff-wake）：待翻阅（非自动收官）才唤醒参谋——全绿
+      // 自动收官已由系统了结，无需吵醒（分级推）。
+      if (featureEnabled(deps.flags, 'staff-wake')) deps.wakeStaff?.(args.task_id, 'reported', `${parts.join('；')}；汇报：${args.report.slice(0, 160)}`)
       return { taskId: args.task_id, status: 'reported', evidenceSummary: parts.join('；') }
     },
     presentCall: args => ({ card: 'generic', title: `提交汇报 ${args.task_id}` }),
@@ -613,6 +643,9 @@ export function warTools(deps: WarToolsDeps) {
       recordDossier(deps, args.task_id)
       // V5-R3：重试用尽交防——司令 goal 结算（failed）。
       await settleCommanderGoal(deps, args.task_id, 'failed')
+      // V5-R4（flag staff-wake）：失败（用尽）唤醒参谋重新立案；requeue 路径
+      // 系统自动征召，无需唤醒（分级推）。
+      if (featureEnabled(deps.flags, 'staff-wake')) deps.wakeStaff?.(args.task_id, 'failed', args.reason.slice(0, 200))
       return { taskId: args.task_id, status: 'failed', attempts, maxAttempts: deps.maxAttempts, next: '重试已用尽。请向元首说明，由参谋重新立案（建议拆小一点再发）。' }
     },
     presentCall: args => ({ card: 'generic', title: `上报失败 ${args.task_id}` }),

@@ -13,6 +13,8 @@
 
 import { appendDirectiveEvent, loadDirectives, pendingDirectives, type Directive } from './directives.ts'
 import { featureEnabled, type FeatureFlags } from './flags.ts'
+import { bountyDraftingSkillContent } from './skill.ts'
+import { boardDigest } from './wake.ts'
 import type { WarStore } from './state.ts'
 
 /** Structural slice of the harness apiProxy's sessions + workspace domains. */
@@ -72,12 +74,20 @@ ${directive.text}
 - L2 不明确：先用提问卡片向元首澄清收敛，能定案后按复杂度走 L0 或 L1。`
     : `- L1 复杂：走现行呈批——完整任务书经元首批准后 war_publish。
 - L2 不明确：先用提问卡片向元首澄清收敛，能定案后再按复杂度走 L0/L1。`
+  // V5-R4（坑2 正解）：apiProxy 会话看不到编程注册技能——起草法全文内嵌
+  // 提示词（单一事实源：与 skill.ts 同一函数）。板摘要注入在 relayPending
+  // _Commands 侧拼（staff-wake 旗）——本函数保持纯。
+  const craft = bountyDraftingSkillContent()
   return `${base}
 
 【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
 - L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需元首批准。
 ${planDiscipline}
-- 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。`
+- 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。
+- 发布前过系统 lint：标题 ≥4 字、正文 ≥10 字、验收用「；/、」列举或 ≥30 字明确完成定义——不可判定会被拦。
+
+【起草法全文】（内嵌——本会话看不到技能库）
+${craft}`
 }
 
 /**
@@ -114,7 +124,9 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
         deps.store.save()
       }
     }
-    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: relayPromptFor(directive, deps.flags) }] } })
+    // V5-R4（flag staff-wake）上下文注入：板摘要随令附上（防重复立案）。
+    const suffix = deps.flags !== undefined && featureEnabled(deps.flags, 'staff-wake') ? `\n\n${boardDigest(deps.stateDir)}` : ''
+    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: `${relayPromptFor(directive, deps.flags)}${suffix}` }] } })
     if (!prompted.result.ok) continue // busy/shape drift: leave it draft, the next tick retries the same session
     appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: new Date().toISOString(), directiveId: directive.id, secretarySessionId: sessionId })
     relayed += 1

@@ -107,14 +107,14 @@ test('war_publish 硬门：L1 无计划/待批/被驳均拒；批准后放行；
     try {
       seedCommand(dir2, 'cmd-l0', '记一笔账')
       appendDirectiveEvent(dir2, { type: 'directive_triaged', ts: 't2', directiveId: 'cmd-l0', grade: 'L0', reason: '简单' })
-      const ok0 = await execTool(makeDeps(dir2, FLAG_PLAN_ON_ALL), 'war_publish', { title: '记账', brief: 'b', acceptance: 'a', commandId: 'cmd-l0' }) as { commandApproved: boolean }
+      const ok0 = await execTool(makeDeps(dir2, FLAG_PLAN_ON_ALL), 'war_publish', { title: '记账小工具', brief: '每天记一句的小工具一句任务书', acceptance: 'add 后 list 可见；退出码 0', commandId: 'cmd-l0' }) as { commandApproved: boolean }
       assert.equal(ok0.commandApproved, true)
       // 旗关 + L1 无计划 → 无门（现行行为）。
       const dir3 = tmpDir()
       try {
         seedCommand(dir3, 'cmd-l1-off', '重构')
         appendDirectiveEvent(dir3, { type: 'directive_triaged', ts: 't2', directiveId: 'cmd-l1-off', grade: 'L1', reason: '复杂' })
-        const okOff = await execTool(makeDeps(dir3, FLAG_OFF), 'war_publish', { title: '重构', brief: 'b', acceptance: 'a', commandId: 'cmd-l1-off' }) as { commandApproved: boolean }
+        const okOff = await execTool(makeDeps(dir3, FLAG_OFF), 'war_publish', { title: '旗关重构案', brief: '旗关时超短任务书也应放行通过', acceptance: '旗关无 lint 直接放行', commandId: 'cmd-l1-off' }) as { commandApproved: boolean }
         assert.equal(okOff.commandApproved, true)
       } finally {
         rmSync(dir3, { recursive: true, force: true })

@@ -47,8 +47,8 @@ tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scrip
 ## 本地起服（验收/联调）
 
 ```bash
-# 在 deepseek-harness checkout 内（V4 四旗 + V5 R2/R3 四旗默认带上；v5-spike 探针旗按需另加）：
-WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park,staff-triage,staff-auto-close,staff-plan,staff-goal \
+# 在 deepseek-harness checkout 内（V4 四旗 + V5 六旗默认带上；v5-spike 探针旗按需另加）：
+WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park,staff-triage,staff-auto-close,staff-plan,staff-goal,staff-wake,quota-recovery \
   pnpm dsh --profile web --patch D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/cordis.dev.yml --port 3080 --no-open
 # 旧实例先 netstat -ano | grep :3080 找 PID kill；日志惯例重定向到 ~/.dsh/warroom-plugin/server.log
 ```

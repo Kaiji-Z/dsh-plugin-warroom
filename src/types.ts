@@ -89,6 +89,9 @@ export interface CampaignState {
   status: TaskStatus
   claimedBy?: string
   publishedBy?: string
+  /** V5-R4 (quota-recovery flag): 配额熔断原地暂停位（不改 status/attempt——
+   * 恢复即续作，不烧 maxAttempts 不换令牌）。 */
+  quotaPaused?: boolean
   /** Capability token of the CURRENT attempt — stale submits are rejected. */
   attempt?: { readonly id: string; readonly n: number }
   /** Attempts started so far (attempt numbers are 1-based). */
@@ -213,6 +216,12 @@ export type WarEvent =
    * 红线）。healed = 结算掉的残留 goal（K15 自愈）。 */
   | { type: 'commander_goal_armed'; ts: string; campaignId: string; goalId: string; sessionId: string; healedGoalId?: string }
   | { type: 'commander_goal_settled'; ts: string; campaignId: string; goalId: string; outcome: string }
+  /** V5-R4 (staff-wake flag): 参谋唤醒投递痕迹（含失败/跳过原因——可审计）。 */
+  | { type: 'staff_woken'; ts: string; campaignId: string; kind: 'reported' | 'failed'; sessionId: string; note?: string }
+  /** V5-R4 (quota-recovery flag): 配额熔断原地暂停/恢复（不烧 maxAttempts、
+   * 不换令牌——配额是环境问题不是任务失败）。 */
+  | { type: 'task_paused_quota'; ts: string; campaignId: string }
+  | { type: 'task_resumed_quota'; ts: string; campaignId: string }
 
 /** The tiny global war state. Task history lives in the append-only event
  * logs; only this pointer state is a plain JSON file. */
@@ -224,6 +233,9 @@ export interface WarGlobalState {
   hqSessionId?: string
   /** The single durable commander child-session id (lazy-spawned on first publish). */
   commanderChildId?: string
+  /** V5-R4 (quota-recovery flag): 全局配额熔断标记（flag on 才写）。
+   * 熔断期间停征召停唤醒，在役任务原地 paused——恢复即续作。 */
+  quotaBlocked?: { since: string; code: string }
 }
 
 /** Live descendant entry from ctx.subagents.listDescendants (structural slice). */

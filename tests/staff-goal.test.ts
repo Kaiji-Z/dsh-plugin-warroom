@@ -197,7 +197,7 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
     assert.ok(gs.log.some(l => l.startsWith('disarm:')))
     // 发布点接力：参谋 goal 随 war_publish(commandId) 结算。
     const depsPub = makeDeps(dir, FLAG_TRIAGE_GOAL, { goals: gs, resolveAgent: () => ({ id: 'sec-1' }) })
-    await execTool(depsPub, 'war_publish', { title: 't', brief: 'b', acceptance: 'a', commandId: 'cmd-l2' }, 'sec-1')
+    await execTool(depsPub, 'war_publish', { title: '澄清后成案', brief: '背景与指引齐备的一句任务书', acceptance: 'npm test 退出码 0；功能可演示', commandId: 'cmd-l2' }, 'sec-1')
     assert.match(raw + (await import('node:fs')).readFileSync(join(dir, 'directives.jsonl'), 'utf8'), /directive_goal_settled/)
     assert.ok(gs.log.filter(l => l.startsWith('complete:')).length >= 1)
     // L0 分诊不开参谋 goal。

@@ -205,6 +205,18 @@ gate('bundle', () => {
     [host, 'openDisarmedGoalForDirective', 'staff disarm-goal state machine (red line)'],
     [host, '/warroom/api/commands/plan', 'plan decision HTTP route'],
     [client, 'decidePlan', 'client plan decision channel'],
+    // v5 R4: graded wake + context injection + quota self-heal + publish lint.
+    [host, 'staff-wake', 'V5-R4 wake pipeline flag gate'],
+    [host, 'quota-recovery', 'V5-R4 quota self-heal flag gate'],
+    [host, 'createWakeEngine', 'graded wake engine (debounce + sweep)'],
+    [host, 'staff_woken', 'wake delivery ledger event'],
+    [host, 'boardDigest', 'board digest context injection'],
+    [host, 'createQuotaFuse', 'quota circuit-breaker fuse'],
+    [host, 'task_paused_quota', 'in-place pause event (no attempt burn)'],
+    [host, 'task_resumed_quota', 'in-place resume event (same token)'],
+    [host, 'isQuotaError', 'code-only quota classifier (R1 ④)'],
+    [host, 'lintPublish', 'deterministic publish lint'],
+    [host, 'bountyDraftingSkillContent', 'drafting craft embedded in relay (坑2)'],
   ]
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),

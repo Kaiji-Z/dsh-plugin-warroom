@@ -25,6 +25,8 @@ import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
 import { readDossier } from './dossier.ts'
 import { commanderPersonaText, conscriptBriefing, secretaryPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
+import { createWakeEngine } from './wake.ts'
+import { createQuotaFuse, probeBackoffMs } from './quota.ts'
 import type { PlanModeFace, SpikeDeps } from './v5spike.ts'
 import type { GoalsFace } from './goals.ts'
 import { createWarStore, resolveStateDir, type WarStore } from './state.ts'
@@ -277,6 +279,9 @@ export function apply(ctx: Context, config: Config): void {
     goalsRef.face = (goalCtx as unknown as Record<string, unknown>).goals as GoalsFace
   })
   deps.goals = () => goalsRef.face
+  // V5-R4: the apiProxy sessions face binds LATE — wake/quota fuses read it
+  // lazily through this ref (declared up front; bound in the apiProxy inject).
+  const sessionsRef: { face?: SessionsApiFace } = {}
   // V4-R3 (troop-scheduler): the 30s fallback fuse — mutation kicks cover the
   // common path; this sweep catches troops that idled without completing.
   // (the host's idle edges are not exposed to our structural slice; the
@@ -293,6 +298,65 @@ export function apply(ctx: Context, config: Config): void {
       }
     }, 30_000)
     ctx.effect(() => () => clearInterval(schedulerTimer), 'warroom.schedulerFuse()')
+  }
+  // V5-R4 (staff-wake): 参谋唤醒管线——分级推（结算点钩子）+ 去抖 + 90s
+  // 巡检补推（崩溃恢复：reported/failed 未醒的任务）。sessions 面晚绑定
+  // 经 sessionsRef 惰性取（与命令引信同一形态）。
+  if (featureEnabled(deps.flags, 'staff-wake')) {
+    const wakeEngine = createWakeEngine({ stateDir, sessions: () => sessionsRef.face, hqSessionId: () => store.get().hqSessionId, now: () => Date.now() })
+    deps.wakeStaff = (taskId, kind, detail) => wakeEngine.wake(taskId, kind, detail)
+    const wakeTimer = setInterval(() => wakeEngine.sweep(), 90_000)
+    wakeTimer.unref?.()
+    ctx.effect(() => () => clearInterval(wakeTimer), 'warroom.wakeFuse()')
+  }
+  // V5-R4 (quota-recovery): 配额熔断正管——被动检测（agent/error 事件，宿主
+  // 面可收性 R5 实弹定案）+ 主动探测（近零 token probe，退避节奏）+ 原地
+  // 暂停/恢复（不烧 maxAttempts 不换令牌）。探针会话 lazily 建一次复用。
+  if (featureEnabled(deps.flags, 'quota-recovery')) {
+    const probeRef: { sessionId?: string } = {}
+    const quotaFuse = createQuotaFuse({
+      stateDir,
+      store,
+      sessions: () => sessionsRef.face,
+      probeSessionId: () => probeRef.sessionId,
+    })
+    // 被动检测：宿主 agent 总线（goal-round-driver 同款事件；R1 定案④）。
+    try {
+      ctx.on('agent/error', (payload: unknown) => {
+        try {
+          quotaFuse.onAgentError((payload as { error?: unknown }).error)
+        } catch {
+          // 监听器永不传播异常。
+        }
+      })
+    } catch {
+      // 事件面缺席 → 纯主动探测兜底（诚实降级，SPEC §3）。
+    }
+    // 主动探测节奏：熔断时退避轮询 probe；通过即恢复。
+    let probeAttempt = 0
+    const quotaTimer = setInterval(() => {
+      void (async () => {
+        try {
+          if (!quotaFuse.isBlocked()) return
+          const sessions = sessionsRef.face
+          if (sessions !== undefined && probeRef.sessionId === undefined) {
+            const made = await sessions.create({ rpcId: 'warroom-quota-probe', payload: { cwd: warRoot } })
+            if (made.result.ok) probeRef.sessionId = made.result.value.sessionId
+          }
+          const verdict = await quotaFuse.probe()
+          if (verdict === 'open') {
+            probeAttempt = 0
+            await quotaFuse.markResumed()
+          } else if (verdict === 'blocked') {
+            probeAttempt = Math.min(probeAttempt + 1, 4)
+          }
+        } catch {
+          // 熔断探测永不抛。
+        }
+      })()
+    }, probeBackoffMs(0))
+    quotaTimer.unref?.()
+    ctx.effect(() => () => clearInterval(quotaTimer), 'warroom.quotaFuse()')
   }
   ctx.systemPrompt.section({
     name: 'warroom:secretary',
@@ -363,7 +427,6 @@ export function apply(ctx: Context, config: Config): void {
   ctx.effect(() => () => commandFuse.stop(), 'warroom.commandFuse()')
   // The apiProxy sessions face binds LATE (see the fuse comment above) — the
   // v5 spike probe needs it too, so capture it in a ref the probe closure reads.
-  const sessionsRef: { face?: SessionsApiFace } = {}
   ctx.inject(['apiProxy'], (apiCtx) => {
     const api = (apiCtx as unknown as { apiProxy: { sessions: SessionsApiFace; workspace: WorkspaceApiFace } }).apiProxy
     console.log('[warroom] apiProxy bound to fuse + patrol + conscriptor')

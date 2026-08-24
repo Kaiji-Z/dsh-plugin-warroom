@@ -224,6 +224,14 @@ export function foldCampaign(campaignId: string, events: ReadonlyArray<WarEvent>
       // 状态，回放/审计经原始日志。
       case 'commander_goal_armed':
       case 'commander_goal_settled':
+      case 'staff_woken':
+        break
+      // V5-R4 (quota-recovery)：原地暂停/恢复位——不动 status/attempt。
+      case 'task_paused_quota':
+        state.quotaPaused = true
+        break
+      case 'task_resumed_quota':
+        state.quotaPaused = false
         break
       case 'task_closed':
         state.status = 'closed'
