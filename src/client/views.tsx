@@ -13,7 +13,7 @@
 
 import { createElement, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { attachThread, createCommand, detachThread, markTalking, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
+import { attachThread, createCommand, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -125,6 +125,14 @@ function wsChip(path: string | null): ReactNode {
 
 // --- 命令区 ------------------------------------------------------------------
 
+/** V5 档位徽章：L0 直发 / L1 呈批 / L2 澄清（未分诊不显示）。 */
+function gradeChip(cmd: BoardCommand): ReactNode {
+  if (cmd.grade === null) return null
+  const label = cmd.grade === 'L0' ? 'L0 直发' : cmd.grade === 'L1' ? 'L1 呈批' : 'L2 澄清'
+  const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}`
+  return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
+}
+
 function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void): ReactNode {
   const meta = COMMAND_STATUS[cmd.status]
   const enterSession = (): void => {
@@ -143,6 +151,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-dot ${meta.dot}` }),
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
+    gradeChip(cmd),
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
   ),
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
@@ -201,13 +210,24 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
   )
 }
 
-function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void): ReactNode {
+function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void): ReactNode {
+  const GRADE_LABEL: Record<'L0' | 'L1' | 'L2', string> = { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' }
+  const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}`),
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}` : ''}`),
       createElement('div', { className: 'war-detail-body' }, cmd.text),
+      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `分诊理由：${cmd.gradeReason}`) : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, `取消原因：${cmd.cancelledReason}`) : null,
+      regradable
+        ? createElement('div', { className: 'war-modal-sub' }, '升降档（元首覆写参谋分诊，改后需通知参谋按新档执行）：')
+        : null,
+      regradable
+        ? createElement('div', { className: 'war-modal-actions' },
+          (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
+            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, `改为 ${GRADE_LABEL[g]}`)))
+        : null,
       cmd.status === 'approved' && cmd.taskId !== null
         ? createElement('div', { className: 'war-modal-actions' },
           createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, `查看任务 ${cmd.taskId}`),
@@ -606,7 +626,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       composerOpen ? createElement(CommandComposer, { key: 'composer', onClose: () => setComposerOpen(false), refresh }) : null,
       attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), onClose: () => setDetailTaskId(null) }) : null,
-      detailCommand !== undefined ? CommandDetail(detailCommand, detailCommandTask, id => setDetailTaskId(id), () => setDetailCommandId(null)) : null,
+      detailCommand !== undefined ? CommandDetail(detailCommand, detailCommandTask, id => setDetailTaskId(id), () => setDetailCommandId(null), grade => {
+        void regradeCommand(detailCommand.commandId, grade).then(r => { if (r.ok) refresh() })
+      }) : null,
       detailTaskForAttempt !== undefined && detailAttemptEntry !== undefined
         ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), onClose: () => setDetailAttempt(null) })
         : null,

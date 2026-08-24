@@ -18,6 +18,7 @@ import type { Roster } from './units.ts'
 import type { WarStore } from './state.ts'
 import type { CampaignState } from './types.ts'
 import { armPlanCard, runSpikeProbe, type SpikeDeps } from './v5spike.ts'
+import { featureEnabled, type FeatureFlags } from './flags.ts'
 
 /** Structural slice of the harness webServer route registry. */
 export interface RouteRegistry {
@@ -94,6 +95,8 @@ export interface DashboardDeps {
   /** v5 R1 机制验证探针（flag `v5-spike`）。缺省 undefined → 探针路由
    * 404，宿主面行为与改前字节等价。 */
   spike?: SpikeDeps
+  /** Feature flags（V5-R2 起 dashboard 需要判档位账本路由的开关）。 */
+  flags?: FeatureFlags
   /** v3: fired after a command card is created — the host ticks the command
    * fuse NOW so the staff receives in ~1s instead of waiting out the 15s
    * interval. Optional so pure-route tests can omit it. */
@@ -202,6 +205,11 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
     secretarySessionId: d.secretarySessionId ?? null,
     taskId: d.taskId ?? null,
     cancelledReason: d.cancelledReason ?? null,
+    // V5 档位账本：档位/理由/置信度/元首改档次数（未分诊为 null）。
+    grade: d.grade ?? null,
+    gradeReason: d.gradeReason ?? null,
+    gradeConfidence: d.gradeConfidence ?? null,
+    regrades: d.regrades ?? 0,
   }))
 }
 
@@ -297,6 +305,42 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           appendDirectiveEvent(deps.stateDir, { type: 'directive_talking', ts: new Date().toISOString(), directiveId: directive.id })
         }
         send(200, { ok: true, status: directive.status })
+        return
+      }
+      if (r.method === 'POST' && pathname === '/warroom/api/commands/regrade') {
+        // V5-R2 档位账本（flag staff-triage）：元首在命令卡上升降档。
+        // 旗关 → 404，与改前等价。
+        if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-triage')) {
+          send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
+          return
+        }
+        const body = JSON.parse(await readBody(r)) as { commandId?: unknown; grade?: unknown; reason?: unknown }
+        const commandId = typeof body.commandId === 'string' ? body.commandId.trim() : ''
+        const grade = typeof body.grade === 'string' ? body.grade.trim() : ''
+        const reason = typeof body.reason === 'string' && body.reason.trim() !== '' ? body.reason.trim() : '元首命令卡升降档'
+        if (commandId === '') {
+          send(400, { ok: false, error: '缺少命令号。' })
+          return
+        }
+        if (grade !== 'L0' && grade !== 'L1' && grade !== 'L2') {
+          send(400, { ok: false, error: '档位必须是 L0 / L1 / L2。' })
+          return
+        }
+        const directive = loadDirectives(deps.stateDir).find(d => d.id === commandId)
+        if (directive === undefined) {
+          send(404, { ok: false, error: `命令 ${commandId} 不存在。` })
+          return
+        }
+        if (directive.status === 'approved' || directive.status === 'cancelled') {
+          send(400, { ok: false, error: `命令 ${commandId} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，档位不再变更。` })
+          return
+        }
+        if (directive.grade === undefined) {
+          send(400, { ok: false, error: `命令 ${commandId} 尚未分诊（等参谋第一轮 war_triage 入账后再升降档）。` })
+          return
+        }
+        appendDirectiveEvent(deps.stateDir, { type: 'directive_regraded', ts: new Date().toISOString(), directiveId: commandId, grade, reason })
+        send(200, { ok: true, commandId, grade })
         return
       }
       if (r.method === 'GET' && pathname === '/warroom/api/events') {

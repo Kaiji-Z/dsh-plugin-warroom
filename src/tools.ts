@@ -20,8 +20,8 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { relative, resolve } from 'node:path'
-import { appendDirectiveEvent, loadDirectives } from './directives.ts'
+import { relative, resolve, isAbsolute } from 'node:path'
+import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, type DirectiveGrade } from './directives.ts'
 import { appendDossierEntry, dossierEntryFor } from './dossier.ts'
 import { appendEvent, isActiveUnit, listCampaignIds, loadCampaign } from './events.ts'
 import { checkClaim, checkDeployment, conscriptPlan, depsUnsatisfied, normalizeFront, sameWorkspace, workspaceConflict } from './rules.ts'
@@ -228,6 +228,47 @@ function recordDossier(deps: WarToolsDeps, taskId: string): void {
   } catch {
     // Dossier is an enrichment — never block the settling event's return.
   }
+}
+
+/**
+ * V5-R2 KillCredit 机械全绿判据（flag staff-auto-close 的收官门槛）：
+ * checks 非空且全部 passed + tests 存在且退出码 0 + files（若有）全部在
+ * 任务工作区内（越界一票否决）。纯函数——系统核对，不靠自报。
+ */
+export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: string | undefined): { green: boolean; why: string } {
+  if (evidence.checks.length === 0) return { green: false, why: '无验收项核对记录' }
+  const failed = evidence.checks.filter(c => !c.passed)
+  if (failed.length > 0) return { green: false, why: `${failed.length} 项验收未过` }
+  if (evidence.tests === undefined) return { green: false, why: '未附测试运行记录' }
+  if (evidence.tests.exitCode !== 0) return { green: false, why: `测试退出码 ${evidence.tests.exitCode}` }
+  if (evidence.files !== undefined && evidence.files.length > 0) {
+    if (workspacePath === undefined) return { green: false, why: '任务无工作区绑定，无法核对越界' }
+    const outside = evidence.files.filter(f => {
+      const rel = relative(resolve(workspacePath), resolve(f))
+      return rel === '' || rel.startsWith('..') || isAbsolute(rel)
+    })
+    if (outside.length > 0) return { green: false, why: `越界一票否决：${outside.length} 个文件在工作区外（${outside[0]}…）` }
+  }
+  return { green: true, why: `验收 ${evidence.checks.length} 项全过；${evidence.tests.command} 退出码 0；无越界` }
+}
+
+/** Shared close path (V5-R2 抽取)：落 task_closed + 归档 + 同工作区接力征召。 */
+async function closeTaskInternal(deps: WarToolsDeps, taskId: string, verdict: string, signal: AbortSignal): Promise<string | undefined> {
+  appendEvent(deps.stateDir, { type: 'task_closed', ts: new Date().toISOString(), campaignId: taskId, verdict })
+  recordDossier(deps, taskId)
+  let nextTaskId: string | undefined
+  try {
+    const task = loadCampaign(deps.stateDir, taskId)
+    const next = conscriptPlan(boardOf(deps).map(t => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath, priority: t.priority, startedAt: t.startedAt })))
+      .find(t => sameWorkspace(t.workspacePath, task.workspacePath))
+    if (next !== undefined) {
+      const result = await deps.commander.conscript(loadCampaign(deps.stateDir, next.taskId), signal)
+      if (result.spawned) nextTaskId = next.taskId
+    }
+  } catch {
+    // 巡检保险丝会补
+  }
+  return nextTaskId
 }
 
 /** Build the v0.2 tool surface bound to live wiring. */
@@ -443,8 +484,8 @@ export function warTools(deps: WarToolsDeps) {
       deliverables: { type: 'string', description: '战利品清单的 JSON 文本（字符串）：[{"kind":"files|tests|diffstat|note","summary":"一句话"}]——显示在任务卡上，元首不进会话记录也能看到交付了什么。' },
     },
     output: {
-      schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, status: { type: 'string', required: true }, evidenceSummary: { type: 'string', required: true } } },
-      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 已提交汇报（${value.evidenceSummary}），待元首翻阅。` }],
+      schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, status: { type: 'string', required: true }, evidenceSummary: { type: 'string', required: true }, note: { type: 'string' } } },
+      render: (_args, value) => [{ type: 'text', text: value.status === 'closed' ? `任务 ${value.taskId} 证据机械全绿，已自动收官（${value.evidenceSummary}）${value.note !== undefined ? `；${value.note}` : ''}。` : `任务 ${value.taskId} 已提交汇报（${value.evidenceSummary}），待元首翻阅。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -466,6 +507,15 @@ export function warTools(deps: WarToolsDeps) {
       const e = verdict.evidence
       const parts = [`验收 ${e.checks.length} 项全过`]
       if (e.tests !== undefined) parts.push(`${e.tests.command} 退出码 ${e.tests.exitCode}（${e.tests.passed} 过 / ${e.tests.failed} 败）`)
+      // V5-R2（flag staff-auto-close）：KillCredit 机械全绿 → 自动收官；
+      // 任何一项不绿 → 维持 reported 呈批（待元首翻阅），绝不硬闯。
+      if (featureEnabled(deps.flags, 'staff-auto-close')) {
+        const green = killCreditAllGreen(e, task.workspacePath)
+        if (green.green) {
+          const nextTaskId = await closeTaskInternal(deps, args.task_id, `自动收官：KillCredit 机械全绿（${green.why}）`, exec.signal)
+          return { taskId: args.task_id, status: 'closed', evidenceSummary: green.why, ...(nextTaskId !== undefined ? { note: `已为同工作区的 ${nextTaskId} 征召司令` } : {}) }
+        }
+      }
       return { taskId: args.task_id, status: 'reported', evidenceSummary: parts.join('；') }
     },
     presentCall: args => ({ card: 'generic', title: `提交汇报 ${args.task_id}` }),
@@ -603,23 +653,10 @@ export function warTools(deps: WarToolsDeps) {
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
-      const secretary = requireAgent(exec)
+      requireAgent(exec) // 参谋侧动词：必须在参谋会话里调
       const task = requireTask(deps, args.task_id)
       if (task.status === 'closed') throw new Error(`任务 ${args.task_id} 已收官。`)
-      appendEvent(deps.stateDir, { type: 'task_closed', ts: new Date().toISOString(), campaignId: args.task_id, verdict: args.verdict })
-      recordDossier(deps, args.task_id)
-      // 征召接力：工作区空出，为排队的下一张同区悬赏征召司令。
-      let nextTaskId: string | undefined
-      try {
-        const next = conscriptPlan(boardOf(deps).map(t => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath, priority: t.priority, startedAt: t.startedAt })))
-          .find(t => sameWorkspace(t.workspacePath, task.workspacePath))
-        if (next !== undefined) {
-          const result = await deps.commander.conscript(loadCampaign(deps.stateDir, next.taskId), exec.signal)
-          if (result.spawned) nextTaskId = next.taskId
-        }
-      } catch {
-        // 巡检保险丝会补
-      }
+      const nextTaskId = await closeTaskInternal(deps, args.task_id, args.verdict, exec.signal)
       return { taskId: args.task_id, status: 'closed', ...(nextTaskId !== undefined ? { nextTaskId } : {}) }
     },
     presentCall: args => ({ card: 'generic', title: `收官 ${args.task_id}` }),
@@ -958,11 +995,52 @@ export function warTools(deps: WarToolsDeps) {
     presentCall: args => ({ card: 'generic', title: `直讯 → ${args.to}` }),
   })
 
+  const warTriage = defineTool({
+    name: 'war_triage',
+    description: 'V5 分诊（flag staff-triage）：参谋接令第一轮报档位。L0=简单轻任务书直发（无需元首批准）；L1=复杂，呈任务书经元首批准后发布；L2=不明确，先提问卡片澄清。元首文本标记（!!直接做/??先看方案）强制改档，以改后为准。每命令只分诊一次，升降档由元首走命令卡。',
+    parameters: {
+      command_id: { type: 'string', required: true, description: '命令 id（cmd- 开头，命令区卡片编号）。' },
+      grade: { type: 'string', required: true, description: '参谋建议档位：L0 | L1 | L2。' },
+      reason: { type: 'string', required: true, description: '分诊理由（一句话，写给元首看的人话）。' },
+      confidence: { type: 'number', description: '置信度 0-1（默认 0.5）。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { commandId: { type: 'string', required: true }, grade: { type: 'string', required: true }, suggested: { type: 'string', required: true }, override: { type: 'string' } } },
+      render: (_args, value) => [{ type: 'text', text: `命令 ${value.commandId} 分诊入账：生效档位 ${value.grade}${value.suggested !== value.grade ? `（元首标记强制改档，参谋原建议 ${value.suggested}）` : ''}。` }],
+    },
+    async execute(args, rawExec) {
+      const exec = rawExec as unknown as WarToolExec
+      requireAgent(exec) // 参谋侧动词
+      const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
+      if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
+      if (directive.status === 'approved' || directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，无需分诊。`)
+      if (directive.grade !== undefined) throw new Error(`命令 ${args.command_id} 已分诊为 ${directive.grade}（理由：${directive.gradeReason ?? ''}）。升降档由元首在命令卡上操作。`)
+      const suggested = (['L0', 'L1', 'L2'] as const).includes(args.grade as DirectiveGrade) ? args.grade as DirectiveGrade : 'L1'
+      // 元首覆写标记优先（host 侧强制，不信任模型自觉）——被改档时建议与生效都入账。
+      const marker = overrideMarkerOf(directive.text)
+      const effective = marker?.grade ?? suggested
+      const confidence = typeof args.confidence === 'number' && args.confidence >= 0 && args.confidence <= 1 ? args.confidence : 0.5
+      appendDirectiveEvent(deps.stateDir, {
+        type: 'directive_triaged', ts: new Date().toISOString(), directiveId: directive.id,
+        grade: effective, reason: args.reason,
+        ...(confidence !== 0.5 ? { confidence } : {}),
+        ...(marker !== undefined && marker.grade !== suggested ? { suggested, override: marker.marker } : {}),
+      })
+      return {
+        commandId: directive.id, grade: effective, suggested,
+        ...(marker !== undefined && marker.grade !== suggested ? { override: marker.marker } : {}),
+      }
+    },
+    presentCall: args => ({ card: 'generic', title: `分诊 ${args.command_id} → ${args.grade}` }),
+  })
+
   const tools: ReturnType<typeof defineTool>[] = [warPublish, warBoard, warClaim, warSubmit, warFail, warAbandonCommand, warConscript, warComment, warCloseTask, warDeployUnit, warOrders, warRecall, warStatus, warLogReport]
   let surface = tools
   if (featureEnabled(deps.flags, 'troop-mailbox')) surface = [...surface, warMessage]
   if (featureEnabled(deps.flags, 'troop-scheduler')) surface = [...surface, ...warTroopTools(deps)]
   if (featureEnabled(deps.flags, 'troop-park')) surface = [...surface, warTroopReassignTool(deps)]
+  // V5-R2: 参谋分诊动词（staff-triage）。
+  if (featureEnabled(deps.flags, 'staff-triage')) surface = [...surface, warTriage]
   return surface
 }
 

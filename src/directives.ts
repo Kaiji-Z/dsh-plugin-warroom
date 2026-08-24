@@ -14,6 +14,18 @@ import { join } from 'node:path'
 /** Directive lifecycle on the 命令区 board column. */
 export type DirectiveStatus = 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
 
+/** V5 autonomy grade — L0 直发 / L1 计划后做 / L2 澄清收敛后计划（SPEC §1）。 */
+export type DirectiveGrade = 'L0' | 'L1' | 'L2'
+
+/** Sovereign override markers baked into the command text (SPEC §0 档位覆写)：
+ * `!!直接做` forces L0, `??先看方案` forces L2 — they outrank the staff's
+ * suggestion, host-side enforced (never trust the model to honor them). */
+export function overrideMarkerOf(text: string): { grade: DirectiveGrade; marker: '!!' | '??' } | undefined {
+  if (text.includes('??先看方案')) return { grade: 'L2', marker: '??' }
+  if (text.includes('!!直接做')) return { grade: 'L0', marker: '!!' }
+  return undefined
+}
+
 /** One sovereign command, folded from the directive log. */
 export interface Directive {
   readonly id: string
@@ -27,6 +39,14 @@ export interface Directive {
   taskId?: string
   /** Cancellation reason (set on cancel). */
   cancelledReason?: string
+  /** V5 档位账本：当前生效档位（triaged 首落，regraded 可改）。 */
+  grade?: DirectiveGrade
+  /** 分诊/改档理由（最新一条）。 */
+  gradeReason?: string
+  /** 分诊置信度（0-1，参谋自报；regrade 不改它）。 */
+  gradeConfidence?: number
+  /** 元首改档次数（审计）。 */
+  regrades?: number
 }
 
 /** The directive log's entry union (one JSON line each). */
@@ -35,6 +55,8 @@ export type DirectiveEvent =
   | { type: 'directive_session_opened'; ts: string; directiveId: string; secretarySessionId: string }
   | { type: 'directive_received'; ts: string; directiveId: string; secretarySessionId: string }
   | { type: 'directive_talking'; ts: string; directiveId: string }
+  | { type: 'directive_triaged'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string; confidence?: number; suggested?: DirectiveGrade; override?: '!!' | '??' }
+  | { type: 'directive_regraded'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string }
   | { type: 'directive_approved'; ts: string; directiveId: string; taskId: string }
   | { type: 'directive_cancelled'; ts: string; directiveId: string; reason: string }
 
@@ -96,6 +118,18 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         break
       case 'directive_talking':
         current.status = 'talking'
+        break
+      // V5 档位账本：triaged 首落档位（含 override 强制改档痕迹），regraded
+      // 元首升降档（计数审计）。二者均受终态守卫——approved/cancelled 后档位失去意义。
+      case 'directive_triaged':
+        current.grade = event.grade
+        current.gradeReason = event.reason
+        if (event.confidence !== undefined) current.gradeConfidence = event.confidence
+        break
+      case 'directive_regraded':
+        current.grade = event.grade
+        current.gradeReason = event.reason
+        current.regrades = (current.regrades ?? 0) + 1
         break
       case 'directive_approved':
         current.status = 'approved'

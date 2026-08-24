@@ -183,6 +183,16 @@ gate('bundle', () => {
     [host, '/warroom/api/v5-spike', 'spike probe HTTP route'],
     [host, 'goals.create', 'goal structural-slice probe verb'],
     [host, 'toolFilter', 'sessions.create toolFilter probe (staff restriction)'],
+    // v5 R2: triage + L0 auto-close (staff-triage + staff-auto-close flags).
+    [host, 'staff-triage', 'V5-R2 triage flag gate'],
+    [host, 'staff-auto-close', 'V5-R2 auto-close flag gate'],
+    [host, 'directive_triaged', 'triage ledger event (append-only)'],
+    [host, 'directive_regraded', 'sovereign regrade ledger event'],
+    [host, 'war_triage', 'staff triage tool'],
+    [host, 'killCreditAllGreen', 'mechanical all-green predicate'],
+    [host, '/warroom/api/commands/regrade', 'regrade HTTP route'],
+    [client, 'gr-L0', 'grade chip styles + badge'],
+    [client, 'regradeCommand', 'client regrade channel'],
   ]
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),

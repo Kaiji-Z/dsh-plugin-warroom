@@ -51,6 +51,11 @@ export interface BoardCommand {
   secretarySessionId: string | null
   taskId: string | null
   cancelledReason: string | null
+  /** V5 档位账本（未分诊为 null）。 */
+  grade: 'L0' | 'L1' | 'L2' | null
+  gradeReason: string | null
+  gradeConfidence: number | null
+  regrades: number
 }
 
 export interface BoardTask {
@@ -123,6 +128,21 @@ export async function markTalking(commandId: string): Promise<void> {
     })
   } catch {
     // Best-effort transition — the card still opens the session.
+  }
+}
+
+/** V5 档位账本：元首在命令卡上升降档（未分诊/旗关时服务端拒绝）。 */
+export async function regradeCommand(commandId: string, grade: 'L0' | 'L1' | 'L2'): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/warroom/api/commands/regrade', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ commandId, grade }),
+    })
+    const body = await res.json() as { ok: boolean; error?: string }
+    return body
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 

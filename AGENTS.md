@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态、goal 代管、自动收官、配额自愈，SPEC.md；**R1 机制验证已定案**：`ctx.goals` 宿主面可达 / `ctx.planMode` 不可达（计划态改插件自建）/ goal 动词走 `{id,revision}` CAS 链 / 错误面 = `agent/error` 事件 + `HarnessError.code`，证据 `.goal/evidence/v5/r1-spike.md`）。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态、goal 代管、自动收官、配额自愈，SPEC.md）。**R1 机制验证已定案**：`ctx.goals` 宿主面可达 / `ctx.planMode` 不可达（计划态改插件自建）/ goal 动词走 `{id,revision}` CAS 链 / 错误面 = `agent/error` 事件 + `HarnessError.code`（证据 `.goal/evidence/v5/r1-spike.md`）。**R2 分诊+L0 已落地**（flags `staff-triage` + `staff-auto-close`：`war_triage` 一次分诊制、`!!直接做`/`??先看方案` host 侧强制改档、L0 轻任务书直发免批、`killCreditAllGreen` 全绿自动收官（files 越界一票否决）、regrade 路由+命令卡档位徽章）。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 
@@ -47,8 +47,8 @@ tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scrip
 ## 本地起服（验收/联调）
 
 ```bash
-# 在 deepseek-harness checkout 内（V4 四旗默认带上——2026-08-24 元首宣布 flag on）：
-WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park \
+# 在 deepseek-harness checkout 内（V4 四旗 + V5 R2 两旗默认带上；v5-spike 探针旗按需另加）：
+WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park,staff-triage,staff-auto-close \
   pnpm dsh --profile web --patch D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/cordis.dev.yml --port 3080 --no-open
 # 旧实例先 netstat -ano | grep :3080 找 PID kill；日志惯例重定向到 ~/.dsh/warroom-plugin/server.log
 ```

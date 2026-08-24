@@ -12,6 +12,7 @@
  */
 
 import { appendDirectiveEvent, loadDirectives, pendingDirectives, type Directive } from './directives.ts'
+import { featureEnabled, type FeatureFlags } from './flags.ts'
 import type { WarStore } from './state.ts'
 
 /** Structural slice of the harness apiProxy's sessions + workspace domains. */
@@ -39,6 +40,8 @@ export interface CommandFuseDeps {
    * NOT intercepted as a slash command via apiProxy.prompt (live R8 catch),
    * so activation must flip the store and sync the surface in code. */
   activate(): void
+  /** V5-R2: relay text carries the triage discipline when staff-triage is on. */
+  flags?: FeatureFlags
 }
 
 function rpcId(): string {
@@ -48,10 +51,11 @@ function rpcId(): string {
 /**
  * The relay text delivered into the secretary conversation for one command.
  * Pure — the drafting instructions ride the text because the persona layer
- * alone doesn't know the board's command flow.
+ * alone doesn't know the board's command flow. V5-R2: with the staff-triage
+ * flag the triage discipline rides the text too (flag off = byte-identical).
  */
-export function relayPromptFor(directive: Directive): string {
-  return `【命令区】新命令 ${directive.id}
+export function relayPromptFor(directive: Directive, flags?: FeatureFlags): string {
+  const base = `【命令区】新命令 ${directive.id}
 ${directive.text}
 
 参谋：这是元首从作战室命令区下达的命令。按 warroom-bounty-drafting（悬赏令起草法）处理：
@@ -59,6 +63,14 @@ ${directive.text}
 - 能定案就呈任务书，经元首批准后 war_publish 发布，务必携带参数 commandId=${directive.id}（发布后命令卡自动标记「已批准」并链接到任务）。
 - 发布前按起草法定好工作区路由（元首点名 > 最近用过 > 当前打开 > 决策卡让元首选项目名）；全新无归属项目用 @new:<名字> 新开副本。
 - 确实无法成案（元首放弃/无法澄清）就 war_abandon_command 说明原因。`
+  if (flags === undefined || !featureEnabled(flags, 'staff-triage')) return base
+  return `${base}
+
+【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
+- L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需元首批准。
+- L1 复杂：走现行呈批——完整任务书经元首批准后 war_publish。
+- L2 不明确：先用提问卡片向元首澄清收敛，能定案后再按复杂度走 L0/L1。
+- 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。`
 }
 
 /**
@@ -95,7 +107,7 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
         deps.store.save()
       }
     }
-    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: relayPromptFor(directive) }] } })
+    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: relayPromptFor(directive, deps.flags) }] } })
     if (!prompted.result.ok) continue // busy/shape drift: leave it draft, the next tick retries the same session
     appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: new Date().toISOString(), directiveId: directive.id, secretarySessionId: sessionId })
     relayed += 1

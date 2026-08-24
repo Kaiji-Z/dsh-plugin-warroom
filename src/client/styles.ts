@@ -62,6 +62,12 @@ const WAR_CSS = `
 .war-chip.st-received,.war-chip.st-talking{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
 .war-chip.st-approved{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
 .war-chip.st-cancelled{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
+/* V5 grade chips (档位账本): L0 直发绿 / L1 呈批蓝 / L2 澄清黄 */
+.war-chip.gr-L0{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
+.war-chip.gr-L1{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
+.war-chip.gr-L2{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
+/* V5 分诊理由行（命令详情浮层） */
+.war-note{margin-top:6px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 
 /* quality-tier palette (the deliberate exception to --dsw-only) */
 .war-chip.q-common{color:var(--dsw-alias-label-secondary)}

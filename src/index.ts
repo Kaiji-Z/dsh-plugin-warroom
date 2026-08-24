@@ -338,6 +338,7 @@ export function apply(ctx: Context, config: Config): void {
     store,
     stateDir,
     warRoot,
+    flags: deps.flags,
     activate: () => {
       const war = store.get()
       if (!war.active) {
@@ -426,6 +427,7 @@ export function apply(ctx: Context, config: Config): void {
       stateDir,
       roster,
       warRoot: deps.warRoot,
+      flags: deps.flags,
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },
