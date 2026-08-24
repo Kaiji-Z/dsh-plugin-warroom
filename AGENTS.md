@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——**v4「司令部队内协作」已达标**（2026-08-24 真实 LLM 全链考题机检 6/6，证据 `.goal/evidence/v4/`）；v3 归档 `.goal/SPEC-v3.md`。四大能力（部队模型路由/直讯邮箱/队内调度/park 换手）全部 flag 化，缺省 off == 改前行为，开旗：`WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park`。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态代管、goal 代管、自动收官、配额自愈，SPEC.md）。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 
@@ -59,7 +59,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 
 ## 迭代注意
 
-- V4 已达标（SPEC.md §5 验收记录）。V5 候选：路由冷恢复桥（registerContinuableSetup，宿主 API 待暴露）、调度轮转偏多观察项（R5 实测 17 轮认领）、飞书遥控、worktree 隔离、常驻司令、战绩/声望、多参谋、npm 发布、按钮式转达、起草法内嵌 relay。
+- V5（现行 goal，SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻司令否决）、参谋 goal 永远 disarm、判定环用决策卡。后续候选：命令拆解（V6）、路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
 - git-bash curl POST 中文 JSON 会乱码入账——API 抽查一律走浏览器 fetch 或 node fetch。
 - 浏览器自动化一律 Playwright（domcontentloaded + 选择器等待，SSE 挡住 networkidle）；dsh 决策卡是分页提问卡，卡等待期聊天不推进，必须点按钮。

@@ -88,6 +88,7 @@ pnpm dsh --profile web --patch D:/.../dsh-plugin-warroom/cordis.dev.yml --port 3
 - **v2.0（五分区悬赏板 + 多司令）**：命令区生命周期 / 按工作区征召并行 / attempt 级会话卡 / 履历档案 / 新副本 `@new:` / 会话跳转 —— 已现场验收（2026-08-24，证据 `.goal/evidence/v2/`）。
 - **v3（两区指挥中心）**：指挥中心/战场分区、每命令一个参谋会话、tickNow 秒级接收、纯跳转判定（详情浮层 + 去处理）、挂载外部会话、dock 回家键 + 未读、按日折叠 —— 已现场验收（2026-08-24，真实 LLM 八步考题，证据 `.goal/evidence/v3/`）。
 - **v4（司令部队内协作）**：部队级模型路由（`troop-llm-routing`）+ 部队直讯+邮箱（`troop-mailbox`）+ 队内任务图+认领调度（`troop-scheduler`）+ park/换手/冷恢复（`troop-park`）——四大能力全部 feature flag 化（`WARROOM_FEATURES`，缺省 off == 改前行为），已现场验收（2026-08-24 真实 LLM 全链考题，机检 6/6，证据 `.goal/evidence/v4/`）。
-- **V5 候选**：路由冷恢复桥、调度轮转优化、飞书遥控、git worktree 隔离、常驻司令（garrison）、战绩/声望系统、多参谋、README 配套发布（release.mjs + OIDC）、起草法全文内嵌 relay（apiProxy 会话看不到编程注册技能，见 SPEC §7）。
+- **v5（参谋自动化/AFK）进行中**：三档自主度（L0 全自动默认 / L1 计划呈批 / L2 对话收敛，命令可覆写档位）+ 计划态与 goal 的插件代管（宿主原生服务）+ KillCredit 全绿自动收官 + 配额耗尽自动恢复续作。
+- **后续候选**：命令拆解、路由冷恢复桥、调度轮转优化、飞书遥控、git worktree 隔离、战绩/声望系统、多参谋、README 配套发布（release.mjs + OIDC）、起草法全文内嵌 relay（apiProxy 会话看不到编程注册技能，见 SPEC 坑录）。
 
 规格书与坑录见 `.goal/SPEC.md`（§7 坑录）；v1/v2 规格存档 `.goal/SPEC-v1.md` / `SPEC-v2.md`；给迭代 agent 的开局指引见 `AGENTS.md`。
