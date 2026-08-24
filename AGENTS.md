@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态代管、goal 代管、自动收官、配额自愈，SPEC.md）。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态、goal 代管、自动收官、配额自愈，SPEC.md；**R1 机制验证已定案**：`ctx.goals` 宿主面可达 / `ctx.planMode` 不可达（计划态改插件自建）/ goal 动词走 `{id,revision}` CAS 链 / 错误面 = `agent/error` 事件 + `HarnessError.code`，证据 `.goal/evidence/v5/r1-spike.md`）。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 

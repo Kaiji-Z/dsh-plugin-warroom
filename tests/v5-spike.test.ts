@@ -25,21 +25,21 @@ function fakePlanMode(): PlanModeFace & { calls: Array<[boolean]> } {
   }
 }
 
-/** 可编程假 goal 面：默认无 goal；可预置活跃 goal 制造 create 被拒。 */
-function fakeGoals(preset?: { ref: string }): GoalsFace & { log: string[]; activeRef?: string } {
-  const state = { log: [] as string[], activeRef: preset?.ref }
+/** 可编程假 goal 面：默认无 goal；可预置活跃 goal（模拟既有/探针残留）。 */
+function fakeGoals(preset?: { id: string; objective: string }): GoalsFace & { log: string[]; activeRef?: string } {
+  const state = { log: [] as string[], activeId: preset?.id, revision: 1 }
   return {
     log: state.log,
-    get activeRef() { return state.activeRef },
-    get: () => (state.activeRef === undefined ? undefined : { ref: state.activeRef, phase: 'active' }),
+    get activeRef() { return state.activeId },
+    get: () => (state.activeId === undefined ? undefined : { id: state.activeId, revision: state.revision, objective: preset?.objective ?? 'foreign', phase: 'active' }),
     create: (_agent: unknown, request: { objective: string }) => {
-      if (state.activeRef !== undefined) throw new Error('goal already active')
-      state.activeRef = 'scratch-1'
+      if (state.activeId !== undefined) throw new Error('goal already active')
+      state.activeId = 'scratch-1'
       state.log.push(`create:${request.objective}`)
-      return { ref: 'scratch-1', objective: request.objective, phase: 'active' }
+      return { id: 'scratch-1', revision: 1, objective: request.objective, phase: 'active' }
     },
-    complete: (_agent: unknown, ref: unknown) => { state.log.push(`complete:${String(ref)}`); return { ref, phase: 'complete' } },
-    clear: (_agent: unknown, ref: unknown) => { state.log.push(`clear:${String(ref)}`); state.activeRef = undefined; return { ref } },
+    complete: (_agent: unknown, ref: unknown) => { const r = ref as { id?: unknown; revision?: unknown }; state.log.push(`complete:${String(r?.id)}@${String(r?.revision)}`); state.revision += 1; return { id: r?.id, revision: state.revision, phase: 'complete' } },
+    clear: (_agent: unknown, ref: unknown) => { const r = ref as { id?: unknown; revision?: unknown }; state.log.push(`clear:${String(r?.id)}`); state.activeId = undefined; return { id: r?.id } },
   }
 }
 
@@ -104,10 +104,10 @@ test('runSpikeProbe 全链：plan-mode 往返 + goal 草稿即清 + sessions 吃
   assert.equal(report.ok, true, JSON.stringify(report.steps))
   // plan-mode：set(true) → set(false) 复原。
   assert.deepEqual(pm.calls, [[true], [false]])
-  // goal：探针草稿建后即 complete+clear，不留痕。
+  // goal：探针草稿建后即 complete+clear（复合 {id,revision} CAS ref），不留痕。
   assert.equal(gs.log.length, 3)
   assert.ok(gs.log[0]!.startsWith('create:'))
-  assert.equal(gs.log[1], 'complete:scratch-1')
+  assert.equal(gs.log[1], 'complete:scratch-1@1')
   assert.equal(gs.log[2], 'clear:scratch-1')
   assert.equal(gs.activeRef, undefined)
   // sessions：payload 携带 toolFilter 发出；探针会话被改名留痕。
@@ -118,18 +118,31 @@ test('runSpikeProbe 全链：plan-mode 往返 + goal 草稿即清 + sessions 吃
 })
 
 test('runSpikeProbe 容错：单步失败不传染，既有 goal 不被触碰', async () => {
-  const gs = fakeGoals({ ref: 'existing-7' })
+  const gs = fakeGoals({ id: 'existing-7', objective: 'foreign goal' })
   const report = await runSpikeProbe(spikeDeps({ goalsFace: gs, sessionsFace: fakeSessions({ rejectCode: 'EVALIDATION' }) }), 'sess-1')
   const byName = Object.fromEntries(report.steps.map((s: ProbeStep) => [s.name, s]))
-  // create 被拒是预期路径（活跃 goal 已存在）——既有 goal 无副作用。
+  // create 被拒是预期路径（活跃 goal 已存在）——既有 goal 无副作用、无清理。
   assert.equal(byName['goals.create(scratch)']!.ok, false)
   assert.match(byName['goals.create(scratch)']!.detail, /already active/)
   assert.equal(byName['goals.sideEffects']!.ok, true)
+  assert.equal(byName['goals.cleanup(stale scratch)'], undefined)
   assert.deepEqual(gs.log, [])
   // sessions 拒绝不炸整链，detail 带错误码。
   assert.equal(byName['sessions.create(toolFilter)']!.ok, false)
   assert.match(byName['sessions.create(toolFilter)']!.detail, /EVALIDATION/)
   assert.equal(report.probeSessionId, undefined)
+})
+
+test('runSpikeProbe 自愈：上轮探针残留的 armed goal 先清场再重探', async () => {
+  const gs = fakeGoals({ id: 'stale-9', objective: 'warroom-v5-spike 探针目标（上一轮残留）' })
+  const report = await runSpikeProbe(spikeDeps({ goalsFace: gs }), 'sess-1')
+  const byName = Object.fromEntries(report.steps.map((s: ProbeStep) => [s.name, s]))
+  assert.equal(byName['goals.cleanup(stale scratch)']!.ok, true)
+  // 清理用残留 view 的 {id,revision}；之后新草稿照常 create→complete→clear。
+  assert.deepEqual(gs.log.slice(0, 2), ['complete:stale-9@1', 'clear:stale-9'])
+  assert.equal(gs.log.length, 5)
+  assert.equal(byName['goals.create(scratch)']!.ok, true)
+  assert.equal(gs.activeRef, undefined)
 })
 
 test('runSpikeProbe 不可达面：ctx.planMode/goals 缺席时给定性 detail', async () => {

@@ -108,17 +108,43 @@ export async function runSpikeProbe(deps: SpikeDeps, sessionId: string): Promise
   }
   const gs = deps.goals()
   if (agent !== undefined && usableGoals(gs)) {
+    // 宿主动态定案（R1 实测）：GoalView 键是 id+revision；动词收的 ref 是
+    // {id, revision} 复合 CAS fence（裸 id 会报 stale ref）。探针一律用
+    // view 原样打包回传。
+    const refOf = (view: unknown): { id?: unknown; revision?: unknown } | undefined => {
+      const v = view as { id?: unknown; revision?: unknown } | null | undefined
+      return v?.id === undefined ? undefined : { id: v.id, revision: v.revision }
+    }
+    const isOurs = (view: unknown): boolean => {
+      const v = view as { objective?: unknown } | null | undefined
+      return typeof v?.objective === 'string' && v.objective.startsWith('warroom-v5-spike')
+    }
     const before = await (async () => { try { return { ok: true, value: gs.get(agent) } as const } catch (err) { return { ok: false, value: err } as const } })()
     steps.push({ name: 'goals.get(before)', ok: true, detail: brief(before.value) })
+    const stale = before.ok ? refOf(before.value) : undefined
+    if (before.ok && stale !== undefined && isOurs(before.value)) {
+      // 上轮探针残留（armed goal 会驱动轮次）——先清场再继续。CAS 语义：
+      // 每次动词返回新 view，下一个动词必须用返回 view 的 revision 重组 ref。
+      steps.push(await step('goals.cleanup(stale scratch)', async () => {
+        const done = await gs.complete(agent, stale)
+        const doneRef = refOf(done) ?? stale
+        return brief(await gs.clear(agent, doneRef))
+      }))
+    }
     const objective = `warroom-v5-spike 探针目标（${new Date().toISOString()}，验证后即清）`
     const created = await (async () => { try { return { ok: true, value: gs.create(agent, { objective, maxGoalRounds: 1 }) } as const } catch (err) { return { ok: false, value: err } as const } })()
     steps.push({ name: 'goals.create(scratch)', ok: created.ok, detail: brief(created.value) })
     if (created.ok) {
-      // 草稿 goal 是探针自己建的——complete + clear 兜底恢复原状。
-      const view = created.value as { ref?: unknown; id?: unknown; goal?: { ref?: unknown } } | null
-      const ref = view?.ref ?? view?.id ?? view?.goal?.ref
-      steps.push(await step('goals.complete(scratch)', () => brief(gs.complete(agent, ref))))
-      steps.push(await step('goals.clear(scratch)', () => brief(ref === undefined ? 'no ref on view (skip clear)' : gs.clear(agent, ref))))
+      // 草稿 goal 是探针自己建的——complete（revision 前进）后必须用
+      // 返回 view 的新 revision 重组 ref 再 clear（CAS fence，R1 实测）。
+      const ref = refOf(created.value)
+      let afterComplete: { id?: unknown; revision?: unknown } | undefined
+      steps.push(await step('goals.complete(scratch)', async () => {
+        const done = await gs.complete(agent, ref)
+        afterComplete = refOf(done) ?? ref
+        return brief(done)
+      }))
+      steps.push(await step('goals.clear(scratch)', () => brief(afterComplete === undefined ? 'no id on view (skip clear)' : gs.clear(agent, afterComplete))))
     } else {
       steps.push({ name: 'goals.sideEffects', ok: true, detail: 'create refused — existing goal untouched (expected when one is active)' })
     }

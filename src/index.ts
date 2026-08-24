@@ -374,14 +374,39 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['webServer'], (webCtx) => {
     // v5 R1 spike（flag `v5-spike`）：宿主面 plan-mode/goal 可达性 + 活体
     // 往返探针。缺省（旗关）不给 spike → 探针路由 404，行为与改前等价。
+    // 动态定案①：cordis 守卫「cannot get property without inject」——直接
+    // 属性读会抛，必须 inject 回调捕获；isolate realm 内的服务（plan-mode
+    // 疑似）在宿主面 inject 永不满足 → faces 恒空，这就是不可达的判据。
+    const spikeFaces: { planMode?: PlanModeFace; goals?: GoalsFace } = {}
+    const spikeBound: { planMode?: boolean; goals?: boolean } = {}
+    if (featureEnabled(deps.flags, 'v5-spike')) {
+      try {
+        ctx.inject(['planMode'], (pmCtx) => {
+          spikeFaces.planMode = (pmCtx as unknown as Record<string, unknown>).planMode as PlanModeFace
+          spikeBound.planMode = true
+        })
+      } catch { /* inject itself must never kill the plugin */ }
+      try {
+        ctx.inject(['goals'], (goalCtx) => {
+          spikeFaces.goals = (goalCtx as unknown as Record<string, unknown>).goals as GoalsFace
+          spikeBound.goals = true
+        })
+      } catch { /* ditto */ }
+    }
     const spike: SpikeDeps | undefined = featureEnabled(deps.flags, 'v5-spike') ? {
-      availability: () => ({
-        planMode: typeof (ctx as unknown as Record<string, unknown>).planMode,
-        goals: typeof (ctx as unknown as Record<string, unknown>).goals,
-        agents: typeof (ctx as unknown as Record<string, unknown>).agents,
-        resolveAgent: typeof deps.resolveAgent,
-        sessionsBound: sessionsRef.face !== undefined,
-      }),
+      availability: () => {
+        try {
+          return {
+            planMode: spikeBound.planMode === true ? 'service (inject satisfied)' : 'unavailable on host plane (inject not satisfied)',
+            goals: spikeBound.goals === true ? 'service (inject satisfied)' : 'unavailable on host plane (inject not satisfied)',
+            agents: typeof deps.resolveAgent === 'function' ? 'registry bound' : 'registry not bound',
+            resolveAgent: typeof deps.resolveAgent,
+            sessionsBound: sessionsRef.face !== undefined,
+          }
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : String(err) }
+        }
+      },
       resolveAgent: (sessionId) => {
         if (deps.resolveAgent === undefined) return { error: 'agents registry not bound' }
         try {
@@ -391,8 +416,8 @@ export function apply(ctx: Context, config: Config): void {
           return { error: err instanceof Error ? err.message : String(err) }
         }
       },
-      planMode: () => (ctx as unknown as Record<string, unknown>).planMode as PlanModeFace | undefined,
-      goals: () => (ctx as unknown as Record<string, unknown>).goals as GoalsFace | undefined,
+      planMode: () => spikeFaces.planMode,
+      goals: () => spikeFaces.goals,
       sessions: () => sessionsRef.face,
       warRoot: () => deps.warRoot,
     } : undefined
