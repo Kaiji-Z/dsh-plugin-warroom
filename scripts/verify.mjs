@@ -193,6 +193,18 @@ gate('bundle', () => {
     [host, '/warroom/api/commands/regrade', 'regrade HTTP route'],
     [client, 'gr-L0', 'grade chip styles + badge'],
     [client, 'regradeCommand', 'client regrade channel'],
+    // v5 R3: plan state + goal relay (staff-plan + staff-goal flags).
+    [host, 'staff-plan', 'V5-R3 plan-state flag gate'],
+    [host, 'staff-goal', 'V5-R3 goal-relay flag gate'],
+    [host, 'directive_plan_opened', 'plan ledger event (append-only)'],
+    [host, 'directive_plan_approved', 'plan approval ledger event'],
+    [host, 'war_plan', 'staff plan submission tool'],
+    [host, 'war_set_goal', 'staff goal mediation tool'],
+    [host, 'commander_goal_armed', 'commander goal arming ledger event'],
+    [host, 'commander_goal_settled', 'commander goal settlement ledger event'],
+    [host, 'openDisarmedGoalForDirective', 'staff disarm-goal state machine (red line)'],
+    [host, '/warroom/api/commands/plan', 'plan decision HTTP route'],
+    [client, 'decidePlan', 'client plan decision channel'],
   ]
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),

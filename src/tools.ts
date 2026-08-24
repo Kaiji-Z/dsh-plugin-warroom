@@ -29,6 +29,7 @@ import { loadRoster, sandboxDeny, sandboxWrites, unitAgentOptions, type Roster }
 import { commanderReportHint, mailboxDiscipline, schedulerDiscipline, troopBriefing, troopReportDiscipline } from './persona.ts'
 import { newCampaignId, type WarStore } from './state.ts'
 import { featureEnabled, type FeatureFlags } from './flags.ts'
+import { armGoalForTask, openDisarmedGoalForDirective, settleGoalMentioning, type GoalsFace } from './goals.ts'
 import { QUALITY_TIERS, type CampaignState, type Deliverable, type DescendantFace, type QualityTier, type SubmissionEvidence, type SubtaskRecord, type UnitRecord, type UnitSpec } from './types.ts'
 
 /** Structural slice of `ctx.subagents` (SubagentRuntime) — the operations warroom uses. */
@@ -113,9 +114,12 @@ export interface WarToolsDeps {
   flags: FeatureFlags
   /** V4-R2 (troop-mailbox): resolve a live agent by session id from the host
    * registry — lets a troop push a message to a sibling troop via the
-   * commander as followup parent. Optional: absent → troop→troop messages
+   * commander as parent. Optional: absent → troop→troop messages
    * stay durable-pending instead of erroring. */
   resolveAgent?: (sessionId: string) => unknown
+  /** V5-R3 (staff-goal): 惰性取宿主 goal 服务面（inject 捕获，可能缺席）。
+   * 缺席 → goal 代管诚实降级（不武装/不结算，账本记不了就跳过）。 */
+  goals?: () => GoalsFace | undefined
 }
 
 function requireAgent(exec: WarToolExec): { id: string } {
@@ -252,10 +256,13 @@ export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: 
   return { green: true, why: `验收 ${evidence.checks.length} 项全过；${evidence.tests.command} 退出码 0；无越界` }
 }
 
-/** Shared close path (V5-R2 抽取)：落 task_closed + 归档 + 同工作区接力征召。 */
+/** Shared close path (V5-R2 抽取)：落 task_closed + 归档 + goal 结算 + 同工作区接力征召。 */
 async function closeTaskInternal(deps: WarToolsDeps, taskId: string, verdict: string, signal: AbortSignal): Promise<string | undefined> {
   appendEvent(deps.stateDir, { type: 'task_closed', ts: new Date().toISOString(), campaignId: taskId, verdict })
   recordDossier(deps, taskId)
+  // V5-R3（flag staff-goal）：交防结算——司令 armed goal 随任务收官 complete
+  // （CAS 链；agent 经注册表解析，缺席/失败 → 诚实降级不入账）。
+  await settleCommanderGoal(deps, taskId, 'closed')
   let nextTaskId: string | undefined
   try {
     const task = loadCampaign(deps.stateDir, taskId)
@@ -269,6 +276,24 @@ async function closeTaskInternal(deps: WarToolsDeps, taskId: string, verdict: st
     // 巡检保险丝会补
   }
   return nextTaskId
+}
+
+/** V5-R3: settle the claiming commander's armed goal on task settle paths
+ * (close / fail). Best-effort — never blocks the main settlement. */
+async function settleCommanderGoal(deps: WarToolsDeps, taskId: string, outcome: string): Promise<void> {
+  try {
+    if (!featureEnabled(deps.flags, 'staff-goal')) return
+    const task = loadCampaign(deps.stateDir, taskId)
+    if (task.claimedBy === undefined) return
+    const agent = deps.resolveAgent?.(task.claimedBy)
+    if (agent === undefined) return
+    const goalId = await settleGoalMentioning(deps.goals?.(), agent, taskId)
+    if (goalId !== undefined) {
+      appendEvent(deps.stateDir, { type: 'commander_goal_settled', ts: new Date().toISOString(), campaignId: taskId, goalId, outcome })
+    }
+  } catch {
+    // Goal 结算是增强——结算主路径绝不被拖垮。
+  }
 }
 
 /** Build the v0.2 tool surface bound to live wiring. */
@@ -325,6 +350,22 @@ export function warTools(deps: WarToolsDeps) {
         if (directive === undefined) throw new Error(`命令 ${commandId} 不存在。请核对命令区编号（命令卡上可见）。`)
         if (directive.status === 'approved') throw new Error(`命令 ${commandId} 已批准过任务 ${directive.taskId}，不要重复发布。`)
         if (directive.status === 'cancelled') throw new Error(`命令 ${commandId} 已取消，不能再发布任务。`)
+        // V5-R3（flag staff-plan）发布硬门：L1/L2 档位必须先有元首批准的
+        // 计划（plan.status==='approved'）；L0/未分诊无门（快书直发特性）。
+        if (featureEnabled(deps.flags, 'staff-plan') && (directive.grade === 'L1' || directive.grade === 'L2') && directive.plan?.status !== 'approved') {
+          throw new Error(`命令 ${commandId} 档位为 ${directive.grade}（先计划后做）：${directive.plan === undefined ? '尚未呈报计划——先勘察后用 war_plan 呈计划，元首批准后才能发布' : directive.plan.status === 'pending' ? '计划待元首批准（命令卡上批），批准后才能发布' : '计划被驳回——按元首意见修订计划重呈（war_plan）'}。`)
+        }
+        // V5-R3（flag staff-goal）发布点接力：参谋状态机 goal 随发布结算。
+        if (featureEnabled(deps.flags, 'staff-goal')) {
+          const face = deps.goals?.()
+          if (face !== undefined && directive.secretarySessionId !== undefined) {
+            const staffAgent = deps.resolveAgent?.(directive.secretarySessionId)
+            if (staffAgent !== undefined) {
+              const goalId = await settleGoalMentioning(face, staffAgent, commandId)
+              if (goalId !== undefined) appendDirectiveEvent(deps.stateDir, { type: 'directive_goal_settled', ts: new Date().toISOString(), directiveId: commandId, goalId })
+            }
+          }
+        }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: new Date().toISOString(), directiveId: directive.id, taskId })
         commandApproved = true
       }
@@ -461,6 +502,19 @@ export function warTools(deps: WarToolsDeps) {
       const attemptId = randomUUID()
       const attempt = task.attempts + 1
       appendEvent(deps.stateDir, { type: 'task_claimed', ts: new Date().toISOString(), campaignId: args.task_id, claimedBy: commander.id, attemptId, attempt })
+      // V5-R3（flag staff-goal）：领取即武装司令 goal——「任务 X 验收全过」
+      // 交给宿主 round driver 驱动。残留 armed goal 先自愈（K15）；服务缺席
+      // 或失败 → 诚实降级（无 goal 也不碍作战），账本只在成功时入账。
+      if (featureEnabled(deps.flags, 'staff-goal')) {
+        const face = deps.goals?.()
+        const armed = await armGoalForTask(face, commander, args.task_id, { maxGoalRounds: 30, title: task.title ?? task.intent })
+        if (armed !== undefined) {
+          appendEvent(deps.stateDir, {
+            type: 'commander_goal_armed', ts: new Date().toISOString(), campaignId: args.task_id,
+            goalId: armed.goalId, sessionId: commander.id, ...(armed.healed !== undefined ? { healedGoalId: armed.healed } : {}),
+          })
+        }
+      }
       return {
         taskId: args.task_id,
         attemptId,
@@ -557,6 +611,8 @@ export function warTools(deps: WarToolsDeps) {
       }
       appendEvent(deps.stateDir, { type: 'task_failed', ts: new Date().toISOString(), campaignId: args.task_id, reason: `第 ${attempts} 次尝试失败：${args.reason}（重试上限 ${deps.maxAttempts} 已用尽）` })
       recordDossier(deps, args.task_id)
+      // V5-R3：重试用尽交防——司令 goal 结算（failed）。
+      await settleCommanderGoal(deps, args.task_id, 'failed')
       return { taskId: args.task_id, status: 'failed', attempts, maxAttempts: deps.maxAttempts, next: '重试已用尽。请向元首说明，由参谋重新立案（建议拆小一点再发）。' }
     },
     presentCall: args => ({ card: 'generic', title: `上报失败 ${args.task_id}` }),
@@ -1010,7 +1066,7 @@ export function warTools(deps: WarToolsDeps) {
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
-      requireAgent(exec) // 参谋侧动词
+      const secretary = requireAgent(exec) // 参谋侧动词
       const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
       if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
       if (directive.status === 'approved' || directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，无需分诊。`)
@@ -1026,12 +1082,79 @@ export function warTools(deps: WarToolsDeps) {
         ...(confidence !== 0.5 ? { confidence } : {}),
         ...(marker !== undefined && marker.grade !== suggested ? { suggested, override: marker.marker } : {}),
       })
+      // V5-R3（flag staff-goal）：L2 澄清期开参谋状态机 goal——create 后立即
+      // disarm（红线：参谋 goal 永远 disarm，round driver 不驱动参谋）。
+      if (featureEnabled(deps.flags, 'staff-goal') && effective === 'L2') {
+        const goalId = await openDisarmedGoalForDirective(deps.goals?.(), secretary, directive.id)
+        if (goalId !== undefined) {
+          appendDirectiveEvent(deps.stateDir, { type: 'directive_goal_opened', ts: new Date().toISOString(), directiveId: directive.id, goalId, disarmed: true })
+        }
+      }
       return {
         commandId: directive.id, grade: effective, suggested,
         ...(marker !== undefined && marker.grade !== suggested ? { override: marker.marker } : {}),
       }
     },
     presentCall: args => ({ card: 'generic', title: `分诊 ${args.command_id} → ${args.grade}` }),
+  })
+
+  const warPlan = defineTool({
+    name: 'war_plan',
+    description: 'V5 计划呈批（flag staff-plan）：L1/L2 档位参谋勘察后呈计划草案，元首在命令卡上批准/驳回；批准前 war_publish 会被硬门拦下。驳回后修订重呈即回到待批（多轮收敛）。',
+    parameters: {
+      command_id: { type: 'string', required: true, description: '命令 id（cmd- 开头）。' },
+      plan: { type: 'string', required: true, description: '计划正文：目标、步骤（≤5 步）、涉及工作区、风险与回退。写给元首审的一页纸。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { commandId: { type: 'string', required: true }, planStatus: { type: 'string', required: true } } },
+      render: (_args, value) => [{ type: 'text', text: `计划已呈报（${value.commandId}，${value.planStatus}）——元首在命令卡上批准后才能发布任务。` }],
+    },
+    async execute(args, rawExec) {
+      const exec = rawExec as unknown as WarToolExec
+      requireAgent(exec) // 参谋侧动词
+      const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
+      if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
+      if (directive.status === 'approved' || directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，无需再呈计划。`)
+      const plan = typeof args.plan === 'string' ? args.plan.trim() : ''
+      if (plan.length < 10) throw new Error('计划太短（≥10 字）：目标、步骤、工作区、风险四要素至少各一句。')
+      appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_opened', ts: new Date().toISOString(), directiveId: directive.id, plan })
+      return { commandId: directive.id, planStatus: 'pending' }
+    },
+    presentCall: args => ({ card: 'generic', title: `呈计划 ${args.command_id}` }),
+  })
+
+  const warSetGoal = defineTool({
+    name: 'war_set_goal',
+    description: 'V5 goal 代管（flag staff-goal）：参谋为在役司令的当前任务换发 armed goal（插件中介——只许指向 in_progress 任务，objective 强制绑定任务 id，防串台）。常规流程无需手动调（war_claim 自动武装）。',
+    parameters: {
+      task_id: { type: 'string', required: true, description: '任务 id（须为 in_progress）。' },
+      objective_extra: { type: 'string', description: '附加目标说明（一句话，拼进 objective）。' },
+      max_goal_rounds: { type: 'number', description: '轮次上限（默认 30）。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, goalId: { type: 'string', required: true }, disarmed: { type: 'boolean' } } },
+      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 的司令 goal 已换发（${value.goalId}）。` }],
+    },
+    async execute(args, rawExec) {
+      const exec = rawExec as unknown as WarToolExec
+      requireAgent(exec) // 参谋侧动词
+      const task = requireTask(deps, args.task_id)
+      if (task.status !== 'in_progress') throw new Error(`任务 ${args.task_id} 状态为 ${task.status}，只有进行中任务可换发 goal。`)
+      if (task.claimedBy === undefined) throw new Error(`任务 ${args.task_id} 无在役司令（未被领取）。`)
+      const face = deps.goals?.()
+      if (face === undefined) throw new Error('goal 服务不可用（宿主面未注入）——换发降级为不可用，作战不受影响。')
+      const agent = deps.resolveAgent?.(task.claimedBy)
+      if (agent === undefined) throw new Error(`司令会话 ${task.claimedBy} 无活体 agent（可能已离线）——请稍后重试。`)
+      const extra = typeof args.objective_extra === 'string' && args.objective_extra.trim() !== '' ? `；附加：${args.objective_extra.trim()}` : ''
+      const armed = await armGoalForTask(face, agent, args.task_id, { maxGoalRounds: typeof args.max_goal_rounds === 'number' && args.max_goal_rounds > 0 ? args.max_goal_rounds : 30, title: `${task.title ?? task.intent}${extra}` })
+      if (armed === undefined) throw new Error('goal 服务调用失败（武装未成）——任务作战不受影响，可稍后重试。')
+      appendEvent(deps.stateDir, {
+        type: 'commander_goal_armed', ts: new Date().toISOString(), campaignId: args.task_id,
+        goalId: armed.goalId, sessionId: task.claimedBy, ...(armed.healed !== undefined ? { healedGoalId: armed.healed } : {}),
+      })
+      return { taskId: args.task_id, goalId: armed.goalId, disarmed: false }
+    },
+    presentCall: args => ({ card: 'generic', title: `换发 goal ${args.task_id}` }),
   })
 
   const tools: ReturnType<typeof defineTool>[] = [warPublish, warBoard, warClaim, warSubmit, warFail, warAbandonCommand, warConscript, warComment, warCloseTask, warDeployUnit, warOrders, warRecall, warStatus, warLogReport]
@@ -1041,6 +1164,9 @@ export function warTools(deps: WarToolsDeps) {
   if (featureEnabled(deps.flags, 'troop-park')) surface = [...surface, warTroopReassignTool(deps)]
   // V5-R2: 参谋分诊动词（staff-triage）。
   if (featureEnabled(deps.flags, 'staff-triage')) surface = [...surface, warTriage]
+  // V5-R3: 计划呈批动词（staff-plan）+ goal 代管动词（staff-goal）。
+  if (featureEnabled(deps.flags, 'staff-plan')) surface = [...surface, warPlan]
+  if (featureEnabled(deps.flags, 'staff-goal')) surface = [...surface, warSetGoal]
   return surface
 }
 

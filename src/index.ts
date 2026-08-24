@@ -25,7 +25,8 @@ import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
 import { readDossier } from './dossier.ts'
 import { commanderPersonaText, conscriptBriefing, secretaryPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
-import type { GoalsFace, PlanModeFace, SpikeDeps } from './v5spike.ts'
+import type { PlanModeFace, SpikeDeps } from './v5spike.ts'
+import type { GoalsFace } from './goals.ts'
 import { createWarStore, resolveStateDir, type WarStore } from './state.ts'
 import { bountyDraftingSkill, type SkillsServiceFace } from './skill.ts'
 import { featureEnabled, readFeatureFlags } from './flags.ts'
@@ -255,7 +256,7 @@ export function apply(ctx: Context, config: Config): void {
   surface.sync()
   ctx.effect(() => () => surface.dispose(), 'warroom.warSurface()')
   // V4-R2 (troop-mailbox): the live-agent registry is OPTIONAL — when present
-  // it lets troops push sibling-troop messages via the commander as parent;
+  // it lets troops push a message to a sibling troop via the commander as parent;
   // absent, those messages stay durable-pending (honest degradation, no error).
   ctx.inject(['agents'], (agentCtx) => {
     const agents = (agentCtx as unknown as { agents?: { get(id: string): unknown } }).agents
@@ -268,6 +269,14 @@ export function apply(ctx: Context, config: Config): void {
       }
     }
   })
+  // V5-R3 (staff-goal): the host goal service face — cordis inject capture is
+  // the ONLY legal access (R1 K13: direct property reads throw). Shared ref:
+  // tools' lazy getter and the v5 spike read the same capture.
+  const goalsRef: { face?: GoalsFace } = {}
+  ctx.inject(['goals'], (goalCtx) => {
+    goalsRef.face = (goalCtx as unknown as Record<string, unknown>).goals as GoalsFace
+  })
+  deps.goals = () => goalsRef.face
   // V4-R3 (troop-scheduler): the 30s fallback fuse — mutation kicks cover the
   // common path; this sweep catches troops that idled without completing.
   // (the host's idle edges are not exposed to our structural slice; the
@@ -378,7 +387,8 @@ export function apply(ctx: Context, config: Config): void {
     // 动态定案①：cordis 守卫「cannot get property without inject」——直接
     // 属性读会抛，必须 inject 回调捕获；isolate realm 内的服务（plan-mode
     // 疑似）在宿主面 inject 永不满足 → faces 恒空，这就是不可达的判据。
-    const spikeFaces: { planMode?: PlanModeFace; goals?: GoalsFace } = {}
+    // goals 面复用主 scope 的 goalsRef（staff-goal 同一个捕获）。
+    const spikeFaces: { planMode?: PlanModeFace } = {}
     const spikeBound: { planMode?: boolean; goals?: boolean } = {}
     if (featureEnabled(deps.flags, 'v5-spike')) {
       try {
@@ -387,19 +397,13 @@ export function apply(ctx: Context, config: Config): void {
           spikeBound.planMode = true
         })
       } catch { /* inject itself must never kill the plugin */ }
-      try {
-        ctx.inject(['goals'], (goalCtx) => {
-          spikeFaces.goals = (goalCtx as unknown as Record<string, unknown>).goals as GoalsFace
-          spikeBound.goals = true
-        })
-      } catch { /* ditto */ }
     }
     const spike: SpikeDeps | undefined = featureEnabled(deps.flags, 'v5-spike') ? {
       availability: () => {
         try {
           return {
             planMode: spikeBound.planMode === true ? 'service (inject satisfied)' : 'unavailable on host plane (inject not satisfied)',
-            goals: spikeBound.goals === true ? 'service (inject satisfied)' : 'unavailable on host plane (inject not satisfied)',
+            goals: goalsRef.face !== undefined ? 'service (inject satisfied)' : 'unavailable on host plane (inject not satisfied)',
             agents: typeof deps.resolveAgent === 'function' ? 'registry bound' : 'registry not bound',
             resolveAgent: typeof deps.resolveAgent,
             sessionsBound: sessionsRef.face !== undefined,
@@ -418,7 +422,7 @@ export function apply(ctx: Context, config: Config): void {
         }
       },
       planMode: () => spikeFaces.planMode,
-      goals: () => spikeFaces.goals,
+      goals: () => goalsRef.face as GoalsFace | undefined,
       sessions: () => sessionsRef.face,
       warRoot: () => deps.warRoot,
     } : undefined

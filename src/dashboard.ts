@@ -210,6 +210,8 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
     gradeReason: d.gradeReason ?? null,
     gradeConfidence: d.gradeConfidence ?? null,
     regrades: d.regrades ?? 0,
+    // V5-R3 计划态：当前计划文本与判定状态（未呈报为 null）。
+    plan: d.plan === undefined ? null : { text: d.plan.text, status: d.plan.status, decidedAt: d.plan.decidedAt ?? null },
   }))
 }
 
@@ -341,6 +343,41 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_regraded', ts: new Date().toISOString(), directiveId: commandId, grade, reason })
         send(200, { ok: true, commandId, grade })
+        return
+      }
+      if (r.method === 'POST' && pathname === '/warroom/api/commands/plan') {
+        // V5-R3 计划判定（flag staff-plan）：元首在命令卡上批准/驳回计划草案。
+        if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-plan')) {
+          send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
+          return
+        }
+        const body = JSON.parse(await readBody(r)) as { commandId?: unknown; decision?: unknown; note?: unknown }
+        const commandId = typeof body.commandId === 'string' ? body.commandId.trim() : ''
+        const decision = typeof body.decision === 'string' ? body.decision.trim() : ''
+        const note = typeof body.note === 'string' && body.note.trim() !== '' ? body.note.trim() : undefined
+        if (commandId === '') {
+          send(400, { ok: false, error: '缺少命令号。' })
+          return
+        }
+        if (decision !== 'approve' && decision !== 'reject') {
+          send(400, { ok: false, error: '判定必须是 approve 或 reject。' })
+          return
+        }
+        const directive = loadDirectives(deps.stateDir).find(d => d.id === commandId)
+        if (directive === undefined) {
+          send(404, { ok: false, error: `命令 ${commandId} 不存在。` })
+          return
+        }
+        if (directive.plan === undefined || directive.plan.status !== 'pending') {
+          send(400, { ok: false, error: `命令 ${commandId} 无待批计划（当前：${directive.plan === undefined ? '未呈报' : directive.plan.status}）。` })
+          return
+        }
+        if (decision === 'approve') {
+          appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_approved', ts: new Date().toISOString(), directiveId: commandId, ...(note !== undefined ? { note } : {}) })
+        } else {
+          appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_rejected', ts: new Date().toISOString(), directiveId: commandId, reason: note ?? '元首驳回，请修订重呈' })
+        }
+        send(200, { ok: true, commandId, decision })
         return
       }
       if (r.method === 'GET' && pathname === '/warroom/api/events') {

@@ -47,6 +47,8 @@ export interface Directive {
   gradeConfidence?: number
   /** 元首改档次数（审计）。 */
   regrades?: number
+  /** V5-R3 计划态：当前待批/已批/被驳的计划（最新一次呈报）。 */
+  plan?: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt?: string }
 }
 
 /** The directive log's entry union (one JSON line each). */
@@ -57,6 +59,15 @@ export type DirectiveEvent =
   | { type: 'directive_talking'; ts: string; directiveId: string }
   | { type: 'directive_triaged'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string; confidence?: number; suggested?: DirectiveGrade; override?: '!!' | '??' }
   | { type: 'directive_regraded'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string }
+  // V5-R3 计划态（插件自建——R1 定案：宿主 plan-mode 宿主面不可达）：
+  // opened 落计划草案（重复呈报即覆盖待批稿）；approved/rejected 是元首
+  // 判定（decision 路由落地）。发布硬门只认 approved。
+  | { type: 'directive_plan_opened'; ts: string; directiveId: string; plan: string }
+  | { type: 'directive_plan_approved'; ts: string; directiveId: string; note?: string }
+  | { type: 'directive_plan_rejected'; ts: string; directiveId: string; reason: string }
+  // V5-R3 goal 代管入账：参谋状态机 goal（永远 disarm）开/收的审计痕迹。
+  | { type: 'directive_goal_opened'; ts: string; directiveId: string; goalId: string; disarmed: boolean }
+  | { type: 'directive_goal_settled'; ts: string; directiveId: string; goalId: string }
   | { type: 'directive_approved'; ts: string; directiveId: string; taskId: string }
   | { type: 'directive_cancelled'; ts: string; directiveId: string; reason: string }
 
@@ -130,6 +141,24 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         current.grade = event.grade
         current.gradeReason = event.reason
         current.regrades = (current.regrades ?? 0) + 1
+        break
+      // V5-R3 计划态：opened 覆盖待批稿；判定只在 pending 时生效（幂等——
+      // 路由层已挡重放，fold 层再兜一道）。驳回后参谋重呈新稿即回 pending
+      // （多轮收敛的机械表达）。终态守卫沿用。
+      case 'directive_plan_opened':
+        current.plan = { text: event.plan, status: 'pending' }
+        break
+      case 'directive_plan_approved':
+        if (current.plan !== undefined && current.plan.status === 'pending') {
+          current.plan.status = 'approved'
+          current.plan.decidedAt = event.ts
+        }
+        break
+      case 'directive_plan_rejected':
+        if (current.plan !== undefined && current.plan.status === 'pending') {
+          current.plan.status = 'rejected'
+          current.plan.decidedAt = event.ts
+        }
         break
       case 'directive_approved':
         current.status = 'approved'

@@ -68,6 +68,10 @@ const WAR_CSS = `
 .war-chip.gr-L2{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
 /* V5 分诊理由行（命令详情浮层） */
 .war-note{margin-top:6px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+/* V5-R3 计划卡（命令详情浮层内） */
+.war-plan{margin-top:10px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:8px 10px}
+.war-plan-head{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);margin-bottom:4px}
+.war-plan-body{font-size:12px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary);max-height:240px;overflow:auto}
 
 /* quality-tier palette (the deliberate exception to --dsw-only) */
 .war-chip.q-common{color:var(--dsw-alias-label-secondary)}

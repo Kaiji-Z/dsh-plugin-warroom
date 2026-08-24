@@ -209,6 +209,10 @@ export type WarEvent =
   /** V4-R4 (troop-park flag): an interrupted owner KEEPS its attempt and
    * token — parked, not revoked. Any valid token-carrying update unparks. */
   | { type: 'subtask_parked'; ts: string; campaignId: string; subtaskId: string; reason?: string }
+  /** V5-R3 (staff-goal flag): 司令 armed goal 开/收的账本痕迹（交接入账
+   * 红线）。healed = 结算掉的残留 goal（K15 自愈）。 */
+  | { type: 'commander_goal_armed'; ts: string; campaignId: string; goalId: string; sessionId: string; healedGoalId?: string }
+  | { type: 'commander_goal_settled'; ts: string; campaignId: string; goalId: string; outcome: string }
 
 /** The tiny global war state. Task history lives in the append-only event
  * logs; only this pointer state is a plain JSON file. */

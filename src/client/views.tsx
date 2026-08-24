@@ -13,7 +13,7 @@
 
 import { createElement, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { attachThread, createCommand, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
+import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -210,8 +210,9 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
   )
 }
 
-function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void): ReactNode {
+function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
   const GRADE_LABEL: Record<'L0' | 'L1' | 'L2', string> = { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' }
+  const PLAN_LABEL: Record<'pending' | 'approved' | 'rejected', string> = { pending: '待批', approved: '已批准', rejected: '已驳回' }
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
@@ -219,6 +220,18 @@ function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTas
       createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}` : ''}`),
       createElement('div', { className: 'war-detail-body' }, cmd.text),
       cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `分诊理由：${cmd.gradeReason}`) : null,
+      cmd.plan !== null
+        ? createElement('div', { className: 'war-plan' },
+          createElement('div', { className: 'war-plan-head' }, `作战计划（${PLAN_LABEL[cmd.plan.status]}）`),
+          createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
+          cmd.plan.status === 'pending'
+            ? createElement('div', { className: 'war-modal-actions' },
+              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, '批准计划'),
+              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, '驳回重呈'),
+            )
+            : null,
+        )
+        : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, `取消原因：${cmd.cancelledReason}`) : null,
       regradable
         ? createElement('div', { className: 'war-modal-sub' }, '升降档（元首覆写参谋分诊，改后需通知参谋按新档执行）：')
@@ -628,6 +641,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), onClose: () => setDetailTaskId(null) }) : null,
       detailCommand !== undefined ? CommandDetail(detailCommand, detailCommandTask, id => setDetailTaskId(id), () => setDetailCommandId(null), grade => {
         void regradeCommand(detailCommand.commandId, grade).then(r => { if (r.ok) refresh() })
+      }, decision => {
+        void decidePlan(detailCommand.commandId, decision).then(r => { if (r.ok) refresh() })
       }) : null,
       detailTaskForAttempt !== undefined && detailAttemptEntry !== undefined
         ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), onClose: () => setDetailAttempt(null) })

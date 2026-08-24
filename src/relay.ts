@@ -64,12 +64,19 @@ ${directive.text}
 - 发布前按起草法定好工作区路由（元首点名 > 最近用过 > 当前打开 > 决策卡让元首选项目名）；全新无归属项目用 @new:<名字> 新开副本。
 - 确实无法成案（元首放弃/无法澄清）就 war_abandon_command 说明原因。`
   if (flags === undefined || !featureEnabled(flags, 'staff-triage')) return base
+  // V5-R3（staff-plan 旗）：L1/L2 走计划态——勘察后 war_plan 呈批，元首
+  // 批准后 war_publish 才放行（发布硬门在工具侧拦）。旗关时维持 R2 的
+  // 现行呈批（完整任务书经元首批准）。
+  const planDiscipline = featureEnabled(flags, 'staff-plan')
+    ? `- L1 复杂：先勘察（读相关工作区/依赖），再用 war_plan 呈一页纸计划（command_id=${directive.id}：目标、≤5 步骤、涉及工作区、风险与回退）；元首在命令卡上批准后才能 war_publish——没批前发布会被硬门拦下。驳回就按意见修订重呈。
+- L2 不明确：先用提问卡片向元首澄清收敛，能定案后按复杂度走 L0 或 L1。`
+    : `- L1 复杂：走现行呈批——完整任务书经元首批准后 war_publish。
+- L2 不明确：先用提问卡片向元首澄清收敛，能定案后再按复杂度走 L0/L1。`
   return `${base}
 
 【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
 - L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需元首批准。
-- L1 复杂：走现行呈批——完整任务书经元首批准后 war_publish。
-- L2 不明确：先用提问卡片向元首澄清收敛，能定案后再按复杂度走 L0/L1。
+${planDiscipline}
 - 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。`
 }
 

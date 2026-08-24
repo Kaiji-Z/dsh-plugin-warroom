@@ -220,6 +220,11 @@ export function foldCampaign(campaignId: string, events: ReadonlyArray<WarEvent>
         }
         break
       }
+      // V5-R3 (staff-goal)：纯账本事件（goal 交接入账红线）——不改 fold
+      // 状态，回放/审计经原始日志。
+      case 'commander_goal_armed':
+      case 'commander_goal_settled':
+        break
       case 'task_closed':
         state.status = 'closed'
         state.closedVerdict = event.verdict

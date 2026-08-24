@@ -14,19 +14,15 @@
  * （每步捕错成字符串），dashboard 路由原样回显。
  */
 import type { SessionsApiFace } from './relay.ts'
+import { usableGoals, type GoalsFace } from './goals.ts'
+
+export type { GoalsFace } from './goals.ts'
+export { usableGoals } from './goals.ts'
 
 /** 宿主 plan-mode 控制器的结构切片（get/set 缺一即视为不可用）。 */
 export interface PlanModeFace {
   get(agent: unknown): unknown
   set(agent: unknown, active: boolean, opts?: unknown): unknown
-}
-
-/** 宿主 goal 服务的结构切片（create 无人类权限门——门在 tool-goal 层）。 */
-export interface GoalsFace {
-  get(agent: unknown): unknown
-  create(agent: unknown, request: { objective: string; maxGoalRounds?: number }): unknown
-  complete(agent: unknown, ref: unknown): unknown
-  clear(agent: unknown, ref: unknown): unknown
 }
 
 /** index.ts 在 v5-spike 旗开启时注入的运行面入口（缺省不注册路由）。 */
@@ -73,12 +69,6 @@ function brief(value: unknown): string {
 export function usablePlanMode(face: unknown): face is PlanModeFace {
   const f = face as Partial<PlanModeFace> | undefined
   return typeof f?.get === 'function' && typeof f?.set === 'function'
-}
-
-/** 是否「像一个可用的 goal 面」（get/create/complete/clear 都是函数）。 */
-export function usableGoals(face: unknown): face is GoalsFace {
-  const f = face as Partial<GoalsFace> | undefined
-  return typeof f?.get === 'function' && typeof f?.create === 'function' && typeof f?.complete === 'function' && typeof f?.clear === 'function'
 }
 
 /**

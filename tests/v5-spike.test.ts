@@ -38,6 +38,7 @@ function fakeGoals(preset?: { id: string; objective: string }): GoalsFace & { lo
       state.log.push(`create:${request.objective}`)
       return { id: 'scratch-1', revision: 1, objective: request.objective, phase: 'active' }
     },
+    disarm: (_agent: unknown, ref: unknown) => { const r = ref as { id?: unknown }; state.log.push(`disarm:${String(r?.id)}`); return { id: r?.id, revision: state.revision, activation: 'disarmed' } },
     complete: (_agent: unknown, ref: unknown) => { const r = ref as { id?: unknown; revision?: unknown }; state.log.push(`complete:${String(r?.id)}@${String(r?.revision)}`); state.revision += 1; return { id: r?.id, revision: state.revision, phase: 'complete' } },
     clear: (_agent: unknown, ref: unknown) => { const r = ref as { id?: unknown; revision?: unknown }; state.log.push(`clear:${String(r?.id)}`); state.activeId = undefined; return { id: r?.id } },
   }

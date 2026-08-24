@@ -56,6 +56,8 @@ export interface BoardCommand {
   gradeReason: string | null
   gradeConfidence: number | null
   regrades: number
+  /** V5-R3 计划态（未呈报为 null）。 */
+  plan: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt: string | null } | null
 }
 
 export interface BoardTask {
@@ -138,6 +140,21 @@ export async function regradeCommand(commandId: string, grade: 'L0' | 'L1' | 'L2
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ commandId, grade }),
+    })
+    const body = await res.json() as { ok: boolean; error?: string }
+    return body
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** V5-R3 计划判定：元首批准/驳回待批计划。 */
+export async function decidePlan(commandId: string, decision: 'approve' | 'reject', note?: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/warroom/api/commands/plan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ commandId, decision, ...(note !== undefined ? { note } : {}) }),
     })
     const body = await res.json() as { ok: boolean; error?: string }
     return body
