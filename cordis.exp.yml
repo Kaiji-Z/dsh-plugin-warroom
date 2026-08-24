@@ -1,0 +1,9 @@
+# Experiment: same shape as cordis.dev.yml but with the v0.1-proven config
+# key (active: on). If this loads, --patch+config works and the earlier
+# failure was about the statePath/warRoot values; if not, --patch+config
+# itself is broken in this dsh build.
+- insert:
+    - id: warroom
+      name: dsh-plugin-warroom
+      config:
+        active: on

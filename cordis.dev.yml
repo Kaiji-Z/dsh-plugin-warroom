@@ -1,0 +1,11 @@
+# Dev overlay for local iteration (run from the deepseek-harness checkout:
+#   pnpm dsh web --patch ../dsh-plugin-warroom/cordis.dev.yml).
+# References the package by NAME, not a source file:// URL: the web client's
+# bundle scanner resolves `<name>/package.json` from the profile directory
+# (see packages/client/modules/src/index.ts), so a URL-named entry silently
+# loses its client half. Dev-install the repo into the profile first:
+#   cd ~/.dsh/profiles/web && pnpm add dsh-plugin-warroom@file:D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom
+# Host and client then both serve from the repo's lib/ build (rebuild on change).
+- insert:
+    - id: warroom
+      name: dsh-plugin-warroom

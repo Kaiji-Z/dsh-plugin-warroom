@@ -1,0 +1,81 @@
+{
+  "name": "dsh-plugin-warroom",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.7.0",
+  "description": "RTS-style orchestration for DeepSeek Harness: you are the sovereign issuing strategic orders; a resident commander agent decomposes them and deploys typed subagent troops (recon/engineer/medic/scribe) on isolated fronts, with an append-only campaign event log and hard rules of engagement.",
+  "type": "module",
+  "main": "lib/index.mjs",
+  "types": "lib/index.d.mts",
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown --config tsdown.config.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "verify": "node scripts/verify.mjs",
+    "verify:eval": "node scripts/run-eval.mjs"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "multi-agent",
+    "orchestration",
+    "rts"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "slots",
+        "sessions",
+        "locale"
+      ],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0-rc.0",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.0",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.0-rc.0",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.0",
+    "@deepseek-ai/schemastery": ">=0.1.0-rc.0",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.mts",
+      "default": "./lib/index.mjs"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.31",
+    "promptfoo": "^0.122.0",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kaiji-Z/dsh-plugin-warroom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kaiji-Z/dsh-plugin-warroom/issues"
+  },
+  "homepage": "https://github.com/Kaiji-Z/dsh-plugin-warroom#readme",
+  "engines": {
+    "node": ">=22.19"
+  }
+}

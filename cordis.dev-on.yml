@@ -1,0 +1,7 @@
+# Dev overlay variant: force war mode ON at boot (exercises the active-path
+# tool registration + commander persona). Pair with a throwaway DSH_HOME.
+- insert:
+    - id: warroom
+      name: 'file:///D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/src/index.ts'
+      config:
+        active: on

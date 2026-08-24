@@ -1,0 +1,19 @@
+# ---- dependencies & build output ----
+node_modules/
+lib/
+*.tgz
+
+# ---- local runtime state & logs ----
+# 演示/考题用的隔离状态目录（seed-smoke、exam 产物），可随时重建
+.smoke-state/
+*.log
+
+# ---- environment & secrets ----
+.env
+.env.*
+
+# ---- editor & OS noise ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

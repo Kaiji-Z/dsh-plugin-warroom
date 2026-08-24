@@ -1,0 +1,10 @@
+# warroom 监督层（VERIFICATION.md §8.4 · P0-1）
+# 裁判 = glm-5.2 + 隔离提示词（prompts/supervisor.txt——裁判只见预期行为+轨迹，
+# 禁含代码实现/PR/commit/开发对话，红线 1）。三维各 0-10，均≥7 且无 veto 才算过。
+# 接线：任意 OpenAI 兼容 GLM 网关——环境变量 OPENAI_BASE_URL / OPENAI_API_KEY。
+# 门命令：pnpm verify:eval（无环境变量时显式 SKIP，绝不静默放行）。
+description: 'warroom 监督层：三维评分（达成度/证据完整性/越界检查）≥7 + 越界一票否决'
+prompts: [prompts/supervisor.txt]
+providers:
+  - openai:chat:glm-5.2
+tests: tests.yaml
