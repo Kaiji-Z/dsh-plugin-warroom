@@ -250,8 +250,12 @@ export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: 
   if (evidence.tests.exitCode !== 0) return { green: false, why: `测试退出码 ${evidence.tests.exitCode}` }
   if (evidence.files !== undefined && evidence.files.length > 0) {
     if (workspacePath === undefined) return { green: false, why: '任务无工作区绑定，无法核对越界' }
+    const wsRoot = resolve(workspacePath)
+    // 相对路径是司令在工作区内的自然报法（R5 考题实测抓到的判据 bug：
+    // resolve 相对路径会落到插件进程 CWD——必须先锚定到工作区再判）。
     const outside = evidence.files.filter(f => {
-      const rel = relative(resolve(workspacePath), resolve(f))
+      const abs = isAbsolute(f) ? resolve(f) : resolve(wsRoot, f)
+      const rel = relative(wsRoot, abs)
       return rel === '' || rel.startsWith('..') || isAbsolute(rel)
     })
     if (outside.length > 0) return { green: false, why: `越界一票否决：${outside.length} 个文件在工作区外（${outside[0]}…）` }

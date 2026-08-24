@@ -195,7 +195,7 @@ function evidenceText(e: SubmissionEvidence): string {
   return JSON.stringify({ ...rest, ...(tests !== undefined ? { tests: { command: tests.command, exit_code: tests.exitCode, passed: tests.passed, failed: tests.failed } } : {}) })
 }
 
-test('killCreditAllGreen：全绿 / 有败项 / 无测试 / 越界一票否决', async () => {
+test('killCreditAllGreen：全绿 / 有败项 / 无测试 / 越界一票否决 / 相对路径锚定工作区', async () => {
   const { killCreditAllGreen } = await import('../src/tools.ts')
   assert.equal(killCreditAllGreen(greenEvidence(), WS).green, true)
   assert.equal(killCreditAllGreen(greenEvidence({ checks: [{ item: 'x', passed: false }] }), WS).green, false)
@@ -206,6 +206,12 @@ test('killCreditAllGreen：全绿 / 有败项 / 无测试 / 越界一票否决',
   const escaped = killCreditAllGreen(greenEvidence({ files: [`${WS}/a.js`, 'C:/elsewhere/b.js'] }), WS)
   assert.equal(escaped.green, false)
   assert.match(escaped.why, /越界/)
+  // R5 考题抓到的判据 bug：相对路径是工作区内报法——锚定后应全绿。
+  const relFiles = killCreditAllGreen(greenEvidence({ files: ['hello.txt', 'src/a.js'] }), WS)
+  assert.equal(relFiles.green, true, relFiles.why)
+  // 相对路径逃逸（..）仍应否决。
+  const relEscape = killCreditAllGreen(greenEvidence({ files: ['../outside.js'] }), WS)
+  assert.equal(relEscape.green, false)
 })
 
 test('war_submit 自动收官：旗开+全绿 → 落 task_closed（verdict 记机械全绿）；不全绿 → 维持 reported', async () => {
