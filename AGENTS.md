@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——v4「司令部队内协作」已达标（证据 `.goal/evidence/v4/`，归档 `.goal/SPEC-v4.md`，V4 四旗已随开发流程默认带上）；**当前目标 V5「参谋自动化（AFK）」进行中**（三档自主度 L0/L1/L2、计划态、goal 代管、自动收官、配额自愈，SPEC.md）。**R1 机制验证已定案**：`ctx.goals` 宿主面可达 / `ctx.planMode` 不可达（计划态改插件自建）/ goal 动词走 `{id,revision}` CAS 链 / 错误面 = `agent/error` 事件 + `HarnessError.code`（证据 `.goal/evidence/v5/r1-spike.md`）。**R2 分诊+L0 已落地**（flags `staff-triage` + `staff-auto-close`：`war_triage` 一次分诊制、`!!直接做`/`??先看方案` host 侧强制改档、L0 轻任务书直发免批、`killCreditAllGreen` 全绿自动收官（files 越界一票否决）、regrade 路由+命令卡档位徽章）。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、司令 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。V4 归档 `.goal/SPEC-v4.md`。V6 候选见 SPEC §8（计划批准回推 K17、命令拆解等）。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 

@@ -224,6 +224,137 @@ def stage_nudge():
         br.close()
 
 
+def stage_l2flow():
+    """L2 全流程（元首回席三步）：1) 进会话答澄清；2) 回板等 plan pending →
+    API 批准；3) 进会话推发布（批准只落事件，参谋在等回音）→ 等 approved。"""
+    with sync_playwright() as p:
+        br = p.chromium.launch()
+        pg = br.new_page(viewport={'width': 1680, 'height': 980})
+        # 1) 答澄清。
+        open_board(pg)
+        pg.locator(f'.war-hq .war-card:has-text("{TAG_L2}")').first.click(timeout=8000)
+        pg.wait_for_selector('.war-board', state='hidden', timeout=10000)
+        pg.wait_for_timeout(6000)
+        send_chat(pg, '澄清答复：notes.md 第一行写「Exam V5 计划摘要：建两行文件并校验」，第二行写「done」。无其他偏好，请立即呈作战计划（war_plan）。')
+        shot(pg, 'r5-05a-clarified.png')
+        # 2) 回板等计划 → 批准。
+        pg.goto(BASE, wait_until='domcontentloaded')
+        pg.wait_for_selector(ENTRY, timeout=20000)
+        pg.wait_for_timeout(1500)
+        pg.click(ENTRY)
+        pg.wait_for_selector('.war-board', timeout=10000)
+        b = wait_board(pg, lambda b: ((find_cmd(b, TAG_L2) or {}).get('plan') or {}).get('status') == 'pending', 420, 'L2 plan pending')
+        if not b:
+            log('FAIL: no plan presented after clarification')
+            br.close()
+            sys.exit(2)
+        l2 = find_cmd(b, TAG_L2)
+        shot(pg, 'r5-05-plan-pending.png')
+        r = post(pg, '/warroom/api/commands/plan', {'commandId': l2['commandId'], 'decision': 'approve', 'note': '按计划执行'})
+        log('plan approve →', json.dumps(r, ensure_ascii=False))
+        # 3) 进会话推发布（批准无回推——回席说话）。
+        pg.locator(f'.war-hq .war-card:has-text("{TAG_L2}")').first.click(timeout=8000)
+        pg.wait_for_selector('.war-board', state='hidden', timeout=10000)
+        pg.wait_for_timeout(5000)
+        send_chat(pg, '计划已批准（元首在命令卡上点了批准）。请立即 war_publish 发布，务必带参数 commandId。')
+        pg.wait_for_timeout(3000)
+        shot(pg, 'r5-06a-pushed.png')
+        pg.goto(BASE, wait_until='domcontentloaded')
+        pg.wait_for_selector(ENTRY, timeout=20000)
+        pg.wait_for_timeout(1500)
+        pg.click(ENTRY)
+        pg.wait_for_selector('.war-board', timeout=10000)
+        def approved(b):
+            l0, l2 = find_cmd(b, TAG_L0), find_cmd(b, TAG_L2)
+            return l0 and l2 and l0['status'] == 'approved' and l2['status'] == 'approved'
+        b = wait_board(pg, approved, 600, 'both approved (l2flow)')
+        shot(pg, 'r5-06-approved.png')
+        if b:
+            json.dump({'L0': find_cmd(b, TAG_L0), 'L2': find_cmd(b, TAG_L2)}, open(f'{EV}/r5-approved.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+            log('taskIds:', find_cmd(b, TAG_L0)['taskId'], find_cmd(b, TAG_L2)['taskId'])
+        else:
+            log('WARN: L2 not approved in time')
+        br.close()
+
+
+def click_option_button(pg, needle):
+    btns = pg.locator(f'button:has-text("{needle}")')
+    if btns.count() == 0:
+        return False
+    btns.first.click()
+    log('clicked option button:', needle)
+    return True
+
+
+def enter_l2_session(pg):
+    open_board(pg)
+    pg.locator(f'.war-hq .war-card:has-text("{TAG_L2}")').first.click(timeout=8000)
+    pg.wait_for_selector('.war-board', state='hidden', timeout=10000)
+    pg.wait_for_timeout(6000)
+
+
+def back_to_board(pg):
+    pg.goto(BASE, wait_until='domcontentloaded')
+    pg.wait_for_selector(ENTRY, timeout=20000)
+    pg.wait_for_timeout(1500)
+    pg.click(ENTRY)
+    pg.wait_for_selector('.war-board', timeout=10000)
+
+
+def stage_answer():
+    """回席点决策卡（宿主 ask_user_question）：司令自拟 → 下一题 → 先呈完整
+    任务书；随后等 plan → API 批准 → 进会话推发布 → 等 approved。"""
+    with sync_playwright() as p:
+        br = p.chromium.launch()
+        pg = br.new_page(viewport={'width': 1680, 'height': 980})
+        enter_l2_session(pg)
+        clicked = 0
+        t0 = time.time()
+        while time.time() - t0 < 120 and clicked < 2:
+            if click_option_button(pg, '司令自拟'):
+                clicked += 1
+                pg.wait_for_timeout(3000)
+                nxt = pg.locator('button', has_text='下一题')
+                if nxt.count() > 0:
+                    nxt.first.click()
+                    log('clicked 下一题')
+                pg.wait_for_timeout(4000)
+                continue
+            if click_option_button(pg, '先呈完整任务书'):
+                clicked += 1
+                pg.wait_for_timeout(4000)
+                continue
+            pg.wait_for_timeout(3000)
+        shot(pg, 'r5-05b-answered.png')
+        # 等参谋呈计划（回板轮询 plan pending）。
+        back_to_board(pg)
+        b = wait_board(pg, lambda b: ((find_cmd(b, TAG_L2) or {}).get('plan') or {}).get('status') == 'pending', 420, 'L2 plan pending')
+        if not b:
+            log('FAIL: no plan after answering cards')
+            br.close()
+            sys.exit(2)
+        shot(pg, 'r5-05-plan-pending.png')
+        l2 = find_cmd(b, TAG_L2)
+        r = post(pg, '/warroom/api/commands/plan', {'commandId': l2['commandId'], 'decision': 'approve', 'note': '按计划执行'})
+        log('plan approve →', json.dumps(r, ensure_ascii=False))
+        enter_l2_session(pg)
+        send_chat(pg, '计划已批准（元首在命令卡上点了批准）。请立即 war_publish 发布，务必带参数 commandId。')
+        pg.wait_for_timeout(3000)
+        shot(pg, 'r5-06a-pushed.png')
+        back_to_board(pg)
+        def approved(b):
+            l0, l2 = find_cmd(b, TAG_L0), find_cmd(b, TAG_L2)
+            return l0 and l2 and l0['status'] == 'approved' and l2['status'] == 'approved'
+        b = wait_board(pg, approved, 600, 'both approved (answer)')
+        shot(pg, 'r5-06-approved.png')
+        if b:
+            json.dump({'L0': find_cmd(b, TAG_L0), 'L2': find_cmd(b, TAG_L2)}, open(f'{EV}/r5-approved.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+            log('taskIds:', find_cmd(b, TAG_L0)['taskId'], find_cmd(b, TAG_L2)['taskId'])
+        else:
+            log('WARN: L2 not approved in time')
+        br.close()
+
+
 def stage_track():
     with sync_playwright() as p:
         br = p.chromium.launch()
@@ -284,4 +415,4 @@ def stage_close():
 if __name__ == '__main__':
     os.makedirs(EV, exist_ok=True)
     stage = sys.argv[1] if len(sys.argv) > 1 else ''
-    {'issue': stage_issue, 'decide': stage_decide, 'nudge': stage_nudge, 'track': stage_track, 'close': stage_close}[stage]()
+    {'issue': stage_issue, 'decide': stage_decide, 'nudge': stage_nudge, 'l2flow': stage_l2flow, 'answer': stage_answer, 'track': stage_track, 'close': stage_close}[stage]()
