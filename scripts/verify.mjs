@@ -178,6 +178,11 @@ gate('bundle', () => {
     [host, 'troop-park', 'V4-R4 park flag gate'],
     [host, 'subtask_parked', 'park event (attempt kept, not revoked)'],
     [host, 'war_troop_reassign', 'explicit rotation tool (token revocation)'],
+    // v5 R1: mechanism-verification spike (v5-spike flag).
+    [host, 'v5-spike', 'V5-R1 spike flag gate'],
+    [host, '/warroom/api/v5-spike', 'spike probe HTTP route'],
+    [host, 'goals.create', 'goal structural-slice probe verb'],
+    [host, 'toolFilter', 'sessions.create toolFilter probe (staff restriction)'],
   ]
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),

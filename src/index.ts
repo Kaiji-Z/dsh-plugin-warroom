@@ -25,6 +25,7 @@ import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
 import { readDossier } from './dossier.ts'
 import { commanderPersonaText, conscriptBriefing, secretaryPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
+import type { GoalsFace, PlanModeFace, SpikeDeps } from './v5spike.ts'
 import { createWarStore, resolveStateDir, type WarStore } from './state.ts'
 import { bountyDraftingSkill, type SkillsServiceFace } from './skill.ts'
 import { featureEnabled, readFeatureFlags } from './flags.ts'
@@ -350,11 +351,15 @@ export function apply(ctx: Context, config: Config): void {
   // Cordis effect = setup-returns-cleanup (React shape): a single-arrow
   // disposer executes IMMEDIATELY and kills its own fuse (live R8 catch).
   ctx.effect(() => () => commandFuse.stop(), 'warroom.commandFuse()')
+  // The apiProxy sessions face binds LATE (see the fuse comment above) — the
+  // v5 spike probe needs it too, so capture it in a ref the probe closure reads.
+  const sessionsRef: { face?: SessionsApiFace } = {}
   ctx.inject(['apiProxy'], (apiCtx) => {
     const api = (apiCtx as unknown as { apiProxy: { sessions: SessionsApiFace; workspace: WorkspaceApiFace } }).apiProxy
     console.log('[warroom] apiProxy bound to fuse + patrol + conscriptor')
     commander.bindRelay(api.sessions, api.workspace)
     commandFuse.bind(api.sessions)
+    sessionsRef.face = api.sessions
   })
   // The secretary's drafting craft rides the runtime skill registry (no
   // filesystem writes — the runtime provider owns it, base bundles without
@@ -367,6 +372,30 @@ export function apply(ctx: Context, config: Config): void {
   })
   // The strategic board HTTP API mounts only in compositions carrying a webserver.
   ctx.inject(['webServer'], (webCtx) => {
+    // v5 R1 spike（flag `v5-spike`）：宿主面 plan-mode/goal 可达性 + 活体
+    // 往返探针。缺省（旗关）不给 spike → 探针路由 404，行为与改前等价。
+    const spike: SpikeDeps | undefined = featureEnabled(deps.flags, 'v5-spike') ? {
+      availability: () => ({
+        planMode: typeof (ctx as unknown as Record<string, unknown>).planMode,
+        goals: typeof (ctx as unknown as Record<string, unknown>).goals,
+        agents: typeof (ctx as unknown as Record<string, unknown>).agents,
+        resolveAgent: typeof deps.resolveAgent,
+        sessionsBound: sessionsRef.face !== undefined,
+      }),
+      resolveAgent: (sessionId) => {
+        if (deps.resolveAgent === undefined) return { error: 'agents registry not bound' }
+        try {
+          const agent = deps.resolveAgent(sessionId)
+          return agent === undefined || agent === null ? { error: 'no live agent for session' } : { agent }
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : String(err) }
+        }
+      },
+      planMode: () => (ctx as unknown as Record<string, unknown>).planMode as PlanModeFace | undefined,
+      goals: () => (ctx as unknown as Record<string, unknown>).goals as GoalsFace | undefined,
+      sessions: () => sessionsRef.face,
+      warRoot: () => deps.warRoot,
+    } : undefined
     const disposeDashboard = registerDashboard((webCtx as unknown as { webServer: Parameters<typeof registerDashboard>[0] }).webServer, {
       store,
       stateDir,
@@ -375,6 +404,7 @@ export function apply(ctx: Context, config: Config): void {
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },
+      ...(spike === undefined ? {} : { spike }),
     })
     webCtx.effect(() => disposeDashboard, 'warroom.dashboard()')
   })

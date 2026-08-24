@@ -17,6 +17,7 @@ import { nextRunOf } from './schedule.ts'
 import type { Roster } from './units.ts'
 import type { WarStore } from './state.ts'
 import type { CampaignState } from './types.ts'
+import { armPlanCard, runSpikeProbe, type SpikeDeps } from './v5spike.ts'
 
 /** Structural slice of the harness webServer route registry. */
 export interface RouteRegistry {
@@ -90,6 +91,9 @@ export interface DashboardDeps {
   roster(): Roster
   /** War root (informational — the client no longer creates sessions here). */
   warRoot: string
+  /** v5 R1 机制验证探针（flag `v5-spike`）。缺省 undefined → 探针路由
+   * 404，宿主面行为与改前字节等价。 */
+  spike?: SpikeDeps
   /** v3: fired after a command card is created — the host ticks the command
    * fuse NOW so the staff receives in ~1s instead of waiting out the 15s
    * interval. Optional so pure-route tests can omit it. */
@@ -323,6 +327,29 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         }, 1000)
         sse.on?.('close', () => clearInterval(watch))
         return
+      }
+      if (deps.spike !== undefined && pathname === '/warroom/api/v5-spike') {
+        // v5 R1 机制验证探针（flag v5-spike）：GET = 宿主面可用性快照；
+        // POST {sessionId} = 全链探针；POST {action:'planCard', sessionId}
+        // = 切 plan mode + 投呈报提示（评审卡截图用）。旗关则整个路由不存在。
+        if (r.method === 'GET') {
+          send(200, { ok: true, availability: deps.spike.availability() })
+          return
+        }
+        if (r.method === 'POST') {
+          const body = JSON.parse(await readBody(r)) as { sessionId?: unknown; action?: unknown; text?: unknown }
+          const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+          if (sessionId === '' || sessionId.length > 200) {
+            send(400, { ok: false, error: '缺少 sessionId（贴一个活体会话号，≤200 字符）。' })
+            return
+          }
+          if (body.action === 'planCard') {
+            send(200, await armPlanCard(deps.spike, sessionId, typeof body.text === 'string' && body.text.trim() !== '' ? body.text.trim() : undefined))
+            return
+          }
+          send(200, await runSpikeProbe(deps.spike, sessionId))
+          return
+        }
       }
       send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
     } catch (err) {
