@@ -178,6 +178,17 @@ export interface WarCopy {
     close: string
     cancel: string
   }
+  /** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要与全部操作件
+   * 收进顶部一颗胶囊（hover 展开 + 点击钉住；聚焦模式即岛的常驻形态）。 */
+  island: {
+    counts: (c: { pending: number; waiting: number; active: number; failed: number }) => string
+    inboxBadge: (n: number) => string
+    visitMini: (closed: number, failed: number, commands: number) => string
+    compose: string
+    pin: string
+    unpin: string
+    expandTitle: string
+  }
   dock: {
     label: string
     titleLine: (counts: { pending: number; waiting: number; active: number; failed: number }) => string
@@ -399,6 +410,17 @@ export const warCopy: WarCopy = {
     lineageLabel: '源自命令',
     close: '关闭',
     cancel: '取消',
+  },
+  island: {
+    counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 作战中 ${c.active}${c.failed > 0 ? ` · 折戟 ${c.failed}` : ''}`,
+    inboxBadge: n => `✉ ${n}`,
+    visitMini: (closed, failed, commands) =>
+      [closed > 0 ? `▲收官 ${closed}` : '', failed > 0 ? `✕折戟 ${failed}` : '', commands > 0 ? `✚新令 ${commands}` : '']
+        .filter(s => s !== '').join(' · '),
+    compose: '＋ 下达',
+    pin: '钉住展开（再点收起）',
+    unpin: '取消钉住',
+    expandTitle: '悬停展开 · 点击钉住',
   },
   dock: {
     label: '作战室',
@@ -623,6 +645,17 @@ export const plainCopy: WarCopy = {
     lineageLabel: '源自命令',
     close: '关闭',
     cancel: '取消',
+  },
+  island: {
+    counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 失败 ${c.failed}` : ''}`,
+    inboxBadge: n => `✉ ${n}`,
+    visitMini: (closed, failed, commands) =>
+      [closed > 0 ? `▲完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']
+        .filter(s => s !== '').join(' · '),
+    compose: '＋ 下达',
+    pin: '钉住展开（再点收起）',
+    unpin: '取消钉住',
+    expandTitle: '悬停展开 · 点击钉住',
   },
   dock: {
     label: '作战室',

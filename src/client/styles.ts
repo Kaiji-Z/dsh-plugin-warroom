@@ -8,25 +8,40 @@
  */
 
 const WAR_CSS = `
-.war-root{font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base)}
-.war-head{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--dsw-alias-border-l2);flex:0 0 auto}
-.war-head-title{font-size:15px;font-weight:600}
-.war-head-sub{font-size:12px;color:var(--dsw-alias-label-secondary);flex:1 1 auto}
+.war-root{font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base);position:relative}
+/* --- V8 hero 灵动岛（标题栏替代）：收起=计数仪表胶囊，hover 展开/点击钉住 ------- */
+.war-island{position:relative;flex:0 0 auto;padding:10px 12px 4px;z-index:40}
+.war-island-pill{display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 2px 10px rgba(0,0,0,.08);cursor:pointer;transition:border-radius .22s ease,box-shadow .22s ease}
+.war-island-pill:hover{box-shadow:0 4px 14px rgba(0,0,0,.13)}
+.war-island.open .war-island-pill{border-radius:14px 14px 999px 999px;box-shadow:0 6px 18px rgba(0,0,0,.14)}
+.war-island-title{font-size:14px;font-weight:700;white-space:nowrap}
 .war-head-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary);flex:0 0 auto}
 .war-head-dot.on{background:var(--dsw-alias-state-business-primary)}
+.war-island-counts{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.war-island-badge{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.war-island-badge.hot{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
+.war-island-visitmini{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.war-island-spacer{flex:1 1 auto;min-width:4px}
+.war-island-pinned{font-size:12px;flex:0 0 auto}
+.war-island .war-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
+/* 展开浮层：绝对定位盖在列区上方——列纹丝不动（灵动岛不推挤内容）。 */
+.war-island-panel{position:absolute;top:calc(100% - 2px);left:12px;right:12px;display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:0 0 16px 16px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 14px 32px rgba(0,0,0,.18);max-height:52vh;overflow-y:auto;animation:war-island-open .2s ease}
+@keyframes war-island-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.war-island-panel{animation:none}.war-island-pill{transition:none}}
 .war-skin-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 .war-dockpill{display:inline-flex;align-items:center;gap:6px}
 .war-dockseg{font-size:12px}
 .war-err{font-size:12px;color:var(--dsw-alias-state-error-label)}
 .war-empty{color:var(--dsw-alias-label-secondary);font-size:12px;padding:12px 4px;text-align:center;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;margin:6px 0}
 
-/* --- the three-region board (v6: 指挥中心 | 战场 | 战报) ---------------------- */
-.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2.2fr 1.3fr 2.2fr;gap:0}
-.war-zone{display:flex;flex-direction:column;min-height:0;min-width:0}
-.war-hq{border-right:2px solid var(--dsw-alias-border-l1)}
-.war-field{border-right:2px solid var(--dsw-alias-border-l1)}
-.war-zone-head{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;padding:8px 14px 6px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
-.war-zone-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-secondary);letter-spacing:.08em}
+/* --- the three-region board (v8: 三区=视觉大容器，五列内部滚动) ---------------- */
+.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2.2fr 1.3fr 2.2fr;gap:10px;padding:2px 10px 10px}
+.war-zone{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-base);overflow:hidden}
+.war-hq{box-shadow:inset 0 3px 0 var(--dsw-alias-state-business-primary)}
+.war-field{box-shadow:inset 0 3px 0 var(--dsw-alias-label-tertiary)}
+.war-zone.war-report{box-shadow:inset 0 3px 0 var(--dsw-alias-state-success-primary)}
+.war-zone-head{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;padding:9px 14px 6px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
+.war-zone-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.08em}
 .war-zone-note{font-size:12px;color:var(--dsw-alias-label-tertiary)}
 .war-zone-cols{flex:1 1 auto;min-height:0;display:grid;min-width:0}
 .war-hq .war-zone-cols{grid-template-columns:repeat(2,minmax(196px,1fr))}
@@ -38,7 +53,6 @@ const WAR_CSS = `
 .war-col-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
 .war-col-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .war-col-body{flex:1 1 auto;overflow-y:auto;padding:8px 2px 16px;display:flex;flex-direction:column;gap:8px}
-.war-plus{margin-left:auto;padding:2px 10px;line-height:18px}
 
 /* --- cards ------------------------------------------------------------------ */
 .war-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,opacity .15s ease}
@@ -238,7 +252,8 @@ const WAR_CSS = `
 
 /* --- V7.1 审查整改：键盘焦点轮廓 / 决策失败反馈 / 图例浮层 ---------------------- */
 .war-root :focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.war-actionerr{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin:8px 16px 0;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-state-error-primary);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-state-error-label);font-size:12px}
+/* V8 决策失败 toast：绝对定位浮层（不推挤列区），岛下方右上。 */
+.war-actionerr{position:absolute;top:56px;right:20px;z-index:70;display:flex;align-items:center;gap:8px;max-width:480px;margin:0;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-state-error-primary);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-state-error-label);font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .war-legend-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 .war-legend-rows{display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;align-items:baseline}
 .war-legend-sym{font-size:12px;font-weight:700;color:var(--dsw-alias-state-business-primary);white-space:nowrap}

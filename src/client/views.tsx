@@ -471,8 +471,6 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
     createElement('div', { className: 'war-card-top' },
       statusMark(task),
       createElement('span', { className: `war-chip st-${task.status}` }, activeCopy().taskStatus[task.status]),
-      qualityChip(task.quality),
-      task.priority === 'high' ? createElement('span', { className: 'war-chip pri-high' }, activeCopy().taskCard.highPriority) : null,
       lineageCmd !== null
         ? createElement('span', {
             className: 'war-chip war-lineage',
@@ -490,8 +488,8 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
       task.attempts > 1 ? createElement('span', { className: 'war-chip', title: activeCopy().taskCard.attemptNTitle }, activeCopy().taskCard.attemptN(task.attempts)) : null,
       relTime(task.startedAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(task.startedAt)) : null,
     ),
-    depLock(task, statuses),
-    // V7-⑤「为什么还没动」：排队位次/等领取/配额恢复——一行小字回答 AFK 焦虑。
+    // V8 卡片保守瘦身：品质/高优先/依赖锁/cron/工作区/任务书/战利品挪进详情浮层；
+    // 卡上只留 标记+状态+溯源+标题 与解释行（等待/败因）——一眼可扫。
     waitKindOf(task, statuses) === 'queued'
       ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.queued(task.queueAhead ?? 0))
       : null,
@@ -501,16 +499,7 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
     waitKindOf(task, statuses) === 'quotaPaused'
       ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.quotaPaused)
       : null,
-    task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
-    wsChip(task.workspacePath),
-    task.brief !== '' ? createElement('div', { className: 'war-brief' }, task.brief) : null,
     task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: activeCopy().taskCard.failTitle }, activeCopy().taskCard.failReason(task.lastError)) : null,
-    task.deliverables.length > 0
-      ? createElement('div', { className: 'war-loot' },
-        createElement('span', { className: 'war-loot-item' }, activeCopy().taskCard.lootPrefix),
-        task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
-      )
-      : null,
     onHandle !== null
       ? createElement('div', { className: 'war-card-top' },
         createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, activeCopy().taskCard.handle),
@@ -595,7 +584,6 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   const key = `${attempt.sessionId}:${attempt.startedAt}`
   const outcomeKey = attempt.outcome ?? 'live'
   const meta = outcomeLabel(outcomeKey)
-  const loot = task.deliverables.length > 0 ? task.deliverables.map(d => d.summary).join('；') : null
   return createElement('div', {
     key,
     className: `war-card war-session-card clickable${relClass(trace)}`,
@@ -609,17 +597,15 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
-    qualityChip(task.quality),
     attempt.n > 1 ? createElement('span', { className: 'war-chip', title: activeCopy().session.attemptNTitle }, activeCopy().session.attemptN(attempt.n)) : null,
     createElement('span', { className: 'war-time' }, relTime(attempt.startedAt)),
   ),
   createElement('div', { className: 'war-title' }, task.title),
+  // V8 卡片保守瘦身：品质/工作区/战利品摘要挪进会话详情；卡上留状态+尝试+时间。
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
-    wsChip(task.workspacePath),
   ),
   outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError)) : null,
-  outcomeKey === 'succeeded' && loot !== null ? createElement('div', { className: 'war-loot-summary', title: loot }, activeCopy().session.lootSummary(loot, loot.slice(0, 80), loot.length > 80)) : null,
   outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, activeCopy().session.waitingReport) : null,
   )
 }
@@ -867,6 +853,86 @@ function FocusBar(text: string, onExit: () => void): ReactNode {
   )
 }
 
+/** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要、聚焦态与全部
+ * 操作件（下达/挂载/图例/皮肤）收进顶部一颗胶囊。hover 即展开（浮层盖在
+ * 列区上方，列纹丝不动），点击钉住常驻；聚焦模式 = 岛的常驻形态（Esc 退出
+ * 即收回）。操作钮冒泡阻断——点它们不改变钉住态。 */
+function WarIsland(props: {
+  active: boolean
+  counts: { pending: number; waiting: number; active: number; failed: number }
+  inbox: InboxItem[]
+  visit: VisitDelta
+  lastSeen: number
+  now: number
+  focusText: string | null
+  onExitFocus: () => void
+  onCompose: () => void
+  onAttach: () => void
+  onLegend: () => void
+  onToggleSkin: () => void
+  skinLabel: string
+  onInboxAct: (it: InboxItem) => void
+}): ReactNode {
+  const { active, counts, inbox, visit, lastSeen, now, focusText, onExitFocus, onCompose, onAttach, onLegend, onToggleSkin, skinLabel, onInboxAct } = props
+  const [hover, setHover] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const copy = activeCopy().island
+  const open = hover || pinned || focusText !== null
+  const act = (label: string, title: string, onClick: () => void, cls: string): ReactNode =>
+    createElement('button', {
+      className: `war-btn ${cls}`,
+      type: 'button',
+      title,
+      'aria-label': title,
+      onClick: e => { e.stopPropagation(); onClick() },
+    }, label)
+  return createElement('div', {
+    className: `war-island${open ? ' open' : ''}${pinned ? ' pinned' : ''}`,
+    onMouseEnter: () => { setHover(true) },
+    onMouseLeave: () => { setHover(false) },
+  },
+  createElement('div', {
+    className: 'war-island-pill',
+    role: 'button',
+    tabIndex: 0,
+    'aria-expanded': open,
+    'aria-label': `${activeCopy().head.title}——${copy.expandTitle}`,
+    title: pinned ? copy.unpin : copy.pin,
+    onClick: () => { setPinned(!pinned) },
+    onKeyDown: keyActivate(() => { setPinned(!pinned) }),
+  },
+    createElement('span', { className: `war-head-dot${active ? ' on' : ''}` }),
+    createElement('span', { className: 'war-island-title' }, activeCopy().head.title),
+    createElement('span', { className: 'war-island-counts' }, copy.counts(counts)),
+    inbox.length > 0
+      ? createElement('span', {
+          className: `war-island-badge${inbox.some(i => i.tone === 'err') ? ' hot' : ''}`,
+          title: activeCopy().inbox.title,
+        }, copy.inboxBadge(inbox.length))
+      : null,
+    visit.any
+      ? createElement('span', {
+          className: 'war-island-visitmini',
+          title: lastSeen > 0 ? activeCopy().visit.since(relTime(new Date(lastSeen).toISOString(), now)) : activeCopy().visit.firstSeen,
+        }, copy.visitMini(visit.closed, visit.failed, visit.commands))
+      : null,
+    createElement('span', { className: 'war-island-spacer' }),
+    pinned ? createElement('span', { className: 'war-island-pinned', title: copy.unpin }, '📌') : null,
+    act(copy.compose, activeCopy().colActions.newTitle, onCompose, 'primary war-island-compose'),
+    act(activeCopy().colActions.attachLabel, activeCopy().colActions.attachTitle, onAttach, 'war-attach-btn'),
+    act(activeCopy().legend.btn, activeCopy().legend.title, onLegend, 'war-legend-btn'),
+    act(skinLabel, '切换文案皮肤（只换措辞，不改机制）', onToggleSkin, 'war-skin-btn'),
+  ),
+  open
+    ? createElement('div', { className: 'war-island-panel' },
+      focusText !== null ? FocusBar(focusText, onExitFocus) : null,
+      VisitBanner(visit, lastSeen, now),
+      InboxStrip(inbox, onInboxAct),
+    )
+    : null,
+  )
+}
+
 /** V7-⑥ 空板首用引导：无命令无任务时的第一屏——一句话定位 + 三步示意 +
  * 直达起草器；有数据即隐退（三区板接管）。 */
 function OnboardPanel(onCompose: () => void): ReactNode {
@@ -941,6 +1007,19 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const timer = setTimeout(() => { setActionError(null) }, 6000)
       return () => { clearTimeout(timer) }
     }, [actionError])
+    // V8 悬停自动滚动：族系高亮确定后（300ms 防抖），把各列里被高亮但不在
+    // 视口内的卡片滚到眼前——nearest 只滚最小必要距离，已可见的不动；
+    // reduced-motion 用户用瞬移。悬停离开（null）不滚。
+    useEffect(() => {
+      if (hoverFamily === null) return
+      const timer = setTimeout(() => {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        document.querySelectorAll<HTMLElement>('.war-col-body .war-rel-same').forEach(el => {
+          el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' })
+        })
+      }, 300)
+      return () => { clearTimeout(timer) }
+    }, [hoverFamily])
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
     const tasks = data?.tasks ?? []
@@ -1005,6 +1084,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const inbox = collectInbox(commands, tasks, now)
     // V7-② 摘要：以挂载快照算增量（pending 用当前收件箱长度）。
     const visit = visitDelta(commands, tasks, inbox.length, lastSeenSnapshot, now)
+    // V8 大盘计数（灵动岛收起态仪表）：与 dock 徽章同源。
+    const counts = {
+      pending: commands.filter(c => c.status === 'received' || c.status === 'talking').length,
+      waiting: tasks.filter(t => t.status === 'published').length,
+      active: tasks.filter(t => t.status === 'in_progress').length,
+      failed: tasks.filter(t => t.status === 'failed').length,
+    }
     const inboxAct = (it: InboxItem): void => {
       if (it.kind === 'clarify') {
         const cmd = commands.find(c => c.commandId === it.refId)
@@ -1028,15 +1114,25 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
     ))
     return createElement('div', { className: 'war-root' },
-      createElement('div', { className: 'war-head' },
-        createElement('span', { className: `war-head-dot${data?.active === true ? ' on' : ''}` }),
-        createElement('span', { className: 'war-head-title' }, activeCopy().head.title),
-        createElement('span', { className: 'war-head-sub' }, data !== null && data.active ? activeCopy().head.subActive : activeCopy().head.subIdle),
-        // 图例是元 UI（解释符号文法本身），双皮肤各有词条——头栏常驻随开随查。
-        createElement('button', { className: 'war-btn war-legend-btn', type: 'button', title: activeCopy().legend.title, onClick: () => { setLegendOpen(true) } }, activeCopy().legend.btn),
-        // 皮肤切换是元 UI（控制文案层本身），不进皮肤词典——任何皮肤下都可用。
-        createElement('button', { className: 'war-btn war-skin-btn', type: 'button', title: '切换文案皮肤（只换措辞，不改机制）', onClick: () => setSkin(skinId() === 'war' ? 'plain' : 'war') }, skinId() === 'war' ? '平话皮肤' : '军事皮肤'),
-      ),
+      // V8 hero 灵动岛：替代标题栏——操作件与大盘状态全收进顶部胶囊（展开浮层
+      // 盖列区，不推挤；聚焦模式 = 岛的常驻形态）。
+      createElement(WarIsland, {
+        key: 'island',
+        active: data?.active === true,
+        counts,
+        inbox,
+        visit,
+        lastSeen: lastSeenSnapshot,
+        now,
+        focusText: focusCommandId !== null && focusCmd !== undefined ? focusCmd.text : null,
+        onExitFocus: () => { setFocusCommandId(null) },
+        onCompose: () => { setComposerOpen(true) },
+        onAttach: () => { setAttachOpen(true) },
+        onLegend: () => { setLegendOpen(true) },
+        onToggleSkin: () => { setSkin(skinId() === 'war' ? 'plain' : 'war') },
+        skinLabel: skinId() === 'war' ? '平话皮肤' : '军事皮肤',
+        onInboxAct: inboxAct,
+      }),
       actionError !== null ? createElement('div', { className: 'war-actionerr', role: 'alert' }, actionError) : null,
       data === null
         ? createElement('div', { className: 'war-body' },
@@ -1048,17 +1144,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
           createElement('div', { className: 'war-zone war-hq' },
             zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
-            VisitBanner(visit, lastSeenSnapshot, now),
-            InboxStrip(inbox, inboxAct),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
                 commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
                   actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
                 })),
-                createElement('span', { className: 'war-col-actions' },
-                  createElement('button', { className: 'war-btn war-attach-btn', title: activeCopy().colActions.attachTitle, onClick: () => setAttachOpen(true) }, activeCopy().colActions.attachLabel),
-                  createElement('button', { className: 'war-btn primary war-plus', title: activeCopy().colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
-                ),
               ),
               Zone('tasks', activeCopy().columns.tasks.title, tasks.length, activeCopy().columns.tasks.empty,
                 tasks.map(t => TaskCard(t, statuses, id => setDetailTaskId(id),
@@ -1090,9 +1180,6 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             ),
           ),
         ),
-      focusCommandId !== null && focusCmd !== undefined
-        ? FocusBar(focusCmd.text, () => { setFocusCommandId(null) })
-        : null,
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => setComposerOpen(false), refresh }) : null,
       attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => setDetailTaskId(null) }) : null,
