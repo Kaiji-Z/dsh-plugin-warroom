@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { appendDirectiveEvent, foldDirectives, loadDirectives, newDirectiveId, pendingDirectives, readDirectiveEvents } from '../src/directives.ts'
+import { appendDirectiveEvent, dueScheduledDirectives, foldDirectives, loadDirectives, newDirectiveId, pendingDirectives, readDirectiveEvents } from '../src/directives.ts'
 
 function tmpStateDir(): string {
   return mkdtempSync(join(tmpdir(), 'warroom-dir-'))
@@ -103,4 +103,53 @@ test('术语归一兼容：旧日志的 secretarySessionId 字段 fold 归一为
     { type: 'directive_received', ts: 't1', directiveId: 'c2', staffSessionId: 'staff-new' },
   ])
   assert.equal(modern[0]!.staffSessionId, 'staff-new')
+})
+
+// --- V9.2 定时下达（cron 一次性发令）----------------------------------------
+test('定时命令：created 带 cron → schedule 落账；未 dispatched 不进引信工作清单', () => {
+  const folded = foldDirectives([
+    { type: 'directive_created', ts: '2026-08-25T01:00:00Z', directiveId: 'sc1', text: '明早九点跑一遍回归', cron: '0 9 * * *' },
+    { type: 'directive_created', ts: '2026-08-25T01:00:00Z', directiveId: 'sc2', text: '普通命令' },
+  ])
+  assert.equal(folded[0]!.schedule?.cron, '0 9 * * *')
+  assert.equal(folded[0]!.schedule?.dispatchedAt, undefined)
+  assert.equal(folded[1]!.schedule, undefined)
+  const pending = pendingDirectives(folded)
+  assert.deepEqual(pending.map(d => d.id), ['sc2'], '定时未到点的命令引信不可见')
+})
+
+test('定时命令：dispatched 幂等且只认一次；发完回归 draft 工作清单', () => {
+  const folded = foldDirectives([
+    { type: 'directive_created', ts: '2026-08-25T01:00:00Z', directiveId: 'sc1', text: 'x', cron: '0 9 * * *' },
+    { type: 'directive_dispatched', ts: '2026-08-25T01:00:10Z', directiveId: 'sc1' },
+    { type: 'directive_dispatched', ts: '2026-08-25T01:00:20Z', directiveId: 'sc1' },
+    { type: 'directive_dispatched', ts: '2026-08-25T01:00:30Z', directiveId: 'ghost' },
+  ])
+  assert.equal(folded[0]!.schedule?.dispatchedAt, '2026-08-25T01:00:10Z', '重复 dispatched 以首条为准')
+  assert.equal(pendingDirectives(folded).length, 1, '发完的定时命令回到普通 draft 流程')
+})
+
+test('dueScheduledDirectives：anchor=创建时刻，nextRun≤now 即到点；发过/不可达永不 due', () => {
+  // schedule.ts 走本地墙钟——用本地 Date 构造，测试与跑机器时区无关。
+  const anchor = new Date(2026, 7, 25, 8, 0, 0).toISOString()
+  const now = new Date(2026, 7, 25, 9, 30, 0).getTime()
+  const mk = (id: string, cron: string, dispatched = false): Parameters<typeof foldDirectives>[0][number] => {
+    const ev: Array<Parameters<typeof foldDirectives>[0][number]> = [
+      { type: 'directive_created', ts: anchor, directiveId: id, text: 'x', cron },
+    ]
+    if (dispatched) ev.push({ type: 'directive_dispatched', ts: anchor, directiveId: id })
+    return foldDirectives(ev)[0]!
+  }
+  const due = (d: Parameters<typeof foldDirectives>[0][number]): string =>
+    dueScheduledDirectives([d], now).join(',')
+  // 本地 9:00 的 cron，anchor 本地 8:00 → next 9:00 ≤ 9:30 → 到点。
+  assert.equal(due(mk('a', '0 9 * * *')), 'a')
+  // 未到点：本地 10:00 才触发。
+  assert.equal(due(mk('b', '0 10 * * *')), '')
+  // 已发过：永不再 due（一次性）。
+  assert.equal(due(mk('c', '0 9 * * *', true)), '')
+  // 不可达时刻（2 月 30 日不存在）：nextRun 无解 → 永不 due，不抛错。
+  assert.equal(due(mk('d', '0 9 30 2 *')), '')
+  // 存储的非法 cron（绕过发布校验的脏数据）：静默跳过。
+  assert.equal(due(mk('e', 'not a cron')), '')
 })

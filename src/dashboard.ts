@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { appendDirectiveEvent, loadDirectives, newDirectiveId } from './directives.ts'
 import { listCampaignIds, loadCampaign } from './events.ts'
 import { appendThreadEvent, loadAttachedThreads } from './threads.ts'
-import { nextRunOf } from './schedule.ts'
+import { nextRunOf, parseCron } from './schedule.ts'
 import { queuePositionOf } from './rules.ts'
 import type { Roster } from './units.ts'
 import type { WarStore } from './state.ts'
@@ -210,22 +210,36 @@ export function dueBounties(stateDir: string, nowMs: number): DueBounty[] {
 
 /** The 命令区 projection served to the war map (pure — reusable by tests). */
 export function directiveProjection(stateDir: string): Record<string, unknown>[] {
-  return loadDirectives(stateDir).map(d => ({
-    commandId: d.id,
-    text: d.text,
-    createdAt: d.createdAt,
-    status: d.status,
-    staffSessionId: d.staffSessionId ?? null,
-    taskId: d.taskId ?? null,
-    cancelledReason: d.cancelledReason ?? null,
-    // V5 档位账本：档位/理由/置信度/元首改档次数（未分诊为 null）。
-    grade: d.grade ?? null,
-    gradeReason: d.gradeReason ?? null,
-    gradeConfidence: d.gradeConfidence ?? null,
-    regrades: d.regrades ?? 0,
-    // V5-R3 计划态：当前计划文本与判定状态（未呈报为 null）。
-    plan: d.plan === undefined ? null : { text: d.plan.text, status: d.plan.status, decidedAt: d.plan.decidedAt ?? null },
-  }))
+  return loadDirectives(stateDir).map(d => {
+    // V9.2 定时下达：未发（dispatchedAt 空）才报 nextRunAt——发完即常轨命令。
+    let nextRunAt: string | null = null
+    if (d.schedule !== undefined && d.schedule.dispatchedAt === undefined) {
+      try {
+        const next = nextRunOf(d.schedule.cron, Date.parse(d.createdAt))
+        if (next !== undefined) nextRunAt = new Date(next).toISOString()
+      } catch { /* invalid stored cron — projection stays null */ }
+    }
+    return {
+      commandId: d.id,
+      text: d.text,
+      createdAt: d.createdAt,
+      status: d.status,
+      staffSessionId: d.staffSessionId ?? null,
+      taskId: d.taskId ?? null,
+      cancelledReason: d.cancelledReason ?? null,
+      // V5 档位账本：档位/理由/置信度/元首改档次数（未分诊为 null）。
+      grade: d.grade ?? null,
+      gradeReason: d.gradeReason ?? null,
+      gradeConfidence: d.gradeConfidence ?? null,
+      regrades: d.regrades ?? 0,
+      // V5-R3 计划态：当前计划文本与判定状态（未呈报为 null）。
+      plan: d.plan === undefined ? null : { text: d.plan.text, status: d.plan.status, decidedAt: d.plan.decidedAt ?? null },
+      // V9.2 定时下达（未定时为 null）。
+      schedule: d.schedule === undefined
+        ? null
+        : { cron: d.schedule.cron, dispatchedAt: d.schedule.dispatchedAt ?? null, nextRunAt },
+    }
+  })
 }
 
 /**
@@ -260,8 +274,9 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands') {
         // The 命令区 + button: create a draft command card; the command fuse
-        // relays it into the staff conversation within 15s.
-        const body = JSON.parse(await readBody(r)) as { text?: unknown }
+        // relays it into the staff conversation within 15s. V9.2: optional
+        // cron = 定时下达（到点 tick 补 dispatched 后引信才取；一次性）。
+        const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown }
         const text = typeof body.text === 'string' ? body.text.trim() : ''
         if (text === '') {
           send(400, { ok: false, error: '命令内容为空：请用一句大白话写下元首的意图。' })
@@ -271,10 +286,28 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           send(400, { ok: false, error: '命令太长（>2000 字）：请拆成多道命令分别下达。' })
           return
         }
+        let cron: string | undefined
+        if (body.cron !== undefined && body.cron !== null && body.cron !== '') {
+          if (typeof body.cron !== 'string') {
+            send(400, { ok: false, error: 'cron 必须是字符串（5 段：分 时 日 月 周，如 "0 9 * * *"）。' })
+            return
+          }
+          try {
+            parseCron(body.cron)
+          } catch (err) {
+            send(400, { ok: false, error: err instanceof Error ? err.message : 'cron 表达式不合法。' })
+            return
+          }
+          cron = body.cron.trim()
+        }
         const commandId = newDirectiveId()
-        appendDirectiveEvent(deps.stateDir, { type: 'directive_created', ts: new Date().toISOString(), directiveId: commandId, text })
-        deps.onCommandCreated?.()
-        send(200, { ok: true, commandId })
+        appendDirectiveEvent(deps.stateDir, {
+          type: 'directive_created', ts: new Date().toISOString(), directiveId: commandId, text,
+          ...(cron !== undefined ? { cron } : {}),
+        })
+        // 定时命令不立即引信——到点 dispatched 后 15s 引信自会接手。
+        if (cron === undefined) deps.onCommandCreated?.()
+        send(200, { ok: true, commandId, ...(cron !== undefined ? { scheduled: true } : {}) })
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/threads') {

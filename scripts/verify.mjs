@@ -91,7 +91,7 @@ gate('bundle', () => {
     [client, 'plainCopy', 'plain-language skin bundled'],
     [client, 'subscribeSkin', 'skin store subscription'],
     [client, 'useSyncExternalStore', 'skin switch re-renders the board'],
-    [client, 'war-skin-btn', 'head skin toggle button'],
+    [client, 'war-skin-opt', 'settings-drawer skin option buttons (V9.2 moved from island)'],
     // V6 三区 + 命令全生命周期（impeccable 重设计轮）。
     [client, 'war-report', 'third zone (战报) container'],
     [client, 'war-life', 'command lifecycle strip on every command card'],
@@ -107,12 +107,12 @@ gate('bundle', () => {
     // V7-③ 族系追踪（悬停高亮 + 聚焦压暗 + 聚焦条）。
     [client, 'war-rel-same', 'family highlight class'],
     [client, 'war-rel-dim', 'non-family dim class'],
-    [client, 'war-focusbar', 'focus-mode top bar'],
+    [client, 'war-island-focus', 'focus chip in island pill (no auto-expand)'],
     // V7-④ 夜间预检 + 起草器档位/最近命令。
     [client, 'stalledOnUserPlan', 'night preflight predicate (pure)'],
     [client, 'applyGradeMarker', 'composer grade marker (pure)'],
     [client, 'war-preflight', 'preflight row on command cards'],
-    [client, 'war-grade-seg', 'composer autonomy toggles'],
+    [client, 'war-grade-card', 'composer autonomy option cards'],
     // V7-⑥ 空板首用引导。
     [client, 'war-onboard', 'empty-board onboarding panel'],
     // V7-⑤「为什么还没动」host 只读投影 + 客户端解释行。
@@ -124,7 +124,7 @@ gate('bundle', () => {
     [client, 'agingLeader', 'inbox err-tier leader marker (aging inflation fix)'],
     [client, 'failToast', 'decision-action failure toast copy (silent-failure fix)'],
     [client, 'war-actionerr', 'decision-action failure strip'],
-    [client, 'war-legend', 'board legend modal + styles'],
+    [client, 'war-legend-rows', 'legend rows (now inside settings drawer)'],
     [client, 'taskGone', 'dead view-task link degrades to disabled'],
     [client, 'focus-visible', 'keyboard focus outline'],
     [client, 'keyActivate', 'card keyboard activation (Enter/Space)'],
@@ -183,6 +183,17 @@ gate('bundle', () => {
     [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],
     [client, 'war-cd-sessions', 'command detail: related thread entries'],
+    // V9.2：岛只留 ⚙（设置抽屉收编图例/皮肤/行为开关）；聚焦不弹岛；调度坞左端
+    // 常驻 ＋ 下达；起草器选项卡化 + cron 定时（后端 directive cron 一次性发令）。
+    [client, 'war-island-gear', 'island settings gear button'],
+    [client, 'war-settings-drawer', 'settings drawer (skin/legend/toggles/conn)'],
+    [client, 'war-switch', 'settings toggle switches (persist localStorage)'],
+    [client, 'war-dispatch-add', 'dispatch-dock compose button (sticky lead)'],
+    [client, 'war-sched-card', 'composer schedule option cards'],
+    [client, 'war-cron-input', 'composer cron input + presets'],
+    [client, 'cronPresets', 'cron preset lexicon (both skins)'],
+    [host, 'directive_dispatched', 'scheduled command dispatch event'],
+    [host, 'dueScheduledDirectives', 'scheduled command due calculator'],
     [client, '进入会话复盘', 'session detail jump button'],
     [client, '去处理', 'reported/failed staff-jump button'],
     [client, 'warroom-open-request', 'dock pill home event'],
@@ -194,7 +205,7 @@ gate('bundle', () => {
     [host, 'thread_detached', 'thread detach event (append-only)'],
     [host, '/warroom/api/threads', 'thread attach HTTP route'],
     [client, '外部', 'external thread badge'],
-    [client, '挂载会话', 'attach modal'],
+    [client, '挂载会话', 'attach copy block (badge/detach still used; modal retired)'],
     [client, 'conversation.composer.dock', 'composer dock pill'],
     // v2.0 R6: five-zone board, command cards, session cards, modals.
     [client, 'war-board', 'five-zone board grid'],
@@ -288,6 +299,9 @@ gate('bundle', () => {
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),
     // v3 negative face: the HQ-create button is gone from the client bundle.
     { ok: !client.includes('开设参谋部'), label: 'client bundle no longer carries the HQ-create button copy' },
+    // V9.2 negative face: retired island buttons/modals must stay gone.
+    { ok: !client.includes('AttachThreadModal') && !client.includes('war-attach-input'), label: 'V9.2: attach modal stays retired (no re-entry)' },
+    { ok: !client.includes('LegendModal') && !client.includes('war-focusbar'), label: 'V9.2: legend modal + focus bar stay retired (drawer/island-chip own them)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

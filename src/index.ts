@@ -22,6 +22,7 @@ import { Config } from './config.ts'
 import { dueBounties, registerDashboard } from './dashboard.ts'
 import { registerPeaceCommand, registerWarCommand, type CommandsServiceFace } from './commands.ts'
 import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
+import { appendDirectiveEvent, dueScheduledDirectives, loadDirectives } from './directives.ts'
 import { readDossier } from './dossier.ts'
 import { commanderPersonaText, conscriptBriefing, staffPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
@@ -384,9 +385,11 @@ export function apply(ctx: Context, config: Config): void {
   const patrolFuse = setInterval(() => commander.patrolNow(), 90_000)
   patrolFuse.unref?.()
   ctx.effect(() => () => clearInterval(patrolFuse), 'warroom.patrolFuse()')
-  // Bounty fuse (日常悬赏): host-side 30s tick. It only appends trigger events
-  // (错过即跳过 — dueBounties anchors on the last trigger, never backfills);
-  // waking the commander stays the patrol fuse's job, one concern per fuse.
+  // Bounty fuse (日常悬赏) + V9.2 定时命令 fuse: host-side 30s tick. It only
+  // appends trigger events (错过即跳过 — dueBounties anchors on the last
+  // trigger, never backfills); waking the commander stays the patrol fuse's
+  // job, one concern per fuse. Scheduled directives append directive_dispatched
+  // (一次性) — the 15s command fuse then relays them as ordinary drafts.
   const bountyFuse = setInterval(() => {
     try {
       const due = dueBounties(stateDir, Date.now())
@@ -395,6 +398,9 @@ export function apply(ctx: Context, config: Config): void {
           type: 'task_schedule_triggered', ts: new Date().toISOString(), campaignId: b.taskId,
           skipped: !b.openRound, ...(b.openRound ? {} : { note: b.reason }),
         })
+      }
+      for (const id of dueScheduledDirectives(loadDirectives(stateDir), Date.now())) {
+        appendDirectiveEvent(stateDir, { type: 'directive_dispatched', ts: new Date().toISOString(), directiveId: id })
       }
     } catch {
       // A tick must never take the host down; the next tick retries nothing (错过即跳过).

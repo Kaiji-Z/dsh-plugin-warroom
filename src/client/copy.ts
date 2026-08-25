@@ -25,7 +25,28 @@ export interface WarCopy {
     report: { title: string; note: string }
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
-  dispatch: { tag: string; label: string }
+  dispatch: { tag: string; label: string; addTitle: string }
+  /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
+  settings: {
+    title: string
+    skinSection: string
+    skinWar: string
+    skinPlain: string
+    skinHint: string
+    legendSection: string
+    behaviorSection: string
+    hoverFamily: string
+    hoverFamilyHint: string
+    autoScroll: string
+    autoScrollHint: string
+    connSection: string
+    connOk: string
+    connDown: string
+    refresh: string
+    close: string
+  }
+  /** V9.2 定时命令卡角标（调度条里的 ⏰ 待发卡）。 */
+  scheduleChip: { chip: (time: string) => string; cardTitle: (time: string) => string }
   columns: {
     commands: { title: string; empty: string }
     tasks: { title: string; empty: string }
@@ -138,7 +159,30 @@ export interface WarCopy {
     /** 「查看任务」指向的任务已不在板上时的禁用说明（V7.1 死链降级）。 */
     taskGone: string
   }
-  composer: { title: string; sub: string; placeholder: string; cancel: string; busy: string; submit: string; gradeAuto: string; gradeL0: string; gradeL2: string; gradeTitle: string; recentLabel: string }
+  /** V9.2 重设计起草器：一句话能做什么（lead）+ 档位三卡 + 定时两卡（cron）。
+   *  档位词条由「标签」升级为「名 + 一句语义」——选项要明确，语义要清晰。 */
+  composer: {
+    title: string
+    lead: string
+    placeholder: string
+    cancel: string
+    busy: string
+    submit: string
+    submitScheduled: string
+    gradeSection: string
+    gradeAuto: { name: string; hint: string }
+    gradeL0: { name: string; hint: string }
+    gradeL2: { name: string; hint: string }
+    scheduleSection: string
+    schedNow: { name: string; hint: string }
+    schedCron: { name: string; hint: string }
+    cronLabel: string
+    cronPlaceholder: string
+    cronError: (err: string) => string
+    nextRun: (t: string) => string
+    cronPresets: ReadonlyArray<{ label: string; cron: string }>
+    recentLabel: string
+  }
   attach: {
     title: string
     sub: string
@@ -188,7 +232,6 @@ export interface WarCopy {
     counts: (c: { pending: number; waiting: number; active: number; failed: number }) => string
     inboxBadge: (n: number) => string
     visitMini: (closed: number, failed: number, commands: number) => string
-    compose: string
     pin: string
     unpin: string
     expandTitle: string
@@ -217,7 +260,29 @@ export const warCopy: WarCopy = {
     field: { title: '战场', note: '正在执行的会话 · 只读' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { tag: '命令调度', label: '命令调度条（滚轮横移）' },
+  dispatch: { tag: '命令调度', label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）' },
+  settings: {
+    title: '设置',
+    skinSection: '皮肤（措辞词典）',
+    skinWar: '军事',
+    skinPlain: '平话',
+    skinHint: '只换措辞，不改机制。更多皮肤在未来的迭代里来。',
+    legendSection: '图例（符号对照）',
+    behaviorSection: '看板行为',
+    hoverFamily: '悬停族系高亮',
+    hoverFamilyHint: '悬停任一张卡，同命令的卡高亮、其余压暗',
+    autoScroll: '悬停自动滚动',
+    autoScrollHint: '高亮的卡不在视野内时，自动滚到眼前',
+    connSection: '连接',
+    connOk: '实时通道在线',
+    connDown: '实时通道断开（降级轮询）',
+    refresh: '立即刷新',
+    close: '关闭',
+  },
+  scheduleChip: {
+    chip: time => `⏰ ${time}`,
+    cardTitle: time => `定时命令：${time} 到点自动下达（在此之前不会转达参谋）`,
+  },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
     tasks: { title: '任务', empty: '等参谋发布第一张悬赏' },
@@ -364,15 +429,28 @@ export const warCopy: WarCopy = {
   },
   composer: {
     title: '下达命令',
-    sub: '用一句大白话写下元首的意图——参谋会接收并向你澄清细节。',
-    placeholder: '例：帮我做个记账的小工具，每天记一句，能翻回去看以前记的',
+    lead: '一句话写下意图，参谋会分诊并安排执行。下面两个选择，定「放权多少」与「何时出发」。',
+    placeholder: '例：帮我把 projA 的依赖全部升到最新，测试全绿再收',
     cancel: '取消',
     busy: '下达中…',
-    submit: '下达命令',
-    gradeAuto: '自动分诊',
-    gradeL0: '!! 直接做',
-    gradeL2: '?? 先看方案',
-    gradeTitle: '自主度：默认交给参谋分诊；也可直接指定（拼入命令标记，机制不变）',
+    submit: '立即下达',
+    submitScheduled: '定时下达',
+    gradeSection: '自主度（放权多少）',
+    gradeAuto: { name: '参谋分诊', hint: '默认。参谋掂量轻重：小改直做，大改呈方案' },
+    gradeL0: { name: '!! 直接做', hint: '不等确认一路到底，适合有把握的小改动' },
+    gradeL2: { name: '?? 先看方案', hint: '先呈计划待批，点头后才动工，适合大动作' },
+    scheduleSection: '发布时机（何时出发）',
+    schedNow: { name: '立即', hint: '下达即转达参谋' },
+    schedCron: { name: '定时', hint: '按 cron 到点自动下达（一次有效）' },
+    cronLabel: '触发时刻（cron：分 时 日 月 周）',
+    cronPlaceholder: '例：0 9 * * * = 每天 9 点',
+    cronError: err => `时刻表不合法：${err}`,
+    nextRun: t => `下次触发：${t}（到点自动下达，仅一次）`,
+    cronPresets: [
+      { label: '每天 9 点', cron: '0 9 * * *' },
+      { label: '工作日 9 点', cron: '0 9 * * 1-5' },
+      { label: '每周一 9 点', cron: '0 9 * * 1' },
+    ],
     recentLabel: '最近命令（点击重发）',
   },
   attach: {
@@ -424,7 +502,6 @@ export const warCopy: WarCopy = {
     visitMini: (closed, failed, commands) =>
       [closed > 0 ? `▲收官 ${closed}` : '', failed > 0 ? `✕折戟 ${failed}` : '', commands > 0 ? `✚新令 ${commands}` : '']
         .filter(s => s !== '').join(' · '),
-    compose: '＋ 下达',
     pin: '钉住展开（再点收起）',
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',
@@ -456,7 +533,29 @@ export const plainCopy: WarCopy = {
     field: { title: '执行区', note: '正在运行的会话 · 只读' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
-  dispatch: { tag: '命令台', label: '命令调度条（滚轮横移）' },
+  dispatch: { tag: '命令台', label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）' },
+  settings: {
+    title: '设置',
+    skinSection: '皮肤（用词风格）',
+    skinWar: '军事',
+    skinPlain: '平话',
+    skinHint: '只换说法，不改功能。更多皮肤以后加。',
+    legendSection: '图例（符号对照）',
+    behaviorSection: '看板行为',
+    hoverFamily: '悬停看同源',
+    hoverFamilyHint: '悬停卡片时，同一命令的卡片亮、其他变暗',
+    autoScroll: '自动滚到眼前',
+    autoScrollHint: '高亮的卡片不在画面里时，自动滚动过去',
+    connSection: '连接',
+    connOk: '实时连接正常',
+    connDown: '实时连接断了（改为轮询）',
+    refresh: '立即刷新',
+    close: '关闭',
+  },
+  scheduleChip: {
+    chip: time => `⏰ ${time}`,
+    cardTitle: time => `定时命令：${time} 自动下达（到点前不转给参谋）`,
+  },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
     tasks: { title: '任务', empty: '等参谋发布第一个任务' },
@@ -601,16 +700,29 @@ export const plainCopy: WarCopy = {
     taskGone: '该任务已不在看板上（可能已被清理），无法打开',
   },
   composer: {
-    title: '下达命令',
-    sub: '用一句大白话写下你的意图——参谋会接收并向你澄清细节。',
-    placeholder: '例：帮我做个记账的小工具，每天记一句，能翻回去看以前记的',
+    title: '下命令',
+    lead: '一句话写下你要的结果，参谋会接手安排。下面选好放权多少、什么时候开始。',
+    placeholder: '例：帮我做个记账小工具，每天记一句，能翻回看',
     cancel: '取消',
     busy: '下达中…',
-    submit: '下达命令',
-    gradeAuto: '自动分诊',
-    gradeL0: '!! 直接执行',
-    gradeL2: '?? 先看方案',
-    gradeTitle: '自主度：默认交给参谋分诊；也可直接指定（拼入命令标记，机制不变）',
+    submit: '立即下达',
+    submitScheduled: '定时下达',
+    gradeSection: '自主度',
+    gradeAuto: { name: '让参谋定', hint: '默认。小改动直接做，大改动先给方案' },
+    gradeL0: { name: '!! 直接做', hint: '不等确认一路做完，适合有把握的小事' },
+    gradeL2: { name: '?? 先看方案', hint: '先给方案等你点头，适合大动作' },
+    scheduleSection: '开始时间',
+    schedNow: { name: '马上', hint: '下达就转给参谋' },
+    schedCron: { name: '定时', hint: '到点自动下达（一次有效）' },
+    cronLabel: '触发时间（cron：分 时 日 月 周）',
+    cronPlaceholder: '例：0 9 * * * = 每天 9 点',
+    cronError: err => `时间表不对：${err}`,
+    nextRun: t => `下次触发：${t}（到点自动下达，只一次）`,
+    cronPresets: [
+      { label: '每天 9 点', cron: '0 9 * * *' },
+      { label: '工作日 9 点', cron: '0 9 * * 1-5' },
+      { label: '每周一 9 点', cron: '0 9 * * 1' },
+    ],
     recentLabel: '最近命令（点击重发）',
   },
   attach: {
@@ -662,7 +774,6 @@ export const plainCopy: WarCopy = {
     visitMini: (closed, failed, commands) =>
       [closed > 0 ? `▲完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']
         .filter(s => s !== '').join(' · '),
-    compose: '＋ 下达',
     pin: '钉住展开（再点收起）',
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',

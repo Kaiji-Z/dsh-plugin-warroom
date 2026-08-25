@@ -11,13 +11,14 @@
  * @module dsh-plugin-warroom/client/views
  */
 
-import { createElement, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
+import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
+import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
@@ -226,6 +227,15 @@ function gradeChip(cmd: BoardCommand): ReactNode {
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
+/** V9.2 定时命令角标的时间格式（本地时区 MM-DD HH:mm；无效/缺失给 —）。 */
+function fmtSchedule(iso: string | null): string {
+  if (iso === null) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
@@ -251,6 +261,12 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     createElement('span', { className: `war-dot ${meta.dot}` }),
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
     gradeChip(cmd),
+    cmd.schedule !== null && cmd.schedule.dispatchedAt === null
+      ? createElement('span', {
+          className: 'war-chip sched',
+          title: activeCopy().scheduleChip.cardTitle(fmtSchedule(cmd.schedule.nextRunAt)),
+        }, activeCopy().scheduleChip.chip(fmtSchedule(cmd.schedule.nextRunAt)))
+      : null,
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
     createElement('button', {
       className: 'war-btn war-focus-btn',
@@ -275,15 +291,16 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   )
 }
 
-/** The + button's composer modal: one natural-language command per card.
- * A real component (createElement-mounted): its hooks must live in its own
- * instance, never in WarView's render pass (the #310 lesson).
- * V7-④：自主度三档开关（拼 !!直接做/??先看方案 标记入文本，机制不变）+
- * 最近命令一键重发。 */
+/** 调度条 ✚ 的起草器（V9.2 重设计）：先一句话讲清「你能做什么」，再给两组
+ * 选项卡——自主度（放权多少）与发布时机（立即 / cron 定时，到点 tick 自动
+ * 下达、一次有效）。档位标记仍拼入命令文本（机制不变）；Ctrl+Enter 提交。
+ * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
 function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void }): ReactNode {
   const { recent, onClose, refresh } = props
   const [text, setText] = useState('')
   const [grade, setGrade] = useState<ComposerGrade>('auto')
+  const [sched, setSched] = useState<'now' | 'cron'>('now')
+  const [cronExpr, setCronExpr] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -291,12 +308,31 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+  const cronErr: string | null = useMemo(() => {
+    if (sched !== 'cron' || cronExpr.trim() === '') return null
+    try {
+      parseCron(cronExpr)
+      return null
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err)
+    }
+  }, [sched, cronExpr])
+  const nextPreview: string | null = useMemo(() => {
+    if (sched !== 'cron' || cronErr !== null || cronExpr.trim() === '') return null
+    try {
+      const next = nextRunOf(cronExpr.trim(), Date.now())
+      return next === undefined ? null : fmtSchedule(new Date(next).toISOString())
+    } catch {
+      return null
+    }
+  }, [sched, cronErr, cronExpr])
   const submit = (): void => {
-    if (busy || text.trim() === '') return
+    if (busy || text.trim() === '' || cronErr !== null) return
+    if (sched === 'cron' && cronExpr.trim() === '') return
     setBusy(true)
     setError(null)
     void (async () => {
-      const result = await createCommand(applyGradeMarker(text, grade))
+      const result = await createCommand(applyGradeMarker(text, grade), sched === 'cron' ? cronExpr.trim() : undefined)
       setBusy(false)
       if (result.ok) {
         refresh()
@@ -307,30 +343,64 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     })()
   }
   const copy = activeCopy().composer
-  const seg = (key: ComposerGrade, label: string): ReactNode =>
+  const optionCard = (key: string, on: boolean, entry: { name: string; hint: string }, cls: string, onPick: () => void): ReactNode =>
     createElement('button', {
-      key,
-      type: 'button',
-      className: `war-grade-seg${grade === key ? ' on' : ''}`,
-      onClick: () => { setGrade(key) },
-    }, label)
+      key, type: 'button',
+      className: `${cls}${on ? ' on' : ''}`,
+      'aria-pressed': on,
+      onClick: onPick,
+    },
+      createElement('span', { className: 'war-grade-card-name' }, entry.name),
+      createElement('span', { className: 'war-grade-card-hint' }, entry.hint),
+    )
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal war-composer-modal', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, copy.title),
-      createElement('div', { className: 'war-modal-sub' }, copy.sub),
-      createElement('div', { className: 'war-grade-row', title: copy.gradeTitle },
-        seg('auto', copy.gradeAuto),
-        seg('L0', copy.gradeL0),
-        seg('L2', copy.gradeL2),
-      ),
+      createElement('div', { className: 'war-modal-sub' }, copy.lead),
       createElement('textarea', {
         className: 'war-composer',
         value: text,
         placeholder: copy.placeholder,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
-        onKeyDown: e => { if (e.key === 'Escape') onClose() },
+        onKeyDown: e => {
+          if (e.key === 'Escape') onClose()
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit()
+        },
       }),
+      createElement('div', { className: 'war-cp-section' }, copy.gradeSection),
+      createElement('div', { className: 'war-grade-cards' },
+        optionCard('auto', grade === 'auto', copy.gradeAuto, 'war-grade-card', () => { setGrade('auto') }),
+        optionCard('L0', grade === 'L0', copy.gradeL0, 'war-grade-card', () => { setGrade('L0') }),
+        optionCard('L2', grade === 'L2', copy.gradeL2, 'war-grade-card', () => { setGrade('L2') }),
+      ),
+      createElement('div', { className: 'war-cp-section' }, copy.scheduleSection),
+      createElement('div', { className: 'war-grade-cards war-sched-cards' },
+        optionCard('now', sched === 'now', copy.schedNow, 'war-sched-card', () => { setSched('now') }),
+        optionCard('cron', sched === 'cron', copy.schedCron, 'war-sched-card', () => { setSched('cron') }),
+      ),
+      sched === 'cron'
+        ? createElement('div', { className: 'war-cron-block' },
+          createElement('div', { className: 'war-cron-presets' },
+            copy.cronPresets.map(pr => createElement('button', {
+              key: pr.cron, type: 'button',
+              className: `war-cron-preset${cronExpr.trim() === pr.cron ? ' on' : ''}`,
+              title: pr.cron,
+              onClick: () => { setCronExpr(pr.cron) },
+            }, pr.label)),
+          ),
+          createElement('input', {
+            className: 'war-cron-input',
+            type: 'text',
+            value: cronExpr,
+            placeholder: copy.cronPlaceholder,
+            'aria-label': copy.cronLabel,
+            onChange: e => { setCronExpr((e.target as HTMLInputElement).value) },
+          }),
+          cronErr !== null ? createElement('div', { className: 'war-err' }, copy.cronError(cronErr)) : null,
+          nextPreview !== null ? createElement('div', { className: 'war-cron-next' }, copy.nextRun(nextPreview)) : null,
+        )
+        : null,
       recent.length > 0
         ? createElement('div', { className: 'war-recent-row' },
           createElement('span', { className: 'war-recent-label' }, copy.recentLabel),
@@ -346,7 +416,11 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
         createElement('button', { className: 'war-btn', onClick: onClose }, copy.cancel),
-        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? copy.busy : copy.submit),
+        createElement('button', {
+          className: 'war-btn primary',
+          disabled: busy || text.trim() === '' || cronErr !== null || (sched === 'cron' && cronExpr.trim() === ''),
+          onClick: submit,
+        }, busy ? copy.busy : sched === 'cron' ? copy.submitScheduled : copy.submit),
       ),
     ),
   )
@@ -721,62 +795,6 @@ function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, o
   )
 }
 
-/** The attach modal: paste a sessionId + one-line note. A real component
- * (createElement-mounted) — its hooks live in its own instance (#310). */
-function AttachThreadModal(props: { onClose: () => void; refresh: () => void }): ReactNode {
-  const { onClose, refresh } = props
-  const [sessionId, setSessionId] = useState('')
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-  const submit = (): void => {
-    if (busy || sessionId.trim() === '') return
-    setBusy(true)
-    setError(null)
-    void (async () => {
-      const result = await attachThread(sessionId.trim(), note.trim())
-      setBusy(false)
-      if (result.ok) {
-        refresh()
-        onClose()
-      } else {
-        setError(result.error ?? activeCopy().attach.failFallback)
-      }
-    })()
-  }
-  return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, activeCopy().attach.title),
-      createElement('div', { className: 'war-modal-sub' }, activeCopy().attach.sub),
-      createElement('input', {
-        className: 'war-attach-input',
-        value: sessionId,
-        placeholder: activeCopy().attach.sessionIdPlaceholder,
-        autoFocus: true,
-        onChange: e => { setSessionId((e.target as HTMLInputElement).value) },
-        onKeyDown: e => { if (e.key === 'Escape') onClose() },
-      }),
-      createElement('input', {
-        className: 'war-attach-input',
-        value: note,
-        placeholder: activeCopy().attach.notePlaceholder,
-        onChange: e => { setNote((e.target as HTMLInputElement).value) },
-        onKeyDown: e => { if (e.key === 'Enter') submit() },
-      }),
-      error !== null ? createElement('div', { className: 'war-err' }, error) : null,
-      createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().attach.cancel),
-        createElement('button', { className: 'war-btn primary', disabled: busy || sessionId.trim() === '', onClick: submit }, busy ? activeCopy().attach.busy : activeCopy().attach.submit),
-      ),
-    ),
-  )
-}
-
 // --- 区块与主视图 --------------------------------------------------------------
 
 /** A board column. `key` is the stable style/state hook — 皮肤改标题不破坏类名。 */
@@ -855,20 +873,11 @@ function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNod
   )
 }
 
-/** V7-③ 聚焦条：常驻族系追踪的顶栏（命令文本 + 退出钮；Esc 同效）。 */
-function FocusBar(text: string, onExit: () => void): ReactNode {
-  const copy = activeCopy().trace
-  return createElement('div', { className: 'war-focusbar' },
-    createElement('span', { className: 'war-focusbar-tag' }, '◎'),
-    createElement('span', { className: 'war-focusbar-text', title: text }, `${copy.focusing}${text}`),
-    createElement('button', { className: 'war-btn', onClick: onExit }, copy.exitFocus),
-  )
-}
-
-/** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要、聚焦态与全部
- * 操作件（下达/挂载/图例/皮肤）收进顶部一颗胶囊。hover 即展开（浮层盖在
- * 列区上方，列纹丝不动），点击钉住常驻；聚焦模式 = 岛的常驻形态（Esc 退出
- * 即收回）。操作钮冒泡阻断——点它们不改变钉住态。 */
+/** V9.2 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要收进顶部一颗
+ * 胶囊；hover 展开（浮层盖列区，列纹丝不动）、点击钉住常驻。操作件只剩 ⚙
+ * 设置（下达 ✚ 在调度条左端常驻，挂载入口退役）；聚焦不再撑开岛——只在
+ * 胶囊中间显示「聚焦中」chip（点击即退出），看板本体始终可见（审查 P1-3
+ * 修复：hover 面板不得在到访第一屏挡住列区/吸附点击）。操作钮冒泡阻断。 */
 function WarIsland(props: {
   active: boolean
   counts: { pending: number; waiting: number; active: number; failed: number }
@@ -878,26 +887,15 @@ function WarIsland(props: {
   now: number
   focusText: string | null
   onExitFocus: () => void
-  onCompose: () => void
-  onAttach: () => void
-  onLegend: () => void
-  onToggleSkin: () => void
-  skinLabel: string
+  onSettings: () => void
   onInboxAct: (it: InboxItem) => void
 }): ReactNode {
-  const { active, counts, inbox, visit, lastSeen, now, focusText, onExitFocus, onCompose, onAttach, onLegend, onToggleSkin, skinLabel, onInboxAct } = props
+  const { active, counts, inbox, visit, lastSeen, now, focusText, onExitFocus, onSettings, onInboxAct } = props
   const [hover, setHover] = useState(false)
   const [pinned, setPinned] = useState(false)
   const copy = activeCopy().island
-  const open = hover || pinned || focusText !== null
-  const act = (label: string, title: string, onClick: () => void, cls: string): ReactNode =>
-    createElement('button', {
-      className: `war-btn ${cls}`,
-      type: 'button',
-      title,
-      'aria-label': title,
-      onClick: e => { e.stopPropagation(); onClick() },
-    }, label)
+  // V9.2：聚焦不再是展开条件——聚焦时看板必须可见（只是变暗非族系）。
+  const open = hover || pinned
   return createElement('div', {
     className: `war-island${open ? ' open' : ''}${pinned ? ' pinned' : ''}`,
     onMouseEnter: () => { setHover(true) },
@@ -928,16 +926,27 @@ function WarIsland(props: {
           title: lastSeen > 0 ? activeCopy().visit.since(relTime(new Date(lastSeen).toISOString(), now)) : activeCopy().visit.firstSeen,
         }, copy.visitMini(visit.closed, visit.failed, visit.commands))
       : null,
+    focusText !== null
+      ? createElement('button', {
+          className: 'war-island-focus',
+          type: 'button',
+          title: `${activeCopy().trace.focusing}${focusText}——${activeCopy().trace.exitFocus}`,
+          onClick: e => { e.stopPropagation(); onExitFocus() },
+        }, `◎ ${focusText.slice(0, 18)}${focusText.length > 18 ? '…' : ''}`)
+      : null,
     createElement('span', { className: 'war-island-spacer' }),
     pinned ? createElement('span', { className: 'war-island-pinned', title: copy.unpin }, '📌') : null,
-    act(copy.compose, activeCopy().colActions.newTitle, onCompose, 'primary war-island-compose'),
-    act(activeCopy().colActions.attachLabel, activeCopy().colActions.attachTitle, onAttach, 'war-attach-btn'),
-    act(activeCopy().legend.btn, activeCopy().legend.title, onLegend, 'war-legend-btn'),
-    act(skinLabel, '切换文案皮肤（只换措辞，不改机制）', onToggleSkin, 'war-skin-btn'),
+    createElement('button', {
+      className: 'war-btn war-island-gear',
+      type: 'button',
+      title: activeCopy().settings.title,
+      'aria-label': activeCopy().settings.title,
+      'aria-haspopup': 'dialog',
+      onClick: e => { e.stopPropagation(); onSettings() },
+    }, '⚙'),
   ),
   open
     ? createElement('div', { className: 'war-island-panel' },
-      focusText !== null ? FocusBar(focusText, onExitFocus) : null,
       VisitBanner(visit, lastSeen, now),
       InboxStrip(inbox, onInboxAct),
     )
@@ -959,11 +968,11 @@ function OnboardPanel(onCompose: () => void): ReactNode {
   )
 }
 
-/** V9.1 底部命令调度条：滚轮横移（垂直滚轮换成横向滚动——命令卡横排的
- * 自然手势）+ 带钉驻铭牌（sticky 左缘，横滚时它是「坞」不跟着走）。
- * 独立组件承载 wheel 监听（passive:false 才能 preventDefault，React 合成
- * 事件的 wheel 是 passive 的，必须原生 addEventListener）。 */
-function DispatchStrip(props: { children: ReactNode[] }): ReactNode {
+/** V9.2 底部命令调度条：滚轮横移（垂直滚轮换横向滚动）+ 左端钉驻簇
+ * [＋下达][铭牌]（sticky 左缘，横滚时不动——下达入口常驻坞头）。独立组件
+ * 承载 wheel 监听（passive:false 才能 preventDefault，React 合成 wheel 是
+ * passive 的，必须原生 addEventListener）。 */
+function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = ref.current
@@ -981,34 +990,85 @@ function DispatchStrip(props: { children: ReactNode[] }): ReactNode {
     return () => { el.removeEventListener('wheel', onWheel) }
   }, [])
   return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label, ref },
-    createElement('div', { className: 'war-dispatch-tag' }, activeCopy().dispatch.tag),
+    createElement('div', { className: 'war-dispatch-lead' },
+      createElement('button', {
+        className: 'war-dispatch-add',
+        type: 'button',
+        title: activeCopy().dispatch.addTitle,
+        'aria-label': activeCopy().dispatch.addTitle,
+        onClick: props.onCompose,
+      }, '＋'),
+      createElement('div', { className: 'war-dispatch-tag' }, activeCopy().dispatch.tag),
+    ),
     ...props.children,
   )
 }
 
-/** V7.1 板面图例：符号文法随开随查（头栏 ⓘ 常驻，Esc/关闭退出）——不再靠
- *  title 悬停与反复接触自学。双皮肤各说各话（legend 块）。 */
-function LegendModal(props: { onClose: () => void }): ReactNode {
-  const { onClose } = props
-  const copy = activeCopy().legend
+/** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。右侧滑入，
+ * 不遮岛不推列；开关落 localStorage——纯展示层偏好，不碰账本（读投影红线）。 */
+function SettingsDrawer(props: {
+  onClose: () => void
+  hoverFamily: boolean
+  onToggleHoverFamily: (v: boolean) => void
+  autoScroll: boolean
+  onToggleAutoScroll: (v: boolean) => void
+  connected: boolean
+  onRefresh: () => void
+}): ReactNode {
+  const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh } = props
+  const copy = activeCopy().settings
+  const [skin, setSkinState] = useState(skinId())
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
-  return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, copy.title),
-      createElement('div', { className: 'war-detail-body' },
+  const skinBtn = (id: 'war' | 'plain', label: string): ReactNode =>
+    createElement('button', {
+      key: id, type: 'button',
+      className: `war-skin-opt${skin === id ? ' on' : ''}`,
+      'aria-pressed': skin === id,
+      onClick: () => { setSkin(id); setSkinState(id) },
+    }, label)
+  const toggle = (label: string, hint: string, value: boolean, onChange: (v: boolean) => void): ReactNode =>
+    createElement('div', { className: 'war-set-toggle' },
+      createElement('div', { className: 'war-set-toggle-text' },
+        createElement('span', { className: 'war-set-toggle-label' }, label),
+        createElement('span', { className: 'war-set-toggle-hint' }, hint)),
+      createElement('button', {
+        type: 'button',
+        className: `war-switch${value ? ' on' : ''}`,
+        role: 'switch',
+        'aria-checked': value,
+        'aria-label': label,
+        onClick: () => { onChange(!value) },
+      }, createElement('span', { className: 'war-switch-knob' })),
+    )
+  return createElement('div', { className: 'war-settings-backdrop', onClick: onClose },
+    createElement('div', { className: 'war-settings-drawer', role: 'dialog', 'aria-modal': 'true', 'aria-label': copy.title, onClick: e => e.stopPropagation() },
+      createElement('div', { className: 'war-settings-head' },
+        createElement('span', { className: 'war-settings-title' }, copy.title),
+        createElement('button', { className: 'war-btn', onClick: onClose }, copy.close)),
+      createElement('div', { className: 'war-settings-body' },
+        createElement('div', { className: 'war-settings-section' }, copy.skinSection),
+        createElement('div', { className: 'war-skin-row' },
+          skinBtn('war', copy.skinWar),
+          skinBtn('plain', copy.skinPlain)),
+        createElement('div', { className: 'war-settings-note' }, copy.skinHint),
+        createElement('div', { className: 'war-settings-section' }, copy.legendSection),
         createElement('div', { className: 'war-legend-rows' },
-          copy.rows.flatMap(([sym, text]) => [
+          activeCopy().legend.rows.flatMap(([sym, text]) => [
             createElement('span', { key: `${sym}-sym`, className: 'war-legend-sym' }, sym),
             createElement('span', { key: `${sym}-text`, className: 'war-legend-text' }, text),
-          ]),
-        ),
-      ),
-      createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().detail.close),
+          ])),
+        createElement('div', { className: 'war-settings-section' }, copy.behaviorSection),
+        toggle(copy.hoverFamily, copy.hoverFamilyHint, hoverFamily, onToggleHoverFamily),
+        toggle(copy.autoScroll, copy.autoScrollHint, autoScroll, onToggleAutoScroll),
+        createElement('div', { className: 'war-settings-section' }, copy.connSection),
+        createElement('div', { className: 'war-set-conn' },
+          createElement('span', { className: `war-set-conn-dot${connected ? '' : ' down'}` }),
+          createElement('span', { className: 'war-set-conn-text' }, connected ? copy.connOk : copy.connDown),
+          createElement('button', { className: 'war-btn', onClick: onRefresh }, copy.refresh)),
       ),
     ),
   )
@@ -1020,7 +1080,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const { data, error, refresh } = useWar()
     // All hooks before any conditional rendering (React #310 discipline).
     const [composerOpen, setComposerOpen] = useState(false)
-    const [attachOpen, setAttachOpen] = useState(false)
+    const [settingsOpen, setSettingsOpen] = useState(false)
     const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     const [detailAttempt, setDetailAttempt] = useState<{ taskId: string; attemptId: string } | null>(null)
@@ -1033,14 +1093,28 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V7-③ 族系追踪：悬停即时预览（hover 优先），聚焦常驻（Esc/退出钮解除）。
     const [hoverFamily, setHoverFamily] = useState<string | null>(null)
     const [focusCommandId, setFocusCommandId] = useState<string | null>(null)
-    // V7.1 审查整改：板面图例 + 决策写操作失败的就地反馈（6 秒自清）。
-    const [legendOpen, setLegendOpen] = useState(false)
+    // V7.1 审查整改：决策写操作失败的就地反馈（6 秒自清）。
     const [actionError, setActionError] = useState<string | null>(null)
+    // V9.2 设置抽屉的看板行为开关（纯展示层偏好，localStorage 持久化）。
+    const [hoverFamilyOn, setHoverFamilyOn] = useState(() => localStorage.getItem('warroom-cfg-hover-family') !== '0')
+    const [autoScrollOn, setAutoScrollOn] = useState(() => localStorage.getItem('warroom-cfg-auto-scroll') !== '0')
     useEffect(() => {
       if (focusCommandId === null) return
       const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setFocusCommandId(null) }
       document.addEventListener('keydown', onKey)
       return () => document.removeEventListener('keydown', onKey)
+    }, [focusCommandId])
+    // V9.2 聚焦点空白即退（元首指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
+    useEffect(() => {
+      if (focusCommandId === null) return
+      const onClick = (e: MouseEvent): void => {
+        const el = e.target instanceof Element ? e.target : null
+        if (el === null) return
+        if (el.closest('.war-card, .war-island, .war-modal-backdrop, .war-dispatch, .war-onboard, button, a, input, textarea, [role=\"switch\"]') !== null) return
+        setFocusCommandId(null)
+      }
+      document.addEventListener('click', onClick)
+      return () => { document.removeEventListener('click', onClick) }
     }, [focusCommandId])
     useEffect(() => {
       if (actionError === null) return
@@ -1052,7 +1126,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // nearest 只滚最小必要距离，已可见的不动；reduced-motion 用户用瞬移。
     // 悬停离开（null）不滚——不抢用户的滚动权。
     useEffect(() => {
-      if (hoverFamily === null) return
+      if (hoverFamily === null || !autoScrollOn) return
       const timer = setTimeout(() => {
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
         document.querySelectorAll<HTMLElement>('.war-col-body .war-rel-same, .war-dispatch .war-rel-same').forEach(el => {
@@ -1060,7 +1134,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         })
       }, 300)
       return () => { clearTimeout(timer) }
-    }, [hoverFamily])
+    }, [hoverFamily, autoScrollOn])
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
     const tasks = data?.tasks ?? []
@@ -1119,7 +1193,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
-    const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: traceActive, onHover: setHoverFamily, onFocus: setFocusCommandId })
+    const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
     const focusCmd = focusCommandId !== null ? commands.find(c => c.commandId === focusCommandId) : undefined
     // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
     const inbox = collectInbox(commands, tasks, now)
@@ -1173,11 +1247,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         now,
         focusText: focusCommandId !== null && focusCmd !== undefined ? focusCmd.text : null,
         onExitFocus: () => { setFocusCommandId(null) },
-        onCompose: () => { setComposerOpen(true) },
-        onAttach: () => { setAttachOpen(true) },
-        onLegend: () => { setLegendOpen(true) },
-        onToggleSkin: () => { setSkin(skinId() === 'war' ? 'plain' : 'war') },
-        skinLabel: skinId() === 'war' ? '平话皮肤' : '军事皮肤',
+        onSettings: () => { setSettingsOpen(true) },
         onInboxAct: inboxAct,
       }),
       actionError !== null ? createElement('div', { className: 'war-actionerr', role: 'alert' }, actionError) : null,
@@ -1215,14 +1285,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           ),
           // V9 底部命令调度条：所有命令卡横向一排（活跃优先 + 新→旧），每张带
           // 四段生命条显示所处阶段——命令是唯一可点入口，点开=全生命周期详情。
-          createElement(DispatchStrip, { key: 'dispatch' },
+          createElement(DispatchStrip, { key: 'dispatch', onCompose: () => { setComposerOpen(true) } },
             ...dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
               actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
             })),
           ),
         ),
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => { setComposerOpen(false) }, refresh }) : null,
-      attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => { setAttachOpen(false) }, refresh }) : null,
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => { setDetailTaskId(null) } }) : null,
       detailCommand !== undefined ? createElement(CommandDetail, {
         key: `cmd-${detailCommand.commandId}`,
@@ -1237,7 +1306,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         onDecidePlan: decision => { actNote(decidePlan(detailCommand.commandId, decision), decision === 'approve' ? activeCopy().commandDetail.approvePlan : activeCopy().commandDetail.rejectPlan) },
         onFocus: commandId => { setFocusCommandId(commandId) },
       }) : null,
-      legendOpen ? createElement(LegendModal, { key: 'legend', onClose: () => setLegendOpen(false) }) : null,
+      settingsOpen ? createElement(SettingsDrawer, {
+        key: 'settings',
+        onClose: () => { setSettingsOpen(false) },
+        hoverFamily: hoverFamilyOn,
+        onToggleHoverFamily: v => { setHoverFamilyOn(v); localStorage.setItem('warroom-cfg-hover-family', v ? '1' : '0') },
+        autoScroll: autoScrollOn,
+        onToggleAutoScroll: v => { setAutoScrollOn(v); localStorage.setItem('warroom-cfg-auto-scroll', v ? '1' : '0') },
+        connected: error === null,
+        onRefresh: refresh,
+      }) : null,
       detailTaskForAttempt !== undefined && detailAttemptEntry !== undefined
         ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), lineageCmd: lineageOf(detailTaskForAttempt.taskId), onOpenCommand: openCommand, onClose: () => setDetailAttempt(null) })
         : null,

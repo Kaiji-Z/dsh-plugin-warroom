@@ -58,6 +58,8 @@ export interface BoardCommand {
   regrades: number
   /** V5-R3 计划态（未呈报为 null）。 */
   plan: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt: string | null } | null
+  /** V9.2 定时下达（未定时为 null；dispatchedAt 空 = 待发，nextRunAt 为下次触发）。 */
+  schedule: { cron: string; dispatchedAt: string | null; nextRunAt: string | null } | null
 }
 
 export interface BoardTask {
@@ -110,14 +112,14 @@ export interface BoardData {
 }
 
 /** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交参谋）。 */
-export async function createCommand(text: string): Promise<{ ok: boolean; commandId?: string; error?: string }> {
+export async function createCommand(text: string, cron?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; error?: string }> {
   try {
     const res = await fetch('/warroom/api/commands', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(cron === undefined ? { text } : { text, cron }),
     })
-    const body = await res.json() as { ok: boolean; commandId?: string; error?: string }
+    const body = await res.json() as { ok: boolean; commandId?: string; scheduled?: boolean; error?: string }
     return body
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

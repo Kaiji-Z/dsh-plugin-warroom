@@ -99,3 +99,16 @@
 - **V9.1 调度条手感（2026-08-25，元首点单）**：①滚轮横移——垂直滚轮在调度条上换算成 scrollLeft（原生 `addEventListener('wheel', {passive:false})`；React 合成 wheel 是 passive 的 preventDefault 无效），触控板横向手势（deltaX 占优）仍交原生，两端到头放行不困死整页滚动；②与三列拉开物种差——坞带 = `color-mix(主色 6%, 底色)` 淡染凹槽 + 内阴影（**坑：本主题 bg-layer-2 与 bg-base 同为纯白，靠别名分层分不出异色**，shoot 异色断言实测抓到），命令卡加浮起投影，左缘竖排铭牌（`writing-mode:vertical-rl` + `position:sticky;left:0` 钉驻，横滚时铭牌不动卡从底下过）。断言四条进 shoot：滚轮后 scrollLeft>0 / 铭牌在场 / 坞带底色 ≠ 战区底色 / 调度条宽 ≈ 局势墙宽。
 - **坑：运行中的服务器会用内存旧态覆盖磁盘种子**——起服后往 `.smoke-state` 播种，几分钟后 directives.jsonl 被引擎落盘清空、板变空（元首报「作战室空了」）。播种演示板必须**停服 → 播种 → 起服**；可重复脚本 `scripts/seed-playground.py`（协议录 AGENTS.md 迭代注意节）。
 
+## V9.2 岛改版 + 定时下达（2026-08-25，元首点单 + impeccable critique 全项修复）
+
+> 元首指令四条：①聚焦不弹岛（pill 中间显示聚焦中，点空白退出）；②岛剥离下达/挂载按钮只留 ⚙ 设置（抽屉：图例/皮肤/其他设置）；③调度条左端常驻 ＝ 下达；④起草器重设计（语义清晰/选项明确/排版清楚 + cron 定时发布）。叠 critique（23/40）三大 P1 全修。
+
+- **聚焦改版**：`open = hover || pinned`（聚焦不再是展开条件——审查 P1-3「到访第一屏被面板遮挡+点击吸附」定案）；pill 中间 `war-island-focus` chip（点击退出）；点空白退出（document click，target 不在卡片/岛/弹窗/调度坞/控件内才退）。面板内容只剩到访摘要+收件箱，FocusBar 退役。
+- **岛操作件精简**：pill 只留 ⚙（`war-island-gear`，aria-haspopup=dialog）；下达/挂载/图例/皮肤按钮全撤。**挂载入口退役**（AttachThreadModal 删除，attach API 与外部卡 badge/detach 保留——纯 UI 入口取消，协议不动）。
+- **设置抽屉**（`war-settings-drawer`，右侧滑入 360px，role=dialog + aria-modal，Esc 关）：皮肤（军事/平话 + 「更多皮肤未来迭代」提示，元首明示皮肤后续再想）、图例（原 LegendModal 并入）、看板行为开关（悬停族系高亮/悬停自动滚动，`war-switch` role=switch，localStorage 持久化 `warroom-cfg-*`）、连接状态（SSE 在线/断开 + 立即刷新）。
+- **调度坞左端钉驻簇**：`war-dispatch-lead`（sticky left）= [＋ 下达圆钮][竖排铭牌]——下达入口常驻坞头，与铭牌一体横滚不动。
+- **起草器重设计**：lead 一句话讲清能做什么 → 大输入框 → 档位三选项卡（名+一句语义，取代旧 seg 短标签）→ 时机两选项卡（立即/定时）→ cron 区（3 预设 chips + 自定义输入 + 下次触发实时预览 + 非法就地报错禁提交）→ 最近命令。Ctrl+Enter 提交（Alex）。
+- **定时下达后端**（真闭环，非摆设）：`directive_created` 带可选 `cron`（POST 校验 parseCron，400 带中文错误）→ fold 落 `schedule{cron}`，**未 dispatched 不进 `pendingDirectives`**（引信不可见）→ bountyFuse 30s tick 补 `directive_dispatched`（一次性，anchor=创建时刻，错过即跳过）→ 回归 draft，15s 引信照常转达参谋。板投影带 `schedule{cron, dispatchedAt, nextRunAt}`，命令卡 `⏰` 角标 + tooltip。客户端复用 `schedule.ts`（纯模块，parseCron/nextRunOf 双端同源）。
+- **critique 修复清单**：P1-1 排版三级刻度（12 正文/13 卡题 600+line-height 1.5/15 区题）；P1-2 语义色 chip 文本 color-mix 加深（st-published 2.79→**6.67:1**，shoot 机检断言）+ time/taskid tertiary→secondary；P1-3 即聚焦改版；P2-2 调度坞右缘渐隐 mask；P2-3 dim 卡 focus-visible 恢复不透明；P3 铭牌 11→12px、toast 挪调度坞上方右角。未做（记 backlog）：chip 形状通道分流（P2-1）、modal role=dialog 焦点陷阱全量（SettingsDrawer 已带，CommandDetail 等待下轮）。
+- **坑：styles.ts 尾部有两个模板串**——WAR_CSS 与 `querySelector(\`style[...]\`)`，往「锚点前最后一个反引号」插 CSS 会插进选择器模板（query 炸、宿主入口渲染失败）。教训：模板串追加要锚定 WAR_CSS 的**闭合**反引号，或按行号插。另：python heredoc 带反斜杠/反引号内容会被 bash 层吃字符——复杂脚本一律落临时文件再跑（本轮丢过一次 styles.ts，git checkout + 重放恢复）。
+

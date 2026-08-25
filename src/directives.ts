@@ -10,6 +10,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { nextRunOf } from './schedule.ts'
 
 /** Directive lifecycle on the 命令区 board column. */
 export type DirectiveStatus = 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
@@ -52,11 +53,15 @@ export interface Directive {
   /** V6 命令拆解（flag staff-decompose）：参谋呈批的结构化拆解（最新一稿）。
    *  plan 卡走既有计划态；本字段是机器可读的子任务书，成链发布时逐个落地。 */
   decomposition?: { plan: string; tasks: Array<{ title: string; brief: string; acceptance: string }> }
+  /** V9.2 定时下达：created 带 cron 即待发（dispatchedAt 空时引信不取）；
+   *  到点 tick 补 directive_dispatched 后回归常轨（一次性，不循环）。 */
+  schedule?: { cron: string; dispatchedAt?: string }
 }
 
 /** The directive log's entry union (one JSON line each). */
 export type DirectiveEvent =
-  | { type: 'directive_created'; ts: string; directiveId: string; text: string }
+  | { type: 'directive_created'; ts: string; directiveId: string; text: string; cron?: string }
+  | { type: 'directive_dispatched'; ts: string; directiveId: string }
   | { type: 'directive_session_opened'; ts: string; directiveId: string; staffSessionId: string }
   | { type: 'directive_received'; ts: string; directiveId: string; staffSessionId: string }
   | { type: 'directive_talking'; ts: string; directiveId: string }
@@ -119,7 +124,10 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
     const current = byId.get(event.directiveId)
     if (current === undefined) {
       if (event.type !== 'directive_created') continue
-      byId.set(event.directiveId, { id: event.directiveId, text: event.text, createdAt: event.ts, status: 'draft' })
+      byId.set(event.directiveId, {
+        id: event.directiveId, text: event.text, createdAt: event.ts, status: 'draft',
+        ...(event.cron !== undefined ? { schedule: { cron: event.cron } } : {}),
+      })
       continue
     }
     if (TERMINAL.has(current.status)) continue
@@ -184,6 +192,13 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         current.status = 'cancelled'
         current.cancelledReason = event.reason
         break
+      // V9.2 定时下达到点：一次性发令（幂等——已发过的不再改）。发完保持
+      // draft，命令引信下一 tick（≤15s）照常把它转达参谋。
+      case 'directive_dispatched':
+        if (current.schedule !== undefined && current.schedule.dispatchedAt === undefined) {
+          current.schedule.dispatchedAt = event.ts
+        }
+        break
     }
   }
   return [...byId.values()]
@@ -194,9 +209,29 @@ export function loadDirectives(stateDir: string): Directive[] {
   return foldDirectives(readDirectiveEvents(stateDir))
 }
 
-/** The command fuse's worklist: draft commands no staff has taken yet. */
+/** The command fuse's worklist: draft commands no staff has taken yet.
+ * V9.2：定时命令未到点（schedule 未 dispatched）不出队——引信看不到它。 */
 export function pendingDirectives(directives: ReadonlyArray<Directive>): Directive[] {
-  return directives.filter(d => d.status === 'draft')
+  return directives.filter(d => d.status === 'draft' && !(d.schedule !== undefined && d.schedule.dispatchedAt === undefined))
+}
+
+/** V9.2 定时命令到点判定（纯函数，宿主 30s tick 调用）：anchor = 创建时刻，
+ * nextRun ≤ now 即到点。一次性语义——dispatched 后永不再 due；存储的 cron
+ * 失效（解析抛错）静默跳过，发布时校验已挡新增。 */
+export function dueScheduledDirectives(directives: ReadonlyArray<Directive>, nowMs: number): string[] {
+  const out: string[] = []
+  for (const d of directives) {
+    if (d.schedule === undefined || d.schedule.dispatchedAt !== undefined) continue
+    const anchor = Date.parse(d.createdAt)
+    if (!Number.isFinite(anchor)) continue
+    try {
+      const next = nextRunOf(d.schedule.cron, anchor)
+      if (next !== undefined && next <= nowMs) out.push(d.id)
+    } catch {
+      // Stored cron turned invalid — creation-time validation guards new ones.
+    }
+  }
+  return out
 }
 
 /** New directive ids: time-ordered, filesystem-safe, visually distinct from

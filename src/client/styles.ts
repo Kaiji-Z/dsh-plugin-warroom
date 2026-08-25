@@ -20,7 +20,7 @@ const WAR_CSS = `
 .war-head-dot.on{background:var(--dsw-alias-state-business-primary)}
 .war-island-counts{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-island-badge{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
-.war-island-badge.hot{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
+.war-island-badge.hot{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
 .war-island-visitmini{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .war-island-spacer{flex:1 1 auto;min-width:4px}
 .war-island-pinned{font-size:12px;flex:0 0 auto}
@@ -29,7 +29,6 @@ const WAR_CSS = `
 .war-island-panel{position:absolute;top:100%;left:12px;right:12px;display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border:1px solid var(--dsw-alias-border-l2);border-top:0;border-radius:0 0 16px 16px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 14px 32px rgba(0,0,0,.18);max-height:52vh;overflow-y:auto;animation:war-island-open .2s ease}
 @keyframes war-island-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.war-island-panel{animation:none}.war-island-pill{transition:none}}
-.war-skin-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 .war-dockpill{display:inline-flex;align-items:center;gap:6px}
 .war-dockseg{font-size:12px}
 .war-err{font-size:12px;color:var(--dsw-alias-state-error-label)}
@@ -46,7 +45,7 @@ const WAR_CSS = `
 .war-zone.war-report{box-shadow:inset 0 3px 0 var(--dsw-alias-state-success-primary)}
 .war-col{display:flex;flex-direction:column;min-height:0;min-width:0;padding:0 8px}
 .war-col-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;padding:8px 2px;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l1);flex:0 0 auto}
-.war-col-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
+.war-col-title{font-size:13px;font-weight:600;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
 .war-col-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .war-col-body{flex:1 1 auto;overflow-y:auto;padding:8px 2px 16px;display:flex;flex-direction:column;gap:8px}
 /* 底部命令调度条：所有命令卡横向一排（活跃优先+新→旧），单行横滚——
@@ -55,7 +54,7 @@ const WAR_CSS = `
  * bg-layer-2 与 bg-base 同为白，靠别名分层分不出来）+ 内阴影；命令卡
  * 在坞里浮起一层投影；左缘竖排铭牌 sticky 钉驻。 */
 .war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;padding:10px 12px 12px;border-top:1px solid var(--dsw-alias-border-l2);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));box-shadow:inset 0 2px 8px rgba(0,0,0,.08);scrollbar-width:thin}
-.war-dispatch-tag{flex:0 0 auto;align-self:stretch;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;letter-spacing:.2em;font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary);padding:6px 5px;border-right:1px dashed var(--dsw-alias-border-l2);position:sticky;left:0;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));z-index:1;user-select:none}
+.war-dispatch-tag{flex:0 0 auto;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;letter-spacing:.2em;font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);padding:6px 4px;user-select:none}
 .war-dispatch .war-command-card{flex:0 0 320px;min-width:0;box-shadow:0 1px 5px rgba(0,0,0,.14)}
 
 /* --- cards ------------------------------------------------------------------ */
@@ -65,28 +64,28 @@ const WAR_CSS = `
 .war-card-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
 .war-chip{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-title{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
-.war-taskid{font-size:12px;color:var(--dsw-alias-label-tertiary);font-family:var(--dsw-font-markdown-code)}
-.war-time{font-size:12px;color:var(--dsw-alias-label-tertiary);margin-left:auto;white-space:nowrap}
+.war-taskid{font-size:12px;color:var(--dsw-alias-label-secondary);font-family:var(--dsw-font-markdown-code)}
+.war-time{font-size:12px;color:var(--dsw-alias-label-secondary);margin-left:auto;white-space:nowrap}
 .war-ws{font-size:12px;color:var(--dsw-alias-label-secondary);font-family:var(--dsw-font-markdown-code);word-break:break-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.war-brief{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.war-brief{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .war-report{font-size:12px;background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:6px 10px;white-space:pre-wrap;color:var(--dsw-alias-label-primary)}
 
 /* status chip colors */
-.war-chip.st-published{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
-.war-chip.st-in_progress,.war-chip.oc-live{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
+.war-chip.st-published{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);border-color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent)}
+.war-chip.st-in_progress,.war-chip.oc-live{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary)}
 .war-chip.st-reported,.war-chip.oc-reported{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary)}
-.war-chip.st-closed,.war-chip.oc-done{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
-.war-chip.st-failed,.war-chip.oc-fail{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
-.war-chip.pri-high{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
+.war-chip.st-closed,.war-chip.oc-done{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
+.war-chip.st-failed,.war-chip.oc-fail{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);border-color:var(--dsw-alias-state-error-primary)}
+.war-chip.pri-high{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
 /* command-zone chip colors */
 .war-chip.st-draft{color:var(--dsw-alias-label-tertiary)}
-.war-chip.st-received,.war-chip.st-talking{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
-.war-chip.st-approved{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
+.war-chip.st-received,.war-chip.st-talking{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-chip.st-approved{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
 .war-chip.st-cancelled{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
 /* V5 grade chips (档位账本): L0 直发绿 / L1 呈批蓝 / L2 澄清黄 */
-.war-chip.gr-L0{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
-.war-chip.gr-L1{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
-.war-chip.gr-L2{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
+.war-chip.gr-L0{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
+.war-chip.gr-L1{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary)}
+.war-chip.gr-L2{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);border-color:var(--dsw-alias-state-warn-primary)}
 /* V5 分诊理由行（命令详情浮层） */
 .war-note{margin-top:6px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* V5-R3 计划卡（命令详情浮层内） */
@@ -96,10 +95,10 @@ const WAR_CSS = `
 
 /* quality-tier palette (the deliberate exception to --dsw-only) */
 .war-chip.q-common{color:var(--dsw-alias-label-secondary)}
-.war-chip.q-fine{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
-.war-chip.q-rare{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
-.war-chip.q-epic{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
-.war-chip.q-legendary{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
+.war-chip.q-fine{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
+.war-chip.q-rare{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary)}
+.war-chip.q-epic{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);border-color:var(--dsw-alias-state-warn-primary)}
+.war-chip.q-legendary{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
 /* quality-tier palette (the deliberate exception to --dsw-only).
  * V7.1 审查整改：稀有度从「3px 品质左边框」（side-tab 指纹）改为 chip 单通道
  * ——颜色随档位的品质 chip（qualityChip）已在任务/会话卡上，边框通道删除。 */
@@ -111,7 +110,7 @@ const WAR_CSS = `
 .war-command-card.pulse{border-color:var(--dsw-alias-state-business-primary);animation:war-pulse 1.6s ease-in-out infinite}
 @keyframes war-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 3px var(--dsw-alias-state-business-primary)}}
 @media (prefers-reduced-motion: reduce){.war-command-card.pulse{animation:none}}
-.war-command-text{font-size:12px;color:var(--dsw-alias-label-primary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.war-command-text{font-size:13px;font-weight:600;line-height:1.5;color:var(--dsw-alias-label-primary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .war-command-text.struck{color:var(--dsw-alias-label-secondary);text-decoration:line-through}
 
 /* --- command lifecycle strip (v6: 命令→任务→执行→战报 全程追踪) -------------- */
@@ -165,21 +164,14 @@ const WAR_CSS = `
 
 /* --- V7-③ 族系追踪（悬停高亮 + 聚焦压暗 + 聚焦条） ------------------------------ */
 .war-card.war-rel-dim{opacity:.32}
+.war-card.war-rel-dim:focus-visible,.war-card.war-rel-dim:focus-within{opacity:1}
 .war-card.war-rel-same{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary)}
 .war-focus-btn{padding:0 6px;line-height:18px;font-size:12px;flex:0 0 auto}
-.war-focusbar{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin:8px 14px 0;padding:5px 10px;border:1px solid var(--dsw-alias-state-business-primary);border-radius:10px;background:var(--dsw-alias-bg-layer-1);font-size:12px}
-.war-focusbar-tag{color:var(--dsw-alias-state-business-primary);font-weight:700;flex:0 0 auto}
-.war-focusbar-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
 
 /* --- V7-④ 夜间预检 + 起草器档位/最近命令 ---------------------------------------- */
 .war-preflight{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:8px;border:1px dashed var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-bg-layer-2)}
 .war-preflight-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-state-warn-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-preflight-btn{padding:2px 8px;font-size:12px;line-height:18px;flex:0 0 auto}
-.war-grade-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
-.war-grade-label{font-size:12px;color:var(--dsw-alias-label-tertiary)}
-.war-grade-seg{cursor:pointer;font-size:12px;line-height:18px;padding:0 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap;background:transparent;font-family:var(--dsw-font-family)}
-.war-grade-seg:hover{border-color:var(--dsw-alias-label-secondary)}
-.war-grade-seg.on{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
 .war-recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
 .war-recent-label{font-size:12px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto}
 .war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
@@ -232,12 +224,9 @@ const WAR_CSS = `
 
 /* --- external thread cards + dock home pill (v3) ---------------------------- */
 .war-col-actions{margin-left:auto;display:inline-flex;gap:6px}
-.war-attach-btn{padding:2px 8px;line-height:18px}
 .war-external-card{border-style:dashed}
 .war-chip.ext-badge{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
 .war-btn.war-detach{padding:1px 8px;font-size:12px;line-height:16px}
-.war-attach-input{width:100%;font-family:var(--dsw-font-family);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;outline:none;margin-bottom:8px}
-.war-attach-input:focus{border-color:var(--dsw-alias-state-business-primary)}
 /* V9 命令详情·相关会话入口：一行一会话（讨论/执行），点开进宿主会话窗口。 */
 .war-cd-sessions{display:flex;flex-direction:column;gap:6px}
 .war-cd-session{display:flex;align-items:center;gap:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);padding:4px 10px;cursor:pointer;font-family:var(--dsw-font-family);text-align:left}
@@ -255,7 +244,7 @@ const WAR_CSS = `
 /* --- V7.1 审查整改：键盘焦点轮廓 / 决策失败反馈 / 图例浮层 ---------------------- */
 .war-root :focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 /* V8 决策失败 toast：绝对定位浮层（不推挤列区），岛下方右上。 */
-.war-actionerr{position:absolute;top:56px;right:20px;z-index:70;display:flex;align-items:center;gap:8px;max-width:480px;margin:0;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-state-error-primary);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-state-error-label);font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.war-actionerr{position:absolute;bottom:136px;right:24px;z-index:70;display:flex;align-items:center;gap:8px;max-width:480px;margin:0;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-state-error-primary);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-state-error-label);font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .war-legend-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 .war-legend-rows{display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;align-items:baseline}
 .war-legend-sym{font-size:12px;font-weight:700;color:var(--dsw-alias-state-business-primary);white-space:nowrap}
@@ -271,6 +260,70 @@ const WAR_CSS = `
 html[data-dsh-warroom-active] .war-shell-view{display:flex;flex-direction:column;height:100%}
 html[data-dsh-warroom-active] [data-pane='conversation'] > :not([data-dsh-warroom-view]),
 html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view]){display:none !important}
+/* --- V9.2 岛改版（聚焦 chip + 齿轮）---------------------------------------- */
+.war-island-focus{flex:0 1 auto;min-width:0;font-size:12px;font-weight:600;color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border:1px solid var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);border-radius:999px;padding:2px 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--dsw-font-family)}
+.war-island-focus:hover{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent)}
+.war-island-gear{font-size:14px;line-height:20px;padding:2px 9px}
+
+/* --- V9.2 调度坞左端钉驻簇（[＋下达][铭牌]）--------------------------------- */
+.war-dispatch-lead{position:sticky;left:0;display:flex;align-items:stretch;gap:2px;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));z-index:1;padding-right:10px}
+.war-dispatch-add{align-self:center;flex:0 0 auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-size:18px;font-weight:600;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-family:var(--dsw-font-family);box-shadow:0 1px 5px rgba(0,0,0,.18)}
+.war-dispatch-add:hover{filter:brightness(1.08)}
+.war-dispatch-add:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
+
+/* --- V9.2 定时命令角标 ------------------------------------------------------ */
+.war-chip.sched{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border-color:var(--dsw-alias-state-business-primary);border-style:dashed;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent);font-weight:600}
+
+/* --- V9.2 起草器重设计（说明 + 档位/时机选项卡 + cron）---------------------- */
+.war-composer-modal{max-width:640px}
+.war-cp-section{font-size:13px;font-weight:600;color:var(--dsw-alias-label-secondary);margin:12px 0 6px}
+.war-grade-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.war-grade-cards.war-sched-cards{grid-template-columns:repeat(2,1fr)}
+.war-grade-card,.war-sched-card{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);cursor:pointer;font-family:var(--dsw-font-family);transition:border-color .12s ease,background .12s ease}
+.war-grade-card:hover,.war-sched-card:hover{border-color:var(--dsw-alias-label-secondary)}
+.war-grade-card.on,.war-sched-card.on{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-base));box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
+.war-grade-card-name{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.war-grade-card.on .war-grade-card-name{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000)}
+.war-grade-card-hint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.war-cron-block{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.war-cron-presets{display:flex;gap:6px;flex-wrap:wrap}
+.war-cron-preset{font-size:12px;line-height:20px;padding:2px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-base);cursor:pointer;font-family:var(--dsw-font-family)}
+.war-cron-preset:hover{border-color:var(--dsw-alias-label-secondary)}
+.war-cron-preset.on{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-cron-input{width:100%;font-family:var(--dsw-font-markdown-code);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;outline:none}
+.war-cron-input:focus{border-color:var(--dsw-alias-state-business-primary)}
+.war-cron-next{font-size:12px;color:var(--dsw-alias-label-secondary)}
+
+/* --- V9.2 设置抽屉（右侧滑入，不遮岛不推列）--------------------------------- */
+.war-settings-backdrop{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.22)}
+.war-settings-drawer{position:absolute;top:0;right:0;bottom:0;width:min(360px,92vw);display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-1);border-left:1px solid var(--dsw-alias-border-l2);box-shadow:-12px 0 32px rgba(0,0,0,.16);animation:war-drawer-in .18s ease}
+@media (prefers-reduced-motion: reduce){.war-settings-drawer{animation:none}}
+@keyframes war-drawer-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+.war-settings-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-settings-title{font-size:15px;font-weight:600}
+.war-settings-body{flex:1 1 auto;overflow-y:auto;padding:4px 16px 20px}
+.war-settings-section{font-size:13px;font-weight:600;color:var(--dsw-alias-label-secondary);margin:16px 0 8px}
+.war-skin-row{display:flex;gap:8px}
+.war-skin-opt{flex:1 1 auto;font-size:13px;font-weight:600;padding:8px 0;border-radius:10px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);cursor:pointer;font-family:var(--dsw-font-family)}
+.war-skin-opt:hover{border-color:var(--dsw-alias-label-secondary)}
+.war-skin-opt.on{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-base));color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
+.war-settings-note{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);margin-top:8px}
+.war-set-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-set-toggle-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.war-set-toggle-label{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.war-set-toggle-hint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.war-switch{flex:0 0 auto;width:36px;height:20px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);position:relative;cursor:pointer;padding:0;transition:background .15s ease,border-color .15s ease}
+.war-switch-knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:8px;background:var(--dsw-alias-label-secondary);transition:transform .15s ease,background .15s ease}
+.war-switch.on{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
+.war-switch.on .war-switch-knob{transform:translateX(16px);background:var(--dsw-alias-bg-base)}
+.war-switch:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
+.war-set-conn{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.war-set-conn-dot{width:8px;height:8px;border-radius:5px;background:var(--dsw-alias-state-success-primary);flex:0 0 auto}
+.war-set-conn-dot.down{background:var(--dsw-alias-state-error-primary)}
+.war-set-conn-text{flex:1 1 auto;min-width:0}
+
+/* --- V9.2 调度坞右缘渐隐（提示可横滚——审查 P2-2）--------------------------- */
+.war-dispatch{mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35));-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35))}
 `
 
 const STYLE_ID = 'data-dsh-plugin-warroom'

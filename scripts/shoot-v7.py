@@ -82,6 +82,12 @@ with sync_playwright() as p:
     assert page.locator(".war-island-pill").count() == 1, "island pill missing"
     assert page.locator(".war-island-counts").first.inner_text() != "", "island counts meter empty"
     assert page.locator(".war-island-panel").count() == 0, "island should be collapsed at rest"
+    # V9.2：岛只留 ⚙——下达进调度坞、挂载/图例/皮肤进设置抽屉。
+    assert page.locator(".war-island-gear").count() == 1, "settings gear missing in island pill"
+    assert page.locator(".war-dispatch-add").count() == 1, "compose ＋ missing at dispatch lead"
+    assert page.locator(".war-island .war-attach-btn").count() == 0, "attach button must be gone from the island"
+    assert page.locator(".war-island .war-legend-btn").count() == 0, "legend button must be gone from the island"
+    assert page.locator(".war-island .war-skin-btn").count() == 0, "skin button must be gone from the island"
 
     # 展开不推挤：hover 岛前后，三区板的位置纹丝不动（浮层盖列区）。
     board_y = page.locator(".war-board").bounding_box()["y"]
@@ -234,37 +240,118 @@ with sync_playwright() as p:
     page.wait_for_timeout(400)
     assert page.locator(".war-rel-same").count() == 0 and page.locator(".war-rel-dim").count() == 0, "hover trace did not clear on mouse leave"
 
-    # --- Phase F: 聚焦模式（岛常驻形态 + Esc 退出）。 ---
+    # --- Phase F: 聚焦模式（V9.2：聚焦不弹岛——pill 中间显示聚焦 chip，点空白退出）。 ---
     page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").locator(".war-focus-btn").click()
     page.wait_for_timeout(400)
-    assert page.locator(".war-island-panel .war-focusbar").count() == 1, "focus bar missing inside island panel"
+    assert page.locator(".war-island-panel").count() == 0, "V9.2: focus must NOT auto-expand the island"
+    assert page.locator(".war-island-focus").count() == 1, "focus chip missing in island pill"
     assert page.locator(".war-rel-same").count() >= 3, "focus family highlight missing"
     assert page.locator(".war-rel-dim").count() >= 3, "focus dimming missing"
     page.screenshot(path=f"{OUT}/v7-focus.png")
-    print("shot: v7-focus.png (focus mode = island resident shape)")
-    page.keyboard.press("Escape")
+    print("shot: v7-focus.png (focus = pill chip, board stays visible)")
+    page.locator(".war-island-focus").click()
     page.wait_for_timeout(300)
-    assert page.locator(".war-focusbar").count() == 0, "focus mode did not exit on Escape"
-    assert page.locator(".war-island-panel").count() == 0, "island should collapse when focus exits (not pinned)"
+    assert page.locator(".war-island-focus").count() == 0, "focus chip click did not exit focus"
+    # 再聚焦一次 → 点列间空白（zone 边框区域）也应退出（元首指令：点空即退）。
+    page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").locator(".war-focus-btn").click()
+    page.wait_for_timeout(300)
+    page.locator(".war-ops").click(position={"x": 8, "y": 300}, force=True)
+    page.wait_for_timeout(300)
+    assert page.locator(".war-island-focus").count() == 0, "blank click did not exit focus mode"
 
-    # --- Phase G: 起草器档位开关 + 最近命令重发（入口在岛 pill 上）。 ---
-    page.locator(".war-island-compose").click()
+    # --- Phase G: 起草器重设计（入口=调度坞左端 ＋；档位/时机选项卡 + cron 定时）。 ---
+    page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-grade-seg").count() == 3, "composer autonomy toggles missing"
+    assert page.locator(".war-grade-card").count() == 3, "composer autonomy option cards missing"
+    assert page.locator(".war-sched-card").count() == 2, "composer schedule option cards missing"
     page.locator(".war-composer").fill("取证：档位开关应把标记拼进命令文本")
-    page.locator(".war-grade-seg", has_text="直接做").click()
+    page.locator(".war-grade-card", has_text="直接做").click()
     page.screenshot(path=f"{OUT}/v7-composer.png")
-    print("shot: v7-composer.png (grade toggles + recent re-send)")
+    print("shot: v7-composer.png (option cards + cron scheduling)")
     page.locator(".war-modal-actions button.primary").click()
     page.wait_for_timeout(1500)
     assert page.locator(".war-command-card", has_text="!!直接做 取证").count() == 1, "grade marker did not ride the created command"
-    page.locator(".war-island-compose").click()
+    # 定时下达：preset 选中 → cron 输入同步 → 提交后调度坞出现 ⏰ 待发卡。
+    page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-recent-item").count() >= 1, "recent commands row missing"
+    page.locator(".war-sched-card", has_text="定时").click()
+    assert page.locator(".war-cron-presets").count() == 1, "cron presets missing after choosing 定时"
+    page.locator(".war-cron-preset").first.click()
+    assert page.locator(".war-cron-input").input_value().strip() == "0 9 * * *", "preset did not fill the cron input"
+    assert page.locator(".war-cron-next").count() == 1, "next-run preview missing for a valid cron"
+    # 非法 cron 就地报错且提交被禁（错误预防）。
+    page.locator(".war-cron-input").fill("99 * * * *")
+    page.wait_for_timeout(200)
+    assert page.locator(".war-err").count() >= 1, "invalid cron must show an inline error"
+    assert page.locator(".war-modal-actions button.primary").is_disabled(), "submit must be disabled on invalid cron"
+    page.locator(".war-cron-input").fill("0 9 * * *")
+    page.locator(".war-composer").fill("取证：定时命令到点自动下达")
+    page.locator(".war-modal-actions button.primary").click()
+    page.wait_for_timeout(1500)
+    assert page.locator(".war-chip.sched").count() >= 1, "scheduled command card must carry the ⏰ chip"
+    # 最近命令重发仍可用。
+    page.locator(".war-dispatch-add").click()
+    page.wait_for_selector(".war-modal", timeout=3000)
     page.locator(".war-recent-item").first.click()
     assert page.locator(".war-composer").input_value() != "", "recent re-send did not fill the composer"
     page.locator(".war-modal-actions button", has_text="取消").click()
     page.wait_for_timeout(200)
+
+    # --- Phase G2: 设置抽屉（⚙：皮肤/图例/行为开关/连接）。 ---
+    page.locator(".war-island-gear").click()
+    page.wait_for_selector(".war-settings-drawer", timeout=3000)
+    assert page.locator(".war-skin-opt").count() == 2, "skin options missing in settings drawer"
+    assert page.locator(".war-legend-rows").count() >= 1, "legend rows missing in settings drawer"
+    assert page.locator(".war-switch").count() == 2, "behavior toggles missing in settings drawer"
+    assert page.locator(".war-set-conn-dot").count() == 1, "connection status missing in settings drawer"
+    # 开关翻转要落 localStorage（刷新后仍生效）。
+    page.locator(".war-switch").first.click()
+    page.wait_for_timeout(200)
+    assert page.evaluate("() => localStorage.getItem('warroom-cfg-hover-family')") == "0", "hover-family toggle did not persist"
+    page.screenshot(path=f"{OUT}/v7-settings.png")
+    print("shot: v7-settings.png (gear drawer: skins/legend/toggles/conn)")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert page.locator(".war-settings-drawer").count() == 0, "settings drawer did not close on Escape"
+
+    # --- Phase G3: 对比度机检（审查 P1-2：语义色 chip 文本 ≥4.5:1）。 ---
+    contrast = page.evaluate(
+        "() => {"
+        "  const el = document.querySelector('.war-chip.st-published');"
+        "  if (!el) return null;"
+        "  const cs = getComputedStyle(el);"
+        "  const lum = (spec) => {"
+        "    let r, g, b, a = 1;"
+        # color-mix 计算值形如 color(srgb r g b / a)；用 split 解析，正则里不能带斜杠。
+        "    if (spec.startsWith('color(')) {"
+        "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
+        "      const nums = body.replace(/[^0-9. ]/g, ' ').trim().split(/\\s+/).map(Number);"
+        "      r = nums[0] * 255; g = nums[1] * 255; b = nums[2] * 255;"
+        "      if (nums.length > 3) a = nums[3];"
+        "    } else if (spec.startsWith('#')) {"
+        "      r = parseInt(spec.slice(1, 3), 16); g = parseInt(spec.slice(3, 5), 16); b = parseInt(spec.slice(5, 7), 16);"
+        "    } else {"
+        "      const m2 = /rgba?\\(([^)]+)\\)/.exec(spec);"
+        "      if (!m2) return null;"
+        "      const p = m2[1].split(',').map(Number);"
+        "      r = p[0]; g = p[1]; b = p[2]; a = p.length > 3 ? p[3] : 1;"
+        "    }"
+        "    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };"
+        "    const l = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);"
+        "    return l * a + 1.0 * (1 - a);"
+        "  };"
+        "  const fg = lum(cs.color);"
+        "  const bg = lum(cs.backgroundColor);"
+        "  if (fg === null || bg === null) return null;"
+        "  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);"
+        "}"
+    )
+
+    assert contrast is not None and contrast == contrast and contrast >= 4.5, (
+        f"st-published chip contrast {contrast} below 4.5:1"
+    )
+    print(f"contrast: st-published chip {contrast:.2f}:1 (>=4.5)")
 
     # --- Phase H: 收尾。 ---
     pre.screenshot(path=f"{OUT}/v7-preflight.png")
