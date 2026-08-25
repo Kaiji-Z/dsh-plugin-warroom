@@ -127,13 +127,14 @@ test('war_publish 硬门：L1 无计划/待批/被驳均拒；批准后放行；
   }
 })
 
-test('计划判定路由：旗关 404；approve/reject 落事件；无待批计划被拒', async () => {
+test('计划判定路由：旗关 404；approve/reject 落事件；无待批计划被拒；K17 判定回推', async () => {
   const dir = tmpDir()
   const { registerDashboard } = await import('../src/dashboard.ts')
+  const pushes: Array<{ sessionId: string; text: string }> = []
   const mk = (flags: FeatureFlags) => {
     let h: ((req: unknown, res: unknown) => void | Promise<void>) | undefined
     const reg: RouteRegistry = { register: route => { h = route.handler; return () => {} } }
-    const dispose = registerDashboard(reg, { store: { get: () => ({ version: 2 as const, active: true }), save: () => {} } as never, stateDir: dir, roster: () => ({ units: [], errors: [] }) as never, warRoot: '/w', flags } as never)
+    const dispose = registerDashboard(reg, { store: { get: () => ({ version: 2 as const, active: true }), save: () => {} } as never, stateDir: dir, roster: () => ({ units: [], errors: [] }) as never, warRoot: '/w', flags, pushToStaff: (sessionId: string, text: string) => { pushes.push({ sessionId, text }) } } as never)
     return { get h() { return h }, dispose }
   }
   const off = mk(FLAG_OFF)
@@ -152,18 +153,25 @@ test('计划判定路由：旗关 404；approve/reject 落事件；无待批计�
     // 无待批计划 → 400。
     await post(on.h!, { decision: 'approve' })
     assert.match(ended[ended.length - 1]!, /无待批计划/)
-    // 呈计划 → approve 落事件。
+    // 呈计划 → approve 落事件 + K17 回推（批准文案投给参谋会话）。
     appendDirectiveEvent(dir, { type: 'directive_plan_opened', ts: 't2', directiveId: 'cmd-d', plan: '目标步骤工作区风险四要素齐的一页纸计划。' })
     await post(on.h!, { decision: 'approve', note: '可以' })
     assert.match(ended[ended.length - 1]!, /"ok":true/)
     assert.equal(loadDirectives(dir).find(d => d.id === 'cmd-d')!.plan!.status, 'approved')
-    // 已批再 approve → 400（无待批）。
+    assert.equal(pushes.length, 1)
+    assert.equal(pushes[0]!.sessionId, 'sec-1')
+    assert.match(pushes[0]!.text, /已被批准/)
+    assert.match(pushes[0]!.text, /war_publish/)
+    // 已批再 approve → 400（无待批）——不再回推。
     await post(on.h!, { decision: 'approve' })
     assert.match(ended[ended.length - 1]!, /无待批计划/)
-    // 重呈 → reject 落事件。
+    // 重呈 → reject 落事件 + 回推驳回文案（修订重呈指引）。
     appendDirectiveEvent(dir, { type: 'directive_plan_opened', ts: 't3', directiveId: 'cmd-d', plan: '第二稿计划，重新待批。' })
     await post(on.h!, { decision: 'reject', note: '再改' })
     assert.equal(loadDirectives(dir).find(d => d.id === 'cmd-d')!.plan!.status, 'rejected')
+    assert.equal(pushes.length, 2)
+    assert.match(pushes[1]!.text, /被驳回/)
+    assert.match(pushes[1]!.text, /重新 war_plan/)
   } finally {
     off.dispose()
     on.dispose()

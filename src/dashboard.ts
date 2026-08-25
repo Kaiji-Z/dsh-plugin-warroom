@@ -18,6 +18,7 @@ import type { Roster } from './units.ts'
 import type { WarStore } from './state.ts'
 import type { CampaignState } from './types.ts'
 import { armPlanCard, runSpikeProbe, type SpikeDeps } from './v5spike.ts'
+import { planApprovedNotice, planRejectedNotice } from './persona.ts'
 import { featureEnabled, type FeatureFlags } from './flags.ts'
 
 /** Structural slice of the harness webServer route registry. */
@@ -97,6 +98,9 @@ export interface DashboardDeps {
   spike?: SpikeDeps
   /** Feature flags（V5-R2 起 dashboard 需要判档位账本路由的开关）。 */
   flags?: FeatureFlags
+  /** K17 计划判定回推：把元首的批/驳结果投回参谋会话（index 经 sessions
+   * 面接线；缺席/失败 best-effort，不阻塞判定入账）。 */
+  pushToStaff?: (sessionId: string, text: string) => void
   /** v3: fired after a command card is created — the host ticks the command
    * fuse NOW so the staff receives in ~1s instead of waiting out the 15s
    * interval. Optional so pure-route tests can omit it. */
@@ -376,6 +380,11 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_approved', ts: new Date().toISOString(), directiveId: commandId, ...(note !== undefined ? { note } : {}) })
         } else {
           appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_rejected', ts: new Date().toISOString(), directiveId: commandId, reason: note ?? '元首驳回，请修订重呈' })
+        }
+        // K17 判定回推：参谋会话在等判定结果——投递 best-effort，失败不阻塞入账
+        // （下一次呈报/唤醒还会碰头）。仅在参谋会话存在时投。
+        if (directive.staffSessionId !== undefined && directive.staffSessionId !== '' && deps.pushToStaff !== undefined) {
+          deps.pushToStaff(directive.staffSessionId, decision === 'approve' ? planApprovedNotice(note) : planRejectedNotice(note ?? '请修订重呈'))
         }
         send(200, { ok: true, commandId, decision })
         return

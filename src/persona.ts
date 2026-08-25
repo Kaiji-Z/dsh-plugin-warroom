@@ -172,3 +172,13 @@ export function wakeCommanderPrompt(tasks: ReadonlyArray<{ taskId: string; title
 export function commanderReportHint(): string {
   return '战报已登记。汇报只写摘要（结论/关键改动/风险/请示），不粘贴原始输出。'
 }
+
+/** K17 计划判定回推：元首在命令卡上批/驳后，系统把结果直接投给参谋会话
+ * （此前只落事件，参谋干等回音——R5 考题实证的摩擦）。 */
+export function planApprovedNotice(note?: string): string {
+  return `【系统】你在命令卡上呈报的计划已被批准${note !== undefined && note !== '' ? `（元首批注：${note}）` : ''}。请立即按已批计划 war_publish 发布，务必带参数 commandId。`
+}
+
+export function planRejectedNotice(reason: string): string {
+  return `【系统】你在命令卡上呈报的计划被驳回（元首意见：${reason}）。请按意见修订后重新 war_plan 呈报。`
+}

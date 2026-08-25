@@ -498,6 +498,12 @@ export function apply(ctx: Context, config: Config): void {
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },
+      // K17 判定回推：计划批/驳结果直接投回参谋会话（sessions 面晚绑定，缺席跳过）。
+      pushToStaff: (sessionId, text) => {
+        const sessions = sessionsRef.face
+        if (sessions === undefined) return
+        void sessions.prompt({ rpcId: `warroom-plan-notice-${Date.now()}`, payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] } }).catch(() => undefined)
+      },
       ...(spike === undefined ? {} : { spike }),
     })
     webCtx.effect(() => disposeDashboard, 'warroom.dashboard()')
