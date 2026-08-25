@@ -11,10 +11,10 @@
  * @module dsh-plugin-warroom/client/views
  */
 
-import { createElement, useEffect, useState } from 'react'
+import { createElement, useEffect, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
-import { warCopy } from './copy.ts'
+import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -28,31 +28,37 @@ export interface ClientServicesFace {
   }
 }
 
-/** 文案一律经 warCopy（皮肤词典）取——不写内联字面量（换肤基础层）；
- *  cls/dot 是样式键不属于皮肤文案，留在视图层。 */
-const STATUS_LABEL = warCopy.taskStatus
-
-const COMMAND_STATUS: Record<BoardCommand['status'], { label: string; cls: string; dot: string; hint?: string }> = {
-  draft: { ...warCopy.commandStatus.draft, cls: 'st-draft', dot: 'draft' },
-  received: { ...warCopy.commandStatus.received, cls: 'st-received', dot: 'received' },
-  talking: { ...warCopy.commandStatus.talking, cls: 'st-talking', dot: 'received' },
-  approved: { ...warCopy.commandStatus.approved, cls: 'st-approved', dot: 'done' },
-  cancelled: { ...warCopy.commandStatus.cancelled, cls: 'st-cancelled', dot: 'draft' },
+/** 文案一律经 activeCopy()（皮肤词典）取——不写内联字面量；词典在渲染期取值，
+ * 皮肤切换后由 WarView/WarDockPill 的 useSyncExternalStore 订阅触发重渲染拉新文案。
+ *  cls/dot 是样式键不属于皮肤文案，留在视图层（皮肤只换词不换样式）。 */
+const COMMAND_STATUS_STYLE: Record<BoardCommand['status'], { cls: string; dot: string }> = {
+  draft: { cls: 'st-draft', dot: 'draft' },
+  received: { cls: 'st-received', dot: 'received' },
+  talking: { cls: 'st-talking', dot: 'received' },
+  approved: { cls: 'st-approved', dot: 'done' },
+  cancelled: { cls: 'st-cancelled', dot: 'draft' },
 }
 
-const OUTCOME_LABEL: Record<NonNullable<BoardAttempt['outcome']> | 'live', { label: string; cls: string }> = {
-  live: { label: warCopy.outcome.live.label, cls: 'oc-live' },
-  reported: { label: warCopy.outcome.reported.label, cls: 'oc-reported' },
-  succeeded: { label: warCopy.outcome.succeeded.label, cls: 'oc-done' },
-  failed: { label: warCopy.outcome.failed.label, cls: 'oc-fail' },
+const OUTCOME_STYLE: Record<NonNullable<BoardAttempt['outcome']> | 'live', string> = {
+  live: 'oc-live',
+  reported: 'oc-reported',
+  succeeded: 'oc-done',
+  failed: 'oc-fail',
+}
+
+const STATUS_MARK_STYLE: Partial<Record<BoardTask['status'], string>> = {
+  published: 'bang',
+  reported: 'query',
 }
 
 const QUALITY_LABEL: Record<BoardQuality, string> = Object.fromEntries(QUALITY_TIERS.map(q => [q.tier, q.label])) as Record<BoardQuality, string>
 
-/** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
-const STATUS_MARK: Partial<Record<BoardTask['status'], { mark: string; cls: string; title: string }>> = {
-  published: { ...warCopy.statusMark.published, cls: 'bang' },
-  reported: { ...warCopy.statusMark.reported, cls: 'query' },
+function commandStatus(status: BoardCommand['status']): { label: string; cls: string; dot: string; hint?: string } {
+  return { ...activeCopy().commandStatus[status], ...COMMAND_STATUS_STYLE[status] }
+}
+
+function outcomeLabel(outcome: NonNullable<BoardAttempt['outcome']> | 'live'): { label: string; cls: string } {
+  return { label: activeCopy().outcome[outcome].label, cls: OUTCOME_STYLE[outcome] }
 }
 
 /** Where does this task's verdict conversation live? The owning command's
@@ -74,10 +80,12 @@ function dayKeyOf(iso: string, now: number): DayKey {
   return 'earlier'
 }
 
+/** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
 function statusMark(task: BoardTask): ReactNode {
-  const m = STATUS_MARK[task.status]
+  const m = activeCopy().statusMark[task.status]
   if (m === undefined) return null
-  return createElement('span', { className: `war-mark ${m.cls}`, title: m.title }, m.mark)
+  const cls = STATUS_MARK_STYLE[task.status] ?? ''
+  return createElement('span', { className: `war-mark ${cls}`, title: m.title }, m.mark)
 }
 
 function relTime(iso: string, now = Date.now()): string {
@@ -93,15 +101,15 @@ function relTime(iso: string, now = Date.now()): string {
 
 function qualityChip(quality: BoardQuality): ReactNode {
   if (quality === 'common') return null
-  return createElement('span', { className: `war-chip q-${quality}`, title: warCopy.qualityTitle }, QUALITY_LABEL[quality] ?? quality)
+  return createElement('span', { className: `war-chip q-${quality}`, title: activeCopy().qualityTitle }, QUALITY_LABEL[quality] ?? quality)
 }
 
 function depLock(task: BoardTask, statuses: Map<string, BoardTask['status']>): ReactNode {
   if (task.deps.length === 0) return null
   const pending = task.deps.filter(d => statuses.get(d) !== 'closed')
   if (pending.length === 0) return null
-  return createElement('span', { className: 'war-lock', title: `${warCopy.depLock.prefix}${warCopy.depLock.list(pending)}` },
-    warCopy.depLock.prefix,
+  return createElement('span', { className: 'war-lock', title: `${activeCopy().depLock.prefix}${activeCopy().depLock.list(pending)}` },
+    activeCopy().depLock.prefix,
     pending.map((d, i) => createElement('span', { key: d }, i > 0 ? '、' : null, d)),
   )
 }
@@ -110,14 +118,14 @@ function cronBadge(task: BoardTask): ReactNode {
   if (task.schedule === null || !task.schedule.enabled) return null
   const next = task.schedule.nextRunAt !== null ? new Date(task.schedule.nextRunAt) : null
   const when = next !== null ? `${next.getMonth() + 1}-${String(next.getDate()).padStart(2, '0')} ${String(next.getHours()).padStart(2, '0')}:${String(next.getMinutes()).padStart(2, '0')}` : ''
-  return createElement('span', { className: 'war-cron', title: warCopy.cron.title(task.schedule.nextRunAt) },
-    warCopy.cron.badge(task.schedule.cron, when),
+  return createElement('span', { className: 'war-cron', title: activeCopy().cron.title(task.schedule.nextRunAt) },
+    activeCopy().cron.badge(task.schedule.cron, when),
   )
 }
 
 function wsChip(path: string | null): ReactNode {
   if (path === null) return null
-  return createElement('span', { className: 'war-ws', title: path }, warCopy.wsChip(path))
+  return createElement('span', { className: 'war-ws', title: path }, activeCopy().wsChip(path))
 }
 
 // --- 命令区 ------------------------------------------------------------------
@@ -125,13 +133,13 @@ function wsChip(path: string | null): ReactNode {
 /** V5 档位徽章：L0 直发 / L1 呈批 / L2 澄清（未分诊不显示）。 */
 function gradeChip(cmd: BoardCommand): ReactNode {
   if (cmd.grade === null) return null
-  const label = warCopy.grade[cmd.grade]
+  const label = activeCopy().grade[cmd.grade]
   const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}`
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
 function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void): ReactNode {
-  const meta = COMMAND_STATUS[cmd.status]
+  const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
     const target = cmd.staffSessionId ?? hqSessionId
     if (target === null || services.sessions === undefined) return
@@ -153,7 +161,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   ),
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
   cmd.status === 'cancelled' && cmd.cancelledReason !== null
-    ? createElement('div', { className: 'war-fail' }, warCopy.commandDetail.cancelledReason(cmd.cancelledReason))
+    ? createElement('div', { className: 'war-fail' }, activeCopy().commandDetail.cancelledReason(cmd.cancelledReason))
     : null,
   )
 }
@@ -188,62 +196,62 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
   }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, warCopy.composer.title),
-      createElement('div', { className: 'war-modal-sub' }, warCopy.composer.sub),
+      createElement('div', { className: 'war-modal-title' }, activeCopy().composer.title),
+      createElement('div', { className: 'war-modal-sub' }, activeCopy().composer.sub),
       createElement('textarea', {
         className: 'war-composer',
         value: text,
-        placeholder: warCopy.composer.placeholder,
+        placeholder: activeCopy().composer.placeholder,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if (e.key === 'Escape') onClose() },
       }),
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.composer.cancel),
-        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? warCopy.composer.busy : warCopy.composer.submit),
+        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().composer.cancel),
+        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? activeCopy().composer.busy : activeCopy().composer.submit),
       ),
     ),
   )
 }
 
 function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
-  const GRADE_LABEL = warCopy.grade
+  const GRADE_LABEL = activeCopy().grade
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? warCopy.commandDetail.regradesNote(cmd.regrades) : ''}` : ''}`),
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? activeCopy().commandDetail.regradesNote(cmd.regrades) : ''}` : ''}`),
       createElement('div', { className: 'war-detail-body' }, cmd.text),
-      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${warCopy.commandDetail.gradeReasonPrefix}${cmd.gradeReason}`) : null,
+      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${activeCopy().commandDetail.gradeReasonPrefix}${cmd.gradeReason}`) : null,
       cmd.plan !== null
         ? createElement('div', { className: 'war-plan' },
-          createElement('div', { className: 'war-plan-head' }, `作战计划（${warCopy.commandDetail.planTitle[cmd.plan.status]}）`),
+          createElement('div', { className: 'war-plan-head' }, `作战计划（${activeCopy().commandDetail.planTitle[cmd.plan.status]}）`),
           createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
           cmd.plan.status === 'pending'
             ? createElement('div', { className: 'war-modal-actions' },
-              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, warCopy.commandDetail.approvePlan),
-              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, warCopy.commandDetail.rejectPlan),
+              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, activeCopy().commandDetail.approvePlan),
+              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, activeCopy().commandDetail.rejectPlan),
             )
             : null,
         )
         : null,
-      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, warCopy.commandDetail.cancelledReason(cmd.cancelledReason)) : null,
+      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, activeCopy().commandDetail.cancelledReason(cmd.cancelledReason)) : null,
       regradable
-        ? createElement('div', { className: 'war-modal-sub' }, warCopy.commandDetail.regradeHint)
+        ? createElement('div', { className: 'war-modal-sub' }, activeCopy().commandDetail.regradeHint)
         : null,
       regradable
         ? createElement('div', { className: 'war-modal-actions' },
           (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
-            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, warCopy.commandDetail.regradeTo(GRADE_LABEL[g]))))
+            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, activeCopy().commandDetail.regradeTo(GRADE_LABEL[g]))))
         : null,
       cmd.status === 'approved' && cmd.taskId !== null
         ? createElement('div', { className: 'war-modal-actions' },
-          createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, warCopy.commandDetail.viewTask(cmd.taskId)),
+          createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, activeCopy().commandDetail.viewTask(cmd.taskId)),
         )
         : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.commandDetail.close),
+        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().commandDetail.close),
       ),
     ),
   )
@@ -255,30 +263,30 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
   return createElement('div', { key: task.taskId, className: 'war-card clickable', onClick: () => onOpen(task.taskId) },
     createElement('div', { className: 'war-card-top' },
       statusMark(task),
-      createElement('span', { className: `war-chip st-${task.status}` }, STATUS_LABEL[task.status]),
+      createElement('span', { className: `war-chip st-${task.status}` }, activeCopy().taskStatus[task.status]),
       qualityChip(task.quality),
-      task.priority === 'high' ? createElement('span', { className: 'war-chip pri-high' }, '高优先') : null,
+      task.priority === 'high' ? createElement('span', { className: 'war-chip pri-high' }, activeCopy().taskCard.highPriority) : null,
       createElement('span', { className: 'war-title' }, task.title),
     ),
     createElement('div', { className: 'war-card-top' },
       createElement('span', { className: 'war-taskid' }, task.taskId),
-      task.attempts > 1 ? createElement('span', { className: 'war-chip', title: warCopy.taskCard.attemptNTitle }, warCopy.taskCard.attemptN(task.attempts)) : null,
+      task.attempts > 1 ? createElement('span', { className: 'war-chip', title: activeCopy().taskCard.attemptNTitle }, activeCopy().taskCard.attemptN(task.attempts)) : null,
       relTime(task.startedAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(task.startedAt)) : null,
     ),
     depLock(task, statuses),
     task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
     wsChip(task.workspacePath),
     task.brief !== '' ? createElement('div', { className: 'war-brief' }, task.brief) : null,
-    task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: warCopy.taskCard.failTitle }, warCopy.taskCard.failReason(task.lastError)) : null,
+    task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: activeCopy().taskCard.failTitle }, activeCopy().taskCard.failReason(task.lastError)) : null,
     task.deliverables.length > 0
       ? createElement('div', { className: 'war-loot' },
-        createElement('span', { className: 'war-loot-item' }, warCopy.taskCard.lootPrefix),
+        createElement('span', { className: 'war-loot-item' }, activeCopy().taskCard.lootPrefix),
         task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
       )
       : null,
     onHandle !== null
       ? createElement('div', { className: 'war-card-top' },
-        createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, warCopy.taskCard.handle),
+        createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, activeCopy().taskCard.handle),
       )
       : null,
   )
@@ -311,33 +319,33 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, task.title),
       createElement('div', { className: 'war-modal-sub' },
-        `${task.taskId} · ${STATUS_LABEL[task.status]} · ${QUALITY_LABEL[task.quality]}${task.priority === 'high' ? ' · 高优先' : ''}${task.attempts > 1 ? ` · 第 ${task.attempts} 次尝试` : ''}`),
+        `${task.taskId} · ${activeCopy().taskStatus[task.status]} · ${QUALITY_LABEL[task.quality]}${task.priority === 'high' ? ` · ${activeCopy().taskCard.highPriority}` : ''}${task.attempts > 1 ? ` · ${activeCopy().taskCard.attemptN(task.attempts)}` : ''}`),
       createElement('div', { className: 'war-detail-body' },
         depLock(task, statuses),
         task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
         wsChip(task.workspacePath),
-        createElement('div', { className: 'war-detail-section' }, warCopy.detail.briefSection),
-        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : warCopy.detail.briefMissing),
-        createElement('div', { className: 'war-detail-section' }, warCopy.detail.acceptanceSection),
-        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : warCopy.detail.acceptanceMissing),
+        createElement('div', { className: 'war-detail-section' }, activeCopy().detail.briefSection),
+        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : activeCopy().detail.briefMissing),
+        createElement('div', { className: 'war-detail-section' }, activeCopy().detail.acceptanceSection),
+        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : activeCopy().detail.acceptanceMissing),
         latest !== undefined
-          ? createElement('div', { className: 'war-report' }, `${warCopy.detail.reportPrefixPlain}${latest.text}`)
+          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.reportPrefixPlain}${latest.text}`)
           : null,
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
         task.deliverables.length > 0
           ? createElement('div', { className: 'war-loot' },
-            createElement('span', { className: 'war-loot-item' }, warCopy.taskCard.lootPrefix),
+            createElement('span', { className: 'war-loot-item' }, activeCopy().taskCard.lootPrefix),
             task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
           )
           : null,
-        task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.taskCard.failReason(task.lastError)) : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${warCopy.detail.verdictPrefix}${task.closedVerdict}`) : null,
+        task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().taskCard.failReason(task.lastError)) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         handleable
-          ? createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget as string); onClose() } }, warCopy.taskCard.handle)
+          ? createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget as string); onClose() } }, activeCopy().taskCard.handle)
           : null,
-        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.detail.close),
+        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().detail.close),
       ),
     ),
   )
@@ -348,17 +356,17 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
 function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: BoardTask, attempt: BoardAttempt) => void): ReactNode {
   const key = `${attempt.sessionId}:${attempt.startedAt}`
   const outcomeKey = attempt.outcome ?? 'live'
-  const meta = OUTCOME_LABEL[outcomeKey]
+  const meta = outcomeLabel(outcomeKey)
   const loot = task.deliverables.length > 0 ? task.deliverables.map(d => d.summary).join('；') : null
   return createElement('div', {
     key,
     className: `war-card war-session-card clickable q-edge-${task.quality}`,
-    title: warCopy.session.cardTitle(attempt.sessionId),
+    title: activeCopy().session.cardTitle(attempt.sessionId),
     onClick: () => { onDetail(task, attempt) },
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
-    attempt.n > 1 ? createElement('span', { className: 'war-chip', title: warCopy.session.attemptNTitle }, warCopy.session.attemptN(attempt.n)) : null,
+    attempt.n > 1 ? createElement('span', { className: 'war-chip', title: activeCopy().session.attemptNTitle }, activeCopy().session.attemptN(attempt.n)) : null,
     createElement('span', { className: 'war-time' }, relTime(attempt.startedAt)),
   ),
   createElement('div', { className: 'war-title' }, task.title),
@@ -366,9 +374,9 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
     wsChip(task.workspacePath),
   ),
-  outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.session.failReason(task.lastError)) : null,
-  outcomeKey === 'succeeded' && loot !== null ? createElement('div', { className: 'war-loot-summary', title: loot }, warCopy.session.lootSummary(loot, loot.slice(0, 80), loot.length > 80)) : null,
-  outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, warCopy.session.waitingReport) : null,
+  outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError)) : null,
+  outcomeKey === 'succeeded' && loot !== null ? createElement('div', { className: 'war-loot-summary', title: loot }, activeCopy().session.lootSummary(loot, loot.slice(0, 80), loot.length > 80)) : null,
+  outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, activeCopy().session.waitingReport) : null,
   )
 }
 
@@ -377,7 +385,7 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
 function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services: ClientServicesFace; staffTarget: string | null; onClose: () => void }): ReactNode {
   const { task, attempt, services, staffTarget, onClose } = props
   const outcomeKey = attempt.outcome ?? 'live'
-  const meta = OUTCOME_LABEL[outcomeKey]
+  const meta = outcomeLabel(outcomeKey)
   const latest = task.reports.length > 0 ? task.reports[task.reports.length - 1] : undefined
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
@@ -393,30 +401,30 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
         `${task.taskId} · ${meta.label}${attempt.n > 1 ? ` · 第 ${attempt.n} 次尝试` : ''} · ${relTime(attempt.startedAt)}${attempt.endedAt !== null ? ` → ${relTime(attempt.endedAt)}` : ''} · ⌁ ${attempt.sessionId}`),
       createElement('div', { className: 'war-detail-body' },
         wsChip(task.workspacePath),
-        createElement('div', { className: 'war-detail-section' }, warCopy.detail.briefSection),
-        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : warCopy.detail.briefMissing),
-        createElement('div', { className: 'war-detail-section' }, warCopy.detail.acceptanceSection),
-        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : warCopy.detail.acceptanceMissing),
-        task.reports.length > 0 ? createElement('div', { className: 'war-detail-section' }, warCopy.detail.reportsSection) : null,
-        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report' }, `${warCopy.detail.reportPrefix(relTime(r.ts))}${r.text}`)),
+        createElement('div', { className: 'war-detail-section' }, activeCopy().detail.briefSection),
+        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : activeCopy().detail.briefMissing),
+        createElement('div', { className: 'war-detail-section' }, activeCopy().detail.acceptanceSection),
+        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : activeCopy().detail.acceptanceMissing),
+        task.reports.length > 0 ? createElement('div', { className: 'war-detail-section' }, activeCopy().detail.reportsSection) : null,
+        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report' }, `${activeCopy().detail.reportPrefix(relTime(r.ts))}${r.text}`)),
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
-        task.comments.length > 0 ? createElement('div', { className: 'war-detail-section' }, warCopy.detail.commentsSection) : null,
-        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report' }, `${warCopy.detail.commentPrefix(relTime(c.ts))}${c.text}`)),
+        task.comments.length > 0 ? createElement('div', { className: 'war-detail-section' }, activeCopy().detail.commentsSection) : null,
+        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report' }, `${activeCopy().detail.commentPrefix(relTime(c.ts))}${c.text}`)),
         task.deliverables.length > 0
           ? createElement('div', { className: 'war-loot' },
-            createElement('span', { className: 'war-loot-item' }, warCopy.session.lootPrefix),
+            createElement('span', { className: 'war-loot-item' }, activeCopy().session.lootPrefix),
             task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
           )
           : null,
-        outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.session.failReason(task.lastError)) : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${warCopy.detail.verdictPrefix}${task.closedVerdict}`) : null,
+        outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError)) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         outcomeKey === 'reported' && staffTarget !== null
-          ? createElement('button', { className: 'war-btn', onClick: openStaff }, warCopy.session.goHandle)
+          ? createElement('button', { className: 'war-btn', onClick: openStaff }, activeCopy().session.goHandle)
           : null,
-        createElement('button', { className: 'war-btn primary', onClick: openThread }, warCopy.session.enterReview),
-        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.detail.close),
+        createElement('button', { className: 'war-btn primary', onClick: openThread }, activeCopy().session.enterReview),
+        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().detail.close),
       ),
     ),
   )
@@ -429,21 +437,21 @@ function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, o
   return createElement('div', {
     key: `ext-${thread.sessionId}`,
     className: 'war-card war-external-card clickable',
-    title: warCopy.attach.cardTitle(thread.sessionId),
+    title: activeCopy().attach.cardTitle(thread.sessionId),
     onClick: () => { services.sessions?.open(thread.sessionId) },
   },
   createElement('div', { className: 'war-card-top' },
-    createElement('span', { className: 'war-chip ext-badge' }, warCopy.attach.badge),
+    createElement('span', { className: 'war-chip ext-badge' }, activeCopy().attach.badge),
     createElement('span', { className: 'war-time' }, relTime(thread.attachedAt)),
   ),
-  createElement('div', { className: 'war-title' }, thread.note !== '' ? thread.note : warCopy.attach.noNote),
+  createElement('div', { className: 'war-title' }, thread.note !== '' ? thread.note : activeCopy().attach.noNote),
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: thread.sessionId }, `⌁ ${thread.sessionId.slice(0, 10)}…`),
     createElement('button', {
       className: 'war-btn war-detach',
-      title: warCopy.attach.detachTitle,
+      title: activeCopy().attach.detachTitle,
       onClick: e => { e.stopPropagation(); onDetach(thread.sessionId) },
-    }, warCopy.attach.detach),
+    }, activeCopy().attach.detach),
   ),
   )
 }
@@ -472,18 +480,18 @@ function AttachThreadModal(props: { onClose: () => void; refresh: () => void }):
         refresh()
         onClose()
       } else {
-        setError(result.error ?? warCopy.attach.failFallback)
+        setError(result.error ?? activeCopy().attach.failFallback)
       }
     })()
   }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, warCopy.attach.title),
-      createElement('div', { className: 'war-modal-sub' }, warCopy.attach.sub),
+      createElement('div', { className: 'war-modal-title' }, activeCopy().attach.title),
+      createElement('div', { className: 'war-modal-sub' }, activeCopy().attach.sub),
       createElement('input', {
         className: 'war-attach-input',
         value: sessionId,
-        placeholder: warCopy.attach.sessionIdPlaceholder,
+        placeholder: activeCopy().attach.sessionIdPlaceholder,
         autoFocus: true,
         onChange: e => { setSessionId((e.target as HTMLInputElement).value) },
         onKeyDown: e => { if (e.key === 'Escape') onClose() },
@@ -491,14 +499,14 @@ function AttachThreadModal(props: { onClose: () => void; refresh: () => void }):
       createElement('input', {
         className: 'war-attach-input',
         value: note,
-        placeholder: warCopy.attach.notePlaceholder,
+        placeholder: activeCopy().attach.notePlaceholder,
         onChange: e => { setNote((e.target as HTMLInputElement).value) },
         onKeyDown: e => { if (e.key === 'Enter') submit() },
       }),
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.attach.cancel),
-        createElement('button', { className: 'war-btn primary', disabled: busy || sessionId.trim() === '', onClick: submit }, busy ? warCopy.attach.busy : warCopy.attach.submit),
+        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().attach.cancel),
+        createElement('button', { className: 'war-btn primary', disabled: busy || sessionId.trim() === '', onClick: submit }, busy ? activeCopy().attach.busy : activeCopy().attach.submit),
       ),
     ),
   )
@@ -538,6 +546,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     const [detailAttempt, setDetailAttempt] = useState<{ taskId: string; attemptId: string } | null>(null)
     const [collapsedGroups, setCollapsedGroups] = useState<Set<DayKey>>(() => new Set(['yesterday', 'earlier']))
+    // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
+    useSyncExternalStore(subscribeSkin, skinId)
     const tasks = data?.tasks ?? []
     const commands = data?.commands ?? []
     const threads = data?.threads ?? []
@@ -583,7 +593,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const doneChildren: ReactNode[] = doneGroups.map(g => createElement('div', { key: g.key, className: `war-day-group${collapsedGroups.has(g.key) ? ' collapsed' : ''}` },
       createElement('button', { className: 'war-day-head', onClick: () => { toggleGroup(g.key) } },
         createElement('span', { className: 'war-day-caret' }, '▼'),
-        createElement('span', null, warCopy.days[g.key]),
+        createElement('span', null, activeCopy().days[g.key]),
         createElement('span', { className: 'war-day-count' }, String(g.items.length)),
       ),
       collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
@@ -591,25 +601,27 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     return createElement('div', { className: 'war-root' },
       createElement('div', { className: 'war-head' },
         createElement('span', { className: `war-head-dot${data?.active === true ? ' on' : ''}` }),
-        createElement('span', { className: 'war-head-title' }, warCopy.head.title),
-        createElement('span', { className: 'war-head-sub' }, data !== null && data.active ? warCopy.head.subActive : warCopy.head.subIdle),
+        createElement('span', { className: 'war-head-title' }, activeCopy().head.title),
+        createElement('span', { className: 'war-head-sub' }, data !== null && data.active ? activeCopy().head.subActive : activeCopy().head.subIdle),
+        // 皮肤切换是元 UI（控制文案层本身），不进皮肤词典——任何皮肤下都可用。
+        createElement('button', { className: 'war-btn war-skin-btn', type: 'button', title: '切换文案皮肤（只换措辞，不改机制）', onClick: () => setSkin(skinId() === 'war' ? 'plain' : 'war') }, skinId() === 'war' ? '平话皮肤' : '军事皮肤'),
       ),
       data === null
         ? createElement('div', { className: 'war-body' },
-          error !== null ? createElement('span', { className: 'war-err' }, warCopy.loading.unreachable(error)) : createElement('span', { className: 'war-empty' }, warCopy.loading.connecting),
+          error !== null ? createElement('span', { className: 'war-err' }, activeCopy().loading.unreachable(error)) : createElement('span', { className: 'war-empty' }, activeCopy().loading.connecting),
         )
         : createElement('div', { className: 'war-board' },
           createElement('div', { className: 'war-zone war-hq' },
-            zoneHead(warCopy.zones.hq.title, warCopy.zones.hq.note),
+            zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
             createElement('div', { className: 'war-zone-cols' },
-              Zone('commands', warCopy.columns.commands.title, commandsNewest.length, warCopy.columns.commands.empty,
+              Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
                 commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId))),
                 createElement('span', { className: 'war-col-actions' },
-                  createElement('button', { className: 'war-btn war-attach-btn', title: warCopy.colActions.attachTitle, onClick: () => setAttachOpen(true) }, warCopy.colActions.attachLabel),
-                  createElement('button', { className: 'war-btn primary war-plus', title: warCopy.colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
+                  createElement('button', { className: 'war-btn war-attach-btn', title: activeCopy().colActions.attachTitle, onClick: () => setAttachOpen(true) }, activeCopy().colActions.attachLabel),
+                  createElement('button', { className: 'war-btn primary war-plus', title: activeCopy().colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
                 ),
               ),
-              Zone('tasks', warCopy.columns.tasks.title, tasks.length, warCopy.columns.tasks.empty,
+              Zone('tasks', activeCopy().columns.tasks.title, tasks.length, activeCopy().columns.tasks.empty,
                 tasks.map(t => TaskCard(t, statuses, id => setDetailTaskId(id),
                   (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
                     ? () => { openStaff(t.taskId) }
@@ -618,16 +630,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             ),
           ),
           createElement('div', { className: 'war-zone war-field' },
-            zoneHead(warCopy.zones.field.title, warCopy.zones.field.note),
+            zoneHead(activeCopy().zones.field.title, activeCopy().zones.field.note),
             createElement('div', { className: 'war-zone-cols' },
-              Zone('live', warCopy.columns.live.title, live.length + threads.length, warCopy.columns.live.empty,
+              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
                 [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
                   ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }))],
               ),
-              Zone('done', warCopy.columns.done.title, done.length, warCopy.columns.done.empty,
+              Zone('done', activeCopy().columns.done.title, done.length, activeCopy().columns.done.empty,
                 doneChildren,
               ),
-              Zone('failed', warCopy.columns.failed.title, failed.length, warCopy.columns.failed.empty,
+              Zone('failed', activeCopy().columns.failed.title, failed.length, activeCopy().columns.failed.empty,
                 failed.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
               ),
             ),
@@ -652,6 +664,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
  * reopens the board via the shell entry) with an unread-since-last-seen badge. */
 export function WarDockPill(): ReactNode {
   const { data } = useWar()
+  useSyncExternalStore(subscribeSkin, skinId)
   if (data === null || !data.active) return null
   const pending = data.commands.filter(c => c.status === 'received' || c.status === 'talking').length
   const active = data.tasks.filter(t => t.status === 'in_progress').length
@@ -665,8 +678,8 @@ export function WarDockPill(): ReactNode {
     + data.tasks.filter(t => t.status === 'failed' && fresh(t.attemptLog.find(a => a.outcome === 'failed')?.endedAt ?? t.startedAt)).length
   const goHome = (): void => { document.dispatchEvent(new CustomEvent('warroom-open-request')) }
   const counts = { pending, waiting, active, failed }
-  return createElement('button', { className: 'war-dockpill war-dock-home', type: 'button', onClick: goHome, title: warCopy.dock.titleLine(counts) },
-    createElement('span', { className: 'war-dockseg' }, warCopy.dock.segLine(counts)),
-    unread > 0 ? createElement('span', { className: 'war-dock-unread' }, warCopy.dock.unread(unread)) : null,
+  return createElement('button', { className: 'war-dockpill war-dock-home', type: 'button', onClick: goHome, title: activeCopy().dock.titleLine(counts) },
+    createElement('span', { className: 'war-dockseg' }, activeCopy().dock.segLine(counts)),
+    unread > 0 ? createElement('span', { className: 'war-dock-unread' }, activeCopy().dock.unread(unread)) : null,
   )
 }

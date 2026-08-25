@@ -14,6 +14,7 @@ const WAR_CSS = `
 .war-head-sub{font-size:12px;color:var(--dsw-alias-label-secondary);flex:1 1 auto}
 .war-head-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary);flex:0 0 auto}
 .war-head-dot.on{background:var(--dsw-alias-state-business-primary)}
+.war-skin-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 .war-dockpill{display:inline-flex;align-items:center;gap:6px}
 .war-dockseg{font-size:11px}
 .war-err{font-size:12px;color:var(--dsw-alias-state-error-label)}

@@ -246,3 +246,189 @@ export const warCopy: WarCopy = {
     unread: n => `${n} 新`,
   },
 }
+
+/**
+ * 平话皮肤：同一套角色与机制，工程平话文案（角色扮演顾虑的正式出口——
+ * 机制词换日常语，「打赢了→已完成」）。品牌词「作战室」保留。
+ */
+export const plainCopy: WarCopy = {
+  head: {
+    title: '作战室',
+    subActive: '命令 → 任务 → 执行 → 结果 · 左区下达 · 右区看结果',
+    subIdle: '未启用（/war 启用）',
+  },
+  loading: {
+    connecting: '连接看板…',
+    unreachable: err => `看板不可达：${err}`,
+  },
+  zones: {
+    hq: { title: '下达区', note: '你的输入都在这里' },
+    field: { title: '执行区', note: '只读结果 · 点卡看详情 · 可跳回会话' },
+  },
+  columns: {
+    commands: { title: '命令', empty: '点 + 下达第一条命令' },
+    tasks: { title: '任务', empty: '等参谋发布第一个任务' },
+    live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里' },
+    done: { title: '已完成', empty: '还没有完成的会话' },
+    failed: { title: '已失败', empty: '暂无失败会话' },
+  },
+  colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
+  taskStatus: {
+    published: '待领取',
+    in_progress: '执行中',
+    reported: '待验收',
+    draft: '草稿',
+    failed: '已失败',
+    closed: '已完成',
+  },
+  statusMark: {
+    published: { mark: '！', title: '新任务，等待领取' },
+    reported: { mark: '？', title: '汇报已提交，等待验收' },
+  },
+  cron: {
+    badge: (cron, when) => `⏳ 周期 ${cron}${when !== '' ? ` · 下次 ${when}` : ''}`,
+    title: nextRun => `周期任务，错过不补跑${nextRun !== null ? `；下次 ${nextRun}` : ''}`,
+  },
+  wsChip: path => `目录 ${path}`,
+  depLock: { prefix: '⏳ 前置未完成：', list: ids => ids.join('、') },
+  qualityTitle: '复杂度分级',
+  commandStatus: {
+    draft: { label: '已下达', hint: '参谋接收中（约 15 秒内）' },
+    received: { label: '已接收 · 点击进入对话', hint: '参谋已接收，点击卡片进入对话回答提问' },
+    talking: { label: '对话中' },
+    approved: { label: '已发布', hint: '任务已发布，点击查看对应任务卡' },
+    cancelled: { label: '已取消' },
+  },
+  outcome: {
+    live: { label: '执行中' },
+    reported: { label: '待验收' },
+    succeeded: { label: '已完成' },
+    failed: { label: '失败' },
+  },
+  days: { today: '今天', yesterday: '昨天', earlier: '更早' },
+  taskCard: {
+    highPriority: '高优先',
+    attemptN: n => `第 ${n} 次尝试`,
+    attemptNTitle: '含自动重派的尝试次数',
+    failReason: e => `失败原因：${e}`,
+    failTitle: '重试已用尽，等参谋重新立案',
+    lootPrefix: '交付：',
+    handle: '去处理 · 参谋会话',
+  },
+  grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
+  commandDetail: {
+    gradeReasonPrefix: '分诊理由：',
+    regradesNote: n => `（改档 ${n} 次）`,
+    planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
+    approvePlan: '批准计划',
+    rejectPlan: '驳回重呈',
+    regradeHint: '升降档（覆写参谋分诊，改后需通知参谋按新档执行）：',
+    regradeTo: label => `改为 ${label}`,
+    viewTask: taskId => `查看任务 ${taskId}`,
+    close: '关闭',
+    cancelledReason: r => `取消原因：${r}`,
+  },
+  composer: {
+    title: '下达命令',
+    sub: '用一句大白话写下你的意图——参谋会接收并向你澄清细节。',
+    placeholder: '例：帮我做个记账的小工具，每天记一句，能翻回去看以前记的',
+    cancel: '取消',
+    busy: '下达中…',
+    submit: '下达命令',
+  },
+  attach: {
+    title: '挂载会话',
+    sub: '把一个已存在的会话号挂上看板，作为「外部」卡管理（只读 + 跳转，不影响会话本身）。',
+    sessionIdPlaceholder: '会话号（sessionId）',
+    notePlaceholder: '备注（可选，一句话：这个会话在干什么）',
+    cancel: '取消',
+    busy: '挂载中…',
+    submit: '挂载',
+    failFallback: '挂载失败，请重试。',
+    badge: '外部',
+    noNote: '（未备注的外部会话）',
+    detach: '摘除',
+    detachTitle: '从看板摘除这张外部卡（不影响会话本身）',
+    cardTitle: sessionId => `外部挂载的会话 ${sessionId}——点击进入该会话窗口`,
+  },
+  session: {
+    attemptN: n => `第 ${n} 次`,
+    attemptNTitle: '重试尝试',
+    failReason: e => `失败原因：${e}`,
+    lootPrefix: '交付：',
+    lootSummary: (loot, clipped, more) => `交付：${clipped}${more ? '…' : ''}`,
+    waitingReport: '证据已核验，等你验收',
+    cardTitle: sessionId => `执行会话 ${sessionId}——点击查看详情`,
+    goHandle: '去处理 · 参谋会话',
+    enterReview: '查看会话',
+  },
+  detail: {
+    briefSection: '任务说明',
+    briefMissing: '（参谋未附任务说明）',
+    acceptanceSection: '验收标准',
+    acceptanceMissing: '（未声明）',
+    reportsSection: '汇报',
+    commentsSection: '批注',
+    reportPrefixPlain: '【汇报】',
+    reportPrefix: ts => `【汇报 · ${ts}】`,
+    commentPrefix: ts => `【批注 · ${ts}】`,
+    verdictPrefix: '【判定】',
+    close: '关闭',
+    cancel: '取消',
+  },
+  dock: {
+    label: '作战室',
+    titleLine: c => `待接命令 ${c.pending} · 待领取 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
+    segLine: c => `作战室${c.pending > 0 ? ` 命令${c.pending}` : ''} 待领${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
+    unread: n => `${n} 新`,
+  },
+}
+
+// --- 皮肤 store（纯函数层，不引 react——node 测试可安全 import）-----------
+
+export type SkinId = 'war' | 'plain'
+
+const SKIN_STORAGE_KEY = 'warroom-skin'
+const skins: Record<SkinId, WarCopy> = { war: warCopy, plain: plainCopy }
+
+function storedSkin(): SkinId {
+  try {
+    if (typeof localStorage === 'undefined') return 'war'
+    return localStorage.getItem(SKIN_STORAGE_KEY) === 'plain' ? 'plain' : 'war'
+  } catch {
+    return 'war'
+  }
+}
+
+let currentId: SkinId = storedSkin()
+const listeners = new Set<() => void>()
+
+export function skinId(): SkinId {
+  return currentId
+}
+
+/** 当前皮肤的词典（渲染期调用——皮肤切换后由订阅者重渲染拉新值）。 */
+export function activeCopy(): WarCopy {
+  return skins[currentId]
+}
+
+export function setSkin(id: SkinId): void {
+  if (id === currentId) return
+  currentId = id
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(SKIN_STORAGE_KEY, id)
+  } catch {
+    // 持久化失败不影响会话内切换。
+  }
+  for (const l of listeners) l()
+}
+
+export function toggleSkin(): void {
+  setSkin(currentId === 'war' ? 'plain' : 'war')
+}
+
+/** 皮肤切换订阅（views 经 useSyncExternalStore 接入触发重渲染）。 */
+export function subscribeSkin(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}

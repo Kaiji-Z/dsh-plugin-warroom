@@ -87,6 +87,11 @@ gate('bundle', () => {
     [client, '败因', 'failure cause on the card'],
     [client, 'war-mark', '！/？ map-mark status language'],
     [client, '退出码', 'KillCredit evidence block (tests exit code shown)'],
+    // 皮肤切换器：平话皮肤 + 渲染期词典 + 订阅重渲染。
+    [client, 'plainCopy', 'plain-language skin bundled'],
+    [client, 'subscribeSkin', 'skin store subscription'],
+    [client, 'useSyncExternalStore', 'skin switch re-renders the board'],
+    [client, 'war-skin-btn', 'head skin toggle button'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
     [host, '大白话 → 任务书', 'plain-speech-to-brief worked example'],
