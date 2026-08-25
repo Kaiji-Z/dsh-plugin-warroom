@@ -20,7 +20,7 @@ export interface WarCopy {
   head: { title: string; subActive: string; subIdle: string }
   loading: { connecting: string; unreachable: (err: string) => string }
   zones: {
-    hq: { title: string; note: string }
+    tasks: { title: string; note: string }
     field: { title: string; note: string }
     report: { title: string; note: string }
   }
@@ -175,6 +175,8 @@ export interface WarCopy {
     commentPrefix: (ts: string) => string
     verdictPrefix: string
     lineageLabel: string
+    sessionsSection: string
+    staffSession: string
     close: string
     cancel: string
   }
@@ -209,9 +211,9 @@ export const warCopy: WarCopy = {
     unreachable: err => `任务栏不可达：${err}`,
   },
   zones: {
-    hq: { title: '指挥中心', note: '命令与任务 · 元首的输入都在这里' },
+    tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
     field: { title: '战场', note: '正在执行的会话 · 只读' },
-    report: { title: '战报', note: '收官与折戟 · 点卡看详情' },
+    report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
@@ -408,6 +410,8 @@ export const warCopy: WarCopy = {
     commentPrefix: ts => `【批注 · ${ts}】`,
     verdictPrefix: '【判定】',
     lineageLabel: '源自命令',
+    sessionsSection: '相关会话',
+    staffSession: '参谋 · 讨论与计划',
     close: '关闭',
     cancel: '取消',
   },
@@ -445,9 +449,9 @@ export const plainCopy: WarCopy = {
     unreachable: err => `看板不可达：${err}`,
   },
   zones: {
-    hq: { title: '指挥中心', note: '命令与任务 · 你的输入都在这里' },
+    tasks: { title: '任务', note: '未完成的任务' },
     field: { title: '执行区', note: '正在运行的会话 · 只读' },
-    report: { title: '结果区', note: '已完成与失败 · 点卡看详情' },
+    report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
@@ -643,6 +647,8 @@ export const plainCopy: WarCopy = {
     commentPrefix: ts => `【批注 · ${ts}】`,
     verdictPrefix: '【判定】',
     lineageLabel: '源自命令',
+    sessionsSection: '相关会话',
+    staffSession: '参谋 · 讨论与计划',
     close: '关闭',
     cancel: '取消',
   },

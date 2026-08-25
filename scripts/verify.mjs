@@ -175,14 +175,15 @@ gate('bundle', () => {
     [client, 'dsh-panel-activate', 'sibling-panel mutual exclusion event'],
     [client, 'react-dom/client', 'board tree via react-dom createRoot'],
     // v3 R1: two-zone command center, detail-first battlefield, dock home.
+    // V9 迁移：三区五列 → 三列局势墙 + 底部命令调度条（Dispatch 调度中心）。
     [client, '作战室 · 指挥中心', 'v3 war map title'],
-    [client, 'war-hq', 'command-center zone container'],
+    [client, 'war-dispatch', 'bottom command dispatch strip'],
+    [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],
-    [client, 'war-zone-head', 'zone headers'],
+    [client, 'war-cd-sessions', 'command detail: related thread entries'],
     [client, '进入会话复盘', 'session detail jump button'],
     [client, '去处理', 'reported/failed staff-jump button'],
     [client, 'warroom-open-request', 'dock pill home event'],
-    [client, 'war-day-group', 'done-zone day grouping'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],

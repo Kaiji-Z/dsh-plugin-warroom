@@ -35,25 +35,21 @@ const WAR_CSS = `
 .war-err{font-size:12px;color:var(--dsw-alias-state-error-label)}
 .war-empty{color:var(--dsw-alias-label-secondary);font-size:12px;padding:12px 4px;text-align:center;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;margin:6px 0}
 
-/* --- the three-region board (v8: 三区=视觉大容器，五列内部滚动) ---------------- */
-.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2.2fr 1.3fr 2.2fr;gap:10px;padding:2px 10px 10px}
+/* --- V9 局势墙三列（任务/战场/战报）+ 底部命令调度条 ------------------------- */
+.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1.1fr 1fr 1.1fr;gap:10px;padding:2px 10px 6px}
 .war-zone{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-base);overflow:hidden}
-.war-hq{box-shadow:inset 0 3px 0 var(--dsw-alias-state-business-primary)}
+.war-tasks{box-shadow:inset 0 3px 0 var(--dsw-alias-state-business-primary)}
 .war-field{box-shadow:inset 0 3px 0 var(--dsw-alias-label-tertiary)}
 .war-zone.war-report{box-shadow:inset 0 3px 0 var(--dsw-alias-state-success-primary)}
-.war-zone-head{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;padding:9px 14px 6px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
-.war-zone-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.08em}
-.war-zone-note{font-size:12px;color:var(--dsw-alias-label-tertiary)}
-.war-zone-cols{flex:1 1 auto;min-height:0;display:grid;min-width:0}
-.war-hq .war-zone-cols{grid-template-columns:repeat(2,minmax(196px,1fr))}
-.war-field .war-zone-cols{grid-template-columns:minmax(220px,1fr)}
-.war-report .war-zone-cols{grid-template-columns:repeat(2,minmax(180px,1fr))}
-.war-col{display:flex;flex-direction:column;min-height:0;min-width:0;border-right:1px solid var(--dsw-alias-border-l1);padding:0 8px}
-.war-col:last-child{border-right:0}
+.war-col{display:flex;flex-direction:column;min-height:0;min-width:0;padding:0 8px}
 .war-col-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;padding:8px 2px;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l1);flex:0 0 auto}
 .war-col-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
 .war-col-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .war-col-body{flex:1 1 auto;overflow-y:auto;padding:8px 2px 16px;display:flex;flex-direction:column;gap:8px}
+/* 底部命令调度条：所有命令卡横向一排（活跃优先+新→旧），单行横滚——
+ * Dispatch 调度中心的一排英雄位；命令是唯一可点入口。 */
+.war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;padding:8px 12px 10px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);scrollbar-width:thin}
+.war-dispatch .war-command-card{flex:0 0 320px;min-width:0}
 
 /* --- cards ------------------------------------------------------------------ */
 .war-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,opacity .15s ease}
@@ -227,20 +223,18 @@ const WAR_CSS = `
 .war-composer{width:100%;min-height:120px;resize:vertical;font-family:var(--dsw-font-family);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:10px 12px;outline:none}
 .war-composer:focus{border-color:var(--dsw-alias-state-business-primary)}
 
-/* --- done-zone day groups + dock home pill (v3) ------------------------------ */
-.war-day-group{display:flex;flex-direction:column;gap:8px}
+/* --- external thread cards + dock home pill (v3) ---------------------------- */
 .war-col-actions{margin-left:auto;display:inline-flex;gap:6px}
 .war-attach-btn{padding:2px 8px;line-height:18px}
 .war-external-card{border-style:dashed}
 .war-chip.ext-badge{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
-.war-btn.war-detach{padding:1px 8px;font-size:11px;line-height:16px}
+.war-btn.war-detach{padding:1px 8px;font-size:12px;line-height:16px}
 .war-attach-input{width:100%;font-family:var(--dsw-font-family);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;outline:none;margin-bottom:8px}
 .war-attach-input:focus{border-color:var(--dsw-alias-state-business-primary)}
-.war-day-head{display:flex;align-items:center;gap:6px;width:100%;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;cursor:pointer;padding:4px 2px;font-family:var(--dsw-font-family);text-align:left}
-.war-day-head:hover{color:var(--dsw-alias-label-primary)}
-.war-day-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2)}
-.war-day-caret{display:inline-block;transition:transform .12s ease;font-size:12px}
-.war-day-group.collapsed .war-day-caret{transform:rotate(-90deg)}
+/* V9 命令详情·相关会话入口：一行一会话（讨论/执行），点开进宿主会话窗口。 */
+.war-cd-sessions{display:flex;flex-direction:column;gap:6px}
+.war-cd-session{display:flex;align-items:center;gap:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);padding:4px 10px;cursor:pointer;font-family:var(--dsw-font-family);text-align:left}
+.war-cd-session:hover{border-color:var(--dsw-alias-state-business-primary)}
 .war-dock-home{cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-2);padding:2px 8px;font-family:var(--dsw-font-family)}
 .war-dock-home:hover{border-color:var(--dsw-alias-state-business-primary)}
 .war-dock-unread{font-size:12px;color:var(--dsw-alias-state-business-primary);font-weight:600}

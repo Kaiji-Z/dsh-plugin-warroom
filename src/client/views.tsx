@@ -72,18 +72,6 @@ function staffSessionFor(taskId: string, commands: BoardCommand[], hqSessionId: 
   return own?.staffSessionId ?? hqSessionId
 }
 
-/** Done-zone day bucket key（稳定键——皮肤换词不破坏折叠状态）：今天 / 昨天 / 更早 (by attempt end, fallback start). */
-type DayKey = 'today' | 'yesterday' | 'earlier'
-function dayKeyOf(iso: string, now: number): DayKey {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return 'earlier'
-  const startOf = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const diff = startOf(new Date(now)) - startOf(d)
-  if (diff <= 0) return 'today'
-  if (diff < 2 * 24 * 3600_000) return 'yesterday'
-  return 'earlier'
-}
-
 /** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
 function statusMark(task: BoardTask): ReactNode {
   const m = activeCopy().statusMark[task.status]
@@ -364,18 +352,26 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   )
 }
 
-/** 命令全生命周期详情（追踪中枢）：原文 → 分诊/计划 → 任务链逐环 → 最新战报。
- * V7.1 组件化（createElement 挂载）：补 Escape 关闭，与其余模态一致；「查看任务」
- *  对已不在板上的任务降级为禁用态（死链不静默）。 */
-function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoard: boolean; onOpenTask: (taskId: string) => void; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onFocus: (commandId: string) => void }): ReactNode {
-  const { cmd, chain, taskOnBoard, onOpenTask, onClose, onRegrade, onDecidePlan, onFocus } = props
+/** 命令全生命周期详情（追踪中枢）：原文 → 分诊/计划 → 任务链逐环 → 最新战报 →
+ * 相关会话入口（V9：参谋讨论会话 + 各次执行会话——命令是唯一详情叙事中心）。
+ * V7.1 组件化（createElement 挂载）：补 Escape 关闭；「查看任务」对已不在板上
+ * 的任务降级为禁用态（死链不静默）。V9 focusSegment：收件箱/上方卡片跳入时
+ * 直滚到需要发落的环节（计划卡/任务链/战报段）。 */
+function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoard: boolean; focusSegment: 'plan' | 'chain' | 'report' | null; onOpenSession: (sessionId: string) => void; onOpenTask: (taskId: string) => void; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onFocus: (commandId: string) => void }): ReactNode {
+  const { cmd, chain, taskOnBoard, focusSegment, onOpenSession, onOpenTask, onClose, onRegrade, onDecidePlan, onFocus } = props
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+  // 分段直达：打开即滚到需要元首发落的环节（收件箱路由目标）。
+  useEffect(() => {
+    if (focusSegment === null) return
+    document.querySelector(`.war-modal .war-cd-${focusSegment}`)?.scrollIntoView({ block: 'center' })
+  }, [focusSegment])
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
+  const detailCopy = activeCopy().detail
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   const closed = chain.filter(t => t.status === 'closed').length
   // 最新战报：链上任一环的最新一条汇报（各环取末条，再按时间取最新）。
@@ -383,6 +379,10 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
     .flatMap(t => (t.reports.length > 0 ? [{ r: t.reports[t.reports.length - 1]!, t }] : []))
     .sort((a, b) => (a.r.ts < b.r.ts ? 1 : -1))[0]
   const verdictTask = chain.find(t => t.closedVerdict !== null)
+  // V9 相关会话：参谋讨论会话（每命令一个）+ 指挥官执行会话（每次尝试一个）。
+  const execSessions = chain
+    .flatMap(t => (t.attemptLog ?? []).map(a => ({ t, a })))
+    .sort((x, y) => (x.a.startedAt < y.a.startedAt ? 1 : -1))
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
@@ -391,7 +391,7 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
         createElement('div', { className: 'war-detail-text' }, cmd.text),
         cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${copy.gradeReasonPrefix}${cmd.gradeReason}`) : null,
         cmd.plan !== null
-          ? createElement('div', { className: 'war-plan' },
+          ? createElement('div', { className: 'war-plan war-cd-plan' },
             createElement('div', { className: 'war-plan-head' }, `作战计划（${copy.planTitle[cmd.plan.status]}）`),
             createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
             cmd.plan.status === 'pending'
@@ -403,7 +403,7 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
           )
           : null,
         // 任务链：一环一行（状态/标题/元信息），点行进任务卡——追踪即跳转。
-        createElement('div', { className: 'war-detail-section' }, copy.chainSection),
+        createElement('div', { className: 'war-detail-section war-cd-chain' }, copy.chainSection),
         chain.length === 0
           ? createElement('div', { className: 'war-detail-text' }, copy.noTasks)
           : createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
@@ -422,7 +422,7 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
             )),
           ),
         lastReport !== undefined
-          ? createElement('div', { className: 'war-detail-section' }, copy.latestReport)
+          ? createElement('div', { className: 'war-detail-section war-cd-report' }, copy.latestReport)
           : null,
         lastReport !== undefined
           ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
@@ -430,6 +430,25 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
         lastReport !== undefined && lastReport.r.evidence !== null ? EvidenceBlock(lastReport.r.evidence) : null,
         verdictTask !== undefined && verdictTask.closedVerdict !== null
           ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${verdictTask.closedVerdict}`)
+          : null,
+        // V9 相关会话：讨论（参谋）与执行（指挥官，按次）两类 thread 的入口。
+        cmd.staffSessionId !== null || execSessions.length > 0
+          ? createElement('div', { className: 'war-detail-section war-cd-sessions' }, detailCopy.sessionsSection)
+          : null,
+        cmd.staffSessionId !== null || execSessions.length > 0
+          ? createElement('div', { className: 'war-cd-sessions' },
+            cmd.staffSessionId !== null
+              ? createElement('button', { className: 'war-cd-session', type: 'button', onClick: () => { onOpenSession(cmd.staffSessionId as string) } },
+                  createElement('span', { className: 'war-chip' }, detailCopy.staffSession),
+                  createElement('span', { className: 'war-taskid', title: cmd.staffSessionId }, `⌁ ${cmd.staffSessionId.slice(0, 10)}…`),
+                )
+              : null,
+            execSessions.map(({ t, a }) => createElement('button', { key: a.id, className: 'war-cd-session', type: 'button', title: a.sessionId, onClick: () => { onOpenSession(a.sessionId) } },
+              createElement('span', { className: `war-chip ${(a.outcome ?? 'live') === 'live' ? 'st-in_progress' : a.outcome === 'failed' ? 'oc-fail' : a.outcome === 'reported' ? 'oc-reported' : 'oc-done'}` }, outcomeLabel(a.outcome ?? 'live').label),
+              createElement('span', { className: 'war-taskid' }, `⌁ ${a.sessionId.slice(0, 10)}… · ${t.taskId}`),
+              createElement('span', { className: 'war-time' }, relTime(a.startedAt)),
+            )),
+          )
           : null,
         cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
         regradable ? createElement('div', { className: 'war-modal-sub' }, copy.regradeHint) : null,
@@ -774,13 +793,6 @@ function Zone(key: string, title: string, count: number, empty: string, children
   )
 }
 
-/** A region header: 指挥中心 / 战场 with their one-line duty note. */
-function zoneHead(title: string, note: string): ReactNode {
-  return createElement('div', { className: 'war-zone-head' },
-    createElement('span', { className: 'war-zone-title' }, title),
-    createElement('span', { className: 'war-zone-note' }, note))
-}
-
 /** V7-① 等你发落收件箱：四类需要元首的动作（答澄清/批计划/翻战报/决重试）
  * 聚合成一条队列，带等待时长与 aging 警示；点击直达动作发生地（进会话/开
  * 决策卡/开任务详情）——板子只导航，不长任务写操作（红线）。 */
@@ -838,7 +850,7 @@ function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNod
     createElement('span', { className: 'war-visit-since' }, since),
     delta.closed > 0 ? seg(' s-closed', '.war-zone.war-report', copy.closed(delta.closed)) : null,
     delta.failed > 0 ? seg(' s-failed', '.war-zone.war-report', copy.failed(delta.failed)) : null,
-    delta.commands > 0 ? seg('', '.war-col.zone-commands', copy.commands(delta.commands)) : null,
+    delta.commands > 0 ? seg('', '.war-dispatch', copy.commands(delta.commands)) : null,
     delta.pending > 0 ? seg(' s-pending', '.war-inbox', copy.pending(delta.pending)) : null,
   )
 }
@@ -985,7 +997,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     const [detailAttempt, setDetailAttempt] = useState<{ taskId: string; attemptId: string } | null>(null)
-    const [collapsedGroups, setCollapsedGroups] = useState<Set<DayKey>>(() => new Set(['yesterday', 'earlier']))
+    // V9 分段直达：打开命令详情时滚到需要发落的环节（计划/任务链/战报）。
+    const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
     const [lastSeenSnapshot] = useState<number>(() => {
       try { return Date.parse(localStorage.getItem('warroom-last-seen') ?? '') || 0 } catch { return 0 }
@@ -1007,14 +1020,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const timer = setTimeout(() => { setActionError(null) }, 6000)
       return () => { clearTimeout(timer) }
     }, [actionError])
-    // V8 悬停自动滚动：族系高亮确定后（300ms 防抖），把各列里被高亮但不在
-    // 视口内的卡片滚到眼前——nearest 只滚最小必要距离，已可见的不动；
-    // reduced-motion 用户用瞬移。悬停离开（null）不滚。
+    // V8 悬停自动滚动：族系高亮确定后（300ms 防抖），把各滚动容器里被高亮但
+    // 不在视口内的卡片滚到眼前——上方三列（纵向）+ 底部调度条（横向）都要管；
+    // nearest 只滚最小必要距离，已可见的不动；reduced-motion 用户用瞬移。
+    // 悬停离开（null）不滚——不抢用户的滚动权。
     useEffect(() => {
       if (hoverFamily === null) return
       const timer = setTimeout(() => {
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        document.querySelectorAll<HTMLElement>('.war-col-body .war-rel-same').forEach(el => {
+        document.querySelectorAll<HTMLElement>('.war-col-body .war-rel-same, .war-dispatch .war-rel-same').forEach(el => {
           el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' })
         })
       }, 300)
@@ -1033,7 +1047,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     for (const c of commands) for (const t of commandTasks(c, tasks)) if (!lineageMap.has(t.taskId)) lineageMap.set(t.taskId, c)
     const lineageOf = (taskId: string): BoardCommand | null => lineageMap.get(taskId) ?? null
     const chainOf = (c: BoardCommand): BoardTask[] => commandTasks(c, tasks)
-    const openCommand = (commandId: string): void => { setDetailTaskId(null); setDetailAttempt(null); setDetailCommandId(commandId) }
+    // V9 打开命令详情（唯一详情叙事中心）；segment=需要发落的环节（收件箱/上方卡直达）。
+    const openCommand = (commandId: string, segment: 'plan' | 'chain' | 'report' | null = null): void => {
+      setDetailTaskId(null)
+      setDetailAttempt(null)
+      setDetailSegment(segment)
+      setDetailCommandId(commandId)
+    }
     const openStaff = (taskId: string): void => {
       const target = staffFor(taskId)
       if (target !== null) services.sessions?.open(target)
@@ -1058,23 +1078,17 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const done = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const failed = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const commandsNewest = [...commands].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    // Done-zone day buckets (stable keys — 皮肤换词不破坏折叠状态).
     const now = Date.now()
-    const doneGroups: Array<{ key: DayKey; items: Array<{ t: BoardTask; a: BoardAttempt }> }> = []
-    for (const entry of done) {
-      const key = dayKeyOf(entry.a.endedAt ?? entry.a.startedAt, now)
-      const last = doneGroups[doneGroups.length - 1]
-      if (last !== undefined && last.key === key) last.items.push(entry)
-      else doneGroups.push({ key, items: [entry] })
+    // V9 战报列：成功+失败合并、纯时间倒序（无按天分组——组头是单组时的噪音）。
+    const report = [...done, ...failed].sort((x, y) => byStart(x.a, y.a))
+    // V9 任务列：未终局任务（待领/进行/待翻阅）——终局走战报。
+    const openTasks = tasks.filter(t => t.status !== 'closed' && t.status !== 'failed')
+    // V9 底部调度条：全部命令，活跃优先（未取消且链未全终局）+ 新→旧——Dispatch 调度中心的一排英雄位。
+    const cmdActive = (c: BoardCommand): boolean => {
+      const ch = chainOf(c)
+      return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed'))
     }
-    const toggleGroup = (key: DayKey): void => {
-      setCollapsedGroups(prev => {
-        const next = new Set(prev)
-        if (next.has(key)) next.delete(key)
-        else next.add(key)
-        return next
-      })
-    }
+    const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
@@ -1091,6 +1105,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       active: tasks.filter(t => t.status === 'in_progress').length,
       failed: tasks.filter(t => t.status === 'failed').length,
     }
+    // V9 收件箱路由：批计划→计划段；翻战报→战报段；决重试→任务链段；答澄清仍是进会话对话。
     const inboxAct = (it: InboxItem): void => {
       if (it.kind === 'clarify') {
         const cmd = commands.find(c => c.commandId === it.refId)
@@ -1100,19 +1115,24 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           services.sessions?.open(target)
         }
       } else if (it.kind === 'plan') {
-        openCommand(it.refId)
+        openCommand(it.refId, 'plan')
       } else {
-        setDetailTaskId(it.refId)
+        const lc = lineageOf(it.refId)
+        if (lc !== null) openCommand(lc.commandId, it.kind === 'review' ? 'report' : 'chain')
+        else setDetailTaskId(it.refId)
       }
     }
-    const doneChildren: ReactNode[] = doneGroups.map(g => createElement('div', { key: g.key, className: `war-day-group${collapsedGroups.has(g.key) ? ' collapsed' : ''}` },
-      createElement('button', { className: 'war-day-head', onClick: () => { toggleGroup(g.key) } },
-        createElement('span', { className: 'war-day-caret' }, '▼'),
-        createElement('span', null, activeCopy().days[g.key]),
-        createElement('span', { className: 'war-day-count' }, String(g.items.length)),
-      ),
-      collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-    ))
+    // V9 上方三列是局势墙：点卡 = 打开源命令的全生命周期详情（无溯源的孤儿卡才降级旧详情）。
+    const openTaskVia = (taskId: string): void => {
+      const lc = lineageOf(taskId)
+      if (lc !== null) openCommand(lc.commandId)
+      else setDetailTaskId(taskId)
+    }
+    const openSessionVia = (t: BoardTask, a: BoardAttempt): void => {
+      const lc = lineageOf(t.taskId)
+      if (lc !== null) openCommand(lc.commandId, 'report')
+      else openSessionDetail(t, a)
+    }
     return createElement('div', { className: 'war-root' },
       // V8 hero 灵动岛：替代标题栏——操作件与大盘状态全收进顶部胶囊（展开浮层
       // 盖列区，不推挤；聚焦模式 = 岛的常驻形态）。
@@ -1141,55 +1161,48 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: 'war-board' },
-          // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
-          createElement('div', { className: 'war-zone war-hq' },
-            zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
-            createElement('div', { className: 'war-zone-cols' },
-              Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
-                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
-                  actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
-                })),
-              ),
-              Zone('tasks', activeCopy().columns.tasks.title, tasks.length, activeCopy().columns.tasks.empty,
-                tasks.map(t => TaskCard(t, statuses, id => setDetailTaskId(id),
-                  (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
-                    ? () => { openStaff(t.taskId) }
-                    : null,
-                  lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-              ),
+          // V9 上方三列局势墙：任务（未终局）| 战场（进行中会话+外部挂载）| 战报（成功+失败合并，纯时间序）。
+          // 命令不再是列——它常驻底部调度条（Dispatch 调度中心）。
+          createElement('div', { className: 'war-zone war-tasks' },
+            Zone('tasks', activeCopy().columns.tasks.title, openTasks.length, activeCopy().columns.tasks.empty,
+              openTasks.map(t => TaskCard(t, statuses, openTaskVia,
+                (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
+                  ? () => { openStaff(t.taskId) }
+                  : null,
+                lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
             ),
           ),
           createElement('div', { className: 'war-zone war-field' },
-            zoneHead(activeCopy().zones.field.title, activeCopy().zones.field.note),
-            createElement('div', { className: 'war-zone-cols' },
-              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
-                [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
-              ),
+            Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
+              [...live.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
             ),
           ),
           createElement('div', { className: 'war-zone war-report' },
-            zoneHead(activeCopy().zones.report.title, activeCopy().zones.report.note),
-            createElement('div', { className: 'war-zone-cols' },
-              Zone('done', activeCopy().columns.done.title, done.length, activeCopy().columns.done.empty,
-                doneChildren,
-              ),
-              Zone('failed', activeCopy().columns.failed.title, failed.length, activeCopy().columns.failed.empty,
-                failed.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-              ),
+            Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
+              report.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
             ),
           ),
+          // V9 底部命令调度条：所有命令卡横向一排（活跃优先 + 新→旧），每张带
+          // 四段生命条显示所处阶段——命令是唯一可点入口，点开=全生命周期详情。
+          createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': '命令调度条' },
+            dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
+              actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
+            })),
+          ),
         ),
-      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => setComposerOpen(false), refresh }) : null,
-      attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
-      detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => setDetailTaskId(null) }) : null,
+      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => { setComposerOpen(false) }, refresh }) : null,
+      attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => { setAttachOpen(false) }, refresh }) : null,
+      detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => { setDetailTaskId(null) } }) : null,
       detailCommand !== undefined ? createElement(CommandDetail, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
         chain: chainOf(detailCommand),
         taskOnBoard: detailCommand.taskId !== null && tasks.some(t => t.taskId === detailCommand.taskId),
+        focusSegment: detailSegment,
+        onOpenSession: sessionId => { services.sessions?.open(sessionId) },
         onOpenTask: id => setDetailTaskId(id),
-        onClose: () => setDetailCommandId(null),
+        onClose: () => { setDetailCommandId(null) },
         onRegrade: grade => { actNote(regradeCommand(detailCommand.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade])) },
         onDecidePlan: decision => { actNote(decidePlan(detailCommand.commandId, decision), decision === 'approve' ? activeCopy().commandDetail.approvePlan : activeCopy().commandDetail.rejectPlan) },
         onFocus: commandId => { setFocusCommandId(commandId) },

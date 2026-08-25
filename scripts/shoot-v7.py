@@ -113,8 +113,44 @@ with sync_playwright() as p:
     pre = page.locator(".war-preflight")
     assert pre.count() == 1, f"preflight row expected on the L1 plan-pending command, got {pre.count()}"
     assert page.locator(".war-preflight-btn", has_text="改直发").count() == 1, "preflight 改直发 action missing"
+
+    # V9 结构断言：三列局势墙 + 底部命令调度条（命令不再是列）。
+    assert page.locator(".war-dispatch").count() == 1, "bottom command dispatch strip missing"
+    n_cmds = page.locator(".war-dispatch .war-command-card").count()
+    assert n_cmds >= 5, f"dispatch strip should carry all commands, got {n_cmds}"
+    assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"
+    assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
+    report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()
+    assert any("打赢" in c for c in report_chips) and any("失败" in c for c in report_chips), f"report column must merge succeeded+failed: {report_chips}"
+    assert any("待翻阅" in c for c in page.locator(".war-col.zone-tasks .war-chip").all_inner_texts()), "tasks column should hold non-terminal tasks"
     page.screenshot(path=f"{OUT}/v7-inbox.png")
-    print("shot: v7-inbox.png (island expanded: inbox + visit digest)")
+    print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
+
+    # V9 导航断言：点上方任务卡 = 打开源命令的全生命周期详情（含相关会话入口）。
+    leave_island()  # 面板收起，别让它盖住任务卡
+    page.wait_for_timeout(350)
+    # 选带 ↩ 溯源 chip 的卡（孤儿任务无源命令，走 TaskDetail 降级——另一条路径）。
+    page.locator(".war-col.zone-tasks .war-card", has_text="↩").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert page.locator(".war-modal-title").inner_text().startswith("命令 "), f"task card should open COMMAND detail, got {page.locator('.war-modal-title').inner_text()!r}"
+    assert page.locator(".war-modal .war-cd-chain").count() == 1, "command detail lacks chain section"
+    assert page.locator(".war-modal .war-cd-session").count() >= 1, "command detail lacks related-session entries"
+    assert page.locator(".war-modal .war-cd-session", has_text="参谋").count() >= 1, "staff discussion session entry missing"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+
+    # V9 收件箱直达段：批计划条目 → 命令详情且计划段在视口内。
+    page.locator(".war-island-pill").hover()
+    page.wait_for_timeout(300)
+    page.locator(".war-inbox-item", has_text="批计划").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert page.locator(".war-modal .war-cd-plan").count() == 1, "inbox plan routing should open command detail with plan card"
+    plan_box = page.locator(".war-modal .war-cd-plan").bounding_box()
+    body_box = page.locator(".war-modal .war-detail-body").bounding_box()
+    assert plan_box["y"] >= body_box["y"] - 2 and plan_box["y"] <= body_box["y"] + body_box["height"], "plan segment should be scrolled into view"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    print("V9 navigation: task card → command detail (chain + sessions); inbox plan → plan segment")
 
     # 钉住/取消钉住：鼠标离开岛仍展开；再点收起。
     page.locator(".war-island-pill").click()
@@ -141,18 +177,26 @@ with sync_playwright() as p:
     assert same >= 3, f"hover family highlight too thin: same={same}"
     assert dim >= 3, f"hover dimming missing: dim={dim}"
 
-    def card_visible_in_col(sel: str) -> bool:
+    def card_visible_in_col(sel: str, container_sel: str) -> bool:
         card = page.locator(sel).first
         box = card.bounding_box()
         if box is None:
             return False
-        body = card.locator("xpath=ancestor::div[contains(@class,'war-col-body')][1]").bounding_box()
-        return body is not None and box["y"] >= body["y"] - 1 and box["y"] + box["height"] <= body["y"] + body["height"] + 1
+        body = page.locator(container_sel).first.bounding_box()
+        if body is None:
+            return False
+        v_ok = box["y"] >= body["y"] - 1 and box["y"] + box["height"] <= body["y"] + body["height"] + 1
+        h_ok = box["x"] >= body["x"] - 1 and box["x"] + box["width"] <= body["x"] + body["width"] + 1
+        return v_ok and h_ok
 
-    for col_sel in [".war-col.zone-commands", ".war-col.zone-live", ".war-col.zone-done"]:
+    # V9：高亮卡可能落在上方两列，也可能落在底部调度条（横向滚动容器）。
+    for col_sel, body_sel in [(".war-col.zone-tasks", ".war-col.zone-tasks .war-col-body"), (".war-col.zone-live", ".war-col.zone-live .war-col-body"), (".war-col.zone-report", ".war-col.zone-report .war-col-body")]:
         n = page.locator(f"{col_sel} .war-rel-same").count()
         if n > 0:
-            assert card_visible_in_col(f"{col_sel} .war-rel-same"), f"auto-scroll failed: highlighted card in {col_sel} still out of view"
+            assert card_visible_in_col(f"{col_sel} .war-rel-same", body_sel), f"auto-scroll failed: highlighted card in {col_sel} still out of view"
+    nd = page.locator(".war-dispatch .war-rel-same").count()
+    if nd > 0:
+        assert card_visible_in_col(".war-dispatch .war-rel-same", ".war-dispatch"), "auto-scroll failed: highlighted command card still out of horizontal view"
     print("auto-scroll: every highlighted card in a scrollable column is in view")
     page.set_viewport_size({"width": 1720, "height": 940})
     page.wait_for_timeout(300)
