@@ -186,6 +186,11 @@ gate('bundle', () => {
     // v5 R1: mechanism-verification spike (v5-spike flag).
     [host, 'v5-spike', 'V5-R1 spike flag gate'],
     [host, '/warroom/api/v5-spike', 'spike probe HTTP route'],
+    // V6 命令拆解（staff-decompose）：拆解呈批 + 成链发布。
+    [host, 'staff-decompose', 'V6 decompose flag gate'],
+    [host, 'war_decompose', 'staff decompose tool'],
+    [host, 'war_publish_chain', 'chain publish tool'],
+    [host, 'directive_decomposed', 'structured decomposition ledger event'],
     [host, 'goals.create', 'goal structural-slice probe verb'],
     [host, 'toolFilter', 'sessions.create toolFilter probe (staff restriction)'],
     // v5 R2: triage + L0 auto-close (staff-triage + staff-auto-close flags).

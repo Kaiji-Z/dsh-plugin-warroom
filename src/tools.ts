@@ -1160,6 +1160,150 @@ export function warTools(deps: WarToolsDeps) {
     presentCall: args => ({ card: 'generic', title: `呈计划 ${args.command_id}` }),
   })
 
+  // V6 命令拆解（flag staff-decompose）：大命令 → 结构化子任务链。呈批复用
+  // 计划态（decomposed 存机器可读子任务书 + plan_opened 存人读计划稿），
+  // 批准走既有决策路由——元首侧零新增 UI。
+  const warDecompose = defineTool({
+    name: 'war_decompose',
+    description: 'V6 命令拆解呈批（flag staff-decompose）：一步做不完的大命令拆成 ≥2 个顺序子任务。呈一页纸总计划 + 子任务书列表（逐个过发布 lint），元首在命令卡上批准后用 war_publish_chain 成链发布。',
+    parameters: {
+      command_id: { type: 'string', required: true, description: '命令 id（cmd- 开头）。' },
+      plan: { type: 'string', required: true, description: '总计划正文：目标、步骤、涉及工作区、风险与回退（写给元首审的一页纸）。' },
+      tasks: {
+        type: 'array', required: true, description: '子任务书列表（≥2 个，顺序执行）：每项 { title, brief, acceptance }——逐个过发布 lint，验收必须可判定。',
+        items: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            title: { type: 'string', description: '子任务标题（一句话）。' },
+            brief: { type: 'string', description: '子任务书正文（背景、执行指引、边界）。' },
+            acceptance: { type: 'string', description: '验收标准（可判定的完成定义）。' },
+          },
+        },
+      },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { commandId: { type: 'string', required: true }, chainLength: { type: 'number', required: true }, planStatus: { type: 'string', required: true } } },
+      render: (_args, value) => [{ type: 'text', text: `拆解已呈报（${value.commandId}，${value.chainLength} 个顺序子任务，${value.planStatus}）——元首在命令卡上批准后用 war_publish_chain 成链发布。` }],
+    },
+    async execute(args, rawExec) {
+      const exec = rawExec as unknown as WarToolExec
+      requireAgent(exec) // 参谋侧动词
+      const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
+      if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
+      if (directive.status === 'approved' || directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，无需再呈拆解。`)
+      const plan = typeof args.plan === 'string' ? args.plan.trim() : ''
+      if (plan.length < 10) throw new Error('总计划太短（≥10 字）：目标、步骤、工作区、风险四要素至少各一句。')
+      const specs: Array<{ title: string; brief: string; acceptance: string }> = []
+      if (Array.isArray(args.tasks)) {
+        for (const raw of args.tasks) {
+          const t = raw as { title?: unknown; brief?: unknown; acceptance?: unknown }
+          specs.push({ title: typeof t.title === 'string' ? t.title : '', brief: typeof t.brief === 'string' ? t.brief : '', acceptance: typeof t.acceptance === 'string' ? t.acceptance : '' })
+        }
+      }
+      if (specs.length < 2) throw new Error('拆解至少 2 个子任务——一步能做完的不必拆（直接走 war_plan/war_publish）。')
+      // 子任务书逐个过发布 lint——链上最弱的一环也要可判定，系统拦不靠自觉。
+      specs.forEach((s, i) => {
+        const lint = lintPublish(s)
+        if (!lint.ok) throw new Error(`子任务 ${i + 1} 不过 lint：${lint.reason}`)
+      })
+      appendDirectiveEvent(deps.stateDir, { type: 'directive_decomposed', ts: new Date().toISOString(), directiveId: directive.id, plan, tasks: specs })
+      // 计划稿带拆解概要（元首在既有计划卡上看到链全貌），批准走既有决策路由。
+      const outline = specs.map((s, i) => `${i + 1}. ${s.title} —— 验收：${s.acceptance.split('\n')[0]}`).join('\n')
+      appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_opened', ts: new Date().toISOString(), directiveId: directive.id, plan: `${plan}\n\n【拆解 · ${specs.length} 个顺序子任务，同工作区接力】\n${outline}` })
+      return { commandId: directive.id, chainLength: specs.length, planStatus: 'pending' }
+    },
+    presentCall: args => ({ card: 'generic', title: `呈拆解 ${args.command_id}` }),
+  })
+
+  // V6 成链发布（flag staff-decompose）：按已批拆解逐个落任务——顺序 deps 链
+  // （task i 依赖 task i-1）+ 链级同一工作区（收官接力自动续链）；命令卡链接
+  // 链头任务。硬门：拆解在场 + 计划已批，缺一即拒。
+  const warPublishChain = defineTool({
+    name: 'war_publish_chain',
+    description: 'V6 成链发布（flag staff-decompose）：把元首已批准的拆解落成顺序任务链（子任务逐个 deps 前驱、共用同一工作区，链头收官即接力解锁下一个）。前置：war_decompose 呈批 + 元首在命令卡上批准。',
+    parameters: {
+      command_id: { type: 'string', required: true, description: '命令 id（cmd- 开头）。' },
+      workspace: { type: 'string', description: '链级工作区（整条链共用一片地顺序推进）：现有工作区绝对路径 / "@new:<名字>" 新副本；省略则自动建隔离目录。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          commandId: { type: 'string', required: true },
+          headTaskId: { type: 'string', required: true },
+          taskIds: { type: 'array', required: true, items: { type: 'string' } },
+          workspacePath: { type: 'string', required: true },
+          workspaceKind: { type: 'string', required: true },
+          conscripted: { type: 'boolean', required: true },
+          note: { type: 'string' },
+        },
+      },
+      render: (_args, value) => [{ type: 'text', text: `任务链已上栏：${value.taskIds.join(' → ')}（共 ${value.taskIds.length} 环，链头 ${value.headTaskId}）· 工作区 ${value.workspacePath}（${value.workspaceKind}）——链头收官自动解锁下一环。${value.conscripted ? '指挥官已应征到任' : '暂未征召，巡检保险丝会补'}。` }],
+    },
+    async execute(args, rawExec) {
+      const exec = rawExec as unknown as WarToolExec
+      const staff = requireAgent(exec)
+      const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
+      if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
+      if (directive.status === 'approved') throw new Error(`命令 ${args.command_id} 已批准过任务 ${directive.taskId}，不要重复发布。`)
+      if (directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已取消，不能再发布任务。`)
+      if (directive.decomposition === undefined) throw new Error(`命令 ${args.command_id} 无拆解方案——先 war_decompose 呈拆解，元首批准后才能成链发布。`)
+      if (directive.plan?.status !== 'approved') throw new Error(`命令 ${args.command_id} 的拆解计划${directive.plan === undefined ? '未呈报' : directive.plan.status === 'pending' ? '待元首批准（命令卡上批）' : '被驳回（修订重呈）'}——批准后才能成链发布。`)
+      const specs = directive.decomposition.tasks
+      // 发布点接力（staff-goal 旗）：参谋状态机 goal 随成链发布结算——与 war_publish 同构。
+      if (featureEnabled(deps.flags, 'staff-goal')) {
+        const face = deps.goals?.()
+        if (face !== undefined && directive.staffSessionId !== undefined) {
+          const staffAgent = deps.resolveAgent?.(directive.staffSessionId)
+          if (staffAgent !== undefined) {
+            const goalId = await settleGoalMentioning(face, staffAgent, directive.id)
+            if (goalId !== undefined) appendDirectiveEvent(deps.stateDir, { type: 'directive_goal_settled', ts: new Date().toISOString(), directiveId: directive.id, goalId })
+          }
+        }
+      }
+      // 链级工作区：整条链一片地（bound > instance > 自动隔离），链头名分。
+      const ids = specs.map(() => newCampaignId())
+      const binding = parseWorkspaceArg(args.workspace)
+      let ws: { path: string; kind: 'worktree' | 'dir'; note?: string }
+      if (binding.kind === 'instance') {
+        ws = deps.workspace.materializeInstance(deps.warRoot, ids[0]!, binding.slug)
+      } else if (binding.kind === 'bound') {
+        const abs = resolve(binding.path)
+        if (!existsSync(abs)) throw new Error(`工作区不存在：${abs}。请与元首核对路径，或改用 @new:<名字> 新开副本。`)
+        ws = { path: abs, kind: 'dir', note: '绑定既有工作区（链内同区顺序接力）' }
+      } else {
+        ws = deps.workspace.materialize(deps.warRoot, ids[0]!, '')
+      }
+      // 逐环落任务：task i deps [task i-1]（顺序链），全部共用链级工作区。
+      for (let i = 0; i < specs.length; i++) {
+        const spec = specs[i]!
+        appendEvent(deps.stateDir, {
+          type: 'task_created', ts: new Date().toISOString(), campaignId: ids[i]!, title: spec.title, brief: spec.brief, acceptance: spec.acceptance, priority: 'normal', publishedBy: staff.id,
+          ...(i > 0 ? { deps: [ids[i - 1]!] } : {}),
+        })
+        appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: ids[i]!, workspacePath: ws.path, publishedBy: staff.id })
+      }
+      // 命令卡链接链头（approved）；链尾收官即整条命令完成。
+      appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: new Date().toISOString(), directiveId: directive.id, taskId: ids[0]! })
+      const war = deps.store.get()
+      if (!war.active) {
+        war.active = true
+        deps.store.save()
+      }
+      // 只为链头征召——后续环由收官接力（同区）自动续链。
+      let conscripted = false
+      try {
+        const fresh = loadCampaign(deps.stateDir, ids[0]!)
+        const result = await deps.commander.conscript(fresh, exec.signal)
+        conscripted = result.spawned
+      } catch {
+        conscripted = false
+      }
+      return { commandId: directive.id, headTaskId: ids[0]!, taskIds: ids, workspacePath: ws.path, workspaceKind: ws.kind, conscripted, ...(ws.note !== undefined ? { note: ws.note } : {}) }
+    },
+    presentCall: args => ({ card: 'generic', title: `成链发布 ${args.command_id}` }),
+  })
+
   const warSetGoal = defineTool({
     name: 'war_set_goal',
     description: 'V5 goal 代管（flag staff-goal）：参谋为在役指挥官的当前任务换发 armed goal（插件中介——只许指向 in_progress 任务，objective 强制绑定任务 id，防串台）。常规流程无需手动调（war_claim 自动武装）。',
@@ -1204,6 +1348,8 @@ export function warTools(deps: WarToolsDeps) {
   // V5-R3: 计划呈批动词（staff-plan）+ goal 代管动词（staff-goal）。
   if (featureEnabled(deps.flags, 'staff-plan')) surface = [...surface, warPlan]
   if (featureEnabled(deps.flags, 'staff-goal')) surface = [...surface, warSetGoal]
+  // V6 命令拆解（staff-decompose）：拆解呈批 + 成链发布。
+  if (featureEnabled(deps.flags, 'staff-decompose')) surface = [...surface, warDecompose, warPublishChain]
   return surface
 }
 

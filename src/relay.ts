@@ -78,11 +78,16 @@ ${directive.text}
   // 提示词（单一事实源：与 skill.ts 同一函数）。板摘要注入在 relayPending
   // _Commands 侧拼（staff-wake 旗）——本函数保持纯。
   const craft = bountyDraftingSkillContent()
+  // V6 命令拆解（staff-decompose 旗）：大命令拆链纪律——呈批复用计划卡，
+  // 成链发布落顺序 deps + 链级同一工作区。
+  const decomposeDiscipline = featureEnabled(flags, 'staff-decompose')
+    ? `\n- 一步做不完的大命令：先勘察，再 war_decompose 呈拆解（command_id=${directive.id}：一页纸总计划 + ≥2 个子任务书，逐个过 lint）；元首在命令卡上批准后 war_publish_chain 成链发布（子任务同工作区顺序接力），不要再拆成多个独立命令。`
+    : ''
   return `${base}
 
 【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
 - L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需元首批准。
-${planDiscipline}
+${planDiscipline}${decomposeDiscipline}
 - 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。
 - 发布前过系统 lint：标题 ≥4 字、正文 ≥10 字、验收用「；/、」列举或 ≥30 字明确完成定义——不可判定会被拦。
 

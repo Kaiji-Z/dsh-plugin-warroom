@@ -49,6 +49,9 @@ export interface Directive {
   regrades?: number
   /** V5-R3 计划态：当前待批/已批/被驳的计划（最新一次呈报）。 */
   plan?: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt?: string }
+  /** V6 命令拆解（flag staff-decompose）：参谋呈批的结构化拆解（最新一稿）。
+   *  plan 卡走既有计划态；本字段是机器可读的子任务书，成链发布时逐个落地。 */
+  decomposition?: { plan: string; tasks: Array<{ title: string; brief: string; acceptance: string }> }
 }
 
 /** The directive log's entry union (one JSON line each). */
@@ -65,6 +68,9 @@ export type DirectiveEvent =
   | { type: 'directive_plan_opened'; ts: string; directiveId: string; plan: string }
   | { type: 'directive_plan_approved'; ts: string; directiveId: string; note?: string }
   | { type: 'directive_plan_rejected'; ts: string; directiveId: string; reason: string }
+  // V6 命令拆解（flag staff-decompose）：结构化拆解随计划稿一并呈批——
+  // plan 态走既有事件，decomposed 只存机器可读子任务书（成链发布用）。
+  | { type: 'directive_decomposed'; ts: string; directiveId: string; plan: string; tasks: Array<{ title: string; brief: string; acceptance: string }> }
   // V5-R3 goal 代管入账：参谋状态机 goal（永远 disarm）开/收的审计痕迹。
   | { type: 'directive_goal_opened'; ts: string; directiveId: string; goalId: string; disarmed: boolean }
   | { type: 'directive_goal_settled'; ts: string; directiveId: string; goalId: string }
@@ -153,6 +159,10 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
       // （多轮收敛的机械表达）。终态守卫沿用。
       case 'directive_plan_opened':
         current.plan = { text: event.plan, status: 'pending' }
+        break
+      // V6 拆解：重复呈报覆盖（与 plan_opened 同语义）；终态守卫沿用。
+      case 'directive_decomposed':
+        current.decomposition = { plan: event.plan, tasks: event.tasks }
         break
       case 'directive_plan_approved':
         if (current.plan !== undefined && current.plan.status === 'pending') {
