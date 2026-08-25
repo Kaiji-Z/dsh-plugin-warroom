@@ -13,7 +13,8 @@ const WAR_CSS = `
 .war-island{position:relative;flex:0 0 auto;padding:10px 12px 4px;z-index:40}
 .war-island-pill{display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 2px 10px rgba(0,0,0,.08);cursor:pointer;transition:border-radius .22s ease,box-shadow .22s ease}
 .war-island-pill:hover{box-shadow:0 4px 14px rgba(0,0,0,.13)}
-.war-island.open .war-island-pill{border-radius:14px 14px 999px 999px;box-shadow:0 6px 18px rgba(0,0,0,.14)}
+/* 展开态 morph：胶囊 → 圆角矩形——pill 上圆下平（熔进浮层），浮层上平下圆。 */
+.war-island.open .war-island-pill{border-radius:16px 16px 0 0;box-shadow:0 6px 18px rgba(0,0,0,.14)}
 .war-island-title{font-size:14px;font-weight:700;white-space:nowrap}
 .war-head-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary);flex:0 0 auto}
 .war-head-dot.on{background:var(--dsw-alias-state-business-primary)}
@@ -25,7 +26,7 @@ const WAR_CSS = `
 .war-island-pinned{font-size:12px;flex:0 0 auto}
 .war-island .war-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
 /* 展开浮层：绝对定位盖在列区上方——列纹丝不动（灵动岛不推挤内容）。 */
-.war-island-panel{position:absolute;top:calc(100% - 2px);left:12px;right:12px;display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:0 0 16px 16px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 14px 32px rgba(0,0,0,.18);max-height:52vh;overflow-y:auto;animation:war-island-open .2s ease}
+.war-island-panel{position:absolute;top:100%;left:12px;right:12px;display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border:1px solid var(--dsw-alias-border-l2);border-top:0;border-radius:0 0 16px 16px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 14px 32px rgba(0,0,0,.18);max-height:52vh;overflow-y:auto;animation:war-island-open .2s ease}
 @keyframes war-island-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.war-island-panel{animation:none}.war-island-pill{transition:none}}
 .war-skin-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
