@@ -16,6 +16,7 @@ import type { ReactNode } from 'react'
 import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
+import { visitDelta, type VisitDelta } from './visit.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -690,6 +691,32 @@ function InboxStrip(items: InboxItem[], onAct: (item: InboxItem) => void): React
   )
 }
 
+/** V7-② 到访摘要横幅：自上次看过以来——收官/折戟/新命令/等你发落，点段跳
+ * 对应区。lastSeen 是挂载快照（关板时由 shell-entry 落），到访期间数字不跳。 */
+function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNode {
+  if (!delta.any) return null
+  const copy = activeCopy().visit
+  const jump = (selector: string): void => {
+    document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const since = lastSeen > 0 ? copy.since(relTime(new Date(lastSeen).toISOString(), now)) : copy.firstSeen
+  return createElement('div', { className: 'war-visit' },
+    createElement('span', { className: 'war-visit-since' }, since),
+    delta.closed > 0
+      ? createElement('span', { className: 'war-visit-seg s-closed clickable', onClick: () => { jump('.war-zone.war-report') } }, copy.closed(delta.closed))
+      : null,
+    delta.failed > 0
+      ? createElement('span', { className: 'war-visit-seg s-failed clickable', onClick: () => { jump('.war-zone.war-report') } }, copy.failed(delta.failed))
+      : null,
+    delta.commands > 0
+      ? createElement('span', { className: 'war-visit-seg clickable', onClick: () => { jump('.war-col.zone-commands') } }, copy.commands(delta.commands))
+      : null,
+    delta.pending > 0
+      ? createElement('span', { className: 'war-visit-seg s-pending clickable', onClick: () => { jump('.war-inbox') } }, copy.pending(delta.pending))
+      : null,
+  )
+}
+
 /** Build the war map tab component bound to the framework services. */
 export function warView(services: ClientServicesFace): () => ReactNode {
   return function WarView(): ReactNode {
@@ -701,6 +728,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     const [detailAttempt, setDetailAttempt] = useState<{ taskId: string; attemptId: string } | null>(null)
     const [collapsedGroups, setCollapsedGroups] = useState<Set<DayKey>>(() => new Set(['yesterday', 'earlier']))
+    // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
+    const [lastSeenSnapshot] = useState<number>(() => {
+      try { return Date.parse(localStorage.getItem('warroom-last-seen') ?? '') || 0 } catch { return 0 }
+    })
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
     const tasks = data?.tasks ?? []
@@ -752,6 +783,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
     // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
     const inbox = collectInbox(commands, tasks, now)
+    // V7-② 摘要：以挂载快照算增量（pending 用当前收件箱长度）。
+    const visit = visitDelta(commands, tasks, inbox.length, lastSeenSnapshot, now)
     const inboxAct = (it: InboxItem): void => {
       if (it.kind === 'clarify') {
         const cmd = commands.find(c => c.commandId === it.refId)
@@ -790,6 +823,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
           createElement('div', { className: 'war-zone war-hq' },
             zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
+            VisitBanner(visit, lastSeenSnapshot, now),
             InboxStrip(inbox, inboxAct),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,

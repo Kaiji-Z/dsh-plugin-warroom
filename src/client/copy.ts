@@ -55,6 +55,15 @@ export interface WarCopy {
     warnTitle: string
     errTitle: string
   }
+  /** V7-② 到访摘要（自上次看过以来的增量横幅）。 */
+  visit: {
+    since: (d: string) => string
+    firstSeen: string
+    closed: (n: number) => string
+    failed: (n: number) => string
+    commands: (n: number) => string
+    pending: (n: number) => string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -187,6 +196,15 @@ export const warCopy: WarCopy = {
     waited: d => `等 ${d}`,
     warnTitle: '已等你超过半小时',
     errTitle: '已等你超过两小时——夜间命令会整晚停在这里',
+  },
+  /** V7-② 到访摘要（自上次看过以来的增量横幅）。 */
+  visit: {
+    since: (d: string) => `自上次看过（${d}）以来`,
+    firstSeen: '首次到访——板上就是全部现状',
+    closed: (n: number) => `收官 ${n}`,
+    failed: (n: number) => `折戟 ${n}`,
+    commands: (n: number) => `新命令 ${n}`,
+    pending: (n: number) => `等你发落 ${n}`,
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -353,6 +371,14 @@ export const plainCopy: WarCopy = {
     waited: d => `已等 ${d}`,
     warnTitle: '已等待超过半小时',
     errTitle: '已等待超过两小时——夜里没人处理会一直停着',
+  },
+  visit: {
+    since: (d: string) => `自上次查看（${d}）以来`,
+    firstSeen: '首次到访——板上就是全部现状',
+    closed: (n: number) => `完成 ${n}`,
+    failed: (n: number) => `失败 ${n}`,
+    commands: (n: number) => `新命令 ${n}`,
+    pending: (n: number) => `待处理 ${n}`,
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {

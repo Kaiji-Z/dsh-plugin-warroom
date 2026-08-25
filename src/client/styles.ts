@@ -136,6 +136,15 @@ const WAR_CSS = `
 .war-chip.k-review{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary)}
 .war-chip.k-retry{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
 
+/* --- V7-② 到访摘要横幅（自上次看过以来） --------------------------------------- */
+.war-visit{flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 14px 0;padding:6px 10px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
+.war-visit-since{font-size:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}
+.war-visit-seg{cursor:pointer;font-size:11px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.war-visit-seg:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
+.war-visit-seg.s-closed{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
+.war-visit-seg.s-failed{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
+.war-visit-seg.s-pending{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
+
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
 .war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}

@@ -101,6 +101,9 @@ gate('bundle', () => {
     // V7-① 等你发落收件箱（到访式工作流）。
     [client, 'collectInbox', 'inbox four-kind aggregation (pure)'],
     [client, 'war-inbox', 'inbox strip styles + container'],
+    // V7-② 到访摘要（自上次看过以来的增量横幅）。
+    [client, 'visitDelta', 'visit delta calculator (pure)'],
+    [client, 'war-visit', 'visit digest banner styles + container'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
