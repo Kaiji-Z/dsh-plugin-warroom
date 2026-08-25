@@ -64,6 +64,13 @@ export interface WarCopy {
     commands: (n: number) => string
     pending: (n: number) => string
   }
+  /** V7-③ 族系追踪（悬停高亮 + 聚焦压暗）。 */
+  trace: {
+    focus: string
+    focusing: string
+    exitFocus: string
+    focusBtnTitle: string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -205,6 +212,12 @@ export const warCopy: WarCopy = {
     failed: (n: number) => `折戟 ${n}`,
     commands: (n: number) => `新命令 ${n}`,
     pending: (n: number) => `等你发落 ${n}`,
+  },
+  trace: {
+    focus: '聚焦',
+    focusing: '聚焦中：',
+    exitFocus: '退出聚焦',
+    focusBtnTitle: '只亮这条命令的族系（它的任务与作战会话），其余压暗；Esc 退出',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -379,6 +392,12 @@ export const plainCopy: WarCopy = {
     failed: (n: number) => `失败 ${n}`,
     commands: (n: number) => `新命令 ${n}`,
     pending: (n: number) => `待处理 ${n}`,
+  },
+  trace: {
+    focus: '只看这条',
+    focusing: '单看：',
+    exitFocus: '退出',
+    focusBtnTitle: '只显示这条命令相关的任务与会话，其余变淡；Esc 退出',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {

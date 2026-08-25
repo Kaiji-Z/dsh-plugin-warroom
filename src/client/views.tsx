@@ -101,6 +101,28 @@ function relTime(iso: string, now = Date.now()): string {
   return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** V7-③ 族系追踪（悬停高亮 + 聚焦压暗）：active 非空时，familyId 相同的卡
+ * 点亮（war-rel-same）、其余压暗（war-rel-dim）；familyId=null 的卡（外部
+ * 挂载）只被压暗、不参与点亮。悬停优先于聚焦（hover 即时预览，聚焦常驻）。 */
+export interface CardTrace {
+  familyId: string | null
+  active: string | null
+  onHover: (familyId: string | null) => void
+  onFocus: (commandId: string) => void
+}
+
+function relClass(trace: CardTrace): string {
+  if (trace.active === null) return ''
+  return trace.familyId === trace.active ? ' war-rel-same' : ' war-rel-dim'
+}
+
+function traceMouse(trace: CardTrace): { onMouseEnter?: () => void; onMouseLeave: () => void } {
+  return {
+    onMouseEnter: trace.familyId !== null ? () => { trace.onHover(trace.familyId) } : undefined,
+    onMouseLeave: () => { trace.onHover(null) },
+  }
+}
+
 function qualityChip(quality: BoardQuality): ReactNode {
   if (quality === 'common') return null
   return createElement('span', { className: `war-chip q-${quality}`, title: activeCopy().qualityTitle }, QUALITY_LABEL[quality] ?? quality)
@@ -209,7 +231,7 @@ function gradeChip(cmd: BoardCommand): ReactNode {
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
-function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[]): ReactNode {
+function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
     const target = cmd.staffSessionId ?? hqSessionId
@@ -220,15 +242,21 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   const clickable = cmd.status === 'received' || cmd.status === 'talking'
   return createElement('div', {
     key: cmd.commandId,
-    className: `war-card war-command-card${clickable ? ' clickable' : ''}${cmd.status === 'received' ? ' pulse' : ''}`,
+    className: `war-card war-command-card${clickable ? ' clickable' : ''}${cmd.status === 'received' ? ' pulse' : ''}${relClass(trace)}`,
     title: clickable ? meta.hint : undefined,
     onClick: () => { if (clickable) enterSession(); else onDetail(cmd) },
+    ...traceMouse(trace),
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-dot ${meta.dot}` }),
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
     gradeChip(cmd),
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
+    createElement('button', {
+      className: 'war-btn war-focus-btn',
+      title: activeCopy().trace.focusBtnTitle,
+      onClick: e => { e.stopPropagation(); trace.onFocus(cmd.commandId) },
+    }, '◎'),
   ),
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
   // 全生命周期阶段条：命令不因发布而死卡——任务/执行/战报进度常驻卡上。
@@ -289,7 +317,7 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
 }
 
 /** 命令全生命周期详情（追踪中枢）：原文 → 分诊/计划 → 任务链逐环 → 最新战报。 */
-function CommandDetail(cmd: BoardCommand, chain: BoardTask[], onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
+function CommandDetail(cmd: BoardCommand, chain: BoardTask[], onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void, onFocus: (commandId: string) => void): ReactNode {
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
@@ -356,6 +384,7 @@ function CommandDetail(cmd: BoardCommand, chain: BoardTask[], onOpenTask: (taskI
         cmd.status === 'approved' && cmd.taskId !== null
           ? createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, copy.viewTask(cmd.taskId))
           : null,
+        createElement('button', { className: 'war-btn', title: activeCopy().trace.focusBtnTitle, onClick: () => { onFocus(cmd.commandId); onClose() } }, `◎ ${activeCopy().trace.focus}`),
         createElement('button', { className: 'war-btn', onClick: onClose }, copy.close),
       ),
     ),
@@ -364,8 +393,13 @@ function CommandDetail(cmd: BoardCommand, chain: BoardTask[], onOpenTask: (taskI
 
 // --- 任务区 ------------------------------------------------------------------
 
-function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void): ReactNode {
-  return createElement('div', { key: task.taskId, className: 'war-card clickable', onClick: () => onOpen(task.taskId) },
+function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace): ReactNode {
+  return createElement('div', {
+    key: task.taskId,
+    className: `war-card clickable${relClass(trace)}`,
+    onClick: () => onOpen(task.taskId),
+    ...traceMouse(trace),
+  },
     createElement('div', { className: 'war-card-top' },
       statusMark(task),
       createElement('span', { className: `war-chip st-${task.status}` }, activeCopy().taskStatus[task.status]),
@@ -473,16 +507,17 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
 
 // --- 会话卡（战场：进行中/已完成/已失败，详情优先）---------------------------
 
-function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: BoardTask, attempt: BoardAttempt) => void): ReactNode {
+function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: BoardTask, attempt: BoardAttempt) => void, trace: CardTrace): ReactNode {
   const key = `${attempt.sessionId}:${attempt.startedAt}`
   const outcomeKey = attempt.outcome ?? 'live'
   const meta = outcomeLabel(outcomeKey)
   const loot = task.deliverables.length > 0 ? task.deliverables.map(d => d.summary).join('；') : null
   return createElement('div', {
     key,
-    className: `war-card war-session-card clickable q-edge-${task.quality}`,
+    className: `war-card war-session-card clickable q-edge-${task.quality}${relClass(trace)}`,
     title: activeCopy().session.cardTitle(attempt.sessionId),
     onClick: () => { onDetail(task, attempt) },
+    ...traceMouse(trace),
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
@@ -561,12 +596,13 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
 // --- 挂载 thread（v3：外部会话上战场）-----------------------------------------
 
 /** An externally-attached session: 「外部」badge, jump + detach only. */
-function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, onDetach: (sessionId: string) => void): ReactNode {
+function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, onDetach: (sessionId: string) => void, trace: CardTrace): ReactNode {
   return createElement('div', {
     key: `ext-${thread.sessionId}`,
-    className: 'war-card war-external-card clickable',
+    className: `war-card war-external-card clickable${relClass(trace)}`,
     title: activeCopy().attach.cardTitle(thread.sessionId),
     onClick: () => { services.sessions?.open(thread.sessionId) },
+    ...traceMouse(trace), // familyId=null：只被压暗，不点亮
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-chip ext-badge' }, activeCopy().attach.badge),
@@ -717,6 +753,16 @@ function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNod
   )
 }
 
+/** V7-③ 聚焦条：常驻族系追踪的顶栏（命令文本 + 退出钮；Esc 同效）。 */
+function FocusBar(text: string, onExit: () => void): ReactNode {
+  const copy = activeCopy().trace
+  return createElement('div', { className: 'war-focusbar' },
+    createElement('span', { className: 'war-focusbar-tag' }, '◎'),
+    createElement('span', { className: 'war-focusbar-text', title: text }, `${copy.focusing}${text}`),
+    createElement('button', { className: 'war-btn', onClick: onExit }, copy.exitFocus),
+  )
+}
+
 /** Build the war map tab component bound to the framework services. */
 export function warView(services: ClientServicesFace): () => ReactNode {
   return function WarView(): ReactNode {
@@ -732,6 +778,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [lastSeenSnapshot] = useState<number>(() => {
       try { return Date.parse(localStorage.getItem('warroom-last-seen') ?? '') || 0 } catch { return 0 }
     })
+    // V7-③ 族系追踪：悬停即时预览（hover 优先），聚焦常驻（Esc/退出钮解除）。
+    const [hoverFamily, setHoverFamily] = useState<string | null>(null)
+    const [focusCommandId, setFocusCommandId] = useState<string | null>(null)
+    useEffect(() => {
+      if (focusCommandId === null) return
+      const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setFocusCommandId(null) }
+      document.addEventListener('keydown', onKey)
+      return () => document.removeEventListener('keydown', onKey)
+    }, [focusCommandId])
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
     const tasks = data?.tasks ?? []
@@ -781,6 +836,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       })
     }
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
+    // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
+    const traceActive = hoverFamily ?? focusCommandId
+    const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: traceActive, onHover: setHoverFamily, onFocus: setFocusCommandId })
+    const focusCmd = focusCommandId !== null ? commands.find(c => c.commandId === focusCommandId) : undefined
     // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
     const inbox = collectInbox(commands, tasks, now)
     // V7-② 摘要：以挂载快照算增量（pending 用当前收件箱长度）。
@@ -805,7 +864,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         createElement('span', null, activeCopy().days[g.key]),
         createElement('span', { className: 'war-day-count' }, String(g.items.length)),
       ),
-      collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
+      collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
     ))
     return createElement('div', { className: 'war-root' },
       createElement('div', { className: 'war-head' },
@@ -827,7 +886,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             InboxStrip(inbox, inboxAct),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
-                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c))),
+                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c), traceFor(c.commandId))),
                 createElement('span', { className: 'war-col-actions' },
                   createElement('button', { className: 'war-btn war-attach-btn', title: activeCopy().colActions.attachTitle, onClick: () => setAttachOpen(true) }, activeCopy().colActions.attachLabel),
                   createElement('button', { className: 'war-btn primary war-plus', title: activeCopy().colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
@@ -838,7 +897,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                   (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
                     ? () => { openStaff(t.taskId) }
                     : null,
-                  lineageOf(t.taskId), openCommand)),
+                  lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
               ),
             ),
           ),
@@ -846,8 +905,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             zoneHead(activeCopy().zones.field.title, activeCopy().zones.field.note),
             createElement('div', { className: 'war-zone-cols' },
               Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
-                [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
-                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }))],
+                [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
               ),
             ),
           ),
@@ -858,11 +917,14 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 doneChildren,
               ),
               Zone('failed', activeCopy().columns.failed.title, failed.length, activeCopy().columns.failed.empty,
-                failed.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
+                failed.map(({ t, a }) => SessionCard(t, a, openSessionDetail, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
               ),
             ),
           ),
         ),
+      focusCommandId !== null && focusCmd !== undefined
+        ? FocusBar(focusCmd.text, () => { setFocusCommandId(null) })
+        : null,
       composerOpen ? createElement(CommandComposer, { key: 'composer', onClose: () => setComposerOpen(false), refresh }) : null,
       attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => setDetailTaskId(null) }) : null,
@@ -870,7 +932,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         void regradeCommand(detailCommand.commandId, grade).then(r => { if (r.ok) refresh() })
       }, decision => {
         void decidePlan(detailCommand.commandId, decision).then(r => { if (r.ok) refresh() })
-      }) : null,
+      }, commandId => { setFocusCommandId(commandId) }) : null,
       detailTaskForAttempt !== undefined && detailAttemptEntry !== undefined
         ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), lineageCmd: lineageOf(detailTaskForAttempt.taskId), onOpenCommand: openCommand, onClose: () => setDetailAttempt(null) })
         : null,

@@ -41,7 +41,7 @@ const WAR_CSS = `
 .war-plus{margin-left:auto;padding:2px 10px;line-height:18px}
 
 /* --- cards ------------------------------------------------------------------ */
-.war-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease}
+.war-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,opacity .15s ease}
 .war-card.clickable{cursor:pointer}
 .war-card.clickable:hover{border-color:var(--dsw-alias-label-secondary);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .war-card-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
@@ -144,6 +144,14 @@ const WAR_CSS = `
 .war-visit-seg.s-closed{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
 .war-visit-seg.s-failed{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
 .war-visit-seg.s-pending{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
+
+/* --- V7-③ 族系追踪（悬停高亮 + 聚焦压暗 + 聚焦条） ------------------------------ */
+.war-card.war-rel-dim{opacity:.32}
+.war-card.war-rel-same{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary)}
+.war-focus-btn{padding:0 6px;line-height:18px;font-size:12px;flex:0 0 auto}
+.war-focusbar{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin:8px 14px 0;padding:5px 10px;border:1px solid var(--dsw-alias-state-business-primary);border-radius:10px;background:var(--dsw-alias-bg-layer-1);font-size:12px}
+.war-focusbar-tag{color:var(--dsw-alias-state-business-primary);font-weight:700;flex:0 0 auto}
+.war-focusbar-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
 
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}

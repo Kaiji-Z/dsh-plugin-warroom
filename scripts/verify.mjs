@@ -104,6 +104,10 @@ gate('bundle', () => {
     // V7-② 到访摘要（自上次看过以来的增量横幅）。
     [client, 'visitDelta', 'visit delta calculator (pure)'],
     [client, 'war-visit', 'visit digest banner styles + container'],
+    // V7-③ 族系追踪（悬停高亮 + 聚焦压暗 + 聚焦条）。
+    [client, 'war-rel-same', 'family highlight class'],
+    [client, 'war-rel-dim', 'non-family dim class'],
+    [client, 'war-focusbar', 'focus-mode top bar'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
