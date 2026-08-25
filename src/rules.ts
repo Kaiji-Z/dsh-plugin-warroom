@@ -176,6 +176,21 @@ export function conscriptPlan(tasks: ReadonlyArray<ConscriptCandidate>): Conscri
   return [...best.values(), ...solo]
 }
 
+/** V7-⑤「为什么还没动」：published 任务距「现在可被征召」还有几位。
+ * 0 = 现在就可征召（征召令可发）；>0 = 同工作区被占（+1）和/或还有更优先
+ * 的排队者（每位 +1）——互斥域内不并行。无工作区路径 = 独立域，恒 0。纯函数。 */
+export function queuePositionOf(task: ConscriptCandidate, all: ReadonlyArray<ConscriptCandidate>): number {
+  if (task.workspacePath === undefined || task.workspacePath.trim() === '') return 0
+  const key = normalizeWorkspaceKey(task.workspacePath)
+  let ahead = 0
+  for (const t of all) {
+    if (t.status === 'in_progress' && t.workspacePath !== undefined && normalizeWorkspaceKey(t.workspacePath) === key) ahead += 1
+    if (t.taskId !== task.taskId && t.status === 'published' && t.workspacePath !== undefined
+      && normalizeWorkspaceKey(t.workspacePath) === key && conscriptBeats(t, task)) ahead += 1
+  }
+  return ahead
+}
+
 /** The claim gate: bounty on the board, deps cleared, workspace free. */
 export function checkClaim(campaign: CampaignState, blockedDeps: ReadonlyArray<string>, busyWith?: string): DeployCheck {
   if (campaign.status !== 'published') {

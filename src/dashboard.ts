@@ -14,6 +14,7 @@ import { appendDirectiveEvent, loadDirectives, newDirectiveId } from './directiv
 import { listCampaignIds, loadCampaign } from './events.ts'
 import { appendThreadEvent, loadAttachedThreads } from './threads.ts'
 import { nextRunOf } from './schedule.ts'
+import { queuePositionOf } from './rules.ts'
 import type { Roster } from './units.ts'
 import type { WarStore } from './state.ts'
 import type { CampaignState } from './types.ts'
@@ -111,12 +112,16 @@ const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in
 
 /** The board projection served to the war map (pure — reusable by tests). */
 export function boardProjection(stateDir: string): Record<string, unknown>[] {
-  return listCampaignIds(stateDir)
+  const campaigns = listCampaignIds(stateDir)
     .map(id => loadCampaign(stateDir, id))
     .filter(t => t.startedAt !== '')
     .sort((a, b) => (STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
       || ((b.priority === 'high' ? 1 : 0) - (a.priority === 'high' ? 1 : 0))
       || (a.startedAt < b.startedAt ? -1 : 1))
+  // V7-⑤ 排队位次的候选视图（与 index.ts 征召器同构：campaignId → taskId）。
+  const asCandidate = (t: CampaignState) => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath, priority: t.priority, startedAt: t.startedAt })
+  const candidates = campaigns.map(asCandidate)
+  return campaigns
     .map(task => {
       let nextRunAt: string | null = null
       if (task.schedule !== undefined && task.schedule.enabled) {
@@ -144,6 +149,10 @@ export function boardProjection(stateDir: string): Record<string, unknown>[] {
         brief: task.brief ?? '',
         acceptance: task.acceptance ?? '',
         schedule: task.schedule === undefined ? null : { cron: task.schedule.cron, enabled: task.schedule.enabled, nextRunAt },
+        // V7-⑤ 只读加料「为什么还没动」：征召排队位次（0=现在可征召）+
+        // 配额暂停位。可选字段——既有消费者不读即不受影响（红线只禁写）。
+        queueAhead: queuePositionOf(asCandidate(task), candidates),
+        quotaPaused: task.quotaPaused === true,
         // Session cards: every commander attempt with its conversation id.
         // (Named attemptLog — `attempts` is already the numeric count.)
         attemptLog: task.attemptLog.map(a => ({ id: a.id, n: a.n, sessionId: a.sessionId, startedAt: a.startedAt, endedAt: a.endedAt ?? null, outcome: a.outcome ?? null })),

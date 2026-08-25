@@ -76,6 +76,10 @@ export interface BoardTask {
   brief: string
   acceptance: string
   schedule: { cron: string; enabled: boolean; nextRunAt: string | null } | null
+  /** V7-⑤ 只读加料：征召排队位次（0=现在可征召；缺失视为未知不提示）。 */
+  queueAhead?: number | null
+  /** V7-⑤ 只读加料：配额暂停位（in_progress 原地暂停，恢复续作）。 */
+  quotaPaused?: boolean
   /** Session cards, newest attempt last. */
   attemptLog: BoardAttempt[]
   troops: BoardTroop[]

@@ -115,6 +115,11 @@ gate('bundle', () => {
     [client, 'war-grade-seg', 'composer autonomy toggles'],
     // V7-⑥ 空板首用引导。
     [client, 'war-onboard', 'empty-board onboarding panel'],
+    // V7-⑤「为什么还没动」host 只读投影 + 客户端解释行。
+    [host, 'queuePositionOf', 'conscription queue position (read-only projection)'],
+    [host, 'quotaPaused', 'quota pause flag rides the board projection'],
+    [client, 'waitKindOf', 'wait-hint kind selector (pure)'],
+    [client, 'war-waithint', 'wait explanation row on task cards'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],

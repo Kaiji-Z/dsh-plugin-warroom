@@ -174,6 +174,9 @@ const WAR_CSS = `
 .war-onboard-steps{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);text-align:left}
 .war-onboard-cta{font-size:14px;padding:8px 18px}
 
+/* --- V7-⑤「为什么还没动」等待解释行 -------------------------------------------- */
+.war-waithint{font-size:11px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:4px 8px}
+
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
 .war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}

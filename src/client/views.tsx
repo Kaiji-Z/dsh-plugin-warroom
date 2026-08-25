@@ -18,6 +18,7 @@ import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
+import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -456,6 +457,16 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
       relTime(task.startedAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(task.startedAt)) : null,
     ),
     depLock(task, statuses),
+    // V7-⑤「为什么还没动」：排队位次/等领取/配额恢复——一行小字回答 AFK 焦虑。
+    waitKindOf(task, statuses) === 'queued'
+      ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.queued(task.queueAhead ?? 0))
+      : null,
+    waitKindOf(task, statuses) === 'awaitingClaim'
+      ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.awaitingClaim)
+      : null,
+    waitKindOf(task, statuses) === 'quotaPaused'
+      ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.quotaPaused)
+      : null,
     task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
     wsChip(task.workspacePath),
     task.brief !== '' ? createElement('div', { className: 'war-brief' }, task.brief) : null,

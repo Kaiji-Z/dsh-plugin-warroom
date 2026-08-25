@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { checkClaim, checkDeployment, depsUnsatisfied, frontsOverlap, normalizeFront, normalizeWorkspaceKey, sameWorkspace, workspaceConflict } from '../src/rules.ts'
+import { checkClaim, checkDeployment, depsUnsatisfied, frontsOverlap, normalizeFront, normalizeWorkspaceKey, queuePositionOf, sameWorkspace, workspaceConflict } from '../src/rules.ts'
 import { foldCampaign } from '../src/events.ts'
 import type { WarEvent } from '../src/types.ts'
 
@@ -137,4 +137,23 @@ test('v2.0: checkClaim rejects with the queue advice when the workspace is busy'
     assert.match(busy.reason, /排队/)
   }
   assert.deepEqual(checkClaim(taskWith('published'), [], undefined), { ok: true })
+})
+
+test('V7-⑤ queuePositionOf：同工作区排队位次（占用 +1 / 更优先者各 +1 / 独立域恒 0）', () => {
+  const cand = (taskId: string, status: 'published' | 'in_progress', workspacePath: string | undefined, priority: 'normal' | 'high' | undefined, startedAt: string) =>
+    ({ taskId, status, workspacePath, priority, startedAt })
+  const all = [
+    cand('run', 'in_progress', 'D:/ws/a', undefined, '2026-08-25T08:00:00Z'),
+    cand('hi', 'published', 'D:/ws/a', 'high', '2026-08-25T10:00:00Z'),
+    cand('lo', 'published', 'D:/ws/a', 'normal', '2026-08-25T09:00:00Z'),
+    cand('solo', 'published', undefined, 'normal', '2026-08-25T09:00:00Z'),
+    cand('other', 'published', 'D:/ws/b', 'normal', '2026-08-25T09:00:00Z'),
+  ]
+  // hi：工作区被 run 占（+1），无更优先者 → 前方 1
+  assert.equal(queuePositionOf(all[1]!, all), 1)
+  // lo：被占（+1）+ hi 更优先（+1）→ 前方 2
+  assert.equal(queuePositionOf(all[2]!, all), 2)
+  // 无工作区 = 独立域恒 0；别的工作区互不影响
+  assert.equal(queuePositionOf(all[3]!, all), 0)
+  assert.equal(queuePositionOf(all[4]!, all), 0)
 })

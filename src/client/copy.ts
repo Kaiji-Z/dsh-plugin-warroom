@@ -84,6 +84,12 @@ export interface WarCopy {
     steps: [string, string, string]
     cta: string
   }
+  /** V7-⑤「为什么还没动」等待解释。 */
+  waitHint: {
+    queued: (n: number) => string
+    awaitingClaim: string
+    quotaPaused: string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -246,6 +252,11 @@ export const warCopy: WarCopy = {
       '③ 收菜：完成的进战报区，点卡看证据、验收、收产出',
     ],
     cta: '＋ 下达第一道命令',
+  },
+  waitHint: {
+    queued: n => `排队中——同一工作区前方还有 ${n} 个（互斥不并行）`,
+    awaitingClaim: '征召令可发，等待指挥官领取',
+    quotaPaused: '配额恢复中——已暂停，恢复后原会话续作（不重派）',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -446,6 +457,11 @@ export const plainCopy: WarCopy = {
       '③ 收结果：完成的进结果区，点卡看证据、验收与产出',
     ],
     cta: '＋ 下达第一条命令',
+  },
+  waitHint: {
+    queued: n => `排队中——同一工作区前方还有 ${n} 个（不能同时执行）`,
+    awaitingClaim: '等待执行者领取',
+    quotaPaused: '额度恢复中——已暂停，恢复后原任务继续（不重新开始）',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
