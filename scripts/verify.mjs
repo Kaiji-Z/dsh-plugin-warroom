@@ -179,6 +179,7 @@ gate('bundle', () => {
     [client, '作战室 · 指挥中心', 'v3 war map title'],
     [client, 'war-ops', 'three-column ops wall grid (dispatch is its sibling)'],
     [client, 'war-dispatch', 'bottom command dispatch strip'],
+    [client, 'war-dispatch-tag', 'dispatch placard pinned at strip left'],
     [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],
     [client, 'war-cd-sessions', 'command detail: related thread entries'],

@@ -50,9 +50,13 @@ const WAR_CSS = `
 .war-col-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .war-col-body{flex:1 1 auto;overflow-y:auto;padding:8px 2px 16px;display:flex;flex-direction:column;gap:8px}
 /* 底部命令调度条：所有命令卡横向一排（活跃优先+新→旧），单行横滚——
- * Dispatch 调度中心的一排英雄位；命令是唯一可点入口。 */
-.war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;padding:8px 12px 10px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);scrollbar-width:thin}
-.war-dispatch .war-command-card{flex:0 0 320px;min-width:0}
+ * Dispatch 调度中心的一排英雄位；命令是唯一可点入口。
+ * 视觉与三列刻意拉开物种差：坞带 = 主色淡染凹槽（color-mix——本主题
+ * bg-layer-2 与 bg-base 同为白，靠别名分层分不出来）+ 内阴影；命令卡
+ * 在坞里浮起一层投影；左缘竖排铭牌 sticky 钉驻。 */
+.war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;padding:10px 12px 12px;border-top:1px solid var(--dsw-alias-border-l2);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));box-shadow:inset 0 2px 8px rgba(0,0,0,.08);scrollbar-width:thin}
+.war-dispatch-tag{flex:0 0 auto;align-self:stretch;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;letter-spacing:.2em;font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary);padding:6px 5px;border-right:1px dashed var(--dsw-alias-border-l2);position:sticky;left:0;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));z-index:1;user-select:none}
+.war-dispatch .war-command-card{flex:0 0 320px;min-width:0;box-shadow:0 1px 5px rgba(0,0,0,.14)}
 
 /* --- cards ------------------------------------------------------------------ */
 .war-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,opacity .15s ease}

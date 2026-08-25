@@ -125,6 +125,27 @@ with sync_playwright() as p:
     assert dw >= ow - 2, f"dispatch strip must span the full board width: {dw:.0f}px vs ops wall {ow:.0f}px"
     n_cmds = page.locator(".war-dispatch .war-command-card").count()
     assert n_cmds >= 5, f"dispatch strip should carry all commands, got {n_cmds}"
+    # V9.1 交互断言：垂直滚轮在调度条上换算成横移（wheel 监听 passive:false）。
+    scrollable = page.evaluate(
+        "() => { const el = document.querySelector('.war-dispatch'); return el.scrollWidth - el.clientWidth; }"
+    )
+    assert scrollable > 40, f"dispatch strip should overflow for the wheel test, slack={scrollable}"
+    sl = page.evaluate(
+        """() => { const el = document.querySelector('.war-dispatch');
+          el.scrollLeft = 0;
+          el.dispatchEvent(new WheelEvent('wheel', { deltaY: 240, cancelable: true }));
+          return el.scrollLeft; }"""
+    )
+    assert sl > 0, f"mouse wheel must scroll the dispatch strip horizontally, scrollLeft={sl}"
+    # V9.1 视觉断言：铭牌在场 + 坞带底色与三列底色拉开（物种差可机检）。
+    assert page.locator(".war-dispatch-tag").count() == 1, "dispatch placard tag missing"
+    bg = lambda sel: page.evaluate(
+        "s => getComputedStyle(document.querySelector(s)).backgroundColor", sel
+    )
+    assert bg(".war-dispatch") != bg(".war-zone.war-tasks"), (
+        f"dispatch dock bg must differ from column zone bg: {bg('.war-dispatch')} vs {bg('.war-zone.war-tasks')}"
+    )
+    page.evaluate("() => { document.querySelector('.war-dispatch').scrollLeft = 0 }")
     assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"
     assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
     report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()

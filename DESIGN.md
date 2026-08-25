@@ -96,4 +96,6 @@
 - **自动滚动扩域**：选择器 `.war-col-body .war-rel-same, .war-dispatch .war-rel-same`——调度条是**横向**滚动容器，漏掉它高亮命令卡就滚不进视野（shoot 抓到的真 bug）；横纵两轴都断言。
 - **坑：调度条被嵌进三列 grid 只剩一列宽（元首抓到）**——`.war-dispatch` 误写成 `.war-board`（三列网格）的第 4 个子元素，grid 自动布局把它排到第 2 行第 1 列，宽度只剩 ~1/3。正解=板体改纵向 flex（`.war-board`），三列墙套 `.war-ops` 网格层，调度条与它平级。shoot 补几何断言：调度条宽 ≈ 局势墙宽（基准是板体面板宽而非 window.innerWidth——宿主有 280px 侧栏，视口基准会误报）。教训：**DOM 计数断言抓不到几何 bug，宽度关系必须实测 bounding_box**；泛泛的「看起来还好」式目检同样放过坏布局，目检问题必须具体到「A 的边缘是否与 B 对齐」。
 - **战场游戏化（Dispatch 式）为未来候选**：元首明确本轮不做，只留单列。
+- **V9.1 调度条手感（2026-08-25，元首点单）**：①滚轮横移——垂直滚轮在调度条上换算成 scrollLeft（原生 `addEventListener('wheel', {passive:false})`；React 合成 wheel 是 passive 的 preventDefault 无效），触控板横向手势（deltaX 占优）仍交原生，两端到头放行不困死整页滚动；②与三列拉开物种差——坞带 = `color-mix(主色 6%, 底色)` 淡染凹槽 + 内阴影（**坑：本主题 bg-layer-2 与 bg-base 同为纯白，靠别名分层分不出异色**，shoot 异色断言实测抓到），命令卡加浮起投影，左缘竖排铭牌（`writing-mode:vertical-rl` + `position:sticky;left:0` 钉驻，横滚时铭牌不动卡从底下过）。断言四条进 shoot：滚轮后 scrollLeft>0 / 铭牌在场 / 坞带底色 ≠ 战区底色 / 调度条宽 ≈ 局势墙宽。
+- **坑：运行中的服务器会用内存旧态覆盖磁盘种子**——起服后往 `.smoke-state` 播种，几分钟后 directives.jsonl 被引擎落盘清空、板变空（元首报「作战室空了」）。播种演示板必须**停服 → 播种 → 起服**；可重复脚本 `scripts/seed-playground.py`（协议录 AGENTS.md 迭代注意节）。
 

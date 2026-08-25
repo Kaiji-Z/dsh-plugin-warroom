@@ -64,6 +64,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 - **flags 默认全开政策（元首定，2026-08-25）**：开发期所有功能旗默认 on（`src/flags.ts` DEFAULT_ON_FLAGS + `runtimeFlags`），新功能**不再设旗**直接默认开；`WARROOM_FEATURES` 仅用于 `!name` 关闭个别旗或 opt-in `v5-spike`。正式版发布后恢复「每能力一 flag」流程。单测仍用 `readFeatureFlags`（纯显式，确定性）。
 - **v5-spike 探针定案保留**（2026-08-25，非一次性脚手架）：它是唯一能在运行时复检宿主面结构契约的工具（goals/sessions/agents 可达性、toolFilter 接受性、错误面 code）。flag 默认 off、路由缺省不注册（404）、off 时零成本——保留不碍事，删了就要靠考古 R1 证据。宿主 deepseek-harness 升级后：`WARROOM_FEATURES=v5-spike` 起服 + `GET /warroom/api/v5-spike` 一键复检（probe 会话/goal 用后即清，见 K15 残留自愈）。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
+- **模拟作战室（playground）协议（2026-08-25 起，元首要常驻演示板）**：给元首把玩 UI/操作的演示板。必须**停服 → 播种 → 起服**三步：运行中的服务器会用内存旧态落盘覆盖种子（已实测：起服后播种，几分钟后 directives.jsonl 被清空、板变空）。播种命令 `python scripts/seed-playground.py`（只动隔离 `.smoke-state`，与 shoot-v7.py Phase 0+C 同源：全要素演示板 + L1 计划待批命令），然后按本地起服节重启 cordis.smoke.yml 服。验证：`GET /warroom/api/board` 应返回 commands 非空且 3 分钟不消失。
 - git-bash curl POST 中文 JSON 会乱码入账——API 抽查一律走浏览器 fetch 或 node fetch。
 - 浏览器自动化一律 Playwright（domcontentloaded + 选择器等待，SSE 挡住 networkidle）；dsh 决策卡是分页提问卡，卡等待期聊天不推进，必须点按钮。
 

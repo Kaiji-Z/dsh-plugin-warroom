@@ -24,6 +24,8 @@ export interface WarCopy {
     field: { title: string; note: string }
     report: { title: string; note: string }
   }
+  /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
+  dispatch: { tag: string; label: string }
   columns: {
     commands: { title: string; empty: string }
     tasks: { title: string; empty: string }
@@ -215,6 +217,7 @@ export const warCopy: WarCopy = {
     field: { title: '战场', note: '正在执行的会话 · 只读' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
+  dispatch: { tag: '命令调度', label: '命令调度条（滚轮横移）' },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
     tasks: { title: '任务', empty: '等参谋发布第一张悬赏' },
@@ -453,6 +456,7 @@ export const plainCopy: WarCopy = {
     field: { title: '执行区', note: '正在运行的会话 · 只读' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
+  dispatch: { tag: '命令台', label: '命令调度条（滚轮横移）' },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
     tasks: { title: '任务', empty: '等参谋发布第一个任务' },

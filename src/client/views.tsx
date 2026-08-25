@@ -11,7 +11,7 @@
  * @module dsh-plugin-warroom/client/views
  */
 
-import { createElement, useEffect, useState, useSyncExternalStore } from 'react'
+import { createElement, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
@@ -959,6 +959,33 @@ function OnboardPanel(onCompose: () => void): ReactNode {
   )
 }
 
+/** V9.1 底部命令调度条：滚轮横移（垂直滚轮换成横向滚动——命令卡横排的
+ * 自然手势）+ 带钉驻铭牌（sticky 左缘，横滚时它是「坞」不跟着走）。
+ * 独立组件承载 wheel 监听（passive:false 才能 preventDefault，React 合成
+ * 事件的 wheel 是 passive 的，必须原生 addEventListener）。 */
+function DispatchStrip(props: { children: ReactNode[] }): ReactNode {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el === null) return
+    const onWheel = (e: WheelEvent): void => {
+      // 横向手势（触控板 deltaX）交给原生滚动；只接管纯垂直滚轮。
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      const max = el.scrollWidth - el.clientWidth
+      // 两端到头就放行——不把整页滚动困死在调度条里。
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => { el.removeEventListener('wheel', onWheel) }
+  }, [])
+  return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label, ref },
+    createElement('div', { className: 'war-dispatch-tag' }, activeCopy().dispatch.tag),
+    ...props.children,
+  )
+}
+
 /** V7.1 板面图例：符号文法随开随查（头栏 ⓘ 常驻，Esc/关闭退出）——不再靠
  *  title 悬停与反复接触自学。双皮肤各说各话（legend 块）。 */
 function LegendModal(props: { onClose: () => void }): ReactNode {
@@ -1188,8 +1215,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           ),
           // V9 底部命令调度条：所有命令卡横向一排（活跃优先 + 新→旧），每张带
           // 四段生命条显示所处阶段——命令是唯一可点入口，点开=全生命周期详情。
-          createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': '命令调度条' },
-            dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
+          createElement(DispatchStrip, { key: 'dispatch' },
+            ...dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
               actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
             })),
           ),
