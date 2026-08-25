@@ -177,6 +177,7 @@ gate('bundle', () => {
     // v3 R1: two-zone command center, detail-first battlefield, dock home.
     // V9 迁移：三区五列 → 三列局势墙 + 底部命令调度条（Dispatch 调度中心）。
     [client, '作战室 · 指挥中心', 'v3 war map title'],
+    [client, 'war-ops', 'three-column ops wall grid (dispatch is its sibling)'],
     [client, 'war-dispatch', 'bottom command dispatch strip'],
     [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],

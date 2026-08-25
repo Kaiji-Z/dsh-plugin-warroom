@@ -115,7 +115,14 @@ with sync_playwright() as p:
     assert page.locator(".war-preflight-btn", has_text="改直发").count() == 1, "preflight 改直发 action missing"
 
     # V9 结构断言：三列局势墙 + 底部命令调度条（命令不再是列）。
+    assert page.locator(".war-ops").count() == 1, "ops wall grid container missing"
     assert page.locator(".war-dispatch").count() == 1, "bottom command dispatch strip missing"
+    # 几何断言：调度条必须横贯板体全宽（= 局势墙宽；宿主侧栏会占掉视口一部
+    # 分，故不能拿 window.innerWidth 当基准）。曾误把调度条塞进三列 grid，
+    # 宽度只剩一列——此断言专防该类回归。
+    ow = page.locator(".war-ops").bounding_box()["width"]
+    dw = page.locator(".war-dispatch").bounding_box()["width"]
+    assert dw >= ow - 2, f"dispatch strip must span the full board width: {dw:.0f}px vs ops wall {ow:.0f}px"
     n_cmds = page.locator(".war-dispatch .war-command-card").count()
     assert n_cmds >= 5, f"dispatch strip should carry all commands, got {n_cmds}"
     assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"

@@ -36,7 +36,10 @@ const WAR_CSS = `
 .war-empty{color:var(--dsw-alias-label-secondary);font-size:12px;padding:12px 4px;text-align:center;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;margin:6px 0}
 
 /* --- V9 局势墙三列（任务/战场/战报）+ 底部命令调度条 ------------------------- */
-.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1.1fr 1fr 1.1fr;gap:10px;padding:2px 10px 6px}
+/* 板体 = 纵向 flex：.war-ops 三列网格占满余高，.war-dispatch 全宽横条贴底。
+ * 不能把调度条直接塞进三列 grid——它会被排到第 2 行第 1 列只剩一列宽。 */
+.war-board{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.war-ops{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1.1fr 1fr 1.1fr;gap:10px;padding:2px 10px 6px}
 .war-zone{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-base);overflow:hidden}
 .war-tasks{box-shadow:inset 0 3px 0 var(--dsw-alias-state-business-primary)}
 .war-field{box-shadow:inset 0 3px 0 var(--dsw-alias-label-tertiary)}

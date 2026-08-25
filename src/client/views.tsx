@@ -1161,26 +1161,29 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: 'war-board' },
-          // V9 上方三列局势墙：任务（未终局）| 战场（进行中会话+外部挂载）| 战报（成功+失败合并，纯时间序）。
-          // 命令不再是列——它常驻底部调度条（Dispatch 调度中心）。
-          createElement('div', { className: 'war-zone war-tasks' },
-            Zone('tasks', activeCopy().columns.tasks.title, openTasks.length, activeCopy().columns.tasks.empty,
-              openTasks.map(t => TaskCard(t, statuses, openTaskVia,
-                (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
-                  ? () => { openStaff(t.taskId) }
-                  : null,
-                lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+          // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
+          // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
+          // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
+          createElement('div', { className: 'war-ops' },
+            createElement('div', { className: 'war-zone war-tasks' },
+              Zone('tasks', activeCopy().columns.tasks.title, openTasks.length, activeCopy().columns.tasks.empty,
+                openTasks.map(t => TaskCard(t, statuses, openTaskVia,
+                  (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
+                    ? () => { openStaff(t.taskId) }
+                    : null,
+                  lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+              ),
             ),
-          ),
-          createElement('div', { className: 'war-zone war-field' },
-            Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
-              [...live.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
+            createElement('div', { className: 'war-zone war-field' },
+              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
+                [...live.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
+              ),
             ),
-          ),
-          createElement('div', { className: 'war-zone war-report' },
-            Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
-              report.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+            createElement('div', { className: 'war-zone war-report' },
+              Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
+                report.map(({ t, a }) => SessionCard(t, a, openSessionVia, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+              ),
             ),
           ),
           // V9 底部命令调度条：所有命令卡横向一排（活跃优先 + 新→旧），每张带
