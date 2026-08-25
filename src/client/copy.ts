@@ -71,6 +71,12 @@ export interface WarCopy {
     exitFocus: string
     focusBtnTitle: string
   }
+  /** V7-④ 夜间预检（将停在计划待批的命令警告 + 改直发出口）。 */
+  preflight: {
+    hint: string
+    toDirect: string
+    title: string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -109,7 +115,7 @@ export interface WarCopy {
     noTasks: string
     latestReport: string
   }
-  composer: { title: string; sub: string; placeholder: string; cancel: string; busy: string; submit: string }
+  composer: { title: string; sub: string; placeholder: string; cancel: string; busy: string; submit: string; gradeAuto: string; gradeL0: string; gradeL2: string; gradeTitle: string; recentLabel: string }
   attach: {
     title: string
     sub: string
@@ -219,6 +225,11 @@ export const warCopy: WarCopy = {
     exitFocus: '退出聚焦',
     focusBtnTitle: '只亮这条命令的族系（它的任务与作战会话），其余压暗；Esc 退出',
   },
+  preflight: {
+    hint: '将停在计划待批——夜间无人值守会停整晚',
+    toDirect: '改直发',
+    title: '升档 L1/L2 的命令要等你批准计划才会继续，夜里没人批就一直停着。可改为 L0 直发（参谋直接发布执行），或保持等你批。',
+  },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
     published: '待领取',
@@ -286,6 +297,11 @@ export const warCopy: WarCopy = {
     cancel: '取消',
     busy: '下达中…',
     submit: '下达命令',
+    gradeAuto: '自动分诊',
+    gradeL0: '!! 直接做',
+    gradeL2: '?? 先看方案',
+    gradeTitle: '自主度：默认交给参谋分诊；也可直接指定（拼入命令标记，机制不变）',
+    recentLabel: '最近命令（点击重发）',
   },
   attach: {
     title: '挂载会话',
@@ -399,6 +415,11 @@ export const plainCopy: WarCopy = {
     exitFocus: '退出',
     focusBtnTitle: '只显示这条命令相关的任务与会话，其余变淡；Esc 退出',
   },
+  preflight: {
+    hint: '需要你批准方案后才会继续——夜里没人处理会一直停着',
+    toDirect: '改为直接执行',
+    title: '标记为 L1/L2 的任务要等你批准方案才会继续，夜里没人处理就一直停着。可改为直接执行（参谋直接发布），或保持等你批。',
+  },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
     published: '待领取',
@@ -466,6 +487,11 @@ export const plainCopy: WarCopy = {
     cancel: '取消',
     busy: '下达中…',
     submit: '下达命令',
+    gradeAuto: '自动分诊',
+    gradeL0: '!! 直接执行',
+    gradeL2: '?? 先看方案',
+    gradeTitle: '自主度：默认交给参谋分诊；也可直接指定（拼入命令标记，机制不变）',
+    recentLabel: '最近命令（点击重发）',
   },
   attach: {
     title: '挂载会话',

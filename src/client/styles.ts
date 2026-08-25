@@ -153,6 +153,20 @@ const WAR_CSS = `
 .war-focusbar-tag{color:var(--dsw-alias-state-business-primary);font-weight:700;flex:0 0 auto}
 .war-focusbar-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
 
+/* --- V7-④ 夜间预检 + 起草器档位/最近命令 ---------------------------------------- */
+.war-preflight{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:8px;border:1px dashed var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-bg-layer-2)}
+.war-preflight-text{flex:1 1 auto;min-width:0;font-size:11px;color:var(--dsw-alias-state-warn-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-preflight-btn{padding:1px 8px;font-size:11px;line-height:16px;flex:0 0 auto}
+.war-grade-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+.war-grade-label{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.war-grade-seg{cursor:pointer;font-size:11px;line-height:18px;padding:0 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap;background:transparent;font-family:var(--dsw-font-family)}
+.war-grade-seg:hover{border-color:var(--dsw-alias-label-secondary)}
+.war-grade-seg.on{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.war-recent-label{font-size:11px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto}
+.war-recent-item{cursor:pointer;font-size:11px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.war-recent-item:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
+
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
 .war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}

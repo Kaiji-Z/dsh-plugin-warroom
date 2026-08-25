@@ -108,6 +108,11 @@ gate('bundle', () => {
     [client, 'war-rel-same', 'family highlight class'],
     [client, 'war-rel-dim', 'non-family dim class'],
     [client, 'war-focusbar', 'focus-mode top bar'],
+    // V7-④ 夜间预检 + 起草器档位/最近命令。
+    [client, 'stalledOnUserPlan', 'night preflight predicate (pure)'],
+    [client, 'applyGradeMarker', 'composer grade marker (pure)'],
+    [client, 'war-preflight', 'preflight row on command cards'],
+    [client, 'war-grade-seg', 'composer autonomy toggles'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],

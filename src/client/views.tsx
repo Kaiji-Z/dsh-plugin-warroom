@@ -17,6 +17,7 @@ import { attachThread, createCommand, decidePlan, detachThread, markTalking, reg
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
+import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -231,7 +232,7 @@ function gradeChip(cmd: BoardCommand): ReactNode {
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
-function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace): ReactNode {
+function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
     const target = cmd.staffSessionId ?? hqSessionId
@@ -261,6 +262,13 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
   // 全生命周期阶段条：命令不因发布而死卡——任务/执行/战报进度常驻卡上。
   LifeStrip(cmd, chain),
+  // V7-④ 夜间预检：将停在「等你批计划」的命令给后果提示 + 改直发出口（既有 regrade API）。
+  stalledOnUserPlan(cmd)
+    ? createElement('div', { className: 'war-preflight', title: activeCopy().preflight.title },
+      createElement('span', { className: 'war-preflight-text' }, activeCopy().preflight.hint),
+      createElement('button', { className: 'war-btn war-preflight-btn', onClick: e => { e.stopPropagation(); onRegrade('L0') } }, activeCopy().preflight.toDirect),
+    )
+    : null,
   cmd.status === 'cancelled' && cmd.cancelledReason !== null
     ? createElement('div', { className: 'war-fail' }, activeCopy().commandDetail.cancelledReason(cmd.cancelledReason))
     : null,
@@ -269,10 +277,13 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
 
 /** The + button's composer modal: one natural-language command per card.
  * A real component (createElement-mounted): its hooks must live in its own
- * instance, never in WarView's render pass (the #310 lesson). */
-function CommandComposer(props: { onClose: () => void; refresh: () => void }): ReactNode {
-  const { onClose, refresh } = props
+ * instance, never in WarView's render pass (the #310 lesson).
+ * V7-④：自主度三档开关（拼 !!直接做/??先看方案 标记入文本，机制不变）+
+ * 最近命令一键重发。 */
+function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void }): ReactNode {
+  const { recent, onClose, refresh } = props
   const [text, setText] = useState('')
+  const [grade, setGrade] = useState<ComposerGrade>('auto')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -285,7 +296,7 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
     setBusy(true)
     setError(null)
     void (async () => {
-      const result = await createCommand(text.trim())
+      const result = await createCommand(applyGradeMarker(text, grade))
       setBusy(false)
       if (result.ok) {
         refresh()
@@ -295,22 +306,47 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
       }
     })()
   }
+  const copy = activeCopy().composer
+  const seg = (key: ComposerGrade, label: string): ReactNode =>
+    createElement('button', {
+      key,
+      type: 'button',
+      className: `war-grade-seg${grade === key ? ' on' : ''}`,
+      onClick: () => { setGrade(key) },
+    }, label)
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, activeCopy().composer.title),
-      createElement('div', { className: 'war-modal-sub' }, activeCopy().composer.sub),
+      createElement('div', { className: 'war-modal-title' }, copy.title),
+      createElement('div', { className: 'war-modal-sub' }, copy.sub),
+      createElement('div', { className: 'war-grade-row', title: copy.gradeTitle },
+        seg('auto', copy.gradeAuto),
+        seg('L0', copy.gradeL0),
+        seg('L2', copy.gradeL2),
+      ),
       createElement('textarea', {
         className: 'war-composer',
         value: text,
-        placeholder: activeCopy().composer.placeholder,
+        placeholder: copy.placeholder,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if (e.key === 'Escape') onClose() },
       }),
+      recent.length > 0
+        ? createElement('div', { className: 'war-recent-row' },
+          createElement('span', { className: 'war-recent-label' }, copy.recentLabel),
+          recent.map((r, i) => createElement('button', {
+            key: `recent-${i}`,
+            type: 'button',
+            className: 'war-recent-item',
+            title: r,
+            onClick: () => { setText(r) },
+          }, r)),
+        )
+        : null,
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().composer.cancel),
-        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? activeCopy().composer.busy : activeCopy().composer.submit),
+        createElement('button', { className: 'war-btn', onClick: onClose }, copy.cancel),
+        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? copy.busy : copy.submit),
       ),
     ),
   )
@@ -886,7 +922,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             InboxStrip(inbox, inboxAct),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
-                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c), traceFor(c.commandId))),
+                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
+                  void regradeCommand(c.commandId, grade).then(r => { if (r.ok) refresh() })
+                })),
                 createElement('span', { className: 'war-col-actions' },
                   createElement('button', { className: 'war-btn war-attach-btn', title: activeCopy().colActions.attachTitle, onClick: () => setAttachOpen(true) }, activeCopy().colActions.attachLabel),
                   createElement('button', { className: 'war-btn primary war-plus', title: activeCopy().colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
@@ -925,7 +963,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       focusCommandId !== null && focusCmd !== undefined
         ? FocusBar(focusCmd.text, () => { setFocusCommandId(null) })
         : null,
-      composerOpen ? createElement(CommandComposer, { key: 'composer', onClose: () => setComposerOpen(false), refresh }) : null,
+      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => setComposerOpen(false), refresh }) : null,
       attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
       detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => setDetailTaskId(null) }) : null,
       detailCommand !== undefined ? CommandDetail(detailCommand, chainOf(detailCommand), id => setDetailTaskId(id), () => setDetailCommandId(null), grade => {
