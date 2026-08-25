@@ -191,6 +191,10 @@ gate('bundle', () => {
     [host, 'war_decompose', 'staff decompose tool'],
     [host, 'war_publish_chain', 'chain publish tool'],
     [host, 'directive_decomposed', 'structured decomposition ledger event'],
+    // V6 goal 接力原子性补偿（staff-goal 旗内）：领取未武装缺口巡检补武装。
+    [host, 'armMissingCommanderGoals', 'goal relay sweep repair'],
+    [host, 'goalRelayFuse', '60s goal relay sweep fuse'],
+    [host, 'swept', 'sweep-repair ledger marker'],
     [host, 'goals.create', 'goal structural-slice probe verb'],
     [host, 'toolFilter', 'sessions.create toolFilter probe (staff restriction)'],
     // v5 R2: triage + L0 auto-close (staff-triage + staff-auto-close flags).

@@ -23,7 +23,7 @@ import { existsSync } from 'node:fs'
 import { relative, resolve, isAbsolute } from 'node:path'
 import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, type DirectiveGrade } from './directives.ts'
 import { appendDossierEntry, dossierEntryFor } from './dossier.ts'
-import { appendEvent, isActiveUnit, listCampaignIds, loadCampaign } from './events.ts'
+import { appendEvent, foldCampaign, isActiveUnit, listCampaignIds, loadCampaign, readEvents } from './events.ts'
 import { checkClaim, checkDeployment, conscriptPlan, depsUnsatisfied, normalizeFront, sameWorkspace, workspaceConflict } from './rules.ts'
 import { loadRoster, sandboxDeny, sandboxWrites, unitAgentOptions, type Roster } from './units.ts'
 import { commanderReportHint, mailboxDiscipline, schedulerDiscipline, troopBriefing, troopReportDiscipline } from './persona.ts'
@@ -320,6 +320,45 @@ export function lintPublish(args: { title?: unknown; brief?: unknown; acceptance
     return { ok: false, reason: '验收标准不可判定：用分行或「；、」列举可核对项（或写成 ≥30 字的明确完成定义）。' }
   }
   return { ok: true, reason: '' }
+}
+
+/**
+ * V6 goal 接力原子性补偿（flag staff-goal，SPEC §6 坑「发布成功但指挥官
+ * goal 建失败」）：领取时武装失败（goal 面打嗝/瞬时异常）的在役任务由巡检
+ * 补武装——「最近一次 task_claimed 之后无 commander_goal_armed 且任务
+ * in_progress 有在役指挥官」即缺口。补武装走 armGoalForTask（含 K15 残留
+ * 自愈），入账带 swept:true 痕迹。幂等：已武装/旗关/面缺席/无活体 agent
+ * 均返回空表，绝不烧 attempt、不换令牌、不动结算语义。
+ */
+export async function armMissingCommanderGoals(deps: WarToolsDeps, campaignId: string): Promise<string[]> {
+  if (!featureEnabled(deps.flags, 'staff-goal')) return []
+  const events = readEvents(deps.stateDir, campaignId)
+  if (events.length === 0) return []
+  const task = foldCampaign(campaignId, events)
+  if (task.status !== 'in_progress' || task.claimedBy === undefined) return []
+  let claimed = false
+  let armedSinceClaim = false
+  for (const e of events) {
+    if (e.type === 'task_claimed') {
+      claimed = true
+      armedSinceClaim = false // 新领取清标志——旧领取的武装不算数（重派形态）
+    } else if (e.type === 'commander_goal_armed' && claimed) {
+      armedSinceClaim = true
+    }
+  }
+  if (!claimed || armedSinceClaim) return []
+  const face = deps.goals?.()
+  if (face === undefined) return []
+  const agent = deps.resolveAgent?.(task.claimedBy)
+  if (agent === undefined) return [] // 死会话：goal 无从挂（诚实降级，重开会话后下一轮扫到）
+  const armed = await armGoalForTask(face, agent, campaignId, { maxGoalRounds: 30, title: task.title ?? task.intent })
+  if (armed === undefined) return []
+  appendEvent(deps.stateDir, {
+    type: 'commander_goal_armed', ts: new Date().toISOString(), campaignId,
+    goalId: armed.goalId, sessionId: task.claimedBy,
+    ...(armed.healed !== undefined ? { healedGoalId: armed.healed } : {}), swept: true,
+  })
+  return [campaignId]
 }
 
 /** Build the v0.2 tool surface bound to live wiring. */

@@ -237,3 +237,50 @@ test('war_set_goal：只许 in_progress + 在役指挥官；objective 绑定任�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('armMissingCommanderGoals：领取未武装的缺口由扫描补武装（swept 入账）；已武装/旗关/面缺席幂等 no-op；重派形态只补新领取', async () => {
+  const dir = tmpDir()
+  try {
+    // 缺口形态：claim 时 goal 面打嗝 → 无 commander_goal_armed。
+    seedTask(dir, 'c-gap')
+    appendEvent(dir, { type: 'task_claimed', ts: 't2', campaignId: 'c-gap', claimedBy: 'cmd-9', attemptId: 'tok-1', attempt: 1 })
+    const gs = fakeGoals()
+    const deps = makeDeps(dir, FLAG_GOAL, { goals: gs, resolveAgent: () => ({ id: 'cmd-9' }) })
+    const { armMissingCommanderGoals } = await import('../src/tools.ts')
+    const armed = await armMissingCommanderGoals(deps, 'c-gap')
+    assert.deepEqual(armed, ['c-gap'])
+    // 补武装入账带 swept:true 痕迹。
+    const gapEvents = readEventLog(dir, 'c-gap')
+    const sweptEvent = gapEvents.find(e => e.type === 'commander_goal_armed') as { swept?: boolean; sessionId?: string }
+    assert.equal(sweptEvent.swept, true)
+    assert.equal(sweptEvent.sessionId, 'cmd-9')
+    // 幂等：再扫 no-op。
+    assert.deepEqual(await armMissingCommanderGoals(deps, 'c-gap'), [])
+    // 已武装（领取时成功）→ 扫描不动。
+    seedTask(dir, 'c-ok')
+    appendEvent(dir, { type: 'task_claimed', ts: 't2', campaignId: 'c-ok', claimedBy: 'cmd-9', attemptId: 'tok-2', attempt: 1 })
+    appendEvent(dir, { type: 'commander_goal_armed', ts: 't3', campaignId: 'c-ok', goalId: 'goal-x', sessionId: 'cmd-9' })
+    assert.deepEqual(await armMissingCommanderGoals(deps, 'c-ok'), [])
+    // 旗关 → 永远 no-op（off == 改前）。
+    assert.deepEqual(await armMissingCommanderGoals(makeDeps(dir, FLAG_OFF, { goals: gs, resolveAgent: () => ({ id: 'cmd-9' }) }), 'c-gap'), [])
+    // 面缺席 → no-op（诚实降级）。
+    assert.deepEqual(await armMissingCommanderGoals(makeDeps(dir, FLAG_GOAL, { resolveAgent: () => ({ id: 'cmd-9' }) }), 'c-gap'), [])
+    // 重派形态：旧领取武装过 + requeue + 新领取未武装 → 只补新领取（K15 残留先结算）。
+    seedTask(dir, 'c-re')
+    appendEvent(dir, { type: 'task_claimed', ts: 't2', campaignId: 'c-re', claimedBy: 'cmd-a', attemptId: 'tok-3', attempt: 1 })
+    appendEvent(dir, { type: 'commander_goal_armed', ts: 't3', campaignId: 'c-re', goalId: 'goal-old', sessionId: 'cmd-a' })
+    appendEvent(dir, { type: 'task_requeued', ts: 't4', campaignId: 'c-re', reason: '修不动' })
+    appendEvent(dir, { type: 'task_claimed', ts: 't5', campaignId: 'c-re', claimedBy: 'cmd-b', attemptId: 'tok-4', attempt: 2 })
+    // goal-old 仍是活跃残留（模拟旧 armed 没结算）→ 补武装应先自愈再建新。
+    const gsRe = fakeGoals()
+    gsRe.create({ id: 'cmd-a' }, { objective: 'warroom 任务 c-re 验收全过（x）', maxGoalRounds: 1 })
+    const depsRe = makeDeps(dir, FLAG_GOAL, { goals: gsRe, resolveAgent: () => ({ id: 'cmd-b' }) })
+    assert.deepEqual(await armMissingCommanderGoals(depsRe, 'c-re'), ['c-re'])
+    const reEvents = readEventLog(dir, 'c-re')
+    const reArmed = reEvents.filter(e => e.type === 'commander_goal_armed').at(-1) as { sessionId?: string; healedGoalId?: string }
+    assert.equal(reArmed.sessionId, 'cmd-b')
+    assert.equal(reArmed.healedGoalId, 'goal-1')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

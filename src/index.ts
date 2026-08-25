@@ -32,7 +32,7 @@ import type { GoalsFace } from './goals.ts'
 import { createWarStore, resolveStateDir, type WarStore } from './state.ts'
 import { bountyDraftingSkill, type SkillsServiceFace } from './skill.ts'
 import { featureEnabled, readFeatureFlags } from './flags.ts'
-import { kickIdleTroops, warTools, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
+import { kickIdleTroops, warTools, armMissingCommanderGoals, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
 import { conscriptPlan, workspaceConflict } from './rules.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
@@ -308,6 +308,19 @@ export function apply(ctx: Context, config: Config): void {
     const wakeTimer = setInterval(() => wakeEngine.sweep(), 90_000)
     wakeTimer.unref?.()
     ctx.effect(() => () => clearInterval(wakeTimer), 'warroom.wakeFuse()')
+  }
+  // V6 goal 接力原子性补偿（flag staff-goal）：领取时武装失败（goal 面打嗝）
+  // 的在役任务由 60s 巡检补武装——AFK 不因一次瞬时失败静默断链（SPEC §6 坑
+  // 「发布成功但指挥官 goal 建失败的补偿路径」）。幂等：已武装/面缺席/无
+  // 活体 agent 都是 no-op，入账带 swept:true。
+  if (featureEnabled(deps.flags, 'staff-goal')) {
+    const goalRelayTimer = setInterval(() => {
+      for (const campaignId of listCampaignIds(stateDir)) {
+        void armMissingCommanderGoals(deps, campaignId).catch(() => undefined)
+      }
+    }, 60_000)
+    goalRelayTimer.unref?.()
+    ctx.effect(() => () => clearInterval(goalRelayTimer), 'warroom.goalRelayFuse()')
   }
   // V5-R4 (quota-recovery): 配额熔断正管——被动检测（agent/error 事件，宿主
   // 面可收性 R5 实弹定案）+ 主动探测（近零 token probe，退避节奏）+ 原地

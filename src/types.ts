@@ -213,8 +213,9 @@ export type WarEvent =
    * token — parked, not revoked. Any valid token-carrying update unparks. */
   | { type: 'subtask_parked'; ts: string; campaignId: string; subtaskId: string; reason?: string }
   /** V5-R3 (staff-goal flag): 指挥官 armed goal 开/收的账本痕迹（交接入账
-   * 红线）。healed = 结算掉的残留 goal（K15 自愈）。 */
-  | { type: 'commander_goal_armed'; ts: string; campaignId: string; goalId: string; sessionId: string; healedGoalId?: string }
+   * 红线）。healed = 结算掉的残留 goal（K15 自愈）；swept = 巡检补偿补武装
+   * （V6 原子性补偿：领取时武装失败的缺口由扫描弥合）。 */
+  | { type: 'commander_goal_armed'; ts: string; campaignId: string; goalId: string; sessionId: string; healedGoalId?: string; swept?: boolean }
   | { type: 'commander_goal_settled'; ts: string; campaignId: string; goalId: string; outcome: string }
   /** V5-R4 (staff-wake flag): 参谋唤醒投递痕迹（含失败/跳过原因——可审计）。 */
   | { type: 'staff_woken'; ts: string; campaignId: string; kind: 'reported' | 'failed'; sessionId: string; note?: string }
