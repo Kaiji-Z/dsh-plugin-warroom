@@ -54,6 +54,8 @@ export interface WarCopy {
     waited: (d: string) => string
     warnTitle: string
     errTitle: string
+    /** err 档内最老一条的加粗徽标（V7.1 老化通胀整改：红里也要有先后）。 */
+    oldest: string
   }
   /** V7-② 到访摘要（自上次看过以来的增量横幅）。 */
   visit: {
@@ -90,6 +92,10 @@ export interface WarCopy {
     awaitingClaim: string
     quotaPaused: string
   }
+  /** V7.1 审查整改：决策写操作失败的就地反馈（静默失败击穿信任）。 */
+  actions: { failToast: (what: string) => string }
+  /** V7.1 审查整改：板面图例——符号文法不再靠悬停自学（双皮肤各说各话）。 */
+  legend: { btn: string; title: string; rows: Array<[string, string]> }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -127,6 +133,8 @@ export interface WarCopy {
     chainDone: (done: number, total: number) => string
     noTasks: string
     latestReport: string
+    /** 「查看任务」指向的任务已不在板上时的禁用说明（V7.1 死链降级）。 */
+    taskGone: string
   }
   composer: { title: string; sub: string; placeholder: string; cancel: string; busy: string; submit: string; gradeAuto: string; gradeL0: string; gradeL2: string; gradeTitle: string; recentLabel: string }
   attach: {
@@ -222,6 +230,7 @@ export const warCopy: WarCopy = {
     waited: d => `等 ${d}`,
     warnTitle: '已等你超过半小时',
     errTitle: '已等你超过两小时——夜间命令会整晚停在这里',
+    oldest: '等最久',
   },
   /** V7-② 到访摘要（自上次看过以来的增量横幅）。 */
   visit: {
@@ -257,6 +266,24 @@ export const warCopy: WarCopy = {
     queued: n => `排队中——同一工作区前方还有 ${n} 个（互斥不并行）`,
     awaitingClaim: '征召令可发，等待指挥官领取',
     quotaPaused: '配额恢复中——已暂停，恢复后原会话续作（不重派）',
+  },
+  actions: { failToast: what => `${what}没生效——服务端没接住（可能状态已变或旗关），稍候刷新再试` },
+  legend: {
+    btn: 'ⓘ 图例',
+    title: '板面图例——符号与标记',
+    rows: [
+      ['！', '新悬赏挂出，等待指挥官领取'],
+      ['？', '战报已呈递，等你翻阅收菜'],
+      ['◎', '聚焦：只亮这条命令的族系（任务+会话），Esc 退出'],
+      ['↩', '溯源 chip：点它跳回源命令的全生命周期详情'],
+      ['⌁', '会话号前缀（指挥官/外部挂载的会话）'],
+      ['呼吸描边', 'received 命令正被参谋接收（约 15 秒），无需操作'],
+      ['!! / ??', '命令前缀标记：!!直接做（L0）· ??先看方案（L2）'],
+      ['L0/L1/L2', '自主度档位：直发 / 呈批 / 澄清'],
+      ['四段条', '命令→任务→执行→战报 的生命周期进度'],
+      ['品质五档', '悬赏复杂度分档（chip 颜色随档位）'],
+      ['黄/红等待', '收件箱等待超 30 分钟转黄、超 2 小时转红，「等最久」加粗'],
+    ],
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -317,6 +344,7 @@ export const warCopy: WarCopy = {
     chainDone: (done, total) => `${done}/${total} 已收官`,
     noTasks: '（尚未发布任务）',
     latestReport: '最新战报',
+    taskGone: '该任务已不在板上（可能已被清理），看板上无法打开',
   },
   composer: {
     title: '下达命令',
@@ -368,7 +396,6 @@ export const warCopy: WarCopy = {
     reportPrefix: ts => `【汇报 · ${ts}】`,
     commentPrefix: ts => `【批注 · ${ts}】`,
     verdictPrefix: '【判定】',
-    lineageLabel: '源自命令',
     lineageLabel: '源自命令',
     close: '关闭',
     cancel: '取消',
@@ -428,6 +455,7 @@ export const plainCopy: WarCopy = {
     waited: d => `已等 ${d}`,
     warnTitle: '已等待超过半小时',
     errTitle: '已等待超过两小时——夜里没人处理会一直停着',
+    oldest: '等最久',
   },
   visit: {
     since: (d: string) => `自上次查看（${d}）以来`,
@@ -462,6 +490,24 @@ export const plainCopy: WarCopy = {
     queued: n => `排队中——同一工作区前方还有 ${n} 个（不能同时执行）`,
     awaitingClaim: '等待执行者领取',
     quotaPaused: '额度恢复中——已暂停，恢复后原任务继续（不重新开始）',
+  },
+  actions: { failToast: what => `${what}没有生效——服务器拒绝了（可能状态已变），稍后刷新重试` },
+  legend: {
+    btn: 'ⓘ 图例',
+    title: '看板图例——符号与标记',
+    rows: [
+      ['！', '新任务，等待执行者领取'],
+      ['？', '结果已提交，等待你验收'],
+      ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
+      ['↩', '来源 chip：点它跳回源命令的详情'],
+      ['⌁', '会话号前缀（执行/外部挂载的会话）'],
+      ['呼吸描边', '新命令正被参谋接收（约 15 秒），不用操作'],
+      ['!! / ??', '命令前缀标记：!!直接做（L0）· ??先看方案（L2）'],
+      ['L0/L1/L2', '自主度档位：直接执行 / 先审方案 / 先问清楚'],
+      ['四段条', '下达→任务→执行→结果 的进度'],
+      ['品质五档', '任务复杂度分档（chip 颜色随档位）'],
+      ['黄/红等待', '待办等待超 30 分钟转黄、超 2 小时转红，「等最久」加粗'],
+    ],
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
@@ -521,7 +567,8 @@ export const plainCopy: WarCopy = {
     chainSection: '任务组进展',
     chainDone: (done, total) => `${done}/${total} 已完成`,
     noTasks: '（尚未发布任务）',
-    latestReport: '最新汇报',
+    latestReport: '最新战报',
+    taskGone: '该任务已不在看板上（可能已被清理），无法打开',
   },
   composer: {
     title: '下达命令',

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { agingTone, collectInbox, formatWait, INBOX_ERR_MS, INBOX_WARN_MS, type InboxItem } from '../src/client/inbox.ts'
+import { agingLeader, agingTone, collectInbox, formatWait, INBOX_ERR_MS, INBOX_WARN_MS, type InboxItem } from '../src/client/inbox.ts'
 import type { BoardCommand, BoardTask } from '../src/client/data.ts'
 
 /** V7-① 等你发落收件箱——纯聚合层（不引 react/node 专属 API），node 直测。
@@ -81,4 +81,19 @@ test('空收件箱与坏时间戳防御', () => {
   const bad = collectInbox([cmd({ commandId: 'c-bad', status: 'talking', createdAt: 'not-a-date' })], [], NOW)
   assert.equal(bad.length, 1)
   assert.equal(bad[0]!.waitMs, 0) // NaN 防御：不可解析按 0 计
+})
+
+test('agingLeader：err 档最老一条领跑（全红时红里也要有先后），无 err 则 null', () => {
+  // 两条都超 2 小时进 err（10:00 与 09:00 起算）+ 一条 warn——领跑者是最老的 09:00。
+  const commands = [
+    cmd({ commandId: 'c-older', status: 'talking', createdAt: '2026-08-25T09:00:00Z' }),
+    cmd({ commandId: 'c-err', status: 'talking', createdAt: '2026-08-25T10:00:00Z' }),
+  ]
+  const items = collectInbox(commands, [], NOW)
+  assert.equal(agingLeader(items), 'clarify:c-older')
+  // 只有 warn / 空队列时无领跑者。
+  const warnOnly = collectInbox([cmd({ commandId: 'c-warn', status: 'talking', createdAt: '2026-08-25T11:30:00Z' })], [], NOW)
+  assert.equal(warnOnly[0]!.tone, 'warn')
+  assert.equal(agingLeader(warnOnly), null)
+  assert.equal(agingLeader([]), null)
 })

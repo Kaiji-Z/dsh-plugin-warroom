@@ -65,3 +65,11 @@ export function collectInbox(commands: BoardCommand[], tasks: BoardTask[], now: 
   }
   return items.sort((a, b) => (a.since < b.since ? -1 : a.since > b.since ? 1 : 0))
 }
+
+/** err 档内的「等最久」领跑者（V7.1 老化通胀整改：全红时红也要有先后——
+ *  最老一条加粗+徽标，红=年龄里再挤出一个「最该先决」）。返回条目键
+ *  （`${kind}:${refId}`），无 err 档时 null。 */
+export function agingLeader(items: InboxItem[]): string | null {
+  const first = items.find(i => i.tone === 'err')
+  return first === undefined ? null : `${first.kind}:${first.refId}`
+}

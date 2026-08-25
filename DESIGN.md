@@ -31,7 +31,7 @@
 - **零后端改动**：链成员资格纯客户端计算——`commandTasks(cmd, tasks)` 从链头 taskId 出发做 deps-闭包 BFS（链头 + 全部传递依赖者）。这正确覆盖 V6 拆解链（顺序 deps）且对未来 DAG 链也成立。
 - `lineageMap`（task→command）在 WarView 渲染期一次构建；正反两个方向都不需要服务器新字段。
 - `lifecycleOf` 是个小状态机：cancelled → err 色终态；talking / plan-pending → warn 色（提示用户动作）；链内全部 closed → report done。
-- CommandDetail 仍是**普通函数**（不是组件），没有 Escape 键绑定——关它只能点关闭/背景。Playwright 脚本要关它就点「关闭」按钮（踩过：按 Escape 无效，backdrop 挡住后续点击）。
+- CommandDetail 已组件化（V7.1，props 组件 + useEffect Escape）——V6 时代「普通函数、无 Escape」的旧定案作废。Playwright 脚本两种关法都行：Escape 或点「关闭」。
 
 ## 文案与皮肤
 
@@ -56,3 +56,18 @@
 - **夜间预检是呈现层判定**：`stalledOnUserPlan`（grade L1/L2 且计划未批）→ 命令卡橙虚线后果提示 +「改直发」按钮（既有 regrade API）。三档开关只是往提交文本拼 `!!`/`??` 前缀——零新 API。夜间的真敌人是「卡在等人」，不是失败。
 - **「为什么还没动」走 host 只读加料**：投影增可选字段 `queueAhead`（`rules.queuePositionOf`：同区在跑占用 +1、更高优先级排队各 +1）与 `quotaPaused`。既有消费者不读则无感；写端点一个没加。
 - **空板引导与日常态互斥**：无命令无任务时三区中部一张引导卡（是什么 + 三步 + 直达起草器），有数据即整体隐退。
+
+## V7.1 审查整改（2026-08-25，impeccable critique 26/40 复盘）
+
+> 审查快照在 `.impeccable/critique/`；整改范围经元首圈定（全部 5 优先 + 9 次要），以下是落法定案，别翻烧饼。
+
+- **12px 字号底线（元首定夺，全面上调）**：全部 10px/11px 小字升 12px（chip/任务号/时间/工作区/收件箱/预检…）。密集信息板身份不靠小字号维持，靠 chip 化与紧凑行高；检测器 tiny-text/undersized 两类归零。目检确认无溢出换行、密度观感仍紧凑。
+- **主按钮对比度走 color-mix**：`color-mix(in srgb, var(--dsw-alias-state-business-primary) 80%, #000)` 白字约 5.8:1，明暗两主题都成立；token 声明在前兜底（不支持 color-mix 的环境退纯 token 色）。不自造色板红线不破。
+- **稀有度单通道化（元首定夺「换一种表达」）**：会话卡 side-tab 左边框（border-left>1px + 圆角）删除，品质改卡顶行 `qualityChip`。双重理由：side-tab 是检测器指纹模式（与选中态侧标混淆），且品质已有 chip 通道属冗余编码。任务卡的高优先侧标不受影响（那是状态不是品质）。
+- **决策失败必须出声**：改档/批案/驳案统一走 `actNote(promise, what)`——失败给 `war-actionerr` toast（`role="alert"`，`failToast(what)` 词典文案，6s 自清）。旧行为静默吞错是信任类 P1。「查看任务」死链降级：任务已不在板（被清理）时按钮 disabled + `taskGone` 提示，不再点开空白浮层。
+- **键盘通道**：所有可点卡（命令/任务/会话/外部卡/收件箱条目/链行/溯源 chip/到访分段）`role="button"` + `tabIndex: 0` + `aria-label` + `keyActivate`（Enter/Space + preventDefault）；全局 `.war-root :focus-visible` 描边。卡片是 div 不是原生 button（嵌套交互元素限制），语义用 ARIA 补齐。
+- **图例常驻头栏**：「ⓘ 图例」按钮 + 11 行双列浮层（信号灯/生命条/档位/品质/等待…符号语文法），词典 `legend` 块双皮肤。符号系统是本板的 authored 身份，不该只藏在 hover title 里。
+- **agingLeader 治 aging 通胀**：收件箱 err 档最老一条加粗 + 「等最久」徽标。全红时红本身失去排序信号，档内相对先后补上。
+- **战场倾斜不整改**：中间区视觉重于两侧是审美分歧非缺陷（聚焦模式已提供单命令视图）；记为已收敛决策。
+- **宿主噪声甄别**：layout-transition / clipped-overflow / em-dash 命中归属 dsh 宿主页与中国式破折号「——」，插件侧为误报——复扫插件 findings 49→0，余量皆宿主噪声。
+
