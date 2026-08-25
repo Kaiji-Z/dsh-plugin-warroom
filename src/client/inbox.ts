@@ -50,8 +50,11 @@ function mkItem(kind: InboxKind, refId: string, title: string, since: string, no
 export function collectInbox(commands: BoardCommand[], tasks: BoardTask[], now: number = Date.now()): InboxItem[] {
   const items: InboxItem[] = []
   for (const c of commands) {
-    if (c.status === 'talking') items.push(mkItem('clarify', c.commandId, c.text, c.createdAt, now))
-    if (c.plan !== null && c.plan.status === 'pending') items.push(mkItem('plan', c.commandId, c.text, c.createdAt, now))
+    // V9.5（复评 P3-1）：同一命令同时是 talking + 计划待批时只出一行——
+    // 批计划是更靠后的管线阶段，胜出；两条近重复行读起来像 bug。
+    const planPending = c.plan !== null && c.plan.status === 'pending'
+    if (planPending) items.push(mkItem('plan', c.commandId, c.text, c.createdAt, now))
+    else if (c.status === 'talking') items.push(mkItem('clarify', c.commandId, c.text, c.createdAt, now))
   }
   for (const t of tasks) {
     if (t.status === 'reported') {

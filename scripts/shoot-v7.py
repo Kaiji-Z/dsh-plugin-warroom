@@ -29,6 +29,20 @@ Path(OUT).mkdir(parents=True, exist_ok=True)
 shutil.rmtree(STATE / "campaigns", ignore_errors=True)
 (STATE / "directives.jsonl").unlink(missing_ok=True)
 print(f"cleared smoke state: {STATE}")
+# 清盘后服务端的折叠缓存可能短暂回旧内容（实测竞态）——轮询等板真空再开测。
+import time as _time
+import urllib.request as _ur
+for _ in range(20):
+    try:
+        _body = json.loads(_ur.urlopen(f"{BASE}/warroom/api/board", timeout=5).read())
+        if not _body.get("commands") and not _body.get("tasks"):
+            break
+    except Exception:
+        pass
+    _time.sleep(1)
+else:
+    raise SystemExit("board did not drain after clearing smoke state")
+print("board drained")
 
 ts = lambda mins_ago: (datetime.now(timezone.utc) - timedelta(minutes=mins_ago)).isoformat(timespec="milliseconds")
 
@@ -128,30 +142,34 @@ with sync_playwright() as p:
     # 宽度只剩一列——此断言专防该类回归。
     ow = page.locator(".war-ops").bounding_box()["width"]
     dw = page.locator(".war-dispatch").bounding_box()["width"]
-    assert dw >= ow - 2, f"dispatch strip must span the full board width: {dw:.0f}px vs ops wall {ow:.0f}px"
+    # V9.4 容器化：坞与三列墙同为 10px 内缩的圆角容器（宽度差恰 20px）。
+    assert abs((ow - dw) - 20) <= 4, f"dispatch container must sit inset like the ops wall: dock {dw:.0f}px vs ops {ow:.0f}px"
     n_cmds = page.locator(".war-dispatch .war-command-card").count()
     assert n_cmds >= 5, f"dispatch strip should carry all commands, got {n_cmds}"
     # V9.1 交互断言：垂直滚轮在调度条上换算成横移（wheel 监听 passive:false）。
     scrollable = page.evaluate(
-        "() => { const el = document.querySelector('.war-dispatch'); return el.scrollWidth - el.clientWidth; }"
+        "() => { const el = document.querySelector('.war-dispatch-track'); return el.scrollWidth - el.clientWidth; }"
     )
     assert scrollable > 40, f"dispatch strip should overflow for the wheel test, slack={scrollable}"
     sl = page.evaluate(
-        """() => { const el = document.querySelector('.war-dispatch');
+        """() => { const el = document.querySelector('.war-dispatch-track');
           el.scrollLeft = 0;
           el.dispatchEvent(new WheelEvent('wheel', { deltaY: 240, cancelable: true }));
           return el.scrollLeft; }"""
     )
     assert sl > 0, f"mouse wheel must scroll the dispatch strip horizontally, scrollLeft={sl}"
     # V9.1 视觉断言：铭牌在场 + 坞带底色与三列底色拉开（物种差可机检）。
-    assert page.locator(".war-dispatch-tag").count() == 1, "dispatch placard tag missing"
+    # V9.4 容器化：铭牌退役；＋ 瓦片在场；卡片进 track 轨道；动态 can-scroll mask。
+    assert page.locator(".war-dispatch-tag").count() == 0, "placard must be gone (V9.4 containerized)"
+    assert page.locator(".war-dispatch-track").count() == 1, "dispatch card track missing"
+    assert page.evaluate("() => document.querySelector('.war-dispatch-track').classList.contains('can-scroll')"), "dynamic can-scroll mask not set while overflow exists"
     bg = lambda sel: page.evaluate(
         "s => getComputedStyle(document.querySelector(s)).backgroundColor", sel
     )
     assert bg(".war-dispatch") != bg(".war-zone.war-tasks"), (
         f"dispatch dock bg must differ from column zone bg: {bg('.war-dispatch')} vs {bg('.war-zone.war-tasks')}"
     )
-    page.evaluate("() => { document.querySelector('.war-dispatch').scrollLeft = 0 }")
+    page.evaluate("() => { document.querySelector('.war-dispatch-track').scrollLeft = 0 }")
     assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"
     assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
     report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()
@@ -422,6 +440,30 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
     print("plan decide block: consequence hint + isolated actions ok")
+
+    # --- Phase G5: V9.5 整改机检（统一卡点击 + n 快捷键 + 草稿续写 + 对话 chip）。 ---
+    # received/talking 命令卡：点击开详情（不再瞬移出板），对话走视觉独立的 chip。
+    received_card = page.locator(".war-command-card.clickable.pulse", has_text="等下帮我把 projA 的依赖全部升到最新").first
+    received_card.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert page.locator(".war-modal .war-cd-sessions").count() >= 1, "received card click must open detail (V9.5 unified)"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert page.locator(".war-dispatch .war-enter-chip").count() >= 1, "enter-session chip missing on conversational card"
+    # n = 新建命令（无弹窗层、非输入焦点）；草稿 Esc 不焚、重开续写。
+    page.keyboard.press("n")
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.locator(".war-composer").fill("草稿续写取证：这句不该被 Esc 焚掉")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert page.locator(".war-modal").count() == 0, "Esc should close composer (draft persisted)"
+    page.keyboard.press("n")
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert "草稿续写取证" in page.locator(".war-composer").input_value(), "draft did not survive Esc"
+    page.locator(".war-composer").fill("")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    print("V9.5: unified card click + n shortcut + draft persistence ok")
 
     # --- Phase H: 收尾。 ---
     pre.screenshot(path=f"{OUT}/v7-preflight.png")

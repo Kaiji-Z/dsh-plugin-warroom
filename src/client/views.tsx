@@ -115,8 +115,15 @@ function traceMouse(trace: CardTrace): { onMouseEnter?: () => void; onMouseLeave
 }
 
 /** 键盘激活（Enter/Space）——卡片是 div role="button"，键盘通道与点击同路（V7.1 审查整改）。 */
-function keyActivate(fn: () => void): (e: { key: string; preventDefault(): void }) => void {
-  return e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() } }
+function keyActivate(fn: () => void): (e: { key: string; preventDefault(): void; target: unknown; currentTarget: unknown }) => void {
+  // V9.6（复评 P0）：事件源不是宿主卡本身（嵌套按钮/chip 的键盘激活）时
+  // 放行原生行为——否则 ◎ 聚焦键回车会错开详情、进入对话 chip 键盘失灵。
+  return e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    if (e.target !== e.currentTarget) return
+    e.preventDefault()
+    fn()
+  }
 }
 
 function qualityChip(quality: BoardQuality): ReactNode {
@@ -324,12 +331,14 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     void markTalking(cmd.commandId)
     services.sessions.open(target)
   }
-  const clickable = cmd.status === 'received' || cmd.status === 'talking'
-  const activate = (): void => { if (clickable) enterSession(); else onDetail(cmd) }
+  // V9.5（复评 P1-1）：命令卡点击语义统一——一律打开全生命周期详情（板是
+  // 叙事中心，好奇不该瞬移出板）；对话入口改为卡上视觉独立的虚线 chip。
+  const conversational = cmd.status === 'received' || cmd.status === 'talking'
+  const activate = (): void => { onDetail(cmd) }
   return createElement('div', {
     key: cmd.commandId,
-    className: `war-card war-command-card${clickable ? ' clickable' : ''}${cmd.status === 'received' ? ' pulse' : ''}${relClass(trace)}`,
-    title: clickable ? meta.hint : undefined,
+    className: `war-card war-command-card clickable${cmd.status === 'received' ? ' pulse' : ''}${relClass(trace)}`,
+    title: undefined,
     role: 'button',
     tabIndex: 0,
     'aria-label': `${meta.label}：${cmd.text}`,
@@ -346,6 +355,14 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
           className: 'war-chip sched',
           title: activeCopy().scheduleChip.cardTitle(fmtSchedule(cmd.schedule.nextRunAt)),
         }, activeCopy().scheduleChip.chip(fmtSchedule(cmd.schedule.nextRunAt)))
+      : null,
+    conversational
+      ? createElement('button', {
+          className: 'war-chip war-enter-chip',
+          type: 'button',
+          title: meta.hint,
+          onClick: e => { e.stopPropagation(); enterSession() },
+        }, '进入对话')
       : null,
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
     createElement('button', {
@@ -378,7 +395,9 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
 function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void }): ReactNode {
   const { recent, onClose, refresh } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
-  const [text, setText] = useState('')
+  // V9.5（复评 P2-1）：草稿落 localStorage——误点背板/顺手 Esc 不再焚稿，
+  // 重开起草器自动续写；提交成功才清。
+  const [text, setText] = useState(() => { try { return localStorage.getItem('warroom-draft') ?? '' } catch { return '' } })
   const [grade, setGrade] = useState<ComposerGrade>('auto')
   const [sched, setSched] = useState<'now' | 'cron'>('now')
   const [cronExpr, setCronExpr] = useState('')
@@ -411,6 +430,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
       const result = await createCommand(applyGradeMarker(text, grade), sched === 'cron' ? cronExpr.trim() : undefined)
       setBusy(false)
       if (result.ok) {
+        try { localStorage.removeItem('warroom-draft') } catch { /* noop */ }
+        setText('')
         refresh()
         onClose()
       } else {
@@ -418,6 +439,9 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
       }
     })()
   }
+  useEffect(() => {
+    try { text === '' ? localStorage.removeItem('warroom-draft') : localStorage.setItem('warroom-draft', text) } catch { /* 隐私模式无 localStorage */ }
+  }, [text])
   const copy = activeCopy().composer
   const optionCard = (key: string, on: boolean, entry: { name: string; hint: string }, cls: string, onPick: () => void): ReactNode =>
     createElement('button', {
@@ -437,6 +461,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         className: 'war-composer',
         value: text,
         placeholder: copy.placeholder,
+        'aria-label': copy.title,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit() },
@@ -495,6 +520,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
           onClick: submit,
         }, busy ? copy.busy : sched === 'cron' ? copy.submitScheduled : copy.submit),
       ),
+      createElement('div', { className: 'war-cp-kbd' }, copy.kbdHint),
     ),
   )
 }
@@ -571,11 +597,11 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
           ? createElement('div', { className: 'war-detail-section war-cd-report' }, copy.latestReport)
           : null,
         lastReport !== undefined
-          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
+          ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
           : null,
         lastReport !== undefined && lastReport.r.evidence !== null ? EvidenceBlock(lastReport.r.evidence) : null,
         verdictTask !== undefined && verdictTask.closedVerdict !== null
-          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${verdictTask.closedVerdict}`)
+          ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.verdictPrefix}${verdictTask.closedVerdict}`)
           : null,
         // V9 相关会话：讨论（参谋）与执行（指挥官，按次）两类 thread 的入口。
         cmd.staffSessionId !== null || execSessions.length > 0
@@ -717,7 +743,7 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
         createElement('div', { className: 'war-detail-section' }, activeCopy().detail.acceptanceSection),
         createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : activeCopy().detail.acceptanceMissing),
         latest !== undefined
-          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.reportPrefixPlain}${latest.text}`)
+          ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.reportPrefixPlain}${latest.text}`)
           : null,
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
         task.deliverables.length > 0
@@ -727,7 +753,7 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
           )
           : null,
         task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().taskCard.failReason(task.lastError)) : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         handleable
@@ -808,10 +834,10 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
         createElement('div', { className: 'war-detail-section' }, activeCopy().detail.acceptanceSection),
         createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : activeCopy().detail.acceptanceMissing),
         task.reports.length > 0 ? createElement('div', { className: 'war-detail-section' }, activeCopy().detail.reportsSection) : null,
-        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report' }, `${activeCopy().detail.reportPrefix(relTime(r.ts))}${r.text}`)),
+        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report-body' }, `${activeCopy().detail.reportPrefix(relTime(r.ts))}${r.text}`)),
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
         task.comments.length > 0 ? createElement('div', { className: 'war-detail-section' }, activeCopy().detail.commentsSection) : null,
-        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report' }, `${activeCopy().detail.commentPrefix(relTime(c.ts))}${c.text}`)),
+        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report-body' }, `${activeCopy().detail.commentPrefix(relTime(c.ts))}${c.text}`)),
         task.deliverables.length > 0
           ? createElement('div', { className: 'war-loot' },
             createElement('span', { className: 'war-loot-item' }, activeCopy().session.lootPrefix),
@@ -823,7 +849,7 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
       ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError))
       : createElement('div', { className: 'war-fail' }, activeCopy().session.attemptFailedNeutral)
     : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         outcomeKey === 'reported' && staffTarget !== null
@@ -873,7 +899,8 @@ function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, o
 function Zone(key: string, title: string, count: number, empty: string, children: ReactNode[], extra?: ReactNode): ReactNode {
   return createElement('div', { key, className: `war-col zone-${key}` },
     createElement('div', { className: 'war-col-head' },
-      createElement('span', { className: 'war-col-title' }, title),
+      // V9.6：列标题升格 h2——屏幕阅读器有结构可导航（板原先零标题）。
+      createElement('h2', { className: 'war-col-title' }, title),
       createElement('span', { className: 'war-col-count' }, String(count)),
       extra,
     ),
@@ -967,11 +994,18 @@ function WarIsland(props: {
   const [pinned, setPinned] = useState(false)
   const copy = activeCopy().island
   // V9.2：聚焦不再是展开条件——聚焦时看板必须可见（只是变暗非族系）。
+  // V9.5：hover 加 150ms 意图延迟；V9.6：离岛必须清定时器——否则快速划过
+  // 后面板在指针离开后才弹开并卡在打开态（复评实锤竞态）。
+  const hoverTimer = useRef<number | null>(null)
+  useEffect(() => () => { if (hoverTimer.current !== null) clearTimeout(hoverTimer.current) }, [])
   const open = hover || pinned
   return createElement('div', {
     className: `war-island${open ? ' open' : ''}${pinned ? ' pinned' : ''}`,
-    onMouseEnter: () => { setHover(true) },
-    onMouseLeave: () => { setHover(false) },
+    onMouseEnter: () => { hoverTimer.current = setTimeout(() => { setHover(true) }, 150) },
+    onMouseLeave: () => {
+      if (hoverTimer.current !== null) { clearTimeout(hoverTimer.current); hoverTimer.current = null }
+      setHover(false)
+    },
   },
   createElement('div', {
     className: `war-island-pill${inbox.length > 0 ? ' has-inbox' : ''}`,
@@ -1040,41 +1074,57 @@ function OnboardPanel(onCompose: () => void): ReactNode {
   )
 }
 
-/** V9.2 底部命令调度条：滚轮横移（垂直滚轮换横向滚动）+ 左端钉驻簇
- * [＋下达][铭牌]（sticky 左缘，横滚时不动——下达入口常驻坞头）。独立组件
- * 承载 wheel 监听（passive:false 才能 preventDefault，React 合成 wheel 是
- * passive 的，必须原生 addEventListener）。 */
+/** V9.4 底部命令调度坞（容器化，元首定案）：整坞一个大容器（与三区同语言
+ * 的圆角容器、物种差保留——主色淡染凹槽）；左端 ＝ ＋ 下达瓦片（容器的
+ * 一部分，幽灵虚线态）；命令卡全部进 .war-dispatch-track 轨道横滚（滚轮
+ * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
+ * 退役（元首：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
+ * wheel 是 passive 的）。 */
 function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
+  const { onCompose, children } = props
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = ref.current
     if (el === null) return
     const onWheel = (e: WheelEvent): void => {
-      // 横向手势（触控板 deltaX）交给原生滚动；只接管纯垂直滚轮。
+      // 横向手势（触控板 deltaX）交给原生；只接管纯垂直滚轮。
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
       const max = el.scrollWidth - el.clientWidth
-      // 两端到头就放行——不把整页滚动困死在调度条里。
+      // 两端到头就放行——不把整页滚动困死在轨道里。
       if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return
       el.scrollLeft += e.deltaY
       e.preventDefault()
     }
+    const onScroll = (): void => {
+      const max = el.scrollWidth - el.clientWidth
+      el.classList.toggle('can-scroll', el.scrollLeft < max - 2)
+    }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel) }
-  }, [])
-  return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label, ref },
-    createElement('div', { className: 'war-dispatch-lead' },
-      createElement('button', {
-        className: 'war-dispatch-add',
-        type: 'button',
-        title: activeCopy().dispatch.addTitle,
-        'aria-label': activeCopy().dispatch.addTitle,
-        onClick: props.onCompose,
-      }, '＋'),
-      createElement('div', { className: 'war-dispatch-tag' }, activeCopy().dispatch.tag),
-    ),
-    ...props.children,
+    el.addEventListener('scroll', onScroll, { passive: true })
+    // V9.7：ResizeObserver 观察轨道盒——SSE 水合/布局变化/窗口缩放任何一条
+    // 路径都能重算 can-scroll（此前 window resize + 卡数 deps 仍漏布局变化，
+    // 首帧渐隐缺席，终评 P0）。
+    const ro = new ResizeObserver(() => { onScroll() })
+    ro.observe(el)
+    onScroll()
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+    }
+  }, [children.length])
+  return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label },
+    createElement('button', {
+      className: 'war-dispatch-add',
+      type: 'button',
+      title: activeCopy().dispatch.addTitle,
+      'aria-label': activeCopy().dispatch.addTitle,
+      onClick: onCompose,
+    }, '＋'),
+    createElement('div', { className: 'war-dispatch-track', ref }, ...children),
   )
 }
+
 
 /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。右侧滑入，
  * 不遮岛不推列；开关落 localStorage——纯展示层偏好，不碰账本（读投影红线）。 */
@@ -1167,6 +1217,19 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [hoverFamilyOn, setHoverFamilyOn] = useState(() => localStorage.getItem('warroom-cfg-hover-family') !== '0')
     const [autoScrollOn, setAutoScrollOn] = useState(() => localStorage.getItem('warroom-cfg-auto-scroll') !== '0')
     useEscOnlyLayer(focusCommandId !== null, () => { setFocusCommandId(null) })
+    // V9.5（复评 P2-2）：全板快捷键 n = 新建命令（无弹窗层且不在输入框时）——
+    // 主写操作不再藏在 20 个 Tab 之后的坞左端。
+    useEffect(() => {
+      const onKey = (e: KeyboardEvent): void => {
+        if (e.key !== 'n' || e.ctrlKey || e.metaKey || e.altKey) return
+        if (escLayers.length > 0) return
+        const el = e.target instanceof Element ? e.target : null
+        if (el !== null && el.closest('input, textarea, select, [contenteditable], .war-modal-backdrop, .war-settings-backdrop') !== null) return
+        setComposerOpen(true)
+      }
+      document.addEventListener('keydown', onKey)
+      return () => { document.removeEventListener('keydown', onKey) }
+    }, [])
     // V9.2 聚焦点空白即退（元首指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
     useEffect(() => {
       if (focusCommandId === null) return

@@ -21,11 +21,10 @@ export interface WarCopy {
   loading: { connecting: string; unreachable: (err: string) => string }
   zones: {
     tasks: { title: string; note: string }
-    field: { title: string; note: string }
     report: { title: string; note: string }
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
-  dispatch: { tag: string; label: string; addTitle: string }
+  dispatch: { label: string; addTitle: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
     title: string
@@ -184,6 +183,7 @@ export interface WarCopy {
     nextRun: (t: string) => string
     cronPresets: ReadonlyArray<{ label: string; cron: string }>
     recentLabel: string
+    kbdHint: string
   }
   attach: {
     title: string
@@ -250,7 +250,7 @@ export interface WarCopy {
 /** 默认皮肤：军事风（当前文案，逐字保留）。 */
 export const warCopy: WarCopy = {
   head: {
-    title: '作战室 · 指挥中心',
+    title: '作战室',
     subActive: '命令 → 任务 → 作战 → 结果 · 左区指挥 · 右区战场',
     subIdle: '退役中（/war 启用）',
   },
@@ -260,10 +260,9 @@ export const warCopy: WarCopy = {
   },
   zones: {
     tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
-    field: { title: '战场', note: '正在执行的会话 · 只读' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { tag: '命令调度', label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）' },
   settings: {
     title: '设置',
     skinSection: '皮肤（措辞词典）',
@@ -289,7 +288,7 @@ export const warCopy: WarCopy = {
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
     tasks: { title: '任务', empty: '等参谋发布第一张悬赏' },
-    live: { title: '进行中', empty: '下达命令后，指挥官的作战会话会出现在这里' },
+    live: { title: '作战中', empty: '下达命令后，指挥官的作战会话会出现在这里' },
     done: { title: '已完成', empty: '还没有打赢的会话' },
     failed: { title: '已失败', empty: '暂无失败会话' },
   },
@@ -392,7 +391,7 @@ export const warCopy: WarCopy = {
   qualityTitle: '悬赏品质（复杂度分档）',
   commandStatus: {
     draft: { label: '已下达', hint: '参谋接收中（约 15 秒内）' },
-    received: { label: '已接收 · 点击进入对话', hint: '参谋已接收，点击卡片进入对话回答提问' },
+    received: { label: '已接收', hint: '参谋在等回答：点击进入对话回答提问（点卡片本身看全生命周期）' },
     talking: { label: '对话中' },
     approved: { label: '已批准', hint: '任务已发布，点击查看对应任务卡' },
     cancelled: { label: '已取消' },
@@ -449,14 +448,15 @@ export const warCopy: WarCopy = {
     schedCron: { name: '定时', hint: '按 cron 到点自动下达（一次有效）' },
     cronLabel: '触发时刻（cron：分 时 日 月 周）',
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
-    cronError: err => `时刻表不合法：${err}`,
+    cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，仅一次）`,
     cronPresets: [
       { label: '每天 9 点', cron: '0 9 * * *' },
       { label: '工作日 9 点', cron: '0 9 * * 1-5' },
       { label: '每周一 9 点', cron: '0 9 * * 1' },
     ],
-    recentLabel: '最近命令（点击重发）',
+    recentLabel: '最近命令（点击填入草稿）',
+    kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
     title: '挂载会话',
@@ -536,10 +536,9 @@ export const plainCopy: WarCopy = {
   },
   zones: {
     tasks: { title: '任务', note: '未完成的任务' },
-    field: { title: '执行区', note: '正在运行的会话 · 只读' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
-  dispatch: { tag: '命令台', label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）' },
   settings: {
     title: '设置',
     skinSection: '皮肤（用词风格）',
@@ -667,7 +666,7 @@ export const plainCopy: WarCopy = {
   qualityTitle: '复杂度分级',
   commandStatus: {
     draft: { label: '已下达', hint: '参谋接收中（约 15 秒内）' },
-    received: { label: '已接收 · 点击进入对话', hint: '参谋已接收，点击卡片进入对话回答提问' },
+    received: { label: '已接收', hint: '参谋在等回答：点击进入对话回答提问（点卡片本身看全生命周期）' },
     talking: { label: '对话中' },
     approved: { label: '已发布', hint: '任务已发布，点击查看对应任务卡' },
     cancelled: { label: '已取消' },
@@ -724,14 +723,15 @@ export const plainCopy: WarCopy = {
     schedCron: { name: '定时', hint: '到点自动下达（一次有效）' },
     cronLabel: '触发时间（cron：分 时 日 月 周）',
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
-    cronError: err => `时间表不对：${err}`,
+    cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，只一次）`,
     cronPresets: [
       { label: '每天 9 点', cron: '0 9 * * *' },
       { label: '工作日 9 点', cron: '0 9 * * 1-5' },
       { label: '每周一 9 点', cron: '0 9 * * 1' },
     ],
-    recentLabel: '最近命令（点击重发）',
+    recentLabel: '最近命令（点击填入）',
+    kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
     title: '挂载会话',

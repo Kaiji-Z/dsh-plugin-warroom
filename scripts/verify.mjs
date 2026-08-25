@@ -176,10 +176,11 @@ gate('bundle', () => {
     [client, 'react-dom/client', 'board tree via react-dom createRoot'],
     // v3 R1: two-zone command center, detail-first battlefield, dock home.
     // V9 迁移：三区五列 → 三列局势墙 + 底部命令调度条（Dispatch 调度中心）。
-    [client, '作战室 · 指挥中心', 'v3 war map title'],
+    [client, '作战室', 'war map title (V9.4: 指挥中心 zone retired, title follows)'],
     [client, 'war-ops', 'three-column ops wall grid (dispatch is its sibling)'],
     [client, 'war-dispatch', 'bottom command dispatch strip'],
-    [client, 'war-dispatch-tag', 'dispatch placard pinned at strip left'],
+    [client, 'war-dispatch-track', 'dispatch scrollable card track (placard retired, V9.4 containerized)'],
+    [client, 'can-scroll', 'dynamic right-edge fade only while more to scroll'],
     [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],
     [client, 'war-cd-sessions', 'command detail: related thread entries'],
