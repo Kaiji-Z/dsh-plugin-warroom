@@ -117,6 +117,25 @@ const WAR_CSS = `
 .war-chip.war-lineage{cursor:pointer}
 .war-chip.war-lineage:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
 
+/* --- V7-① 等你发落收件箱（指挥中心头部聚合队列） ------------------------------- */
+.war-inbox{flex:0 0 auto;margin:8px 14px 0;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
+.war-inbox-head{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-inbox-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
+.war-inbox-count{font-size:11px;line-height:16px;min-width:18px;text-align:center;padding:0 5px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
+.war-inbox-items{display:flex;flex-direction:column;max-height:138px;overflow-y:auto}
+.war-inbox-item{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-inbox-item:last-child{border-bottom:0}
+.war-inbox-item:hover{background:var(--dsw-alias-bg-layer-2)}
+.war-inbox-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-inbox-wait{font-size:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:0 0 auto}
+.war-inbox-item.tone-warn .war-inbox-wait{color:var(--dsw-alias-state-warn-label);font-weight:600}
+.war-inbox-item.tone-err .war-inbox-wait{color:var(--dsw-alias-state-error-label);font-weight:600}
+.war-inbox-empty{padding:6px 10px;font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.war-chip.k-clarify{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
+.war-chip.k-plan{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary)}
+.war-chip.k-review{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary)}
+.war-chip.k-retry{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
+
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
 .war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}

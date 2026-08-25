@@ -15,6 +15,7 @@ import { createElement, useEffect, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
+import { collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -661,6 +662,34 @@ function zoneHead(title: string, note: string): ReactNode {
     createElement('span', { className: 'war-zone-note' }, note))
 }
 
+/** V7-① 等你发落收件箱：四类需要元首的动作（答澄清/批计划/翻战报/决重试）
+ * 聚合成一条队列，带等待时长与 aging 警示；点击直达动作发生地（进会话/开
+ * 决策卡/开任务详情）——板子只导航，不长任务写操作（红线）。 */
+function InboxStrip(items: InboxItem[], onAct: (item: InboxItem) => void): ReactNode {
+  const copy = activeCopy().inbox
+  const kindLabel: Record<InboxKind, string> = { clarify: copy.clarify, plan: copy.plan, review: copy.review, retry: copy.retry }
+  return createElement('div', { className: 'war-inbox' },
+    createElement('div', { className: 'war-inbox-head' },
+      createElement('span', { className: 'war-inbox-title' }, copy.title),
+      createElement('span', { className: 'war-inbox-count' }, String(items.length)),
+    ),
+    items.length === 0
+      ? createElement('div', { className: 'war-inbox-empty' }, copy.empty)
+      : createElement('div', { className: 'war-inbox-items' },
+        items.map(it => createElement('div', {
+          key: `${it.kind}:${it.refId}`,
+          className: `war-inbox-item clickable${it.tone !== '' ? ` tone-${it.tone}` : ''}`,
+          title: it.tone === 'err' ? copy.errTitle : it.tone === 'warn' ? copy.warnTitle : undefined,
+          onClick: () => { onAct(it) },
+        },
+        createElement('span', { className: `war-chip k-${it.kind}` }, kindLabel[it.kind]),
+        createElement('span', { className: 'war-inbox-text' }, it.title),
+        createElement('span', { className: 'war-inbox-wait' }, copy.waited(formatWait(it.waitMs))),
+        )),
+      ),
+  )
+}
+
 /** Build the war map tab component bound to the framework services. */
 export function warView(services: ClientServicesFace): () => ReactNode {
   return function WarView(): ReactNode {
@@ -721,6 +750,22 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       })
     }
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
+    // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
+    const inbox = collectInbox(commands, tasks, now)
+    const inboxAct = (it: InboxItem): void => {
+      if (it.kind === 'clarify') {
+        const cmd = commands.find(c => c.commandId === it.refId)
+        const target = cmd?.staffSessionId ?? hqSessionId
+        if (cmd !== undefined && target !== null) {
+          void markTalking(cmd.commandId)
+          services.sessions?.open(target)
+        }
+      } else if (it.kind === 'plan') {
+        openCommand(it.refId)
+      } else {
+        setDetailTaskId(it.refId)
+      }
+    }
     const doneChildren: ReactNode[] = doneGroups.map(g => createElement('div', { key: g.key, className: `war-day-group${collapsedGroups.has(g.key) ? ' collapsed' : ''}` },
       createElement('button', { className: 'war-day-head', onClick: () => { toggleGroup(g.key) } },
         createElement('span', { className: 'war-day-caret' }, '▼'),
@@ -745,6 +790,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
           createElement('div', { className: 'war-zone war-hq' },
             zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
+            InboxStrip(inbox, inboxAct),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
                 commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c))),

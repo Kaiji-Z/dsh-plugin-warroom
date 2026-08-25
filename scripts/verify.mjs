@@ -98,6 +98,9 @@ gate('bundle', () => {
     [client, 'commandTasks', 'command→chain deps closure (lifecycle tracing core)'],
     [client, 'war-lineage', 'task/session lineage chip back to source command'],
     [client, 'chainSection', 'command detail chain progress section'],
+    // V7-① 等你发落收件箱（到访式工作流）。
+    [client, 'collectInbox', 'inbox four-kind aggregation (pure)'],
+    [client, 'war-inbox', 'inbox strip styles + container'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],

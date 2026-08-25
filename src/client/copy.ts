@@ -43,6 +43,18 @@ export interface WarCopy {
     cancelled: string
     taskLabel: (id: string) => string
   }
+  /** V7-① 等你发落收件箱（四类动作聚合 + 等待时长 aging）。 */
+  inbox: {
+    title: string
+    empty: string
+    clarify: string
+    plan: string
+    review: string
+    retry: string
+    waited: (d: string) => string
+    warnTitle: string
+    errTitle: string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -164,6 +176,17 @@ export const warCopy: WarCopy = {
     chain: (done, total) => `任务链 ${done}/${total}`,
     cancelled: '已取消',
     taskLabel: id => `任务 ${id}`,
+  },
+  inbox: {
+    title: '等你发落',
+    empty: '无事等你——各条战线都在自动转',
+    clarify: '答澄清',
+    plan: '批计划',
+    review: '翻战报',
+    retry: '决重试',
+    waited: d => `等 ${d}`,
+    warnTitle: '已等你超过半小时',
+    errTitle: '已等你超过两小时——夜间命令会整晚停在这里',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -311,14 +334,25 @@ export const plainCopy: WarCopy = {
   },
   lifecycle: {
     stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
-    waitingStaff: '参谋接收中',
     waitingClarify: '等你回答（点卡进对话）',
+    waitingStaff: '参谋接收中',
     planPending: '方案待你批',
     waitingClaim: '等执行者领取',
     attemptN: n => `第 ${n} 次尝试`,
     chain: (done, total) => `任务组 ${done}/${total}`,
     cancelled: '已取消',
     taskLabel: id => `任务 ${id}`,
+  },
+  inbox: {
+    title: '待你处理',
+    empty: '暂无待办——各条任务线都在自动跑',
+    clarify: '回答提问',
+    plan: '审批方案',
+    review: '查看结果',
+    retry: '处理失败',
+    waited: d => `已等 ${d}`,
+    warnTitle: '已等待超过半小时',
+    errTitle: '已等待超过两小时——夜里没人处理会一直停着',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
