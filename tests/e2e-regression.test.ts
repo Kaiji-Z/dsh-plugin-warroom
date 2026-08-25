@@ -23,8 +23,8 @@ function replayEightStep(dir: string): { commandId: string; taskId: string } {
   const taskId = '20260824-regression-0001'
   // 步1-2: 下命令 → 每命令独立参谋会话 → 接收（tickNow 后的真实顺序）。
   appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: commandId, text: '给日常工具箱加一个每日格言小工具' })
-  appendDirectiveEvent(dir, { type: 'directive_session_opened', ts: 't1', directiveId: commandId, secretarySessionId: 'sec-staff-reg' })
-  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't2', directiveId: commandId, secretarySessionId: 'sec-staff-reg' })
+  appendDirectiveEvent(dir, { type: 'directive_session_opened', ts: 't1', directiveId: commandId, staffSessionId: 'sec-staff-reg' })
+  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't2', directiveId: commandId, staffSessionId: 'sec-staff-reg' })
   // 步3: 元首点卡进会话 → talking。
   appendDirectiveEvent(dir, { type: 'directive_talking', ts: 't3', directiveId: commandId })
   // 步4: 参谋 war_publish 携 commandId → 命令批准 + 任务落栏。
@@ -57,7 +57,7 @@ test('P0-2 八步回归：命令→会话→批准→落栏→作战→待阅→
     const cmd = loadDirectives(dir).find(d => d.id === commandId)
     assert.ok(cmd !== undefined)
     assert.equal(cmd.status, 'approved')
-    assert.equal(cmd.secretarySessionId, 'sec-staff-reg')
+    assert.equal(cmd.staffSessionId, 'sec-staff-reg')
     assert.equal(cmd.taskId, taskId)
     // fold 层未设置即 undefined；投影层才归一为 null（dashboard.ts `?? null`）。
     assert.equal(cmd.cancelledReason, undefined)
@@ -78,7 +78,7 @@ test('P0-2 八步回归：命令→会话→批准→落栏→作战→待阅→
     assert.equal(boardTask.status, 'closed')
     const proj = directiveProjection(dir).find(c => c.commandId === commandId)
     assert.ok(proj !== undefined)
-    assert.equal(proj.secretarySessionId, 'sec-staff-reg')
+    assert.equal(proj.staffSessionId, 'sec-staff-reg')
     assert.equal(proj.taskId, taskId)
   } finally {
     rmSync(dir, { recursive: true, force: true })

@@ -43,7 +43,7 @@ async function execTool(deps: Parameters<typeof warTools>[0], name: string, args
 
 function seedCommand(dir: string, id: string, text: string, received = true): void {
   appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: id, text })
-  if (received) appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: id, secretarySessionId: 'sec-1' })
+  if (received) appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: id, staffSessionId: 'sec-1' })
 }
 
 test('overrideMarkerOf：!!直接做→L0、??先看方案→L2、无标记→undefined', () => {

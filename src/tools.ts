@@ -1,7 +1,7 @@
 /**
  * The war_* tool surface v0.2 — the strategic operating system's verbs.
  *
- * Secretary-side (runs in the 参谋部 conversation): war_publish materializes
+ * Staff-side (runs in the 参谋部 conversation): war_publish materializes
  * a per-task workspace, appends the task to the board, and wakes the
  * commander; war_board lists the cross-workspace board; war_comment /
  * war_close_task carry the sovereign's review.
@@ -89,7 +89,7 @@ export function parseWorkspaceArg(workspace: unknown): WorkspaceBinding {
   const ws = typeof workspace === 'string' ? workspace.trim() : ''
   if (ws.startsWith('@new:')) {
     const slug = ws.slice('@new:'.length).trim()
-    // '@new:' without a name degrades to the auto path — the secretary should
+    // '@new:' without a name degrades to the auto path — the staff should
     // always name the instance, but a malformed param must not block.
     return slug !== '' ? { kind: 'instance', slug } : { kind: 'auto' }
   }
@@ -358,7 +358,7 @@ export function warTools(deps: WarToolsDeps) {
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
-      const secretary = requireAgent(exec)
+      const staff = requireAgent(exec)
       // V5-R4（flag staff-triage）确定性 lint：系统拦不可判定的任务书。
       if (featureEnabled(deps.flags, 'staff-triage')) {
         const lint = lintPublish(args)
@@ -389,8 +389,8 @@ export function warTools(deps: WarToolsDeps) {
         // V5-R3（flag staff-goal）发布点接力：参谋状态机 goal 随发布结算。
         if (featureEnabled(deps.flags, 'staff-goal')) {
           const face = deps.goals?.()
-          if (face !== undefined && directive.secretarySessionId !== undefined) {
-            const staffAgent = deps.resolveAgent?.(directive.secretarySessionId)
+          if (face !== undefined && directive.staffSessionId !== undefined) {
+            const staffAgent = deps.resolveAgent?.(directive.staffSessionId)
             if (staffAgent !== undefined) {
               const goalId = await settleGoalMentioning(face, staffAgent, commandId)
               if (goalId !== undefined) appendDirectiveEvent(deps.stateDir, { type: 'directive_goal_settled', ts: new Date().toISOString(), directiveId: commandId, goalId })
@@ -413,10 +413,10 @@ export function warTools(deps: WarToolsDeps) {
         ws = deps.workspace.materialize(deps.warRoot, taskId, args.repo ?? '')
       }
       appendEvent(deps.stateDir, {
-        type: 'task_created', ts: new Date().toISOString(), campaignId: taskId, title: args.title, brief: args.brief, acceptance: args.acceptance, priority, publishedBy: secretary.id,
+        type: 'task_created', ts: new Date().toISOString(), campaignId: taskId, title: args.title, brief: args.brief, acceptance: args.acceptance, priority, publishedBy: staff.id,
         ...(quality !== 'common' ? { quality } : {}), ...(depIds.length > 0 ? { deps: depIds } : {}),
       })
-      appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: taskId, workspacePath: ws.path, publishedBy: secretary.id })
+      appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: taskId, workspacePath: ws.path, publishedBy: staff.id })
       if (args.cron !== undefined && args.cron.trim() !== '') {
         appendEvent(deps.stateDir, { type: 'task_scheduled', ts: new Date().toISOString(), campaignId: taskId, cron: args.cron.trim(), enabled: true })
       }
@@ -717,9 +717,9 @@ export function warTools(deps: WarToolsDeps) {
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
-      const secretary = requireAgent(exec)
+      const staff = requireAgent(exec)
       requireTask(deps, args.task_id)
-      appendEvent(deps.stateDir, { type: 'task_commented', ts: new Date().toISOString(), campaignId: args.task_id, comment: args.comment, from: secretary.id })
+      appendEvent(deps.stateDir, { type: 'task_commented', ts: new Date().toISOString(), campaignId: args.task_id, comment: args.comment, from: staff.id })
       let relayed: boolean | undefined
       if (args.relay !== false) {
         const task = loadCampaign(deps.stateDir, args.task_id)
@@ -1103,7 +1103,7 @@ export function warTools(deps: WarToolsDeps) {
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
-      const secretary = requireAgent(exec) // 参谋侧动词
+      const staff = requireAgent(exec) // 参谋侧动词
       const directive = loadDirectives(deps.stateDir).find(d => d.id === args.command_id)
       if (directive === undefined) throw new Error(`命令 ${args.command_id} 不存在。请核对命令区编号。`)
       if (directive.status === 'approved' || directive.status === 'cancelled') throw new Error(`命令 ${args.command_id} 已${directive.status === 'approved' ? '批准出任务' : '取消'}，无需分诊。`)
@@ -1122,7 +1122,7 @@ export function warTools(deps: WarToolsDeps) {
       // V5-R3（flag staff-goal）：L2 澄清期开参谋状态机 goal——create 后立即
       // disarm（红线：参谋 goal 永远 disarm，round driver 不驱动参谋）。
       if (featureEnabled(deps.flags, 'staff-goal') && effective === 'L2') {
-        const goalId = await openDisarmedGoalForDirective(deps.goals?.(), secretary, directive.id)
+        const goalId = await openDisarmedGoalForDirective(deps.goals?.(), staff, directive.id)
         if (goalId !== undefined) {
           appendDirectiveEvent(deps.stateDir, { type: 'directive_goal_opened', ts: new Date().toISOString(), directiveId: directive.id, goalId, disarmed: true })
         }

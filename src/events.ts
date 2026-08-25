@@ -50,7 +50,7 @@ export function listCampaignIds(stateDir: string): string[] {
 
 /**
  * Fold one task log's events into its current state — the task header
- * (secretary's brief) plus the folded campaign (troops) under it. Pure: no
+ * (staff's brief) plus the folded campaign (troops) under it. Pure: no
  * filesystem, no clock — timestamps come from the events themselves.
  */
 export function foldCampaign(campaignId: string, events: ReadonlyArray<WarEvent>): CampaignState {

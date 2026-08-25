@@ -40,7 +40,7 @@ gate('bundle', () => {
   const host = existsSync('lib/index.mjs') ? readFileSync('lib/index.mjs', 'utf8') : ''
   const client = existsSync('lib/client.js') ? readFileSync('lib/client.js', 'utf8') : ''
   const required = [
-    [host, 'war_publish', 'secretary publish tool'],
+    [host, 'war_publish', 'staff publish tool'],
     [host, 'war_board', 'strategic board tool'],
     [host, 'war_claim', 'commander claim tool'],
     [host, 'war_submit', 'commander submit tool'],
@@ -53,7 +53,7 @@ gate('bundle', () => {
     [host, 'war_log_report', 'report logging tool'],
     [host, 'startContinuable', 'commander+troops spawn via the native subagent runtime'],
     [host, 'checkDeployment', 'hard rules gate every deploy'],
-    [host, '贴身参谋条令', 'secretary persona rides the host bundle'],
+    [host, '贴身参谋条令', 'staff persona rides the host bundle'],
     [host, '指挥官条令', 'commander persona rides the host bundle'],
     [host, 'materializeTaskWorkspace', 'per-task workspace materialization'],
     [host, 'patrolNow', 'patrol fuse wakes the commander'],
@@ -87,13 +87,13 @@ gate('bundle', () => {
     [client, '败因', 'failure cause on the card'],
     [client, 'war-mark', '！/？ map-mark status language'],
     [client, '退出码', 'KillCredit evidence block (tests exit code shown)'],
-    [host, 'warroom-bounty-drafting', 'secretary drafting skill registered'],
+    [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
     [host, '大白话 → 任务书', 'plain-speech-to-brief worked example'],
     [host, 'skills.register', 'runtime skill provider path'],
     // v2.0 R1: directive feed (命令区), workspace mutex, instance workspaces.
     // directive_created/received needles land with the R3 fuse + HTTP route.
-    [host, 'war_abandon_command', 'secretary command-abandon tool'],
+    [host, 'war_abandon_command', 'staff command-abandon tool'],
     [host, 'directive_approved', 'command → task linkage event'],
     [host, 'directive_cancelled', 'command cancellation event'],
     [host, 'parseWorkspaceArg', 'workspace binding resolver (bound/@new/auto)'],
@@ -104,12 +104,12 @@ gate('bundle', () => {
     [host, 'directive_received', 'command fuse flips the card to received'],
     [host, 'directive_talking', 'client-opened talking transition'],
     [host, '/warroom/api/commands', 'command creation HTTP route'],
-    [host, 'relayPromptFor', 'secretary relay prompt (pure)'],
+    [host, 'relayPromptFor', 'staff relay prompt (pure)'],
     [host, 'createCommandFuse', 'host 15s command fuse'],
     [host, 'apiProxy', 'host session relay via apiProxy'],
     [host, 'attemptLog', 'per-attempt session cards on the fold'],
     // v2.0 R4: conscription (征召制), dossier, patrol rescue.
-    [host, 'war_conscript', 'secretary rescue-conscription tool'],
+    [host, 'war_conscript', 'staff rescue-conscription tool'],
     [host, 'conscriptPlan', 'per-workspace conscription planner (pure)'],
     [host, 'conscriptBriefing', '征召令 with workspace + dossier'],
     [host, 'readDossier', 'workspace dossier rides conscription'],
@@ -149,7 +149,7 @@ gate('bundle', () => {
     [client, 'war-session-card', 'attempt-level session cards'],
     [client, 'war-modal-backdrop', 'in-board detail/composer modals'],
     [client, 'createCommand', '命令区 + button POST channel'],
-    [client, 'markTalking', 'entering the secretary conversation flips the card'],
+    [client, 'markTalking', 'entering the staff conversation flips the card'],
     [client, '点 + 下达第一道命令', 'command-zone empty state'],
     [client, '点击进入对话', 'received-card invitation'],
     [client, '打赢了', 'winning-session outcome language'],

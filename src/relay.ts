@@ -1,11 +1,11 @@
 /**
  * The command relay (命令引信) — v2.0. A 15s host fuse that moves sovereign
  * commands from the board's 命令区 into the 参谋部 conversation: draft
- * directives get a secretary session (created via the host apiProxy on first
+ * directives get a staff session (created via the host apiProxy on first
  * need, cwd-bound to the war root, activated with `/war` so the persona and
  * war_* tools exist before the relay text reaches the model) and a relay
  * prompt, then the directive card flips to `received` — the user clicks in
- * and answers the secretary's questions there.
+ * and answers the staff's questions there.
  *
  * Structural slices keep this module free of host imports (unit-testable).
  * @module dsh-plugin-warroom/relay
@@ -36,7 +36,7 @@ export interface WorkspaceApiFace {
 export interface CommandFuseDeps {
   store: WarStore
   stateDir: string
-  /** War root — the secretary session's cwd (sandbox-visible). */
+  /** War root — the staff session's cwd (sandbox-visible). */
   warRoot: string
   /** Lights the war surface (persona + war_* tools) — a queued '/war' TEXT is
    * NOT intercepted as a slash command via apiProxy.prompt (live R8 catch),
@@ -51,7 +51,7 @@ function rpcId(): string {
 }
 
 /**
- * The relay text delivered into the secretary conversation for one command.
+ * The relay text delivered into the staff conversation for one command.
  * Pure — the drafting instructions ride the text because the persona layer
  * alone doesn't know the board's command flow. V5-R2: with the staff-triage
  * flag the triage discipline rides the text too (flag off = byte-identical).
@@ -101,7 +101,7 @@ ${craft}`
  * for tasks that predate the command flow. Idempotent per directive — a
  * relayed command is `received` and never picked up twice.
  */
-export async function relayPendingCommands(deps: CommandFuseDeps, sessions: SessionsApiFace | undefined): Promise<{ relayed: number; secretarySessionId?: string }> {
+export async function relayPendingCommands(deps: CommandFuseDeps, sessions: SessionsApiFace | undefined): Promise<{ relayed: number; staffSessionId?: string }> {
   const pending = pendingDirectives(loadDirectives(deps.stateDir))
   if (pending.length === 0) return { relayed: 0 }
   if (sessions === undefined) return { relayed: 0 }
@@ -110,13 +110,13 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
   if (!deps.store.get().active) deps.activate()
   let relayed = 0
   for (const directive of pending) {
-    let sessionId = directive.secretarySessionId
+    let sessionId = directive.staffSessionId
     if (sessionId === undefined) {
       const created = await sessions.create({ rpcId: rpcId(), payload: { cwd: deps.warRoot } })
       console.log(`[warroom] staff session create → ok=${created.result.ok}${created.result.ok ? ` id=${created.result.value.sessionId}` : ` err=${created.result.error.code}`}`)
       if (!created.result.ok) throw new Error(`参谋会话创建失败：${created.result.error.code}: ${created.result.error.message}`)
       sessionId = created.result.value.sessionId
-      appendDirectiveEvent(deps.stateDir, { type: 'directive_session_opened', ts: new Date().toISOString(), directiveId: directive.id, secretarySessionId: sessionId })
+      appendDirectiveEvent(deps.stateDir, { type: 'directive_session_opened', ts: new Date().toISOString(), directiveId: directive.id, staffSessionId: sessionId })
       void sessions.rename({ rpcId: rpcId(), payload: { sessionId, title: `参谋·${directive.text.slice(0, 12)}` } }).catch(() => undefined)
       const war = deps.store.get()
       if (war.hqSessionId === undefined) {
@@ -128,10 +128,10 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
     const suffix = deps.flags !== undefined && featureEnabled(deps.flags, 'staff-wake') ? `\n\n${boardDigest(deps.stateDir)}` : ''
     const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: `${relayPromptFor(directive, deps.flags)}${suffix}` }] } })
     if (!prompted.result.ok) continue // busy/shape drift: leave it draft, the next tick retries the same session
-    appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: new Date().toISOString(), directiveId: directive.id, secretarySessionId: sessionId })
+    appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: new Date().toISOString(), directiveId: directive.id, staffSessionId: sessionId })
     relayed += 1
   }
-  return { relayed, secretarySessionId: deps.store.get().hqSessionId }
+  return { relayed, staffSessionId: deps.store.get().hqSessionId }
 }
 
 /** The 15s command fuse handle. */

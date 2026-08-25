@@ -202,7 +202,7 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
     text: d.text,
     createdAt: d.createdAt,
     status: d.status,
-    secretarySessionId: d.secretarySessionId ?? null,
+    staffSessionId: d.staffSessionId ?? null,
     taskId: d.taskId ?? null,
     cancelledReason: d.cancelledReason ?? null,
     // V5 档位账本：档位/理由/置信度/元首改档次数（未分诊为 null）。
@@ -247,7 +247,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands') {
         // The 命令区 + button: create a draft command card; the command fuse
-        // relays it into the secretary conversation within 15s.
+        // relays it into the staff conversation within 15s.
         const body = JSON.parse(await readBody(r)) as { text?: unknown }
         const text = typeof body.text === 'string' ? body.text.trim() : ''
         if (text === '') {
@@ -294,7 +294,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands/talking') {
-        // Fired by the client when the user opens the secretary conversation
+        // Fired by the client when the user opens the staff conversation
         // from a received command card — the card flips to 对话中.
         const body = JSON.parse(await readBody(r)) as { commandId?: unknown }
         const commandId = typeof body.commandId === 'string' ? body.commandId.trim() : ''

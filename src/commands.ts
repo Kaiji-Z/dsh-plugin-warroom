@@ -50,7 +50,7 @@ function userMessage(text: string): { id: string; role: 'user'; content: Array<{
   })
 }
 
-/** `/war [<strategic intent>]` → secretary report-in or first intent to process. */
+/** `/war [<strategic intent>]` → staff report-in or first intent to process. */
 export function warOrderPrompt(rawInput: string): string {
   const text = rawInput.trim()
   if (text === '') return warKickoffPrompt()
@@ -80,17 +80,17 @@ export function executeWarCommand(deps: WarCommandDeps, invocation: CommandInvoc
 export function registerWarCommand(commands: CommandsServiceFace, deps: WarCommandDeps): () => void {
   return commands.register({
     name: 'war',
-    description: 'enter the war room — activate the secretary and talk strategy (tasks are authored, published, and auto-claimed)',
+    description: 'enter the war room — activate the staff and talk strategy (tasks are authored, published, and auto-claimed)',
     input: { hint: '[<strategic intent>]' },
     handler: invocation => executeWarCommand(deps, invocation),
   })
 }
 
-/** `/peace` — stand the war room down (secretary persona + tools unmounted). */
+/** `/peace` — stand the war room down (staff persona + tools unmounted). */
 export function registerPeaceCommand(commands: CommandsServiceFace, deps: WarCommandDeps): () => void {
   return commands.register({
     name: 'peace',
-    description: 'stand the war room down — deactivate the secretary persona and the war_* tool surface',
+    description: 'stand the war room down — deactivate the staff persona and the war_* tool surface',
     handler: () => {
       const war = deps.store.get()
       if (war.active) {

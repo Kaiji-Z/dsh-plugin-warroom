@@ -141,7 +141,7 @@ export type TaskStatus = 'draft' | 'published' | 'in_progress' | 'reported' | 'f
 /** Bounty quality tier — the WoW rarity color language for task complexity. */
 export type QualityTier = 'common' | 'fine' | 'rare' | 'epic' | 'legendary'
 
-/** Tier registry the UI and the secretary share (label = 悬赏板文案). */
+/** Tier registry the UI and the staff share (label = 悬赏板文案). */
 export const QUALITY_TIERS: ReadonlyArray<{ readonly tier: QualityTier; readonly label: string; readonly colorVar: string }> = [
   { tier: 'common', label: '普通', colorVar: '--dsw-alias-label-secondary' },
   { tier: 'fine', label: '精良', colorVar: '--dsw-alias-state-success-label' },
@@ -227,7 +227,7 @@ export type WarEvent =
  * logs; only this pointer state is a plain JSON file. */
 export interface WarGlobalState {
   version: 2
-  /** War mode on/off — gates the secretary persona and the war_* tool surface. */
+  /** War mode on/off — gates the staff persona and the war_* tool surface. */
   active: boolean
   /** Session id of the 参谋部 (the conversation where /war first ran). */
   hqSessionId?: string

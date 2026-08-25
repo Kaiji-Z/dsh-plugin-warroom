@@ -62,8 +62,8 @@ const STATUS_MARK: Partial<Record<BoardTask['status'], { mark: string; cls: stri
 /** Where does this task's verdict conversation live? The owning command's
  * staff session first, the legacy HQ session as fallback (v3: 每命令一会话). */
 function staffSessionFor(taskId: string, commands: BoardCommand[], hqSessionId: string | null): string | null {
-  const own = commands.find(c => c.taskId === taskId && c.secretarySessionId !== null)
-  return own?.secretarySessionId ?? hqSessionId
+  const own = commands.find(c => c.taskId === taskId && c.staffSessionId !== null)
+  return own?.staffSessionId ?? hqSessionId
 }
 
 /** Done-zone day bucket: 今天 / 昨天 / 更早 (by attempt end, fallback start). */
@@ -136,7 +136,7 @@ function gradeChip(cmd: BoardCommand): ReactNode {
 function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void): ReactNode {
   const meta = COMMAND_STATUS[cmd.status]
   const enterSession = (): void => {
-    const target = cmd.secretarySessionId ?? hqSessionId
+    const target = cmd.staffSessionId ?? hqSessionId
     if (target === null || services.sessions === undefined) return
     void markTalking(cmd.commandId)
     services.sessions.open(target)

@@ -2,7 +2,7 @@
  * dsh-plugin-warroom — the strategic operating system for DeepSeek Harness.
  *
  * v0.2 shape: the sovereign talks only to the
- * secretary (贴身参谋, the user-facing conversation persona); the secretary
+ * staff (贴身参谋, the user-facing conversation persona); the staff
  * authors professional task briefs and publishes them to the strategic task
  * board (跨工作区 JSONL store + war map UI); a single durable commander
  * (指挥官, a continuable subagent child with FULL harness capability — the
@@ -23,7 +23,7 @@ import { dueBounties, registerDashboard } from './dashboard.ts'
 import { registerPeaceCommand, registerWarCommand, type CommandsServiceFace } from './commands.ts'
 import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
 import { readDossier } from './dossier.ts'
-import { commanderPersonaText, conscriptBriefing, secretaryPersonaText } from './persona.ts'
+import { commanderPersonaText, conscriptBriefing, staffPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
 import { createWakeEngine } from './wake.ts'
 import { createQuotaFuse, probeBackoffMs } from './quota.ts'
@@ -222,7 +222,7 @@ function registerReportCapture(ctx: Context, stateDir: string, store: WarStore):
 
 /**
  * Mount the war room: config, store, roster loader, commander lifecycle,
- * activation-gated tool surface + secretary persona, troop-report capture,
+ * activation-gated tool surface + staff persona, troop-report capture,
  * the patrol fuse, the `/war` + `/peace` commands, and (in web
  * compositions) the strategic board HTTP API.
  * @param ctx - plugin context (tools + systemPrompt + subagents injected).
@@ -359,9 +359,9 @@ export function apply(ctx: Context, config: Config): void {
     ctx.effect(() => () => clearInterval(quotaTimer), 'warroom.quotaFuse()')
   }
   ctx.systemPrompt.section({
-    name: 'warroom:secretary',
+    name: 'warroom:staff',
     order: 120,
-    text: () => (store.get().active ? secretaryPersonaText(config.maxUnits) : ''),
+    text: () => (store.get().active ? staffPersonaText(config.maxUnits) : ''),
   })
   registerReportCapture(ctx, stateDir, store)
   // Patrol fuse (征召巡检): 90s net for stranded tasks — published with a free
@@ -434,7 +434,7 @@ export function apply(ctx: Context, config: Config): void {
     commandFuse.bind(api.sessions)
     sessionsRef.face = api.sessions
   })
-  // The secretary's drafting craft rides the runtime skill registry (no
+  // The staff's drafting craft rides the runtime skill registry (no
   // filesystem writes — the runtime provider owns it, base bundles without
   // the skills service simply skip this layer).
   ctx.inject(['skills'], (skillCtx) => {

@@ -1,5 +1,5 @@
 /**
- * The secretary's bounty-drafting skill — registered programmatically via
+ * The staff's bounty-drafting skill — registered programmatically via
  * ctx.skills.register() (the runtime provider), so no filesystem writes and
  * no install step: the drafting craft ships with the plugin. The persona
  * carries identity; this skill carries the craft (起草方法论 + 对照示例).

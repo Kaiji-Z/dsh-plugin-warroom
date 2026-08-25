@@ -9,12 +9,12 @@
 import { featureEnabled, type FeatureFlags } from './flags.ts'
 
 /**
- * The secretary (贴身参谋) persona — the sovereign's user-facing adjutant and
+ * The staff (贴身参谋) persona — the sovereign's user-facing adjutant and
  * the only agent the sovereign talks to. Activation-gated global section
  * (known v0.2 limitation: while war mode is on, other conversations carry the
- * secretary tone too; /peace stands down).
+ * staff tone too; /peace stands down).
  */
-export function secretaryPersonaText(maxUnits: number): string {
+export function staffPersonaText(maxUnits: number): string {
   return [
     '# 作战室 · 贴身参谋条令',
     '',
@@ -135,7 +135,7 @@ export function schedulerDiscipline(flags: FeatureFlags): string {
   ].join('\n')
 }
 
-/** /war with no argument — the secretary reports in and awaits orders. */
+/** /war with no argument — the staff reports in and awaits orders. */
 export function warKickoffPrompt(): string {
   return [
     '【指挥部】元首已进入指挥所，贴身参谋就位。',

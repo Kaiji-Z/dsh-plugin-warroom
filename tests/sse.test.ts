@@ -65,7 +65,7 @@ test('v2.0: POST /warroom/api/commands creates a draft card; talking flips recei
     // received 之后 talking 才落事件；draft 状态的 talking 是 no-op。
     await handler!(postReq('/warroom/api/commands/talking', { commandId: created.commandId }), res)
     assert.equal(directiveProjection(dir)[0]!.status, 'draft')
-    appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: created.commandId, secretarySessionId: 'sec' })
+    appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: created.commandId, staffSessionId: 'sec' })
     await handler!(postReq('/warroom/api/commands/talking', { commandId: created.commandId }), res)
     assert.equal(directiveProjection(dir)[0]!.status, 'talking')
     // 未知命令 → 404。

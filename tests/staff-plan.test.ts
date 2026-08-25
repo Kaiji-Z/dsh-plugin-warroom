@@ -41,7 +41,7 @@ async function execTool(deps: Parameters<typeof warTools>[0], name: string, args
 
 function seedCommand(dir: string, id: string, text: string): void {
   appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: id, text })
-  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: id, secretarySessionId: 'sec-1' })
+  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: id, staffSessionId: 'sec-1' })
 }
 
 test('fold：plan_opened 覆盖待批；approved/rejected 改判；重呈回到 pending（多轮收敛）', () => {

@@ -1,6 +1,6 @@
 /**
  * The sovereign's directive feed (命令区) — v2.0. Natural-language commands
- * created from the board UI, relayed to the secretary by the host command
+ * created from the board UI, relayed to the staff by the host command
  * fuse, and resolved either into a published task (approved) or dropped
  * (cancelled). One append-only JSONL log at `<stateDir>/directives.jsonl`,
  * folded on read — the same discipline as the campaign logs (never
@@ -34,7 +34,7 @@ export interface Directive {
   readonly createdAt: string
   status: DirectiveStatus
   /** The 参谋部 session that took the command (set on receive). */
-  secretarySessionId?: string
+  staffSessionId?: string
   /** The task this directive became (set on approval). */
   taskId?: string
   /** Cancellation reason (set on cancel). */
@@ -54,8 +54,8 @@ export interface Directive {
 /** The directive log's entry union (one JSON line each). */
 export type DirectiveEvent =
   | { type: 'directive_created'; ts: string; directiveId: string; text: string }
-  | { type: 'directive_session_opened'; ts: string; directiveId: string; secretarySessionId: string }
-  | { type: 'directive_received'; ts: string; directiveId: string; secretarySessionId: string }
+  | { type: 'directive_session_opened'; ts: string; directiveId: string; staffSessionId: string }
+  | { type: 'directive_received'; ts: string; directiveId: string; staffSessionId: string }
   | { type: 'directive_talking'; ts: string; directiveId: string }
   | { type: 'directive_triaged'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string; confidence?: number; suggested?: DirectiveGrade; override?: '!!' | '??' }
   | { type: 'directive_regraded'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string }
@@ -117,15 +117,21 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
       continue
     }
     if (TERMINAL.has(current.status)) continue
+    // 术语归一（secretary→staff）的账本兼容：V5 前的旧日志字段是
+    // secretarySessionId——fold 双读归一，append-only 历史不必迁移。
+    const sessionOf = (e: DirectiveEvent): string | undefined =>
+      (e as { staffSessionId?: unknown }).staffSessionId !== undefined
+        ? (e as { staffSessionId: string }).staffSessionId
+        : (e as { secretarySessionId?: string }).secretarySessionId
     switch (event.type) {
       // v3 每命令一会话: the per-command staff session lands BEFORE the relay
       // text goes out, so a failed prompt retries into the same conversation.
       case 'directive_session_opened':
-        current.secretarySessionId = event.secretarySessionId
+        current.staffSessionId = sessionOf(event)
         break
       case 'directive_received':
         current.status = 'received'
-        current.secretarySessionId = event.secretarySessionId
+        current.staffSessionId = sessionOf(event)
         break
       case 'directive_talking':
         current.status = 'talking'
@@ -178,7 +184,7 @@ export function loadDirectives(stateDir: string): Directive[] {
   return foldDirectives(readDirectiveEvents(stateDir))
 }
 
-/** The command fuse's worklist: draft commands no secretary has taken yet. */
+/** The command fuse's worklist: draft commands no staff has taken yet. */
 export function pendingDirectives(directives: ReadonlyArray<Directive>): Directive[] {
   return directives.filter(d => d.status === 'draft')
 }

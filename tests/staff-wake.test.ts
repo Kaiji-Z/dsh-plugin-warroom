@@ -66,7 +66,7 @@ function seedReportable(dir: string, id: string): void {
   appendEvent(dir, { type: 'task_published', ts: 't1', campaignId: id, workspacePath: 'C:/reg/ws' })
   appendEvent(dir, { type: 'task_claimed', ts: 't2', campaignId: id, claimedBy: 'cmd-9', attemptId: 'tok', attempt: 1 })
   appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: 'cmd-w', text: 'x' })
-  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: 'cmd-w', secretarySessionId: 'sec-staff' })
+  appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: 'cmd-w', staffSessionId: 'sec-staff' })
   appendDirectiveEvent(dir, { type: 'directive_approved', ts: 't2', directiveId: 'cmd-w', taskId: id })
 }
 

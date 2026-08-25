@@ -48,7 +48,7 @@ export interface BoardCommand {
   text: string
   createdAt: string
   status: 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
-  secretarySessionId: string | null
+  staffSessionId: string | null
   taskId: string | null
   cancelledReason: string | null
   /** V5 档位账本（未分诊为 null）。 */

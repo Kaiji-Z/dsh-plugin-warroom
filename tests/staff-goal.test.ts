@@ -187,7 +187,7 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
   const dir = tmpDir()
   try {
     appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: 'cmd-l2', text: '做个我不确定的东西' })
-    appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: 'cmd-l2', secretarySessionId: 'sec-1' })
+    appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: 'cmd-l2', staffSessionId: 'sec-1' })
     const gs = fakeGoals()
     const deps = makeDeps(dir, FLAG_TRIAGE_GOAL, { goals: gs })
     await execTool(deps, 'war_triage', { command_id: 'cmd-l2', grade: 'L2', reason: '意图不明' }, 'sec-1')
@@ -204,7 +204,7 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
     const dir0 = tmpDir()
     try {
       appendDirectiveEvent(dir0, { type: 'directive_created', ts: 't0', directiveId: 'cmd-l0', text: '小事' })
-      appendDirectiveEvent(dir0, { type: 'directive_received', ts: 't1', directiveId: 'cmd-l0', secretarySessionId: 'sec-1' })
+      appendDirectiveEvent(dir0, { type: 'directive_received', ts: 't1', directiveId: 'cmd-l0', staffSessionId: 'sec-1' })
       const gs0 = fakeGoals()
       await execTool(makeDeps(dir0, FLAG_TRIAGE_GOAL, { goals: gs0 }), 'war_triage', { command_id: 'cmd-l0', grade: 'L0', reason: '简单' }, 'sec-1')
       assert.equal(gs0.log.length, 0)

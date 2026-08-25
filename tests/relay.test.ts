@@ -66,8 +66,8 @@ test('v3 每命令一会话: two draft commands get two distinct staff sessions'
     assert.equal(result.relayed, 2)
     const directives = loadDirectives(dir)
     assert.deepEqual(directives.map(d => d.status), ['received', 'received'])
-    assert.equal(directives[0]!.secretarySessionId, 'sec-1')
-    assert.equal(directives[1]!.secretarySessionId, 'sec-2')
+    assert.equal(directives[0]!.staffSessionId, 'sec-1')
+    assert.equal(directives[1]!.staffSessionId, 'sec-2')
     // Legacy fallback: the FIRST per-command session becomes hqSessionId.
     assert.equal(store.get().hqSessionId, 'sec-1')
     // Second pass: nothing pending → no new prompts, no session churn.
@@ -95,7 +95,7 @@ test('relayPendingCommands: a prompt-failed command stays draft and reuses its s
     await relayPendingCommands({ store, stateDir: dir, warRoot: '/war', activate: () => {} }, working)
     assert.equal(working.created, 0)
     assert.equal(loadDirectives(dir)[0]!.status, 'received')
-    assert.equal(loadDirectives(dir)[0]!.secretarySessionId, 'sec-1')
+    assert.equal(loadDirectives(dir)[0]!.staffSessionId, 'sec-1')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

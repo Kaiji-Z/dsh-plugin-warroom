@@ -5,7 +5,7 @@
  * （claim/deploy/progress）不推。去抖：同任务同类别在窗口内（默认 30s）
  * 的重复唤醒合并（丢重放——战报本质一条，迟到的重复不需要再吵醒参谋）。
  *
- * 唤醒目标 = 拥有该任务的命令卡之参谋会话（secretarySessionId），兜底
+ * 唤醒目标 = 拥有该任务的命令卡之参谋会话（staffSessionId），兜底
  * 全局 HQ 会话；都没有则记 ledger 说明跳过（可审计，不静默）。成功投递
  * 落 `staff_woken` 账本事件（崩溃恢复：reported/failed 未醒的任务由巡检
  * sweep 补推——事件晚于最近一次结算才算已醒）。提示词带板摘要注入
@@ -75,8 +75,8 @@ export interface WakeEngine {
 
 /** 内部：找到任务归属的参谋会话（命令卡 > HQ 兜底）。 */
 function staffSessionFor(stateDir: string, taskId: string, hq: string | undefined): { sessionId: string; via: 'command' | 'hq' } | undefined {
-  const directive = loadDirectives(stateDir).find(d => d.taskId === taskId && d.secretarySessionId !== undefined)
-  if (directive?.secretarySessionId !== undefined) return { sessionId: directive.secretarySessionId, via: 'command' }
+  const directive = loadDirectives(stateDir).find(d => d.taskId === taskId && d.staffSessionId !== undefined)
+  if (directive?.staffSessionId !== undefined) return { sessionId: directive.staffSessionId, via: 'command' }
   if (hq !== undefined) return { sessionId: hq, via: 'hq' }
   return undefined
 }
@@ -105,7 +105,7 @@ export function createWakeEngine(deps: WakeDeps, opts: { windowMs?: number } = {
         const task = loadCampaign(deps.stateDir, taskId)
         const target = staffSessionFor(deps.stateDir, taskId, deps.hqSessionId())
         if (target === undefined) {
-          appendEvent(deps.stateDir, { type: 'staff_woken', ts: new Date().toISOString(), campaignId: taskId, kind, sessionId: '', note: 'no staff session (command without secretary / no HQ)' })
+          appendEvent(deps.stateDir, { type: 'staff_woken', ts: new Date().toISOString(), campaignId: taskId, kind, sessionId: '', note: 'no staff session (command without staff / no HQ)' })
           return
         }
         const text = wakeMessageFor({ taskId, title: task.title ?? task.intent ?? '', kind, detail }, boardDigest(deps.stateDir))
