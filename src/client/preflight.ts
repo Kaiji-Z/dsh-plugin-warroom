@@ -17,10 +17,14 @@ export function stalledOnUserPlan(cmd: BoardCommand): boolean {
 
 export type ComposerGrade = 'auto' | 'L0' | 'L2'
 
-/** 起草器档位开关 → 命令文本标记（机制沿用户覆写标记：!!直接做 / ??先看方案）。 */
+/** 起草器档位开关 → 命令文本标记（机制沿用户覆写标记：!!直接做 / ??先看方案）。
+ * 幂等：正文已以同标记开头（用户手打）就不再拼——否则 !!+L0 档会落
+ * 「!!直接做 !!直接做 …」的重复前缀（取证 20260825-41e3 缺陷①）。
+ * 空体硬化：纯空白正文返回 ''——绝不产出只有标记没有命令的文本（缺陷②）。 */
 export function applyGradeMarker(text: string, grade: ComposerGrade): string {
   const body = text.trim()
-  if (grade === 'L0') return `!!直接做 ${body}`
-  if (grade === 'L2') return `??先看方案 ${body}`
+  if (body === '') return ''
+  if (grade === 'L0') return body.startsWith('!!直接做') ? body : `!!直接做 ${body}`
+  if (grade === 'L2') return body.startsWith('??先看方案') ? body : `??先看方案 ${body}`
   return body
 }
