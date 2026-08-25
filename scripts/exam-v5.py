@@ -302,7 +302,7 @@ def back_to_board(pg):
 
 
 def stage_answer():
-    """回席点决策卡（宿主 ask_user_question）：司令自拟 → 下一题 → 先呈完整
+    """回席点决策卡（宿主 ask_user_question）：指挥官自拟 → 下一题 → 先呈完整
     任务书；随后等 plan → API 批准 → 进会话推发布 → 等 approved。"""
     with sync_playwright() as p:
         br = p.chromium.launch()
@@ -311,7 +311,7 @@ def stage_answer():
         clicked = 0
         t0 = time.time()
         while time.time() - t0 < 120 and clicked < 2:
-            if click_option_button(pg, '司令自拟'):
+            if click_option_button(pg, '指挥官自拟'):
                 clicked += 1
                 pg.wait_for_timeout(3000)
                 nxt = pg.locator('button', has_text='下一题')

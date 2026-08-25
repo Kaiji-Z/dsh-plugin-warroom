@@ -128,7 +128,7 @@ test('goals 辅助：CAS 结算/武装/参谋 disarm 状态机（含残留自愈
   assert.equal(await openDisarmedGoalForDirective(undefined, agent, 'd'), undefined)
 })
 
-test('war_claim 武装司令 goal + 收官/失败结算入账（commander_goal_* 事件）', async () => {
+test('war_claim 武装指挥官 goal + 收官/失败结算入账（commander_goal_* 事件）', async () => {
   const dir = tmpDir()
   try {
     seedTask(dir, 'c-1')
@@ -216,7 +216,7 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
   }
 })
 
-test('war_set_goal：只许 in_progress + 在役司令；objective 绑定任务 id；面缺席诚实报错', async () => {
+test('war_set_goal：只许 in_progress + 在役指挥官；objective 绑定任务 id；面缺席诚实报错', async () => {
   const dir = tmpDir()
   try {
     seedTask(dir, 'c-sg')

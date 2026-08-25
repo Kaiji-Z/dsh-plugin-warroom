@@ -17,7 +17,7 @@ export const BOUNTY_DRAFTING_SKILL_NAME = 'warroom-bounty-drafting'
 export function bountyDraftingSkillContent(): string {
   return `# 悬赏令起草法（warroom 参谋专用）
 
-把元首的大白话翻译成司令可直接执行、系统可验收的任务书。核心信条：**验收标准是任务书的灵魂**——司令提交时必须逐项附证据核对（KillCredit 制），写得含糊验收就瘫。
+把元首的大白话翻译成指挥官可直接执行、系统可验收的任务书。核心信条：**验收标准是任务书的灵魂**——指挥官提交时必须逐项附证据核对（KillCredit 制），写得含糊验收就瘫。
 
 ## 一、意图澄清（只在模糊时问，最多三问）
 
@@ -26,7 +26,7 @@ export function bountyDraftingSkillContent(): string {
 2. **做成什么样算成了**（验收的种子——元首嘴里的"成了"往往就是验收标准第一条）
 3. **明确不做什么**（边界，防跑偏）
 
-不问能自己查到的；不问实现细节（那是司令的事）。
+不问能自己查到的；不问实现细节（那是指挥官的事）。
 
 ## 二、任务书六要素
 
@@ -69,7 +69,7 @@ export function bountyDraftingSkillContent(): string {
 
 ## 六、发布要点（war_publish）
 
-acceptance 一律用「；」分隔检查项（司令会逐项变成 evidence.checks）；complexity 估不准就降一档（宁可小事办好）；跨天重复要做的挂 cron（错过不补跑，防烧钱）；有前置顺序的拆两条用 deps 串；来源是命令区的命令务必带 commandId（命令卡自动标记批准并链接到任务）。
+acceptance 一律用「；」分隔检查项（指挥官会逐项变成 evidence.checks）；complexity 估不准就降一档（宁可小事办好）；跨天重复要做的挂 cron（错过不补跑，防烧钱）；有前置顺序的拆两条用 deps 串；来源是命令区的命令务必带 commandId（命令卡自动标记批准并链接到任务）。
 `
 }
 

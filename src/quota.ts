@@ -106,7 +106,7 @@ export function createQuotaFuse(deps: QuotaDeps): QuotaFuse {
         }
         if (task.status !== 'in_progress' || task.quotaPaused !== true) continue
         appendEvent(deps.stateDir, { type: 'task_resumed_quota', ts: new Date().toISOString(), campaignId: id })
-        // 原地续作：把「配额已恢复」投回司令会话（attempt/令牌原样）。
+        // 原地续作：把「配额已恢复」投回指挥官会话（attempt/令牌原样）。
         if (sessions !== undefined && task.claimedBy !== undefined) {
           try {
             await sessions.prompt({
@@ -117,7 +117,7 @@ export function createQuotaFuse(deps: QuotaDeps): QuotaFuse {
               },
             })
           } catch {
-            // 续作投递失败——司令会话常驻，goal/巡检会再推。
+            // 续作投递失败——指挥官会话常驻，goal/巡检会再推。
           }
         }
       }

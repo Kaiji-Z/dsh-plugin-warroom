@@ -251,7 +251,7 @@ export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: 
   if (evidence.files !== undefined && evidence.files.length > 0) {
     if (workspacePath === undefined) return { green: false, why: '任务无工作区绑定，无法核对越界' }
     const wsRoot = resolve(workspacePath)
-    // 相对路径是司令在工作区内的自然报法（R5 考题实测抓到的判据 bug：
+    // 相对路径是指挥官在工作区内的自然报法（R5 考题实测抓到的判据 bug：
     // resolve 相对路径会落到插件进程 CWD——必须先锚定到工作区再判）。
     const outside = evidence.files.filter(f => {
       const abs = isAbsolute(f) ? resolve(f) : resolve(wsRoot, f)
@@ -267,7 +267,7 @@ export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: 
 async function closeTaskInternal(deps: WarToolsDeps, taskId: string, verdict: string, signal: AbortSignal): Promise<string | undefined> {
   appendEvent(deps.stateDir, { type: 'task_closed', ts: new Date().toISOString(), campaignId: taskId, verdict })
   recordDossier(deps, taskId)
-  // V5-R3（flag staff-goal）：交防结算——司令 armed goal 随任务收官 complete
+  // V5-R3（flag staff-goal）：交防结算——指挥官 armed goal 随任务收官 complete
   // （CAS 链；agent 经注册表解析，缺席/失败 → 诚实降级不入账）。
   await settleCommanderGoal(deps, taskId, 'closed')
   let nextTaskId: string | undefined
@@ -314,7 +314,7 @@ export function lintPublish(args: { title?: unknown; brief?: unknown; acceptance
   const acceptance = typeof args.acceptance === 'string' ? args.acceptance.trim() : ''
   if (title.length < 4) return { ok: false, reason: '标题太短（≥4 字）：一句话说清做什么。' }
   if (brief.length < 10) return { ok: false, reason: '任务书正文太短（≥10 字）：背景、执行指引、边界至少各一句。' }
-  if (acceptance.length < 10) return { ok: false, reason: '验收标准太短（≥10 字）：司令提交时要逐项核对的。' }
+  if (acceptance.length < 10) return { ok: false, reason: '验收标准太短（≥10 字）：指挥官提交时要逐项核对的。' }
   const listy = acceptance.includes('\n') || acceptance.includes('；') || acceptance.includes(';') || acceptance.includes('、')
   if (!listy && acceptance.length < 30) {
     return { ok: false, reason: '验收标准不可判定：用分行或「；、」列举可核对项（或写成 ≥30 字的明确完成定义）。' }
@@ -326,11 +326,11 @@ export function lintPublish(args: { title?: unknown; brief?: unknown; acceptance
 export function warTools(deps: WarToolsDeps) {
   const warPublish = defineTool({
     name: 'war_publish',
-    description: '参谋发布任务：把任务书写上战略任务栏。自动建任务工作区（声明 repo 时尽力建 git worktree，跨任务物理隔离）并唤醒司令领取。元首批准任务书后调用。',
+    description: '参谋发布任务：把任务书写上战略任务栏。自动建任务工作区（声明 repo 时尽力建 git worktree，跨任务物理隔离）并唤醒指挥官领取。元首批准任务书后调用。',
     parameters: {
       title: { type: 'string', required: true, description: '任务标题，一句话。' },
-      brief: { type: 'string', required: true, description: '任务书正文（写给司令的专业 prompt）：背景与目标、执行指引、边界与注意事项。' },
-      acceptance: { type: 'string', required: true, description: '验收标准：可判定的完成定义（检查项列表）——司令提交时必须逐项核对并附证据。' },
+      brief: { type: 'string', required: true, description: '任务书正文（写给指挥官的专业 prompt）：背景与目标、执行指引、边界与注意事项。' },
+      acceptance: { type: 'string', required: true, description: '验收标准：可判定的完成定义（检查项列表）——指挥官提交时必须逐项核对并附证据。' },
       priority: { type: 'string', description: 'normal（默认）| high（优先领取）。' },
       quality: { type: 'string', description: '悬赏品质（复杂度分档，任务栏显示对应颜色）：common 普通（默认）| fine 精良 | rare 稀有 | epic 史诗 | legendary 传说。' },
       deps: { type: 'array', items: { type: 'string' }, description: '前置任务 id 列表（任务链）：全部收官后本悬赏才解锁可领取。' },
@@ -353,7 +353,7 @@ export function warTools(deps: WarToolsDeps) {
         },
       },
       render: (_args, value) => [
-        { type: 'text', text: `任务已上栏：${value.taskId} · 工作区 ${value.workspacePath}（${value.workspaceKind}）${value.commandApproved === true ? ' · 命令卡已标记批准' : ''}${value.note !== undefined ? ` · ${value.note}` : ''}。${value.conscripted ? '司令已应征到任，将自动领取' : '暂未征召（排队/满编），巡检保险丝会补征召'}。` },
+        { type: 'text', text: `任务已上栏：${value.taskId} · 工作区 ${value.workspacePath}（${value.workspaceKind}）${value.commandApproved === true ? ' · 命令卡已标记批准' : ''}${value.note !== undefined ? ` · ${value.note}` : ''}。${value.conscripted ? '指挥官已应征到任，将自动领取' : '暂未征召（排队/满编），巡检保险丝会补征召'}。` },
       ],
     },
     async execute(args, rawExec) {
@@ -425,7 +425,7 @@ export function warTools(deps: WarToolsDeps) {
         war.active = true
         deps.store.save()
       }
-      // 征召制：工作区空闲即为本任务征召一名司令（忙则排队，等收官接力或巡检补征）。
+      // 征召制：工作区空闲即为本任务征召一名指挥官（忙则排队，等收官接力或巡检补征）。
       let conscripted = false
       try {
         const fresh = loadCampaign(deps.stateDir, taskId)
@@ -441,7 +441,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warBoard = defineTool({
     name: 'war_board',
-    description: '战略任务栏：跨工作区查看全部任务（待领取/进行中/待翻阅/已收官）、任务书全文、工作区、部队与最新战报。参谋呈报前、司令领取前都先看板。',
+    description: '战略任务栏：跨工作区查看全部任务（待领取/进行中/待翻阅/已收官）、任务书全文、工作区、部队与最新战报。参谋呈报前、指挥官领取前都先看板。',
     parameters: {},
     output: {
       schema: {
@@ -502,7 +502,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warClaim = defineTool({
     name: 'war_claim',
-    description: '司令领取任务：把 published 任务置为 in_progress——只有领取后的任务才允许派兵（硬规则）。领取会发一张本次尝试的令牌（attempt_id），提交汇报时必须携带。前置任务未收官的悬赏处于锁定状态，不可领取。',
+    description: '指挥官领取任务：把 published 任务置为 in_progress——只有领取后的任务才允许派兵（硬规则）。领取会发一张本次尝试的令牌（attempt_id），提交汇报时必须携带。前置任务未收官的悬赏处于锁定状态，不可领取。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id（war_board 可见）。' },
     },
@@ -533,7 +533,7 @@ export function warTools(deps: WarToolsDeps) {
       const attemptId = randomUUID()
       const attempt = task.attempts + 1
       appendEvent(deps.stateDir, { type: 'task_claimed', ts: new Date().toISOString(), campaignId: args.task_id, claimedBy: commander.id, attemptId, attempt })
-      // V5-R3（flag staff-goal）：领取即武装司令 goal——「任务 X 验收全过」
+      // V5-R3（flag staff-goal）：领取即武装指挥官 goal——「任务 X 验收全过」
       // 交给宿主 round driver 驱动。残留 armed goal 先自愈（K15）；服务缺席
       // 或失败 → 诚实降级（无 goal 也不碍作战），账本只在成功时入账。
       if (featureEnabled(deps.flags, 'staff-goal')) {
@@ -560,7 +560,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warSubmit = defineTool({
     name: 'war_submit',
-    description: '司令提交汇报（KillCredit 制）：验收证据不全不给过——checks 必须覆盖验收标准且全部通过，tests 的退出码必须为 0。证据由系统核对，不靠自报。未全过就继续修，修不动就 war_fail。',
+    description: '指挥官提交汇报（KillCredit 制）：验收证据不全不给过——checks 必须覆盖验收标准且全部通过，tests 的退出码必须为 0。证据由系统核对，不靠自报。未全过就继续修，修不动就 war_fail。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       attempt_id: { type: 'string', required: true, description: '领取任务时发的令牌（war_claim 返回的 attemptId）。' },
@@ -598,7 +598,7 @@ export function warTools(deps: WarToolsDeps) {
         const green = killCreditAllGreen(e, task.workspacePath)
         if (green.green) {
           const nextTaskId = await closeTaskInternal(deps, args.task_id, `自动收官：KillCredit 机械全绿（${green.why}）`, exec.signal)
-          return { taskId: args.task_id, status: 'closed', evidenceSummary: green.why, ...(nextTaskId !== undefined ? { note: `已为同工作区的 ${nextTaskId} 征召司令` } : {}) }
+          return { taskId: args.task_id, status: 'closed', evidenceSummary: green.why, ...(nextTaskId !== undefined ? { note: `已为同工作区的 ${nextTaskId} 征召指挥官` } : {}) }
         }
       }
       // V5-R4（flag staff-wake）：待翻阅（非自动收官）才唤醒参谋——全绿
@@ -611,7 +611,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warFail = defineTool({
     name: 'war_fail',
-    description: '司令上报失败：本次尝试无法完成（附原因）。未到重试上限会自动重派回任务栏（重新领取发新令牌）；到上限则标记 failed 留给元首让参谋重新立案。',
+    description: '指挥官上报失败：本次尝试无法完成（附原因）。未到重试上限会自动重派回任务栏（重新领取发新令牌）；到上限则标记 failed 留给元首让参谋重新立案。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       attempt_id: { type: 'string', required: true, description: '当前尝试的令牌。' },
@@ -635,17 +635,17 @@ export function warTools(deps: WarToolsDeps) {
       appendEvent(deps.stateDir, { type: 'task_attempt_failed', ts: new Date().toISOString(), campaignId: args.task_id, reason: args.reason, from: commander.id })
       if (attempts < deps.maxAttempts) {
         appendEvent(deps.stateDir, { type: 'task_requeued', ts: new Date().toISOString(), campaignId: args.task_id, reason: `第 ${attempts} 次尝试失败：${args.reason}` })
-        // 自动重试 = 立即为重派的任务征召新司令（新令牌新会话）。
+        // 自动重试 = 立即为重派的任务征召新指挥官（新令牌新会话）。
         try {
           await deps.commander.conscript(loadCampaign(deps.stateDir, args.task_id), exec.signal)
         } catch {
           // 征召失败由巡检保险丝补
         }
-        return { taskId: args.task_id, status: 'published', attempts, maxAttempts: deps.maxAttempts, next: `已自动重派回任务栏并征召新司令；新司令将重新 war_claim（新令牌）。` }
+        return { taskId: args.task_id, status: 'published', attempts, maxAttempts: deps.maxAttempts, next: `已自动重派回任务栏并征召新指挥官；新指挥官将重新 war_claim（新令牌）。` }
       }
       appendEvent(deps.stateDir, { type: 'task_failed', ts: new Date().toISOString(), campaignId: args.task_id, reason: `第 ${attempts} 次尝试失败：${args.reason}（重试上限 ${deps.maxAttempts} 已用尽）` })
       recordDossier(deps, args.task_id)
-      // V5-R3：重试用尽交防——司令 goal 结算（failed）。
+      // V5-R3：重试用尽交防——指挥官 goal 结算（failed）。
       await settleCommanderGoal(deps, args.task_id, 'failed')
       // V5-R4（flag staff-wake）：失败（用尽）唤醒参谋重新立案；requeue 路径
       // 系统自动征召，无需唤醒（分级推）。
@@ -681,13 +681,13 @@ export function warTools(deps: WarToolsDeps) {
 
   const warConscript = defineTool({
     name: 'war_conscript',
-    description: '参谋征召：为一张已发布且工作区空闲的悬赏征召一名司令。发布/收官/重派时系统会自动征召；此工具用于巡检提示后的补漏（任务无人认领、征召曾失败）。',
+    description: '参谋征召：为一张已发布且工作区空闲的悬赏征召一名指挥官。发布/收官/重派时系统会自动征召；此工具用于巡检提示后的补漏（任务无人认领、征召曾失败）。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, childId: { type: 'string', required: true } } },
-      render: (_args, value) => [{ type: 'text', text: `司令已应征 ${value.taskId}（会话 ${value.childId}），将自动 war_claim 领取作战。` }],
+      render: (_args, value) => [{ type: 'text', text: `指挥官已应征 ${value.taskId}（会话 ${value.childId}），将自动 war_claim 领取作战。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -700,20 +700,20 @@ export function warTools(deps: WarToolsDeps) {
       if (!result.spawned) throw new Error(`征召未成：${result.reason}`)
       return { taskId: args.task_id, childId: result.childId }
     },
-    presentCall: args => ({ card: 'generic', title: `征召司令 ${args.task_id}` }),
+    presentCall: args => ({ card: 'generic', title: `征召指挥官 ${args.task_id}` }),
   })
 
   const warComment = defineTool({
     name: 'war_comment',
-    description: '元首批注：把元首对任务的指示/评语记上任务栏（参谋代笔）。进行中的任务，批示会转达司令。',
+    description: '元首批注：把元首对任务的指示/评语记上任务栏（参谋代笔）。进行中的任务，批示会转达指挥官。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       comment: { type: 'string', required: true, description: '批注内容。' },
-      relay: { type: 'boolean', description: 'true 且任务进行中时，把批注转达给司令（默认 true）。' },
+      relay: { type: 'boolean', description: 'true 且任务进行中时，把批注转达给指挥官（默认 true）。' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, relayed: { type: 'boolean' } } },
-      render: (_args, value) => [{ type: 'text', text: `批注已上栏${value.relayed === true ? '并已转达司令' : ''}。` }],
+      render: (_args, value) => [{ type: 'text', text: `批注已上栏${value.relayed === true ? '并已转达指挥官' : ''}。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -723,7 +723,7 @@ export function warTools(deps: WarToolsDeps) {
       let relayed: boolean | undefined
       if (args.relay !== false) {
         const task = loadCampaign(deps.stateDir, args.task_id)
-        // v2.0 征召制：批注经 apiProxy 转达给当前持有该任务的司令会话（领取者）。
+        // v2.0 征召制：批注经 apiProxy 转达给当前持有该任务的指挥官会话（领取者）。
         if (task.status === 'in_progress' && task.claimedBy !== undefined) {
           relayed = await deps.commander.relayTo(task.claimedBy, `【元首批注】任务 ${args.task_id}：${args.comment}`)
         }
@@ -735,14 +735,14 @@ export function warTools(deps: WarToolsDeps) {
 
   const warCloseTask = defineTool({
     name: 'war_close_task',
-    description: '收官：元首翻阅汇报后，由参谋记录判定收官任务（通过/打回/作废）。打回的任务司令可重新领取（需参谋重新发布说明）。收官后工作区空出，系统自动为同工作区排队的下一张悬赏征召司令。',
+    description: '收官：元首翻阅汇报后，由参谋记录判定收官任务（通过/打回/作废）。打回的任务指挥官可重新领取（需参谋重新发布说明）。收官后工作区空出，系统自动为同工作区排队的下一张悬赏征召指挥官。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       verdict: { type: 'string', required: true, description: '判定：通过收官 / 打回（附原因）/ 作废（附原因）。' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, status: { type: 'string', required: true }, nextTaskId: { type: 'string' } } },
-      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 已收官：${value.status === 'closed' ? '判定已记录' : ''}${value.nextTaskId !== undefined ? `；已为同工作区的 ${value.nextTaskId} 征召司令` : ''}。` }],
+      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 已收官：${value.status === 'closed' ? '判定已记录' : ''}${value.nextTaskId !== undefined ? `；已为同工作区的 ${value.nextTaskId} 征召指挥官` : ''}。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -995,7 +995,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warLogReport = defineTool({
     name: 'war_log_report',
-    description: '战报登记：司令消化部队回报后，把摘要写入任务日志（供任务栏与复盘）。只写摘要。',
+    description: '战报登记：指挥官消化部队回报后，把摘要写入任务日志（供任务栏与复盘）。只写摘要。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       child_id: { type: 'string', required: true, description: '回报部队的编号。' },
@@ -1019,7 +1019,7 @@ export function warTools(deps: WarToolsDeps) {
   // is the only path, so every word lands in the campaign ledger first.
   const warMessage = defineTool({
     name: 'war_message',
-    description: '战地直讯（troop-mailbox）：参战方互发消息。司令→部队即时唤起（新回合直达）；部队→部队经司令通道即时唤起；部队→司令入账待阅（司令用 war_status 查看 messages）。消息先进战役账本再投递，投递失败不丢信（待重试/司令转发）。',
+    description: '战地直讯（troop-mailbox）：参战方互发消息。指挥官→部队即时唤起（新回合直达）；部队→部队经指挥官通道即时唤起；部队→指挥官入账待阅（指挥官用 war_status 查看 messages）。消息先进战役账本再投递，投递失败不丢信（待重试/指挥官转发）。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       to: { type: 'string', required: true, description: '收信方：部队编号 childId、兵种名（须唯一）或 "commander"。' },
@@ -1047,7 +1047,7 @@ export function warTools(deps: WarToolsDeps) {
       const commanderSession = task.claimedBy
       const callerIsCommander = commanderSession !== undefined && caller.id === commanderSession
       const callerIsTroop = task.units.has(caller.id)
-      if (!callerIsCommander && !callerIsTroop) throw new Error('只有本任务参战方（司令或在役部队）能发战地直讯。')
+      if (!callerIsCommander && !callerIsTroop) throw new Error('只有本任务参战方（指挥官或在役部队）能发战地直讯。')
       // Addressing: commander | exact childId | unique unit name.
       let target: 'commander' | { childId: string }
       if (args.to === 'commander') {
@@ -1081,9 +1081,9 @@ export function warTools(deps: WarToolsDeps) {
             // Delivery failed — the message stays durable-pending, retriable.
           }
         }
-        return { messageId, to: toId, delivered: false, note: parent === undefined ? '司令活体未解析（agents 注册表未接入），信已入账；稍后重试或由司令 war_message 转发' : '投递暂未成功，信已入账，不丢' }
+        return { messageId, to: toId, delivered: false, note: parent === undefined ? '指挥官活体未解析（agents 注册表未接入），信已入账；稍后重试或由指挥官 war_message 转发' : '投递暂未成功，信已入账，不丢' }
       }
-      return { messageId, to: 'commander', delivered: false, note: '司令收信走 war_status 待阅队列（子会话无父向推信通道）' }
+      return { messageId, to: 'commander', delivered: false, note: '指挥官收信走 war_status 待阅队列（子会话无父向推信通道）' }
     },
     presentCall: args => ({ card: 'generic', title: `直讯 → ${args.to}` }),
   })
@@ -1162,7 +1162,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warSetGoal = defineTool({
     name: 'war_set_goal',
-    description: 'V5 goal 代管（flag staff-goal）：参谋为在役司令的当前任务换发 armed goal（插件中介——只许指向 in_progress 任务，objective 强制绑定任务 id，防串台）。常规流程无需手动调（war_claim 自动武装）。',
+    description: 'V5 goal 代管（flag staff-goal）：参谋为在役指挥官的当前任务换发 armed goal（插件中介——只许指向 in_progress 任务，objective 强制绑定任务 id，防串台）。常规流程无需手动调（war_claim 自动武装）。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id（须为 in_progress）。' },
       objective_extra: { type: 'string', description: '附加目标说明（一句话，拼进 objective）。' },
@@ -1170,18 +1170,18 @@ export function warTools(deps: WarToolsDeps) {
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, goalId: { type: 'string', required: true }, disarmed: { type: 'boolean' } } },
-      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 的司令 goal 已换发（${value.goalId}）。` }],
+      render: (_args, value) => [{ type: 'text', text: `任务 ${value.taskId} 的指挥官 goal 已换发（${value.goalId}）。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
       requireAgent(exec) // 参谋侧动词
       const task = requireTask(deps, args.task_id)
       if (task.status !== 'in_progress') throw new Error(`任务 ${args.task_id} 状态为 ${task.status}，只有进行中任务可换发 goal。`)
-      if (task.claimedBy === undefined) throw new Error(`任务 ${args.task_id} 无在役司令（未被领取）。`)
+      if (task.claimedBy === undefined) throw new Error(`任务 ${args.task_id} 无在役指挥官（未被领取）。`)
       const face = deps.goals?.()
       if (face === undefined) throw new Error('goal 服务不可用（宿主面未注入）——换发降级为不可用，作战不受影响。')
       const agent = deps.resolveAgent?.(task.claimedBy)
-      if (agent === undefined) throw new Error(`司令会话 ${task.claimedBy} 无活体 agent（可能已离线）——请稍后重试。`)
+      if (agent === undefined) throw new Error(`指挥官会话 ${task.claimedBy} 无活体 agent（可能已离线）——请稍后重试。`)
       const extra = typeof args.objective_extra === 'string' && args.objective_extra.trim() !== '' ? `；附加：${args.objective_extra.trim()}` : ''
       const armed = await armGoalForTask(face, agent, args.task_id, { maxGoalRounds: typeof args.max_goal_rounds === 'number' && args.max_goal_rounds > 0 ? args.max_goal_rounds : 30, title: `${task.title ?? task.intent}${extra}` })
       if (armed === undefined) throw new Error('goal 服务调用失败（武装未成）——任务作战不受影响，可稍后重试。')
@@ -1287,7 +1287,7 @@ export async function kickIdleTroops(deps: WarToolsDeps, campaignId: string, sig
 function warTroopTools(deps: WarToolsDeps) {
 const warTroopTask = defineTool({
   name: 'war_troop_task',
-  description: '（troop-scheduler）队内拆题：司令把当前任务拆成带依赖的子任务（st- 编号）。创建即尝试调度——闲置且无在役子任务的部队会被自动认领并唤起。deps 填其他子任务 id，前置完成后才可被认领。',
+  description: '（troop-scheduler）队内拆题：指挥官把当前任务拆成带依赖的子任务（st- 编号）。创建即尝试调度——闲置且无在役子任务的部队会被自动认领并唤起。deps 填其他子任务 id，前置完成后才可被认领。',
   parameters: {
     task_id: { type: 'string', required: true, description: '任务 id。' },
     title: { type: 'string', required: true, description: '子任务一句话标题。' },
@@ -1309,7 +1309,7 @@ const warTroopTask = defineTool({
     const exec = rawExec as unknown as WarToolExec
     const caller = requireAgent(exec)
     const task = requireTask(deps, args.task_id)
-    if (task.claimedBy === undefined || caller.id !== task.claimedBy) throw new Error('只有本任务司令可拆队内子任务。')
+    if (task.claimedBy === undefined || caller.id !== task.claimedBy) throw new Error('只有本任务指挥官可拆队内子任务。')
     const depIds = (args.deps ?? []).map(String)
     for (const d of depIds) {
       if (!task.subtasks.has(d)) throw new Error(`前置子任务 ${d} 不存在（用 war_troop_task 返回的 st- 编号）。`)
@@ -1345,7 +1345,7 @@ const warTroopClaim = defineTool({
     const exec = rawExec as unknown as WarToolExec
     const caller = requireAgent(exec)
     const task = requireTask(deps, args.task_id)
-    if (!isParticipant(task, caller.id)) throw new Error('只有本任务参战方（司令或在役部队）可认领队内子任务。')
+    if (!isParticipant(task, caller.id)) throw new Error('只有本任务参战方（指挥官或在役部队）可认领队内子任务。')
     const s = task.subtasks.get(args.subtask_id)
     if (s === undefined) throw new Error(`子任务 ${args.subtask_id} 不存在。`)
     if (s.status !== 'open') throw new Error(`子任务 ${args.subtask_id} 当前 ${s.status === 'in_progress' ? '已被认领（在役）' : '已完成'}，不可认领。`)
@@ -1413,7 +1413,7 @@ return [warTroopTask, warTroopClaim, warTroopUpdate]
 function warTroopReassignTool(deps: WarToolsDeps) {
   return defineTool({
     name: 'war_troop_reassign',
-    description: '（troop-park）显式换手：司令吊销某在役子任务的当前令牌（含 parked 状态），回池并立即转派——kick 排除原主。原主持旧令牌的更新将被陈旧拒绝。',
+    description: '（troop-park）显式换手：指挥官吊销某在役子任务的当前令牌（含 parked 状态），回池并立即转派——kick 排除原主。原主持旧令牌的更新将被陈旧拒绝。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       subtask_id: { type: 'string', required: true, description: '子任务 id。' },
@@ -1433,12 +1433,12 @@ function warTroopReassignTool(deps: WarToolsDeps) {
       const exec = rawExec as unknown as WarToolExec
       const caller = requireAgent(exec)
       const task = requireTask(deps, args.task_id)
-      if (task.claimedBy === undefined || caller.id !== task.claimedBy) throw new Error('只有本任务司令可换手子任务。')
+      if (task.claimedBy === undefined || caller.id !== task.claimedBy) throw new Error('只有本任务指挥官可换手子任务。')
       const s = task.subtasks.get(args.subtask_id)
       if (s === undefined) throw new Error(`子任务 ${args.subtask_id} 不存在。`)
       if (s.status !== 'in_progress' || s.attempt === undefined) throw new Error(`子任务 ${args.subtask_id} 不在役（${s.status}），无需换手。`)
       const oldOwner = s.claimedBy
-      appendEvent(deps.stateDir, { type: 'subtask_updated', ts: new Date().toISOString(), campaignId: args.task_id, subtaskId: args.subtask_id, attemptId: s.attempt.id, status: 'blocked', note: '司令改派：吊销回池' })
+      appendEvent(deps.stateDir, { type: 'subtask_updated', ts: new Date().toISOString(), campaignId: args.task_id, subtaskId: args.subtask_id, attemptId: s.attempt.id, status: 'blocked', note: '指挥官改派：吊销回池' })
       const dispatched = await kickIdleTroops(deps, args.task_id, exec.signal, undefined, oldOwner)
       return { subtaskId: args.subtask_id, status: 'open', dispatched }
     },

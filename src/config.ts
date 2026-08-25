@@ -18,7 +18,7 @@ export interface Config {
    */
   maxAttempts: number
   /**
-   * 司令上限 (v2.0 征召制): maximum concurrently in_progress tasks — each
+   * 指挥官上限 (v2.0 征召制): maximum concurrently in_progress tasks — each
    * holds one conscripted commander. Same-workspace tasks always serialize
    * regardless (the workspace mutex); this caps cross-workspace parallelism.
    * Default 3.

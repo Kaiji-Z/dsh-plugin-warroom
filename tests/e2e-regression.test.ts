@@ -31,9 +31,9 @@ function replayEightStep(dir: string): { commandId: string; taskId: string } {
   appendEvent(dir, { type: 'task_created', ts: 't4', campaignId: taskId, title: '给日常工具箱加「每日格言」小工具', brief: 'b', acceptance: 'node motto.js today 退出码 0', priority: 'normal', publishedBy: 'sec-staff-reg' })
   appendEvent(dir, { type: 'task_published', ts: 't5', campaignId: taskId, workspacePath: 'C:/reg/daily-toolbox', publishedBy: 'sec-staff-reg' })
   appendDirectiveEvent(dir, { type: 'directive_approved', ts: 't6', directiveId: commandId, taskId })
-  // 步5: 司令持令牌领取 → 作战。
+  // 步5: 指挥官持令牌领取 → 作战。
   appendEvent(dir, { type: 'task_claimed', ts: 't7', campaignId: taskId, claimedBy: 'cmd-commander-reg', attemptId: 'tok-reg-1', attempt: 1 })
-  // 步6: 司令 war_submit 带 KillCredit 证据 → 待翻阅。
+  // 步6: 指挥官 war_submit 带 KillCredit 证据 → 待翻阅。
   appendEvent(dir, {
     type: 'task_submitted', ts: 't8', campaignId: taskId, from: 'cmd-commander-reg',
     report: 'motto CLI 完成：today/list 子命令 + 纯函数日期轮换',

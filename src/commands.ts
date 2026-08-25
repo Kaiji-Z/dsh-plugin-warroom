@@ -70,7 +70,7 @@ export function executeWarCommand(deps: WarCommandDeps, invocation: CommandInvoc
     deps.onActiveChange(true)
   }
   invocation.agent.followup(userMessage(warOrderPrompt(invocation.rawInput)))
-  return { kind: 'success', text: '作战室已就位 — 司令正在报到；部队状态用 war_status 查询 / War room active — the commander is reporting in.' }
+  return { kind: 'success', text: '作战室已就位 — 指挥官正在报到；部队状态用 war_status 查询 / War room active — the commander is reporting in.' }
 }
 
 /**

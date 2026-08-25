@@ -121,7 +121,7 @@ test('V4-R4 flag off：war_recall 账本零 park 事件（字节等价路径）'
   }
 })
 
-test('V4-R4 war_troop_reassign：司令显式换手——旧令牌吊销回池，kick 排除原主', async () => {
+test('V4-R4 war_troop_reassign：指挥官显式换手——旧令牌吊销回池，kick 排除原主', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-park-'))
   try {
     recruit(dir)

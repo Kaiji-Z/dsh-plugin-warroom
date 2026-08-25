@@ -189,7 +189,7 @@ test('v2.0: attemptLog builds session cards — live, failed, reported, succeede
   // 第 1 次尝试失败 → 该 attempt 卡 outcome=failed；重派后第 2 次领取是新的 live 卡。
   const afterRequeue = foldCampaign('a1', [...base,
     { type: 'task_claimed', ts: 't2', campaignId: 'a1', claimedBy: 'cmd-A', attemptId: 'tok-A', attempt: 1 },
-    { type: 'task_requeued', ts: 't4', campaignId: 'a1', reason: '司令失联，恢复手术重派' },
+    { type: 'task_requeued', ts: 't4', campaignId: 'a1', reason: '指挥官失联，恢复手术重派' },
     { type: 'task_claimed', ts: 't5', campaignId: 'a1', claimedBy: 'cmd-B', attemptId: 'tok-B', attempt: 2 },
   ] as const)
   // 重派即结算：没走 war_fail 的旧尝试也翻成 failed 卡，不留僵尸 live 卡。

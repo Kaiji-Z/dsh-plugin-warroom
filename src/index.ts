@@ -5,7 +5,7 @@
  * secretary (贴身参谋, the user-facing conversation persona); the secretary
  * authors professional task briefs and publishes them to the strategic task
  * board (跨工作区 JSONL store + war map UI); a single durable commander
- * (司令, a continuable subagent child with FULL harness capability — the
+ * (指挥官, a continuable subagent child with FULL harness capability — the
  * "autonomous executor") auto-claims tasks, materializes per-task
  * workspaces, and deploys typed troops inside them; reports flow back to the
  * board for the sovereign's review.
@@ -100,19 +100,19 @@ function createConscriptor(deps: {
     for (const id of [...spawned]) {
       if (loadCampaign(deps.stateDir, id).status !== 'published') spawned.delete(id)
     }
-    if (spawned.has(task.campaignId)) return { spawned: false, reason: '该任务已有一名待命司令。' }
+    if (spawned.has(task.campaignId)) return { spawned: false, reason: '该任务已有一名待命指挥官。' }
     const busy = workspaceConflict(task.workspacePath, board().map(t => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath })))
     if (busy !== undefined) return { spawned: false, reason: `工作区正被任务 ${busy.taskId} 占用，本任务排队等待收官接力。` }
     const inflight = board().filter(t => t.status === 'in_progress').length
-    if (inflight >= deps.maxCommanders) return { spawned: false, reason: `在役司令满编（${inflight}/${deps.maxCommanders}），稍后由巡检补征。` }
+    if (inflight >= deps.maxCommanders) return { spawned: false, reason: `在役指挥官满编（${inflight}/${deps.maxCommanders}），稍后由巡检补征。` }
     // Bind the commander session to the task workspace (sandbox root).
     const wsPath = task.workspacePath ?? deps.warRoot
     const ws = await workspaceApi.create({ rpcId: rpc(), payload: { path: wsPath } })
     if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败（${ws.result.error.code}）：${ws.result.error.message}` }
     const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
-    if (!created.result.ok) return { spawned: false, reason: `司令会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
+    if (!created.result.ok) return { spawned: false, reason: `指挥官会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
     const sessionId = created.result.value.sessionId
-    const title = `司令·${(task.title ?? task.intent).slice(0, 14)}`
+    const title = `指挥官·${(task.title ?? task.intent).slice(0, 14)}`
     void relay.rename({ rpcId: rpc(), payload: { sessionId, title } }).catch(() => undefined)
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
     const dossier = task.workspacePath !== undefined && bound
@@ -202,7 +202,7 @@ function registerReportCapture(ctx: Context, stateDir: string, store: WarStore):
       for (const taskId of listCampaignIds(stateDir)) {
         const task = loadCampaign(stateDir, taskId)
         if (!task.units.has(childId)) continue
-        // v2.0 征召制：部队的上级是该任务当前持有者的会话；旧单司令日志经
+        // v2.0 征召制：部队的上级是该任务当前持有者的会话；旧单指挥官日志经
         // commanderChildId 兜底兼容。
         if (sessionId !== task.claimedBy && sessionId !== war.commanderChildId) continue
         const ts = new Date().toISOString()

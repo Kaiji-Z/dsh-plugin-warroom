@@ -28,7 +28,7 @@ export function dossierPath(stateDir: string, workspacePath: string): string {
 const DOSSIER_TEMPLATE = [
   '# 工作区履历档案',
   '',
-  '本档案由作战室维护：任务收官/失败时自动追加一节。征召司令时会随征召令注入——新任司令应先读档案，避免重蹈覆辙。',
+  '本档案由作战室维护：任务收官/失败时自动追加一节。征召指挥官时会随征召令注入——新任指挥官应先读档案，避免重蹈覆辙。',
   '',
 ].join('\n')
 

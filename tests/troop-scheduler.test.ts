@@ -96,7 +96,7 @@ test('V4-R3 flag 门：三个队内工具只在 troop-scheduler ON 注册', () =
   }
 })
 
-test('V4-R3 司令建子任务即触发调度：闲置部队被认领并唤起（followup 即达）', async () => {
+test('V4-R3 指挥官建子任务即触发调度：闲置部队被认领并唤起（followup 即达）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-sched-'))
   try {
     recruit(dir)
@@ -142,7 +142,7 @@ test('V4-R3 自主认领与守卫：参战方限定、一户一役、陈旧令�
   const dir = mkdtempSync(join(tmpdir(), 'warroom-sched-'))
   try {
     recruit(dir)
-    // 手工造两个 open 子任务（不经 war_troop_task——司令建题会以自身为 parent 触发 kick 自动认领）。
+    // 手工造两个 open 子任务（不经 war_troop_task——指挥官建题会以自身为 parent 触发 kick 自动认领）。
     appendEvent(dir, { type: 'subtask_created', ts: 't5', campaignId: 'c1', subtaskId: 'st-aaa', title: '甲', deps: [] })
     appendEvent(dir, { type: 'subtask_created', ts: 't6', campaignId: 'c1', subtaskId: 'st-bbb', title: '乙', deps: [] })
     const deps = makeDeps(dir, fakeSubagents().face, FLAG_ON, RESOLVE_CMD)

@@ -74,7 +74,7 @@ export async function settleGoalMentioning(face: GoalsFace | undefined, agent: u
 }
 
 /**
- * 为司令武装任务 goal（claim 时调）：若该 agent 名下已有同任务的残留
+ * 为指挥官武装任务 goal（claim 时调）：若该 agent 名下已有同任务的残留
  * armed goal（重派/断线重来的常见形态）先自愈结算（K15），再 create armed。
  * 返回 {goalId, healed?}；服务缺席/异常返回 undefined（诚实降级）。
  */

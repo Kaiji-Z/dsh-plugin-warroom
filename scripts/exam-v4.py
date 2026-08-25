@@ -99,7 +99,7 @@ def stage_issue():
         pg.click('button.war-plus')
         pg.wait_for_selector('.war-modal textarea', timeout=5000)
         cmd = ('V4 能力考题：在 @new 工作区做一个极小的双文件工具集（notes.md 与 check.py）。'
-               '要求司令：1) 派两支部队——scout-routed 侦察与 engineer 工程；'
+               '要求指挥官：1) 派两支部队——scout-routed 侦察与 engineer 工程；'
                '2) 用 war_troop_task 拆两个可并行子任务（侦察列清单/工程写文件），让调度器自动认领；'
                '3) 部队之间至少一次 war_message 直讯；'
                '4) 演示 park/换手：war_recall 撤退 engineer（其子任务应 park），再 war_troop_reassign 换手完成。'

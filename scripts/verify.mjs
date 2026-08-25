@@ -54,7 +54,7 @@ gate('bundle', () => {
     [host, 'startContinuable', 'commander+troops spawn via the native subagent runtime'],
     [host, 'checkDeployment', 'hard rules gate every deploy'],
     [host, '贴身参谋条令', 'secretary persona rides the host bundle'],
-    [host, '司令条令', 'commander persona rides the host bundle'],
+    [host, '指挥官条令', 'commander persona rides the host bundle'],
     [host, 'materializeTaskWorkspace', 'per-task workspace materialization'],
     [host, 'patrolNow', 'patrol fuse wakes the commander'],
     [host, 'registerWarCommand', '/war slash command'],

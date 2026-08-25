@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、司令 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。V4 归档 `.goal/SPEC-v4.md`。V6 候选见 SPEC §8（计划批准回推 K17、命令拆解等）。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、指挥官 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。V4 归档 `.goal/SPEC-v4.md`。V6 候选见 SPEC §8（计划批准回推 K17、命令拆解等）。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 
@@ -13,7 +13,7 @@
 
 | 文件 | 职责 |
 |---|---|
-| `index.ts` | 插件入口：服务装配、司令征召器（conscriptor）、巡检 rescue（直接征召，无 LLM nudge）、引信生命周期 |
+| `index.ts` | 插件入口：服务装配、指挥官征召器（conscriptor）、巡检 rescue（直接征召，无 LLM nudge）、引信生命周期 |
 | `directives.ts` | 命令区事件流（directives.jsonl append-only + fold，五态生命周期 + 每命令会话绑定 + 终态守卫） |
 | `relay.ts` | **每命令一会话** relay（pending 无会话即建 `参谋·<摘要>`）、命令引信（tickNow 秒级 + 15s 兜底）、征召令/转达文案 |
 | `threads.ts` | 挂载外部会话事件流（threads.jsonl append-only：attach/detach + fold） |
@@ -21,13 +21,13 @@
 | `events.ts` | 战役事件 fold：attemptLog（尝试级会话卡）、结算转移（reported/succeeded/failed） |
 | `rules.ts` | 工作区归一化/冲突检测、征召计划（同区排队跨区并行）、任务链依赖检查 |
 | `workspace.ts` | 工作区物化、`@new:` 新副本（instances/） |
-| `dossier.ts` | 司令履历档案（退任落盘、征召注入） |
+| `dossier.ts` | 指挥官履历档案（退任落盘、征召注入） |
 | `dashboard.ts` | Host HTTP API（/warroom/api/*：board/commands/talking/events(SSE)/threads/threads/detach）+ 板投影 |
 | `client/` | 看板前端：views.tsx（**两区：指挥中心/战场** + 详情浮层 + 挂载）、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
 | `skill.ts` | 参谋起草法（warroom-bounty-drafting，编程注册——**对 apiProxy 会话不可见**，靠 relay 内嵌要点兜底，见 SPEC §7） |
-| `persona.ts` / `units.ts` / `toml.ts` | 司令 persona / 兵种 roster / TOML 加载 |
+| `persona.ts` / `units.ts` / `toml.ts` | 指挥官 persona / 兵种 roster / TOML 加载 |
 | `commands.ts` | `/war` 斜杠命令（host 侧入口）：激活先于提示落队（顺序保证） |
-| `config.ts` | 插件配置 schema：编制/重试/司令上限、状态文件路径 |
+| `config.ts` | 插件配置 schema：编制/重试/指挥官上限、状态文件路径 |
 | `schedule.ts` | 每日悬赏 cron：5 段表达式解析 + 下次运行计算（错过即跳过，不回填） |
 | `state.ts` | 全局战时状态 JSON（激活 + HQ 绑定 + 当前战役指针；历史只在事件日志） |
 | `types.ts` | 领域类型（兵种/战役事件/fold 状态），零 harness 依赖保持纯度 |
@@ -36,8 +36,8 @@ tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scrip
 
 ## 架构铁律（改代码前默诵）
 
-- **司令必须是顶层 apiProxy 会话**（`workspace.create` 按路径幂等 → `sessions.create({workspaceId})` → rename），不能是参谋的子代理——in-process continuable 子代理继承父会话 write root，写不进任务工作区。
-- **maxDepth 限制的是子代自身 depth**：depth-2 部队需要 maxDepth≥2；部署级压到 1 会封死司令派兵。
+- **指挥官必须是顶层 apiProxy 会话**（`workspace.create` 按路径幂等 → `sessions.create({workspaceId})` → rename），不能是参谋的子代理——in-process continuable 子代理继承父会话 write root，写不进任务工作区。
+- **maxDepth 限制的是子代自身 depth**：depth-2 部队需要 maxDepth≥2；部署级压到 1 会封死指挥官派兵。
 - **apiProxy.prompt 不拦斜杠命令**：'/war' 经 apiProxy 只会当纯文本到达模型；激活必须代码侧 `activate()`（store 翻 active + surface.sync）。
 - **cordis effect 是 setup-returns-cleanup**：清理函数必须双箭头 `() => () => stop()`。
 - **浮层/卡片组件必须 `createElement` 挂载**，不可当普通函数调用（React #310：hooks 数量跨渲染必须稳定）。
@@ -59,7 +59,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 
 ## 迭代注意
 
-- V5（现行 goal，SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻司令否决）、参谋 goal 永远 disarm、判定环用决策卡。后续候选：命令拆解（V6）、路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
+- V5（现行 goal，SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻指挥官否决）、参谋 goal 永远 disarm、判定环用决策卡。后续候选：命令拆解（V6）、路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
 - git-bash curl POST 中文 JSON 会乱码入账——API 抽查一律走浏览器 fetch 或 node fetch。
 - 浏览器自动化一律 Playwright（domcontentloaded + 选择器等待，SSE 挡住 networkidle）；dsh 决策卡是分页提问卡，卡等待期聊天不推进，必须点按钮。

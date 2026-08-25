@@ -55,7 +55,7 @@ const QUALITY_LABEL: Record<BoardQuality, string> = Object.fromEntries(QUALITY_T
 
 /** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
 const STATUS_MARK: Partial<Record<BoardTask['status'], { mark: string; cls: string; title: string }>> = {
-  published: { mark: '！', cls: 'bang', title: '新悬赏，等待司令领取' },
+  published: { mark: '！', cls: 'bang', title: '新悬赏，等待指挥官领取' },
   reported: { mark: '？', cls: 'query', title: '战报已呈递，等元首翻阅收菜' },
 }
 
@@ -357,7 +357,7 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   return createElement('div', {
     key,
     className: `war-card war-session-card clickable q-edge-${task.quality}`,
-    title: `司令会话 ${attempt.sessionId}——点击查看作战详情`,
+    title: `指挥官会话 ${attempt.sessionId}——点击查看作战详情`,
     onClick: () => { onDetail(task, attempt) },
   },
   createElement('div', { className: 'war-card-top' },
@@ -623,7 +623,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           createElement('div', { className: 'war-zone war-field' },
             zoneHead('战场', '只读结果 · 点卡看详情 · 复盘跳 thread'),
             createElement('div', { className: 'war-zone-cols' },
-              Zone('进行中', live.length + threads.length, '下达命令后，司令的作战会话会出现在这里',
+              Zone('进行中', live.length + threads.length, '下达命令后，指挥官的作战会话会出现在这里',
                 [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
                   ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }))],
               ),
