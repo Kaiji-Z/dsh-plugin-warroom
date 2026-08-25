@@ -1,10 +1,10 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、指挥官 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。**V6 增量已交付（2026-08-25，SPEC §8）**：K17 计划判定回推（pushToStaff）、皮肤系统（WarCopy 词典 + 军事/平话双皮肤 + 切换器）、命令拆解成链（`war_decompose`/`war_publish_chain`，flag staff-decompose）、goal 接力原子性补偿（`armMissingCommanderGoals` 60s 巡检）、**三区看板 + 命令全生命周期追踪**（指挥中心/战场/战报，命令卡四段生命条 + 链进展聚合 + 任务卡溯源 chip，零后端改动，`commandTasks` deps-闭包 BFS）、**flags 默认全开政策**（`DEFAULT_ON_FLAGS` + `!name` 关闭语法，开发期新功能不再设旗）。V4 归档 `.goal/SPEC-v4.md`。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、指挥官 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。**V6 增量已交付（2026-08-25，SPEC §8）**：K17 计划判定回推（pushToStaff）、皮肤系统（WarCopy 词典 + 军事/平话双皮肤 + 切换器）、命令拆解成链（`war_decompose`/`war_publish_chain`，flag staff-decompose）、goal 接力原子性补偿（`armMissingCommanderGoals` 60s 巡检）、**三区看板 + 命令全生命周期追踪**（指挥中心/战场/战报，命令卡四段生命条 + 链进展聚合 + 任务卡溯源 chip，零后端改动，`commandTasks` deps-闭包 BFS）、**flags 默认全开政策**（`DEFAULT_ON_FLAGS` + `!name` 关闭语法，开发期新功能不再设旗）。**V7「到访式工作流」已交付（2026-08-25，SPEC.md 现为 V7，证据 `.goal/evidence/v7/`）**：①等你发落收件箱（四类需元首动作纯客户端聚合）②到访摘要卡（last-seen 挂载快照 delta）③悬停族系高亮+聚焦模式（CardTrace 零几何）④起草器三档开关+夜间预检（`!!`/`??` 前缀拼文本 + 改直发走 regrade）⑤「为什么还没动」解释行（host 投影只读加料 queueAhead/quotaPaused）⑥空板首用引导。V4 归档 `.goal/SPEC-v4.md`。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 
-1. **`.goal/SPEC.md`** 是唯一权威规格（现为 V3）：§0-1 两区布局、§2 交互决策定案（执行期不重议）、§3 R2 后端适应 + API 契约清单、§5 验收、§6 禁区与不变量（重写版）、§7 坑录（v1/v2 旧坑见 `.goal/SPEC-v2.md` §9，动手前先过一遍）。历史规格：`.goal/SPEC-v1.md`、`.goal/SPEC-v2.md`。
+1. **`.goal/SPEC.md`** 是唯一权威规格（现为 V7）：§0 定案（不重议）、§1 六件套、§2 验收、§3 红线、§4 坑录、§5 验收记录。历史规格：v1-v4 归档（`.goal/SPEC-v1.md`…`SPEC-v4.md`），v5 含 V6 增量（`.goal/SPEC-v5.md`，其坑录沿用）。动手前先过一遍坑录。
 2. **§6 不变量是红线**：attemptId 令牌制、KillCredit 证据链、JSON-text 通道（dsh 丢 `type:'json'` 参数）、SSE revision-only、**板是读投影 + 唯一例外挂载**（浏览器端不提供改任务的写操作）、**用户输入只在指挥中心（左区）**。任何「优化」不得破坏它们。
 3. 每轮收尾必须 `pnpm verify` PASS 并提交（tests + build + bundle 断言三段式，机器检查）。
 4. 任何特性开发前先读根目录 **`VERIFICATION.md`**（协议正本，源自 stop-manual-testing skill，2026-08-24 诊断落档）并按其闭环 SOP 执行；P0 未清完前新特性必须带 flag + 回归。
@@ -23,7 +23,7 @@
 | `workspace.ts` | 工作区物化、`@new:` 新副本（instances/） |
 | `dossier.ts` | 指挥官履历档案（退任落盘、征召注入） |
 | `dashboard.ts` | Host HTTP API（/warroom/api/*：board/commands/talking/events(SSE)/threads/threads/detach）+ 板投影 |
-| `client/` | 看板前端：views.tsx（**三区：指挥中心（命令+任务）/战场（进行中）/战报（已完成+已失败）** + 命令全生命周期：四段生命条 + CommandDetail 追踪中枢（任务链进展/最新战报聚合）+ 任务·会话卡 `↩ cmd` 溯源 chip；链成员 `commandTasks` deps-闭包 BFS 纯客户端）、copy.ts（**皮肤词典**：WarCopy 契约 + warCopy 军事/plainCopy 平话 + react-free 皮肤 store）、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
+| `client/` | 看板前端：views.tsx（**三区：指挥中心（命令+任务）/战场（进行中）/战报（已完成+已失败）** + 命令全生命周期：四段生命条 + CommandDetail 追踪中枢（任务链进展/最新战报聚合）+ 任务·会话卡 `↩ cmd` 溯源 chip；链成员 `commandTasks` deps-闭包 BFS 纯客户端）、copy.ts（**皮肤词典**：WarCopy 契约 + warCopy 军事/plainCopy 平话 + react-free 皮肤 store）、V7 到访件——inbox.ts（收件箱四类聚合+aging）、visit.ts（last-seen delta，挂载快照）、preflight.ts（夜间预检判定+档位标记）、waithint.ts（排队/待领/配额解释行）、views.tsx 悬停族系高亮+聚焦模式（CardTrace 注入，hover 优先于 focus，无 SVG 连线）与空板引导、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
 | `skill.ts` | 参谋起草法（warroom-bounty-drafting，编程注册——**对 apiProxy 会话不可见**，靠 relay 内嵌要点兜底，见 SPEC §7） |
 | `persona.ts` / `units.ts` / `toml.ts` | 指挥官 persona / 兵种 roster / TOML 加载 |
 | `commands.ts` | `/war` 斜杠命令（host 侧入口）：激活先于提示落队（顺序保证） |
@@ -32,7 +32,7 @@
 | `state.ts` | 全局战时状态 JSON（激活 + HQ 绑定 + 当前战役指针；历史只在事件日志） |
 | `types.ts` | 领域类型（兵种/战役事件/fold 状态），零 harness 依赖保持纯度 |
 
-tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scripts/verify.mjs` 是验收断言（含 bundle needle 检查），`scripts/seed-smoke.ts` 造演示板，`scripts/shoot-board.py`（Playwright 截图取证）与 `scripts/exam-v3.py`（八步考题驱动）是浏览器侧工具。
+tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scripts/verify.mjs` 是验收断言（含 bundle needle 检查），`scripts/seed-smoke.ts` 造演示板，`scripts/shoot-board.py`（Playwright 截图取证）、`scripts/exam-v3.py`（八步考题驱动）、`scripts/shoot-v7.py`（V7 到访件全套断言+截图；起服前清空的只有隔离 `.smoke-state`——**绝不能无参跑 `seed-smoke.ts`**，默认状态目录是真实数据）是浏览器侧工具。
 
 ## 架构铁律（改代码前默诵）
 
@@ -60,7 +60,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 
 ## 迭代注意
 
-- V5（SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻指挥官否决）、参谋 goal 永远 disarm、判定环用决策卡。**V6 增量（SPEC §8，2026-08-25）**：K17 计划判定回推（dashboard pushToStaff→参谋会话，ee21855）、皮肤系统（WarCopy+plainCopy+useSyncExternalStore 切换器，3a42b7c）、v5-spike 定案保留（2ffd12c）、命令拆解成链（staff-decompose：war_decompose 呈批复用计划卡 + war_publish_chain 顺序 deps 链级同工作区，38dbbfd）、goal 接力原子性补偿（60s goalRelayFuse 扫补武装 swept 入账，628e5b8）、三区看板+命令全生命周期（证据 `.goal/evidence/v6/`，设计录 `DESIGN.md`/`PRODUCT.md`）。后续候选：路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
+- V5（SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻指挥官否决）、参谋 goal 永远 disarm、判定环用决策卡。**V6 增量（SPEC §8，2026-08-25）**：K17 计划判定回推（dashboard pushToStaff→参谋会话，ee21855）、皮肤系统（WarCopy+plainCopy+useSyncExternalStore 切换器，3a42b7c）、v5-spike 定案保留（2ffd12c）、命令拆解成链（staff-decompose：war_decompose 呈批复用计划卡 + war_publish_chain 顺序 deps 链级同工作区，38dbbfd）、goal 接力原子性补偿（60s goalRelayFuse 扫补武装 swept 入账，628e5b8）、三区看板+命令全生命周期（证据 `.goal/evidence/v6/`，设计录 `DESIGN.md`/`PRODUCT.md`）。后续候选：路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。**V7 增量（SPEC.md §1/§5，2026-08-25）**：到访式工作流六件套按 ①→②→③→④→⑥→⑤ 交付（98fca98/9047286/cff4b29/dcedb00/3eaeefe/fb9986f，各轮 verify PASS，终态 160 测）；实现决策录 `DESIGN.md` V7 节。板定位定为「一天到访两三次的指挥所」，非实时盯盘仪表盘。
 - **flags 默认全开政策（元首定，2026-08-25）**：开发期所有功能旗默认 on（`src/flags.ts` DEFAULT_ON_FLAGS + `runtimeFlags`），新功能**不再设旗**直接默认开；`WARROOM_FEATURES` 仅用于 `!name` 关闭个别旗或 opt-in `v5-spike`。正式版发布后恢复「每能力一 flag」流程。单测仍用 `readFeatureFlags`（纯显式，确定性）。
 - **v5-spike 探针定案保留**（2026-08-25，非一次性脚手架）：它是唯一能在运行时复检宿主面结构契约的工具（goals/sessions/agents 可达性、toolFilter 接受性、错误面 code）。flag 默认 off、路由缺省不注册（404）、off 时零成本——保留不碍事，删了就要靠考古 R1 证据。宿主 deepseek-harness 升级后：`WARROOM_FEATURES=v5-spike` 起服 + `GET /warroom/api/v5-spike` 一键复检（probe 会话/goal 用后即清，见 K15 残留自愈）。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
