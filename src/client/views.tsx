@@ -180,6 +180,11 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[]): { reached: Record<L
   // 计划待批是最要紧的行动位（不属任何阶段——压在状态行上高亮）。
   const planPending = cmd.plan?.status === 'pending'
   if (chain.length === 0) {
+    // V9.3（复评 P2-1）：approved→publish 窗口期不再是「参谋接收中」——绿
+    // 「已批准」旁挂 warn 接收中是两个状态通道打架，给中性「任务待发布」。
+    if (cmd.status === 'approved') {
+      return { reached: { command: true, task: true, battle: false, report: false }, now: 'task', status: copy.approvedAwaitingPublish, tone: '' }
+    }
     const status = cmd.status === 'talking' ? copy.waitingClarify : planPending ? copy.planPending : copy.waitingStaff
     return { reached: { command: true, task: false, battle: false, report: false }, now: 'command', status, tone: 'warn' }
   }
@@ -225,6 +230,81 @@ function gradeChip(cmd: BoardCommand): ReactNode {
   const label = activeCopy().grade[cmd.grade]
   const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}`
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
+}
+
+/** V9.3（复评 P2-2）：task.lastError 是任务级最新败因——挂在每次失败尝试卡上
+ * 会把第 2 次的败因安到第 1 次头上且双计。只在该卡确为最新失败尝试时展示，
+ * 更早的尝试给中性文案（复盘进详情看全程）。 */
+function isLatestFailedAttempt(task: BoardTask, attempt: BoardAttempt): boolean {
+  const failed = (task.attemptLog ?? []).filter(a => a.outcome === 'failed')
+  return failed.length === 0 || failed[failed.length - 1]!.id === attempt.id
+}
+
+/** V9.3 Esc 层协调器：所有「Esc 可关」的层（弹窗/抽屉/聚焦）入栈，一次 Esc
+ * 只关最顶层——修复「聚焦+弹窗叠加时第一个 Esc 关错层」（复评 P1-3：监听器
+ * 随渲染重注册 + React 离散刷新中途摘除，竞争出「Esc 只退聚焦」假象）。 */
+const escLayers: Array<() => void> = []
+
+/** 弹窗层三件套（复评 P1-2）：dialog 语义 + 焦点移入/归还 + Tab 圈禁。
+ * onClose 经 ref 稳定持有——监听器空依赖注册一次，永不重挂。 */
+function useModalLayer(onClose: () => void, label: string): {
+  ref: { current: HTMLDivElement | null }
+  props: { role: 'dialog'; 'aria-modal': 'true'; 'aria-label': string; tabIndex: number }
+} {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    const prev = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    ref.current?.focus()
+    const mine = (): void => { closeRef.current() }
+    escLayers.push(mine)
+    const onKey = (e: KeyboardEvent): void => {
+      const el = ref.current
+      if (e.key === 'Escape') {
+        if (escLayers[escLayers.length - 1] !== mine) return
+        closeRef.current()
+        return
+      }
+      if (e.key !== 'Tab' || el === null) return
+      const focusables = el.querySelectorAll<HTMLElement>('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')
+      if (focusables.length === 0) return
+      const first = focusables[0]!
+      const last = focusables[focusables.length - 1]!
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      else if (!el.contains(document.activeElement)) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      const i = escLayers.indexOf(mine)
+      if (i >= 0) escLayers.splice(i, 1)
+      prev?.focus()
+    }
+  }, [])
+  return { ref, props: { role: 'dialog', 'aria-modal': 'true', 'aria-label': label, tabIndex: -1 } }
+}
+
+/** 非 弹窗的 Esc 层（聚焦模式等）：同样只关最顶层。 */
+function useEscOnlyLayer(active: boolean, onClose: () => void): void {
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    if (!active) return
+    const mine = (): void => { closeRef.current() }
+    escLayers.push(mine)
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || escLayers[escLayers.length - 1] !== mine) return
+      closeRef.current()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      const i = escLayers.indexOf(mine)
+      if (i >= 0) escLayers.splice(i, 1)
+    }
+  }, [active])
 }
 
 /** V9.2 定时命令角标的时间格式（本地时区 MM-DD HH:mm；无效/缺失给 —）。 */
@@ -297,17 +377,13 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
  * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
 function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void }): ReactNode {
   const { recent, onClose, refresh } = props
+  const layer = useModalLayer(onClose, activeCopy().composer.title)
   const [text, setText] = useState('')
   const [grade, setGrade] = useState<ComposerGrade>('auto')
   const [sched, setSched] = useState<'now' | 'cron'>('now')
   const [cronExpr, setCronExpr] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
   const cronErr: string | null = useMemo(() => {
     if (sched !== 'cron' || cronExpr.trim() === '') return null
     try {
@@ -354,7 +430,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
       createElement('span', { className: 'war-grade-card-hint' }, entry.hint),
     )
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal war-composer-modal', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal war-composer-modal', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-modal-title' }, copy.title),
       createElement('div', { className: 'war-modal-sub' }, copy.lead),
       createElement('textarea', {
@@ -363,10 +439,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         placeholder: copy.placeholder,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
-        onKeyDown: e => {
-          if (e.key === 'Escape') onClose()
-          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit()
-        },
+        onKeyDown: e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit() },
       }),
       createElement('div', { className: 'war-cp-section' }, copy.gradeSection),
       createElement('div', { className: 'war-grade-cards' },
@@ -433,11 +506,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 直滚到需要发落的环节（计划卡/任务链/战报段）。 */
 function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoard: boolean; focusSegment: 'plan' | 'chain' | 'report' | null; onOpenSession: (sessionId: string) => void; onOpenTask: (taskId: string) => void; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onFocus: (commandId: string) => void }): ReactNode {
   const { cmd, chain, taskOnBoard, focusSegment, onOpenSession, onOpenTask, onClose, onRegrade, onDecidePlan, onFocus } = props
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const layer = useModalLayer(onClose, `命令 ${cmd.commandId}`)
   // 分段直达：打开即滚到需要元首发落的环节（收件箱路由目标）。
   useEffect(() => {
     if (focusSegment === null) return
@@ -458,7 +527,7 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
     .flatMap(t => (t.attemptLog ?? []).map(a => ({ t, a })))
     .sort((x, y) => (x.a.startedAt < y.a.startedAt ? 1 : -1))
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
       createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}`),
       createElement('div', { className: 'war-detail-body' },
@@ -469,9 +538,12 @@ function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoa
             createElement('div', { className: 'war-plan-head' }, `作战计划（${copy.planTitle[cmd.plan.status]}）`),
             createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
             cmd.plan.status === 'pending'
-              ? createElement('div', { className: 'war-modal-actions' },
-                createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, copy.approvePlan),
-                createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
+              ? createElement('div', { className: 'war-plan-decide' },
+                createElement('div', { className: 'war-plan-decide-hint' }, copy.approveHint),
+                createElement('div', { className: 'war-modal-actions' },
+                  createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, copy.approvePlan),
+                  createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
+                ),
               )
               : null,
           )
@@ -617,15 +689,11 @@ function EvidenceBlock(evidence: NonNullable<BoardTask['reports'][number]['evide
 
 function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['status']>; services: ClientServicesFace; staffTarget: string | null; lineageCmd: BoardCommand | null; onOpenCommand: (commandId: string) => void; onClose: () => void }): ReactNode {
   const { task, statuses, services, staffTarget, lineageCmd, onOpenCommand, onClose } = props
+  const layer = useModalLayer(onClose, task.title)
   const latest = task.reports.length > 0 ? task.reports[task.reports.length - 1] : undefined
   const handleable = (task.status === 'reported' || task.status === 'failed') && staffTarget !== null
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-modal-title' }, task.title),
       createElement('div', { className: 'war-modal-sub' },
         `${task.taskId} · ${activeCopy().taskStatus[task.status]} · ${QUALITY_LABEL[task.quality]}${task.priority === 'high' ? ` · ${activeCopy().taskCard.highPriority}` : ''}${task.attempts > 1 ? ` · ${activeCopy().taskCard.attemptN(task.attempts)}` : ''}`),
@@ -698,7 +766,11 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
   ),
-  outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError)) : null,
+  outcomeKey === 'failed'
+    ? task.lastError !== null && isLatestFailedAttempt(task, attempt)
+      ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError))
+      : createElement('div', { className: 'war-fail' }, activeCopy().session.attemptFailedNeutral)
+    : null,
   outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, activeCopy().session.waitingReport) : null,
   )
 }
@@ -707,18 +779,14 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
  * (createElement-mounted) — its useEffect must live in its own instance. */
 function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services: ClientServicesFace; staffTarget: string | null; lineageCmd: BoardCommand | null; onOpenCommand: (commandId: string) => void; onClose: () => void }): ReactNode {
   const { task, attempt, services, staffTarget, lineageCmd, onOpenCommand, onClose } = props
+  const layer = useModalLayer(onClose, task.title)
   const outcomeKey = attempt.outcome ?? 'live'
   const meta = outcomeLabel(outcomeKey)
   const latest = task.reports.length > 0 ? task.reports[task.reports.length - 1] : undefined
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
   const openThread = (): void => { services.sessions?.open(attempt.sessionId); onClose() }
   const openStaff = (): void => { if (staffTarget !== null) { services.sessions?.open(staffTarget); onClose() } }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-modal-title' }, task.title),
       createElement('div', { className: 'war-modal-sub' },
         `${task.taskId} · ${meta.label} · ${QUALITY_LABEL[task.quality]}${attempt.n > 1 ? ` · ${activeCopy().session.attemptN(attempt.n)}` : ''} · ${relTime(attempt.startedAt)}${attempt.endedAt !== null ? ` → ${relTime(attempt.endedAt)}` : ''} · ⌁ ${attempt.sessionId}`),
@@ -750,7 +818,11 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
             task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
           )
           : null,
-        outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError)) : null,
+        outcomeKey === 'failed'
+    ? task.lastError !== null && isLatestFailedAttempt(task, attempt)
+      ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError))
+      : createElement('div', { className: 'war-fail' }, activeCopy().session.attemptFailedNeutral)
+    : null,
         task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
@@ -902,7 +974,7 @@ function WarIsland(props: {
     onMouseLeave: () => { setHover(false) },
   },
   createElement('div', {
-    className: 'war-island-pill',
+    className: `war-island-pill${inbox.length > 0 ? ' has-inbox' : ''}`,
     role: 'button',
     tabIndex: 0,
     'aria-expanded': open,
@@ -1018,11 +1090,7 @@ function SettingsDrawer(props: {
   const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh } = props
   const copy = activeCopy().settings
   const [skin, setSkinState] = useState(skinId())
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const layer = useModalLayer(onClose, copy.title)
   const skinBtn = (id: 'war' | 'plain', label: string): ReactNode =>
     createElement('button', {
       key: id, type: 'button',
@@ -1045,7 +1113,7 @@ function SettingsDrawer(props: {
       }, createElement('span', { className: 'war-switch-knob' })),
     )
   return createElement('div', { className: 'war-settings-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-settings-drawer', role: 'dialog', 'aria-modal': 'true', 'aria-label': copy.title, onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-settings-drawer', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-settings-head' },
         createElement('span', { className: 'war-settings-title' }, copy.title),
         createElement('button', { className: 'war-btn', onClick: onClose }, copy.close)),
@@ -1098,12 +1166,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V9.2 设置抽屉的看板行为开关（纯展示层偏好，localStorage 持久化）。
     const [hoverFamilyOn, setHoverFamilyOn] = useState(() => localStorage.getItem('warroom-cfg-hover-family') !== '0')
     const [autoScrollOn, setAutoScrollOn] = useState(() => localStorage.getItem('warroom-cfg-auto-scroll') !== '0')
-    useEffect(() => {
-      if (focusCommandId === null) return
-      const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setFocusCommandId(null) }
-      document.addEventListener('keydown', onKey)
-      return () => document.removeEventListener('keydown', onKey)
-    }, [focusCommandId])
+    useEscOnlyLayer(focusCommandId !== null, () => { setFocusCommandId(null) })
     // V9.2 聚焦点空白即退（元首指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
     useEffect(() => {
       if (focusCommandId === null) return

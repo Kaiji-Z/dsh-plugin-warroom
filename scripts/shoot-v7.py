@@ -353,6 +353,76 @@ with sync_playwright() as p:
     )
     print(f"contrast: st-published chip {contrast:.2f}:1 (>=4.5)")
 
+    # --- Phase G4: V9.3 整改机检（warn 文本对比度批 + Esc 层序 + dialog 语义 +
+    #     has-inbox 染色 + 批准决策块）。 ---
+    def contrast_of(sel: str):
+        return page.evaluate(
+            "(sel) => {"
+            "  const el = document.querySelector(sel);"
+            "  if (!el) return null;"
+            "  const cs = getComputedStyle(el);"
+            "  const lum = (spec) => {"
+            "    let r, g, b, a = 1;"
+            "    if (spec.startsWith('color(')) {"
+            "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
+            "      const nums = body.replace(/[^0-9. ]/g, ' ').trim().split(/\\s+/).map(Number);"
+            "      r = nums[0] * 255; g = nums[1] * 255; b = nums[2] * 255;"
+            "      if (nums.length > 3) a = nums[3];"
+            "    } else if (spec.startsWith('#')) {"
+            "      r = parseInt(spec.slice(1, 3), 16); g = parseInt(spec.slice(3, 5), 16); b = parseInt(spec.slice(5, 7), 16);"
+            "    } else {"
+            "      const m2 = /rgba?\\(([^)]+)\\)/.exec(spec);"
+            "      if (!m2) return null;"
+            "      const p = m2[1].split(',').map(Number);"
+            "      r = p[0]; g = p[1]; b = p[2]; a = p.length > 3 ? p[3] : 1;"
+            "    }"
+            "    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };"
+            "    const l = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);"
+            "    return l * a + 1.0 * (1 - a);"
+            "  };"
+            "  const fg = lum(cs.color);"
+            "  const bg = lum(cs.backgroundColor);"
+            "  if (fg === null || bg === null) return null;"
+            "  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);"
+            "}",
+            sel,
+        )
+    for sel in (".war-life-status.warn", ".war-preflight-text", ".war-dispatch-add"):
+        c = contrast_of(sel)
+        assert c is not None and c == c and c >= 4.5, f"{sel} contrast {c} below 4.5:1"
+        print(f"contrast: {sel} {c:.2f}:1")
+
+    # Esc 层协调：聚焦 + 弹窗叠加时，一次 Esc 只关最顶层（复评 P1-3）。
+    page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").locator(".war-focus-btn").click()
+    page.wait_for_timeout(300)
+    page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert page.locator(".war-modal[role='dialog'][aria-modal='true']").count() >= 1, "modal lacks dialog semantics"
+    assert page.evaluate("() => document.querySelector('.war-modal').contains(document.activeElement)"), "focus not moved into modal"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert page.locator(".war-modal").count() == 0, "first Esc must close the top layer (modal)"
+    assert page.locator(".war-island-focus").count() == 1, "first Esc must NOT exit focus underneath"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert page.locator(".war-island-focus").count() == 0, "second Esc should exit focus mode"
+    print("Esc layering: modal > focus, one layer per press")
+
+    # 非零收件箱 = 岛的主导信号（胶囊染警示）。
+    assert page.locator(".war-island-pill.has-inbox").count() == 1, "island pill must wear has-inbox tint when inbox non-empty"
+
+    # 批准决策块：计划待批的详情里，后果一句话 + 独立按钮区（一键保留）。
+    leave_island()
+    page.wait_for_timeout(300)
+    page.locator(".war-island-pill").hover()
+    page.wait_for_timeout(300)
+    page.locator(".war-inbox-item", has_text="批计划").click()
+    page.wait_for_selector(".war-plan-decide", timeout=3000)
+    assert page.locator(".war-plan-decide-hint").inner_text() != "", "approve consequence hint missing"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    print("plan decide block: consequence hint + isolated actions ok")
+
     # --- Phase H: 收尾。 ---
     pre.screenshot(path=f"{OUT}/v7-preflight.png")
     print("shot: v7-preflight.png (L1 command preflight + 改直发)")

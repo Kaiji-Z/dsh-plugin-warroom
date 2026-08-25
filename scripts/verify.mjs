@@ -194,6 +194,16 @@ gate('bundle', () => {
     [client, 'cronPresets', 'cron preset lexicon (both skins)'],
     [host, 'directive_dispatched', 'scheduled command dispatch event'],
     [host, 'dueScheduledDirectives', 'scheduled command due calculator'],
+    // V9.3（复评 27/40 整改）：Esc 层协调器 + 弹窗 dialog 语义/焦点圈禁 +
+    // warn 文本对比度 + 批准视觉隔离 + 非零收件箱胶囊染警示。
+    [client, 'useModalLayer', 'modal dialog semantics + focus trap + Esc coordination'],
+    [client, 'has-inbox', 'island pill warn tint when inbox non-empty'],
+    [client, 'war-plan-decide', 'plan approval decision block (one-click kept, visually isolated)'],
+    [client, 'approvedAwaitingPublish', 'approved-empty-chain lifecycle status (no contradiction)'],
+    [client, 'attemptFailedNeutral', 'older failed attempts get neutral copy, not latest error'],
+    // styles.ts 双模板串坑（连踩两次）：CSS 误插 querySelector 模板会炸宿主入口。
+    // 断言该模板在 bundle 里保持「开-闭完整」形态。
+    [client, 'style[${STYLE_ID}]`) !== null) return', 'ensureWarStyles querySelector template intact (CSS not leaked into it)'],
     [client, '进入会话复盘', 'session detail jump button'],
     [client, '去处理', 'reported/failed staff-jump button'],
     [client, 'warroom-open-request', 'dock pill home event'],

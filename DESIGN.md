@@ -112,3 +112,16 @@
 - **critique 修复清单**：P1-1 排版三级刻度（12 正文/13 卡题 600+line-height 1.5/15 区题）；P1-2 语义色 chip 文本 color-mix 加深（st-published 2.79→**6.67:1**，shoot 机检断言）+ time/taskid tertiary→secondary；P1-3 即聚焦改版；P2-2 调度坞右缘渐隐 mask；P2-3 dim 卡 focus-visible 恢复不透明；P3 铭牌 11→12px、toast 挪调度坞上方右角。未做（记 backlog）：chip 形状通道分流（P2-1）、modal role=dialog 焦点陷阱全量（SettingsDrawer 已带，CommandDetail 等待下轮）。
 - **坑：styles.ts 尾部有两个模板串**——WAR_CSS 与 `querySelector(\`style[...]\`)`，往「锚点前最后一个反引号」插 CSS 会插进选择器模板（query 炸、宿主入口渲染失败）。教训：模板串追加要锚定 WAR_CSS 的**闭合**反引号，或按行号插。另：python heredoc 带反斜杠/反引号内容会被 bash 层吃字符——复杂脚本一律落临时文件再跑（本轮丢过一次 styles.ts，git checkout + 重放恢复）。
 
+## V9.3 复评整改（2026-08-26，critique 23→27 后全项修复）
+
+> 复评 27/40（趋势 23→27），元首三答：P1 全修+P2 顺带 / 批准保持一键但视觉隔离 / 非零收件箱染警示。整改后 shoot 四条对比度机检 + Esc 层序 + 决策块断言全绿。
+
+- **P1-1 warn 文本对比度批修**：上轮只修了 chip 族，本轮补齐同色系行内文本——`life-status.warn/err`、`preflight-text`、`mark.bang/query`、`inbox-wait(tone-*)`、`visit-seg.s-pending` 全部 color-mix 加深（实测 6.96:1）；visitmini/st-cancelled/visit-since tertiary→secondary；`life-label.now` 加深。检测器另抓的 `＋` 钮 4.2:1 → 底色 82% 混黑（5.86:1）。shoot 断言扩成四选择器循环。
+- **P1-2 弹窗 a11y**：`useModalLayer(onClose, label)` 三件套——`role=dialog`+`aria-modal`+焦点移入（tabIndex:-1 容器）/归还 + Tab 圈禁；五个弹窗（CommandDetail/Composer/TaskDetail/SessionDetail/SettingsDrawer）统一接入，旧手写 Esc 效果全删。
+- **P1-3 Esc 层协调器**：模块级 `escLayers` 栈 + 只关最顶层判定；`useEscOnlyLayer`（聚焦模式）。根因是监听器随渲染重注册 + React 离散刷新中途摘除（复评实锤复现 2 次）。shoot 断言：聚焦+弹窗叠加，第一个 Esc 只关弹窗、第二个退聚焦。
+- **P2-1**：lifecycleOf 增 approved 空链分支（`任务待发布` 中性 tone）——绿「已批准」旁不再挂 warn「参谋接收中」。
+- **P2-2**：`isLatestFailedAttempt` 判定——败因只挂最新失败尝试，更早尝试给中性「该次尝试失败——进复盘看全程」（双皮肤词条）。
+- **批准视觉隔离**（元首定：一键保留）：`.war-plan-decide` 决策块 = 后果一句话（「批准即放权：参谋按此计划自动推进，夜间无人值守也照常执行」）+ 批准/驳回按钮区，与改档钮物理分组。
+- **岛 has-inbox 染色**（元首定）：收件箱非空时 pill 描边+状态点染 warn（「有事等你」成为岛的主导信号），清空回常态。
+- **坑（styles.ts 双模板串）连踩第二次**：V9.3 CSS 又插进 querySelector 模板。除再次搬迁外，verify 加**永久针脚**断言该模板在 bundle 里保持开-闭完整形态——第三次会被机检当场拦下。搬迁脚本的 `del [start+1:end]` 不含端点，两次都留孤儿 `` `) !== null) return `` 行——记住删端点。
+

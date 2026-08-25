@@ -58,6 +58,7 @@ export interface WarCopy {
   lifecycle: {
     stages: { command: string; task: string; battle: string; report: string }
     waitingStaff: string
+    approvedAwaitingPublish: string
     waitingClarify: string
     planPending: string
     waitingClaim: string
@@ -146,6 +147,7 @@ export interface WarCopy {
     regradesNote: (n: number) => string
     planTitle: Record<'pending' | 'approved' | 'rejected', string>
     approvePlan: string
+    approveHint: string
     rejectPlan: string
     regradeHint: string
     regradeTo: (label: string) => string
@@ -202,6 +204,7 @@ export interface WarCopy {
     attemptN: (n: number) => string
     attemptNTitle: string
     failReason: (e: string) => string
+    attemptFailedNeutral: string
     lootPrefix: string
     lootSummary: (loot: string, clipped: string, more: boolean) => string
     waitingReport: string
@@ -293,6 +296,7 @@ export const warCopy: WarCopy = {
   lifecycle: {
     stages: { command: '命令', task: '任务', battle: '执行', report: '战报' },
     waitingStaff: '参谋接收中',
+    approvedAwaitingPublish: '任务待发布',
     waitingClarify: '等你答问（点卡进对话）',
     planPending: '计划待你批',
     waitingClaim: '待指挥官领取',
@@ -415,6 +419,7 @@ export const warCopy: WarCopy = {
     regradesNote: n => `（元首改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
+    approveHint: '批准即放权：参谋按此计划自动推进，夜间无人值守也照常执行。',
     rejectPlan: '驳回重呈',
     regradeHint: '升降档（元首覆写参谋分诊，改后需通知参谋按新档执行）：',
     regradeTo: label => `改为 ${label}`,
@@ -472,6 +477,7 @@ export const warCopy: WarCopy = {
     attemptN: n => `第 ${n} 次`,
     attemptNTitle: '重试尝试',
     failReason: e => `败因：${e}`,
+    attemptFailedNeutral: '该次尝试失败——进复盘看全程',
     lootPrefix: '战利品：',
     lootSummary: (loot, clipped, more) => `战利品：${clipped}${more ? '…' : ''}`,
     waitingReport: '证据已核验，等元首翻阅收官',
@@ -567,6 +573,7 @@ export const plainCopy: WarCopy = {
     stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
     waitingClarify: '等你回答（点卡进对话）',
     waitingStaff: '参谋接收中',
+    approvedAwaitingPublish: '任务待发布',
     planPending: '方案待你批',
     waitingClaim: '等执行者领取',
     attemptN: n => `第 ${n} 次尝试`,
@@ -687,6 +694,7 @@ export const plainCopy: WarCopy = {
     regradesNote: n => `（改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
+    approveHint: '点头即开工：参谋按这个方案自动做下去，夜里也不停。',
     rejectPlan: '驳回重呈',
     regradeHint: '升降档（覆写参谋分诊，改后需通知参谋按新档执行）：',
     regradeTo: label => `改为 ${label}`,
@@ -744,6 +752,7 @@ export const plainCopy: WarCopy = {
     attemptN: n => `第 ${n} 次`,
     attemptNTitle: '重试尝试',
     failReason: e => `失败原因：${e}`,
+    attemptFailedNeutral: '该次没成——进复盘看全程',
     lootPrefix: '交付：',
     lootSummary: (loot, clipped, more) => `交付：${clipped}${more ? '…' : ''}`,
     waitingReport: '证据已核验，等你验收',

@@ -21,7 +21,7 @@ const WAR_CSS = `
 .war-island-counts{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-island-badge{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-island-badge.hot{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);border-color:var(--dsw-alias-state-error-primary);font-weight:600}
-.war-island-visitmini{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.war-island-visitmini{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .war-island-spacer{flex:1 1 auto;min-width:4px}
 .war-island-pinned{font-size:12px;flex:0 0 auto}
 .war-island .war-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
@@ -81,7 +81,7 @@ const WAR_CSS = `
 .war-chip.st-draft{color:var(--dsw-alias-label-tertiary)}
 .war-chip.st-received,.war-chip.st-talking{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
 .war-chip.st-approved{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
-.war-chip.st-cancelled{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
+.war-chip.st-cancelled{color:var(--dsw-alias-label-secondary);text-decoration:line-through}
 /* V5 grade chips (档位账本): L0 直发绿 / L1 呈批蓝 / L2 澄清黄 */
 .war-chip.gr-L0{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000);border-color:var(--dsw-alias-state-success-primary)}
 .war-chip.gr-L1{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);border-color:var(--dsw-alias-state-business-primary)}
@@ -123,10 +123,10 @@ const WAR_CSS = `
 @media (prefers-reduced-motion: reduce){.war-life-bar.now{animation:none}}
 .war-life-label{font-size:12px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .war-life-label.done{color:var(--dsw-alias-label-secondary)}
-.war-life-label.now{color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-life-label.now{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, #000);font-weight:600}
 .war-life-status{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.war-life-status.warn{color:var(--dsw-alias-state-warn-label);font-weight:600}
-.war-life-status.err{color:var(--dsw-alias-state-error-label)}
+.war-life-status.warn{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);font-weight:600}
+.war-life-status.err{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000)}
 
 /* lineage chip（任务/会话卡 → 源命令）：可点的回溯入口 */
 .war-chip.war-lineage{cursor:pointer}
@@ -143,8 +143,8 @@ const WAR_CSS = `
 .war-inbox-item:hover{background:var(--dsw-alias-bg-layer-2)}
 .war-inbox-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-inbox-wait{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:0 0 auto}
-.war-inbox-item.tone-warn .war-inbox-wait{color:var(--dsw-alias-state-warn-label);font-weight:600}
-.war-inbox-item.tone-err .war-inbox-wait{color:var(--dsw-alias-state-error-label);font-weight:600}
+.war-inbox-item.tone-warn .war-inbox-wait{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);font-weight:600}
+.war-inbox-item.tone-err .war-inbox-wait{color:color-mix(in srgb, var(--dsw-alias-state-error-label) 58%, #000);font-weight:600}
 .war-inbox-item.leader .war-inbox-text{font-weight:700}
 .war-inbox-oldest{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-label);font-weight:600;flex:0 0 auto}
 .war-inbox-empty{padding:6px 10px;font-size:12px;color:var(--dsw-alias-label-tertiary)}
@@ -155,12 +155,12 @@ const WAR_CSS = `
 
 /* --- V7-② 到访摘要横幅（自上次看过以来） --------------------------------------- */
 .war-visit{flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 14px 0;padding:6px 10px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
-.war-visit-since{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}
+.war-visit-since{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-visit-seg{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .war-visit-seg:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
 .war-visit-seg.s-closed{color:var(--dsw-alias-state-success-label);border-color:var(--dsw-alias-state-success-primary)}
 .war-visit-seg.s-failed{color:var(--dsw-alias-state-error-label);border-color:var(--dsw-alias-state-error-primary)}
-.war-visit-seg.s-pending{color:var(--dsw-alias-state-warn-label);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
+.war-visit-seg.s-pending{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);border-color:var(--dsw-alias-state-warn-primary);font-weight:600}
 
 /* --- V7-③ 族系追踪（悬停高亮 + 聚焦压暗 + 聚焦条） ------------------------------ */
 .war-card.war-rel-dim{opacity:.32}
@@ -170,7 +170,7 @@ const WAR_CSS = `
 
 /* --- V7-④ 夜间预检 + 起草器档位/最近命令 ---------------------------------------- */
 .war-preflight{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:8px;border:1px dashed var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-bg-layer-2)}
-.war-preflight-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-state-warn-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-preflight-text{flex:1 1 auto;min-width:0;font-size:12px;color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-preflight-btn{padding:2px 8px;font-size:12px;line-height:18px;flex:0 0 auto}
 .war-recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
 .war-recent-label{font-size:12px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto}
@@ -206,8 +206,8 @@ const WAR_CSS = `
 .war-cron{font-size:12px;color:var(--dsw-alias-state-business-primary)}
 .war-fail{font-size:12px;color:var(--dsw-alias-state-error-label);background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:6px 10px}
 .war-mark{font-size:14px;font-weight:700;line-height:1}
-.war-mark.bang{color:var(--dsw-alias-state-warn-label)}
-.war-mark.query{color:var(--dsw-alias-state-success-label)}
+.war-mark.bang{color:color-mix(in srgb, var(--dsw-alias-state-warn-label) 58%, #000)}
+.war-mark.query{color:color-mix(in srgb, var(--dsw-alias-state-success-label) 58%, #000)}
 
 /* --- modals ------------------------------------------------------------------ */
 .war-modal-backdrop{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;padding:32px}
@@ -267,7 +267,7 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 
 /* --- V9.2 调度坞左端钉驻簇（[＋下达][铭牌]）--------------------------------- */
 .war-dispatch-lead{position:sticky;left:0;display:flex;align-items:stretch;gap:2px;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-base));z-index:1;padding-right:10px}
-.war-dispatch-add{align-self:center;flex:0 0 auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-bg-base);font-size:18px;font-weight:600;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-family:var(--dsw-font-family);box-shadow:0 1px 5px rgba(0,0,0,.18)}
+.war-dispatch-add{align-self:center;flex:0 0 auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 82%, #000);color:var(--dsw-alias-bg-base);font-size:18px;font-weight:600;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-family:var(--dsw-font-family);box-shadow:0 1px 5px rgba(0,0,0,.18)}
 .war-dispatch-add:hover{filter:brightness(1.08)}
 .war-dispatch-add:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
 
@@ -324,6 +324,15 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 
 /* --- V9.2 调度坞右缘渐隐（提示可横滚——审查 P2-2）--------------------------- */
 .war-dispatch{mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35));-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35))}
+/* --- V9.3：非零收件箱 = 岛的主导信号（胶囊染警示，清空回常态）--------------- */
+.war-island-pill.has-inbox{border-color:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 60%, var(--dsw-alias-border-l2));box-shadow:0 2px 10px color-mix(in srgb, var(--dsw-alias-state-warn-primary) 18%, transparent)}
+.war-island-pill.has-inbox .war-head-dot{background:var(--dsw-alias-state-warn-primary);opacity:1}
+
+/* --- V9.3：批准计划视觉隔离（一键保留，后果先讲清——决策区独立成块）--------- */
+.war-plan-decide{margin-top:8px;padding:8px 10px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 5%, transparent)}
+.war-plan-decide-hint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);margin-bottom:6px}
+.war-plan-decide .war-modal-actions{margin:0}
+.war-modal:focus-visible{outline:none}
 `
 
 const STYLE_ID = 'data-dsh-plugin-warroom'
