@@ -20,16 +20,18 @@ const WAR_CSS = `
 .war-err{font-size:12px;color:var(--dsw-alias-state-error-label)}
 .war-empty{color:var(--dsw-alias-label-secondary);font-size:12px;padding:12px 4px;text-align:center;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;margin:6px 0}
 
-/* --- the two-region board (v3: 指挥中心 | 战场) ----------------------------- */
-.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2fr 3fr;gap:0}
+/* --- the three-region board (v6: 指挥中心 | 战场 | 战报) ---------------------- */
+.war-board{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:2.2fr 1.3fr 2.2fr;gap:0}
 .war-zone{display:flex;flex-direction:column;min-height:0;min-width:0}
 .war-hq{border-right:2px solid var(--dsw-alias-border-l1)}
+.war-field{border-right:2px solid var(--dsw-alias-border-l1)}
 .war-zone-head{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;padding:8px 14px 6px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .war-zone-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-secondary);letter-spacing:.08em}
 .war-zone-note{font-size:11px;color:var(--dsw-alias-label-tertiary)}
 .war-zone-cols{flex:1 1 auto;min-height:0;display:grid;min-width:0}
 .war-hq .war-zone-cols{grid-template-columns:repeat(2,minmax(196px,1fr))}
-.war-field .war-zone-cols{grid-template-columns:repeat(3,minmax(184px,1fr))}
+.war-field .war-zone-cols{grid-template-columns:minmax(220px,1fr)}
+.war-report .war-zone-cols{grid-template-columns:repeat(2,minmax(180px,1fr))}
 .war-col{display:flex;flex-direction:column;min-height:0;min-width:0;border-right:1px solid var(--dsw-alias-border-l1);padding:0 8px}
 .war-col:last-child{border-right:0}
 .war-col-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;padding:8px 2px;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l1);flex:0 0 auto}
@@ -95,6 +97,31 @@ const WAR_CSS = `
 @media (prefers-reduced-motion: reduce){.war-command-card.pulse{animation:none}}
 .war-command-text{font-size:12px;color:var(--dsw-alias-label-primary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .war-command-text.struck{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
+
+/* --- command lifecycle strip (v6: 命令→任务→执行→战报 全程追踪) -------------- */
+.war-life{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:2px}
+.war-life-stage{display:flex;flex-direction:column;gap:3px;min-width:0}
+.war-life-bar{height:3px;border-radius:2px;background:var(--dsw-alias-border-l2);transition:background .2s ease}
+.war-life-bar.done{background:var(--dsw-alias-state-success-primary)}
+.war-life-bar.now{background:var(--dsw-alias-state-business-primary);animation:war-life-breath 2.4s ease-in-out infinite}
+@keyframes war-life-breath{0%,100%{opacity:1}50%{opacity:.45}}
+@media (prefers-reduced-motion: reduce){.war-life-bar.now{animation:none}}
+.war-life-label{font-size:10px;line-height:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.war-life-label.done{color:var(--dsw-alias-label-secondary)}
+.war-life-label.now{color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-life-status{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.war-life-status.warn{color:var(--dsw-alias-state-warn-label);font-weight:600}
+.war-life-status.err{color:var(--dsw-alias-state-error-label)}
+
+/* lineage chip（任务/会话卡 → 源命令）：可点的回溯入口 */
+.war-chip.war-lineage{cursor:pointer}
+.war-chip.war-lineage:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
+
+/* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
+.war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
+.war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}
+.war-chain-row .war-title{flex:1 1 auto}
+.war-chain-meta{font-size:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}
 .war-loot-summary{font-size:11px;color:var(--dsw-alias-state-success-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-waiting{font-size:11px;color:var(--dsw-alias-label-secondary)}
 

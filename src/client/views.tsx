@@ -130,6 +130,75 @@ function wsChip(path: string | null): ReactNode {
 
 // --- 命令区 ------------------------------------------------------------------
 
+/** 命令的任务域（全生命周期追踪的核心）：头任务 + 全部传递依赖它的任务
+ *  （V6 链的后继经 deps 闭包归队）。命令卡/命令详情据此聚合进度。 */
+function commandTasks(cmd: BoardCommand, tasks: BoardTask[]): BoardTask[] {
+  if (cmd.taskId === null) return []
+  const members = new Set<string>([cmd.taskId])
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const t of tasks) {
+      if (members.has(t.taskId)) continue
+      if (t.deps.some(d => members.has(d))) {
+        members.add(t.taskId)
+        grew = true
+      }
+    }
+  }
+  return tasks.filter(t => members.has(t.taskId))
+}
+
+type LifeStage = 'command' | 'task' | 'battle' | 'report'
+
+/** 阶段条状态机：命令→任务→执行→战报，now 是当前关注位（呼吸条）。 */
+function lifecycleOf(cmd: BoardCommand, chain: BoardTask[]): { reached: Record<LifeStage, boolean>; now: LifeStage | null; status: string; tone: '' | 'warn' | 'err' } {
+  const copy = activeCopy().lifecycle
+  if (cmd.status === 'cancelled') {
+    return { reached: { command: true, task: false, battle: false, report: false }, now: null, status: copy.cancelled, tone: 'err' }
+  }
+  // 计划待批是最要紧的行动位（不属任何阶段——压在状态行上高亮）。
+  const planPending = cmd.plan?.status === 'pending'
+  if (chain.length === 0) {
+    const status = cmd.status === 'talking' ? copy.waitingClarify : planPending ? copy.planPending : copy.waitingStaff
+    return { reached: { command: true, task: false, battle: false, report: false }, now: 'command', status, tone: 'warn' }
+  }
+  const closed = chain.filter(t => t.status === 'closed').length
+  const battleLive = chain.some(t => t.status === 'in_progress' || t.status === 'reported' || t.attemptLog.length > 0)
+  const reportDone = chain.some(t => t.status === 'closed' || t.status === 'failed')
+  const chainPrefix = chain.length > 1 ? `${copy.chain(closed, chain.length)} · ` : ''
+  if (reportDone) {
+    const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed')
+    const label = terminal !== undefined ? activeCopy().taskStatus[terminal.status] : ''
+    return { reached: { command: true, task: true, battle: true, report: true }, now: 'report', status: `${chainPrefix}${label}`, tone: '' }
+  }
+  if (battleLive) {
+    const current = chain.find(t => t.status === 'in_progress' || t.status === 'reported') ?? chain[chain.length - 1]!
+    const attemptSuffix = current.attempts > 1 ? ` · ${copy.attemptN(current.attempts)}` : ''
+    return { reached: { command: true, task: true, battle: true, report: false }, now: 'battle', status: `${chainPrefix}${activeCopy().taskStatus[current.status]}${attemptSuffix}`, tone: '' }
+  }
+  return { reached: { command: true, task: true, battle: false, report: false }, now: 'task', status: copy.waitingClaim, tone: '' }
+}
+
+/** 阶段条（4 段分段进度：done 绿 / now 蓝呼吸 / 其余灰）。 */
+function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
+  const copy = activeCopy().lifecycle
+  const life = lifecycleOf(cmd, chain)
+  const stages: Array<{ key: LifeStage; label: string }> = [
+    { key: 'command', label: copy.stages.command },
+    { key: 'task', label: copy.stages.task },
+    { key: 'battle', label: copy.stages.battle },
+    { key: 'report', label: copy.stages.report },
+  ]
+  return createElement('div', { className: 'war-life' },
+    ...stages.map(s => createElement('div', { key: s.key, className: 'war-life-stage' },
+      createElement('span', { className: `war-life-bar${life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }),
+      createElement('span', { className: `war-life-label${life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }, s.label),
+    )),
+    createElement('span', { className: `war-life-status${life.tone !== '' ? ` ${life.tone}` : ''}`, style: { gridColumn: '1 / -1' } }, life.status),
+  )
+}
+
 /** V5 档位徽章：L0 直发 / L1 呈批 / L2 澄清（未分诊不显示）。 */
 function gradeChip(cmd: BoardCommand): ReactNode {
   if (cmd.grade === null) return null
@@ -138,7 +207,7 @@ function gradeChip(cmd: BoardCommand): ReactNode {
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
-function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void): ReactNode {
+function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[]): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
     const target = cmd.staffSessionId ?? hqSessionId
@@ -160,6 +229,8 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
   ),
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
+  // 全生命周期阶段条：命令不因发布而死卡——任务/执行/战报进度常驻卡上。
+  LifeStrip(cmd, chain),
   cmd.status === 'cancelled' && cmd.cancelledReason !== null
     ? createElement('div', { className: 'war-fail' }, activeCopy().commandDetail.cancelledReason(cmd.cancelledReason))
     : null,
@@ -215,43 +286,75 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
   )
 }
 
-function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
+/** 命令全生命周期详情（追踪中枢）：原文 → 分诊/计划 → 任务链逐环 → 最新战报。 */
+function CommandDetail(cmd: BoardCommand, chain: BoardTask[], onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
   const GRADE_LABEL = activeCopy().grade
+  const copy = activeCopy().commandDetail
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
+  const closed = chain.filter(t => t.status === 'closed').length
+  // 最新战报：链上任一环的最新一条汇报（各环取末条，再按时间取最新）。
+  const lastReport = chain
+    .flatMap(t => (t.reports.length > 0 ? [{ r: t.reports[t.reports.length - 1]!, t }] : []))
+    .sort((a, b) => (a.r.ts < b.r.ts ? 1 : -1))[0]
+  const verdictTask = chain.find(t => t.closedVerdict !== null)
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
+    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? activeCopy().commandDetail.regradesNote(cmd.regrades) : ''}` : ''}`),
-      createElement('div', { className: 'war-detail-body' }, cmd.text),
-      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${activeCopy().commandDetail.gradeReasonPrefix}${cmd.gradeReason}`) : null,
-      cmd.plan !== null
-        ? createElement('div', { className: 'war-plan' },
-          createElement('div', { className: 'war-plan-head' }, `作战计划（${activeCopy().commandDetail.planTitle[cmd.plan.status]}）`),
-          createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
-          cmd.plan.status === 'pending'
-            ? createElement('div', { className: 'war-modal-actions' },
-              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, activeCopy().commandDetail.approvePlan),
-              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, activeCopy().commandDetail.rejectPlan),
-            )
-            : null,
-        )
-        : null,
-      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, activeCopy().commandDetail.cancelledReason(cmd.cancelledReason)) : null,
-      regradable
-        ? createElement('div', { className: 'war-modal-sub' }, activeCopy().commandDetail.regradeHint)
-        : null,
-      regradable
-        ? createElement('div', { className: 'war-modal-actions' },
-          (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
-            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, activeCopy().commandDetail.regradeTo(GRADE_LABEL[g]))))
-        : null,
-      cmd.status === 'approved' && cmd.taskId !== null
-        ? createElement('div', { className: 'war-modal-actions' },
-          createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, activeCopy().commandDetail.viewTask(cmd.taskId)),
-        )
-        : null,
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}`),
+      createElement('div', { className: 'war-detail-body' },
+        createElement('div', { className: 'war-detail-text' }, cmd.text),
+        cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${copy.gradeReasonPrefix}${cmd.gradeReason}`) : null,
+        cmd.plan !== null
+          ? createElement('div', { className: 'war-plan' },
+            createElement('div', { className: 'war-plan-head' }, `作战计划（${copy.planTitle[cmd.plan.status]}）`),
+            createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
+            cmd.plan.status === 'pending'
+              ? createElement('div', { className: 'war-modal-actions' },
+                createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, copy.approvePlan),
+                createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
+              )
+              : null,
+          )
+          : null,
+        // 任务链：一环一行（状态/标题/元信息），点行进任务卡——追踪即跳转。
+        createElement('div', { className: 'war-detail-section' }, copy.chainSection),
+        chain.length === 0
+          ? createElement('div', { className: 'war-detail-text' }, copy.noTasks)
+          : createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+            chain.length > 1 ? createElement('div', { className: 'war-life-status' }, copy.chainDone(closed, chain.length)) : null,
+            chain.map(t => createElement('div', {
+              key: t.taskId,
+              className: 'war-chain-row',
+              onClick: () => { onOpenTask(t.taskId); onClose() },
+            },
+            createElement('span', { className: `war-chip st-${t.status}` }, activeCopy().taskStatus[t.status]),
+            createElement('span', { className: 'war-title' }, t.title),
+            createElement('span', { className: 'war-chain-meta' }, `${t.taskId}${t.attempts > 1 ? ` · ${activeCopy().lifecycle.attemptN(t.attempts)}` : ''}`),
+            )),
+          ),
+        lastReport !== undefined
+          ? createElement('div', { className: 'war-detail-section' }, copy.latestReport)
+          : null,
+        lastReport !== undefined
+          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
+          : null,
+        lastReport !== undefined && lastReport.r.evidence !== null ? EvidenceBlock(lastReport.r.evidence) : null,
+        verdictTask !== undefined && verdictTask.closedVerdict !== null
+          ? createElement('div', { className: 'war-report' }, `${activeCopy().detail.verdictPrefix}${verdictTask.closedVerdict}`)
+          : null,
+        cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
+        regradable ? createElement('div', { className: 'war-modal-sub' }, copy.regradeHint) : null,
+        regradable
+          ? createElement('div', { className: 'war-modal-actions' },
+            (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
+              createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, copy.regradeTo(GRADE_LABEL[g]))))
+          : null,
+      ),
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, activeCopy().commandDetail.close),
+        cmd.status === 'approved' && cmd.taskId !== null
+          ? createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, copy.viewTask(cmd.taskId))
+          : null,
+        createElement('button', { className: 'war-btn', onClick: onClose }, copy.close),
       ),
     ),
   )
@@ -259,13 +362,20 @@ function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTas
 
 // --- 任务区 ------------------------------------------------------------------
 
-function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null): ReactNode {
+function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void): ReactNode {
   return createElement('div', { key: task.taskId, className: 'war-card clickable', onClick: () => onOpen(task.taskId) },
     createElement('div', { className: 'war-card-top' },
       statusMark(task),
       createElement('span', { className: `war-chip st-${task.status}` }, activeCopy().taskStatus[task.status]),
       qualityChip(task.quality),
       task.priority === 'high' ? createElement('span', { className: 'war-chip pri-high' }, activeCopy().taskCard.highPriority) : null,
+      lineageCmd !== null
+        ? createElement('span', {
+            className: 'war-chip war-lineage',
+            title: `${activeCopy().detail.lineageLabel} ${lineageCmd.commandId}——点击追踪全生命周期`,
+            onClick: e => { e.stopPropagation(); onOpenCommand(lineageCmd.commandId) },
+          }, `↩ ${lineageCmd.commandId}`)
+        : null,
       createElement('span', { className: 'war-title' }, task.title),
     ),
     createElement('div', { className: 'war-card-top' },
@@ -306,8 +416,8 @@ function EvidenceBlock(evidence: NonNullable<BoardTask['reports'][number]['evide
   return createElement('div', { className: 'war-evi' }, rows)
 }
 
-function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['status']>; services: ClientServicesFace; staffTarget: string | null; onClose: () => void }): ReactNode {
-  const { task, statuses, services, staffTarget, onClose } = props
+function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['status']>; services: ClientServicesFace; staffTarget: string | null; lineageCmd: BoardCommand | null; onOpenCommand: (commandId: string) => void; onClose: () => void }): ReactNode {
+  const { task, statuses, services, staffTarget, lineageCmd, onOpenCommand, onClose } = props
   const latest = task.reports.length > 0 ? task.reports[task.reports.length - 1] : undefined
   const handleable = (task.status === 'reported' || task.status === 'failed') && staffTarget !== null
   useEffect(() => {
@@ -320,6 +430,14 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
       createElement('div', { className: 'war-modal-title' }, task.title),
       createElement('div', { className: 'war-modal-sub' },
         `${task.taskId} · ${activeCopy().taskStatus[task.status]} · ${QUALITY_LABEL[task.quality]}${task.priority === 'high' ? ` · ${activeCopy().taskCard.highPriority}` : ''}${task.attempts > 1 ? ` · ${activeCopy().taskCard.attemptN(task.attempts)}` : ''}`),
+      lineageCmd !== null
+        ? createElement('div', { className: 'war-modal-sub' },
+          `${activeCopy().detail.lineageLabel} `,
+          createElement('span', {
+            className: 'war-chip war-lineage',
+            onClick: () => { onOpenCommand(lineageCmd.commandId); onClose() },
+          }, `↩ ${lineageCmd.commandId}`))
+        : null,
       createElement('div', { className: 'war-detail-body' },
         depLock(task, statuses),
         task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
@@ -382,8 +500,8 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
 
 /** The battlefield's read-only detail modal (detail-first). A real component
  * (createElement-mounted) — its useEffect must live in its own instance. */
-function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services: ClientServicesFace; staffTarget: string | null; onClose: () => void }): ReactNode {
-  const { task, attempt, services, staffTarget, onClose } = props
+function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services: ClientServicesFace; staffTarget: string | null; lineageCmd: BoardCommand | null; onOpenCommand: (commandId: string) => void; onClose: () => void }): ReactNode {
+  const { task, attempt, services, staffTarget, lineageCmd, onOpenCommand, onClose } = props
   const outcomeKey = attempt.outcome ?? 'live'
   const meta = outcomeLabel(outcomeKey)
   const latest = task.reports.length > 0 ? task.reports[task.reports.length - 1] : undefined
@@ -398,7 +516,15 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
     createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, task.title),
       createElement('div', { className: 'war-modal-sub' },
-        `${task.taskId} · ${meta.label}${attempt.n > 1 ? ` · 第 ${attempt.n} 次尝试` : ''} · ${relTime(attempt.startedAt)}${attempt.endedAt !== null ? ` → ${relTime(attempt.endedAt)}` : ''} · ⌁ ${attempt.sessionId}`),
+        `${task.taskId} · ${meta.label}${attempt.n > 1 ? ` · ${activeCopy().session.attemptN(attempt.n)}` : ''} · ${relTime(attempt.startedAt)}${attempt.endedAt !== null ? ` → ${relTime(attempt.endedAt)}` : ''} · ⌁ ${attempt.sessionId}`),
+      lineageCmd !== null
+        ? createElement('div', { className: 'war-modal-sub' },
+          `${activeCopy().detail.lineageLabel} `,
+          createElement('span', {
+            className: 'war-chip war-lineage',
+            onClick: () => { onOpenCommand(lineageCmd.commandId); onClose() },
+          }, `↩ ${lineageCmd.commandId}`))
+        : null,
       createElement('div', { className: 'war-detail-body' },
         wsChip(task.workspacePath),
         createElement('div', { className: 'war-detail-section' }, activeCopy().detail.briefSection),
@@ -554,13 +680,18 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const hqSessionId = data?.hqSessionId ?? null
     const statuses = new Map(tasks.map(t => [t.taskId, t.status] as const))
     const staffFor = (taskId: string): string | null => staffSessionFor(taskId, commands, hqSessionId)
+    // 全生命周期溯源：任务（含 V6 链后继）→ 源命令。命令卡/任务卡/会话详情共享。
+    const lineageMap = new Map<string, BoardCommand>()
+    for (const c of commands) for (const t of commandTasks(c, tasks)) if (!lineageMap.has(t.taskId)) lineageMap.set(t.taskId, c)
+    const lineageOf = (taskId: string): BoardCommand | null => lineageMap.get(taskId) ?? null
+    const chainOf = (c: BoardCommand): BoardTask[] => commandTasks(c, tasks)
+    const openCommand = (commandId: string): void => { setDetailTaskId(null); setDetailAttempt(null); setDetailCommandId(commandId) }
     const openStaff = (taskId: string): void => {
       const target = staffFor(taskId)
       if (target !== null) services.sessions?.open(target)
     }
     const detailTask = detailTaskId !== null ? tasks.find(t => t.taskId === detailTaskId) : undefined
     const detailCommand = detailCommandId !== null ? commands.find(c => c.commandId === detailCommandId) : undefined
-    const detailCommandTask = detailCommand?.taskId !== null && detailCommand?.taskId !== undefined ? tasks.find(t => t.taskId === detailCommand.taskId) : undefined
     const detailTaskForAttempt = detailAttempt !== null ? tasks.find(t => t.taskId === detailAttempt.taskId) : undefined
     const detailAttemptEntry = detailTaskForAttempt !== undefined && detailAttempt !== null
       ? detailTaskForAttempt.attemptLog.find(a => a.id === detailAttempt.attemptId)
@@ -611,11 +742,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           error !== null ? createElement('span', { className: 'war-err' }, activeCopy().loading.unreachable(error)) : createElement('span', { className: 'war-empty' }, activeCopy().loading.connecting),
         )
         : createElement('div', { className: 'war-board' },
+          // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
           createElement('div', { className: 'war-zone war-hq' },
             zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
             createElement('div', { className: 'war-zone-cols' },
               Zone('commands', activeCopy().columns.commands.title, commandsNewest.length, activeCopy().columns.commands.empty,
-                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId))),
+                commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId), chainOf(c))),
                 createElement('span', { className: 'war-col-actions' },
                   createElement('button', { className: 'war-btn war-attach-btn', title: activeCopy().colActions.attachTitle, onClick: () => setAttachOpen(true) }, activeCopy().colActions.attachLabel),
                   createElement('button', { className: 'war-btn primary war-plus', title: activeCopy().colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
@@ -625,7 +757,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 tasks.map(t => TaskCard(t, statuses, id => setDetailTaskId(id),
                   (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
                     ? () => { openStaff(t.taskId) }
-                    : null)),
+                    : null,
+                  lineageOf(t.taskId), openCommand)),
               ),
             ),
           ),
@@ -636,6 +769,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
                   ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }))],
               ),
+            ),
+          ),
+          createElement('div', { className: 'war-zone war-report' },
+            zoneHead(activeCopy().zones.report.title, activeCopy().zones.report.note),
+            createElement('div', { className: 'war-zone-cols' },
               Zone('done', activeCopy().columns.done.title, done.length, activeCopy().columns.done.empty,
                 doneChildren,
               ),
@@ -647,14 +785,14 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         ),
       composerOpen ? createElement(CommandComposer, { key: 'composer', onClose: () => setComposerOpen(false), refresh }) : null,
       attachOpen ? createElement(AttachThreadModal, { key: 'attach', onClose: () => setAttachOpen(false), refresh }) : null,
-      detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), onClose: () => setDetailTaskId(null) }) : null,
-      detailCommand !== undefined ? CommandDetail(detailCommand, detailCommandTask, id => setDetailTaskId(id), () => setDetailCommandId(null), grade => {
+      detailTask !== undefined ? createElement(TaskDetail, { key: `task-${detailTask.taskId}`, task: detailTask, statuses, services, staffTarget: staffFor(detailTask.taskId), lineageCmd: lineageOf(detailTask.taskId), onOpenCommand: openCommand, onClose: () => setDetailTaskId(null) }) : null,
+      detailCommand !== undefined ? CommandDetail(detailCommand, chainOf(detailCommand), id => setDetailTaskId(id), () => setDetailCommandId(null), grade => {
         void regradeCommand(detailCommand.commandId, grade).then(r => { if (r.ok) refresh() })
       }, decision => {
         void decidePlan(detailCommand.commandId, decision).then(r => { if (r.ok) refresh() })
       }) : null,
       detailTaskForAttempt !== undefined && detailAttemptEntry !== undefined
-        ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), onClose: () => setDetailAttempt(null) })
+        ? createElement(SessionDetail, { key: `attempt-${detailAttemptEntry.id}`, task: detailTaskForAttempt, attempt: detailAttemptEntry, services, staffTarget: staffFor(detailTaskForAttempt.taskId), lineageCmd: lineageOf(detailTaskForAttempt.taskId), onOpenCommand: openCommand, onClose: () => setDetailAttempt(null) })
         : null,
     )
   }

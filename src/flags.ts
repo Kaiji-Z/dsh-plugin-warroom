@@ -39,3 +39,36 @@ export function readFeatureFlags(env: Record<string, string | undefined> = proce
 export function featureEnabled(flags: FeatureFlags, name: string): boolean {
   return flags[name] === true
 }
+
+/**
+ * 开发期政策（2026-08-25 元首定调）：**全部已交付特性旗默认 ON**——「我们还在
+ * 开发期，等正式版发布了再在新功能开发时用 flag 模式」。因此运行面默认即全量
+ * 行为；`v5-spike` 是运维探针不是特性，仍 opt-in（默认 off）。
+ *
+ * `readFeatureFlags` 保持纯显式语义（单测用它精确控旗，不受本政策影响）；
+ * 插件装配走 `runtimeFlags`（默认开 + env 覆盖）。
+ */
+export const DEFAULT_ON_FLAGS: readonly string[] = [
+  // V4 四旗
+  'troop-llm-routing', 'troop-mailbox', 'troop-scheduler', 'troop-park',
+  // V5 六旗
+  'staff-triage', 'staff-auto-close', 'staff-plan', 'staff-goal', 'staff-wake', 'quota-recovery',
+  // V6
+  'staff-decompose',
+]
+
+/**
+ * Runtime flag set: DEFAULT_ON 为底，`WARROOM_FEATURES` 覆盖——`name` 显式开
+ * （探针旗如 v5-spike 仍走这里），`!name` 显式关（回归对照/临时熔断用）。
+ */
+export function runtimeFlags(env: Record<string, string | undefined> = process.env): FeatureFlags {
+  const flags: Record<string, boolean> = {}
+  for (const name of DEFAULT_ON_FLAGS) flags[name] = true
+  for (const part of (env[FEATURE_FLAGS_ENV] ?? '').split(',')) {
+    const name = part.trim()
+    if (name === '') continue
+    if (name.startsWith('!')) flags[name.slice(1)] = false
+    else flags[name] = true
+  }
+  return flags
+}

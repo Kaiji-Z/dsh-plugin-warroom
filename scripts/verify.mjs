@@ -92,6 +92,13 @@ gate('bundle', () => {
     [client, 'subscribeSkin', 'skin store subscription'],
     [client, 'useSyncExternalStore', 'skin switch re-renders the board'],
     [client, 'war-skin-btn', 'head skin toggle button'],
+    // V6 三区 + 命令全生命周期（impeccable 重设计轮）。
+    [client, 'war-report', 'third zone (战报) container'],
+    [client, 'war-life', 'command lifecycle strip on every command card'],
+    [client, 'commandTasks', 'command→chain deps closure (lifecycle tracing core)'],
+    [client, 'war-lineage', 'task/session lineage chip back to source command'],
+    [client, 'chainSection', 'command detail chain progress section'],
+    [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
     [host, '大白话 → 任务书', 'plain-speech-to-brief worked example'],

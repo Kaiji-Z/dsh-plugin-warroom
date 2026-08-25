@@ -22,6 +22,7 @@ export interface WarCopy {
   zones: {
     hq: { title: string; note: string }
     field: { title: string; note: string }
+    report: { title: string; note: string }
   }
   columns: {
     commands: { title: string; empty: string }
@@ -29,6 +30,18 @@ export interface WarCopy {
     live: { title: string; empty: string }
     done: { title: string; empty: string }
     failed: { title: string; empty: string }
+  }
+  /** 命令全生命周期（阶段条 + 现势行——命令卡是追踪主角）。 */
+  lifecycle: {
+    stages: { command: string; task: string; battle: string; report: string }
+    waitingStaff: string
+    waitingClarify: string
+    planPending: string
+    waitingClaim: string
+    attemptN: (n: number) => string
+    chain: (done: number, total: number) => string
+    cancelled: string
+    taskLabel: (id: string) => string
   }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
@@ -63,6 +76,10 @@ export interface WarCopy {
     viewTask: (taskId: string) => string
     close: string
     cancelledReason: (r: string) => string
+    chainSection: string
+    chainDone: (done: number, total: number) => string
+    noTasks: string
+    latestReport: string
   }
   composer: { title: string; sub: string; placeholder: string; cancel: string; busy: string; submit: string }
   attach: {
@@ -102,6 +119,7 @@ export interface WarCopy {
     reportPrefix: (ts: string) => string
     commentPrefix: (ts: string) => string
     verdictPrefix: string
+    lineageLabel: string
     close: string
     cancel: string
   }
@@ -125,8 +143,9 @@ export const warCopy: WarCopy = {
     unreachable: err => `任务栏不可达：${err}`,
   },
   zones: {
-    hq: { title: '指挥中心', note: '元首的输入都在这里' },
-    field: { title: '战场', note: '只读结果 · 点卡看详情 · 复盘跳 thread' },
+    hq: { title: '指挥中心', note: '命令与任务 · 元首的输入都在这里' },
+    field: { title: '战场', note: '正在执行的会话 · 只读' },
+    report: { title: '战报', note: '收官与折戟 · 点卡看详情' },
   },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
@@ -134,6 +153,17 @@ export const warCopy: WarCopy = {
     live: { title: '进行中', empty: '下达命令后，指挥官的作战会话会出现在这里' },
     done: { title: '已完成', empty: '还没有打赢的会话' },
     failed: { title: '已失败', empty: '暂无失败会话' },
+  },
+  lifecycle: {
+    stages: { command: '命令', task: '任务', battle: '执行', report: '战报' },
+    waitingStaff: '参谋接收中',
+    waitingClarify: '等你答问（点卡进对话）',
+    planPending: '计划待你批',
+    waitingClaim: '待指挥官领取',
+    attemptN: n => `第 ${n} 次尝试`,
+    chain: (done, total) => `任务链 ${done}/${total}`,
+    cancelled: '已取消',
+    taskLabel: id => `任务 ${id}`,
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -190,6 +220,10 @@ export const warCopy: WarCopy = {
     viewTask: taskId => `查看任务 ${taskId}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
+    chainSection: '任务链进展',
+    chainDone: (done, total) => `${done}/${total} 已收官`,
+    noTasks: '（尚未发布任务）',
+    latestReport: '最新战报',
   },
   composer: {
     title: '下达命令',
@@ -236,6 +270,8 @@ export const warCopy: WarCopy = {
     reportPrefix: ts => `【汇报 · ${ts}】`,
     commentPrefix: ts => `【批注 · ${ts}】`,
     verdictPrefix: '【判定】',
+    lineageLabel: '源自命令',
+    lineageLabel: '源自命令',
     close: '关闭',
     cancel: '取消',
   },
@@ -262,8 +298,9 @@ export const plainCopy: WarCopy = {
     unreachable: err => `看板不可达：${err}`,
   },
   zones: {
-    hq: { title: '下达区', note: '你的输入都在这里' },
-    field: { title: '执行区', note: '只读结果 · 点卡看详情 · 可跳回会话' },
+    hq: { title: '指挥中心', note: '命令与任务 · 你的输入都在这里' },
+    field: { title: '执行区', note: '正在运行的会话 · 只读' },
+    report: { title: '结果区', note: '已完成与失败 · 点卡看详情' },
   },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
@@ -271,6 +308,17 @@ export const plainCopy: WarCopy = {
     live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里' },
     done: { title: '已完成', empty: '还没有完成的会话' },
     failed: { title: '已失败', empty: '暂无失败会话' },
+  },
+  lifecycle: {
+    stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
+    waitingStaff: '参谋接收中',
+    waitingClarify: '等你回答（点卡进对话）',
+    planPending: '方案待你批',
+    waitingClaim: '等执行者领取',
+    attemptN: n => `第 ${n} 次尝试`,
+    chain: (done, total) => `任务组 ${done}/${total}`,
+    cancelled: '已取消',
+    taskLabel: id => `任务 ${id}`,
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
@@ -327,6 +375,10 @@ export const plainCopy: WarCopy = {
     viewTask: taskId => `查看任务 ${taskId}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
+    chainSection: '任务组进展',
+    chainDone: (done, total) => `${done}/${total} 已完成`,
+    noTasks: '（尚未发布任务）',
+    latestReport: '最新汇报',
   },
   composer: {
     title: '下达命令',
@@ -373,6 +425,7 @@ export const plainCopy: WarCopy = {
     reportPrefix: ts => `【汇报 · ${ts}】`,
     commentPrefix: ts => `【批注 · ${ts}】`,
     verdictPrefix: '【判定】',
+    lineageLabel: '源自命令',
     close: '关闭',
     cancel: '取消',
   },

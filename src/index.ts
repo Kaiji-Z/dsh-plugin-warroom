@@ -31,7 +31,7 @@ import type { PlanModeFace, SpikeDeps } from './v5spike.ts'
 import type { GoalsFace } from './goals.ts'
 import { createWarStore, resolveStateDir, type WarStore } from './state.ts'
 import { bountyDraftingSkill, type SkillsServiceFace } from './skill.ts'
-import { featureEnabled, readFeatureFlags } from './flags.ts'
+import { featureEnabled, runtimeFlags } from './flags.ts'
 import { kickIdleTroops, warTools, armMissingCommanderGoals, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
 import { conscriptPlan, workspaceConflict } from './rules.ts'
 import { loadRoster, type Roster } from './units.ts'
@@ -252,7 +252,7 @@ export function apply(ctx: Context, config: Config): void {
     commander,
     workspace: { materialize: materializeTaskWorkspace, materializeInstance: materializeInstanceWorkspace },
     warRoot,
-    flags: readFeatureFlags(),
+    flags: runtimeFlags(), // 开发期默认全开（DEFAULT_ON + env 覆盖），见 flags.ts 政策注
   }
   const surface = createWarSurface(ctx.tools, deps)
   surface.sync()
@@ -527,4 +527,4 @@ export { Config }
 
 // VERIFICATION.md §8.3 (P0-3): feature flags ship as package API — new
 // features gate behind WARROOM_FEATURES with OFF == pre-change behavior.
-export { readFeatureFlags, featureEnabled, FEATURE_FLAGS_ENV } from './flags.ts'
+export { readFeatureFlags, runtimeFlags, featureEnabled, FEATURE_FLAGS_ENV } from './flags.ts'
