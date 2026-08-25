@@ -217,6 +217,10 @@ gate('bundle', () => {
     [host, 'isQuotaError', 'code-only quota classifier (R1 ④)'],
     [host, 'lintPublish', 'deterministic publish lint'],
     [host, 'bountyDraftingSkillContent', 'drafting craft embedded in relay (坑2)'],
+    // 皮肤基础与语气降温（2026-08-25）。
+    [client, 'warCopy', 'skin foundation: centralized copy lexicon'],
+    [host, 'toneRule', 'explicit engineer-plain tone rule (no cosplay)'],
+    [host, '工程师式简洁', 'tone rule keyword in personas'],
   ]
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),

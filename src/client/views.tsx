@@ -14,6 +14,7 @@
 import { createElement, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { attachThread, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
+import { warCopy } from './copy.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
 /** Structural slices of the framework services. */
@@ -27,36 +28,31 @@ export interface ClientServicesFace {
   }
 }
 
-const STATUS_LABEL: Record<BoardTask['status'], string> = {
-  published: '待领取',
-  in_progress: '进行中',
-  reported: '待翻阅',
-  draft: '草稿',
-  failed: '已失败',
-  closed: '已收官',
-}
+/** 文案一律经 warCopy（皮肤词典）取——不写内联字面量（换肤基础层）；
+ *  cls/dot 是样式键不属于皮肤文案，留在视图层。 */
+const STATUS_LABEL = warCopy.taskStatus
 
 const COMMAND_STATUS: Record<BoardCommand['status'], { label: string; cls: string; dot: string; hint?: string }> = {
-  draft: { label: '已下达', cls: 'st-draft', dot: 'draft', hint: '参谋接收中（约 15 秒内）' },
-  received: { label: '已接收 · 点击进入对话', cls: 'st-received', dot: 'received', hint: '参谋已接收，点击卡片进入对话回答提问' },
-  talking: { label: '对话中', cls: 'st-talking', dot: 'received' },
-  approved: { label: '已批准', cls: 'st-approved', dot: 'done', hint: '任务已发布，点击查看对应任务卡' },
-  cancelled: { label: '已取消', cls: 'st-cancelled', dot: 'draft' },
+  draft: { ...warCopy.commandStatus.draft, cls: 'st-draft', dot: 'draft' },
+  received: { ...warCopy.commandStatus.received, cls: 'st-received', dot: 'received' },
+  talking: { ...warCopy.commandStatus.talking, cls: 'st-talking', dot: 'received' },
+  approved: { ...warCopy.commandStatus.approved, cls: 'st-approved', dot: 'done' },
+  cancelled: { ...warCopy.commandStatus.cancelled, cls: 'st-cancelled', dot: 'draft' },
 }
 
 const OUTCOME_LABEL: Record<NonNullable<BoardAttempt['outcome']> | 'live', { label: string; cls: string }> = {
-  live: { label: '作战中', cls: 'oc-live' },
-  reported: { label: '待元首翻阅', cls: 'oc-reported' },
-  succeeded: { label: '打赢了', cls: 'oc-done' },
-  failed: { label: '失败', cls: 'oc-fail' },
+  live: { label: warCopy.outcome.live.label, cls: 'oc-live' },
+  reported: { label: warCopy.outcome.reported.label, cls: 'oc-reported' },
+  succeeded: { label: warCopy.outcome.succeeded.label, cls: 'oc-done' },
+  failed: { label: warCopy.outcome.failed.label, cls: 'oc-fail' },
 }
 
 const QUALITY_LABEL: Record<BoardQuality, string> = Object.fromEntries(QUALITY_TIERS.map(q => [q.tier, q.label])) as Record<BoardQuality, string>
 
 /** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
 const STATUS_MARK: Partial<Record<BoardTask['status'], { mark: string; cls: string; title: string }>> = {
-  published: { mark: '！', cls: 'bang', title: '新悬赏，等待指挥官领取' },
-  reported: { mark: '？', cls: 'query', title: '战报已呈递，等元首翻阅收菜' },
+  published: { ...warCopy.statusMark.published, cls: 'bang' },
+  reported: { ...warCopy.statusMark.reported, cls: 'query' },
 }
 
 /** Where does this task's verdict conversation live? The owning command's
@@ -66,15 +62,16 @@ function staffSessionFor(taskId: string, commands: BoardCommand[], hqSessionId: 
   return own?.staffSessionId ?? hqSessionId
 }
 
-/** Done-zone day bucket: 今天 / 昨天 / 更早 (by attempt end, fallback start). */
-function dayLabel(iso: string, now: number): string {
+/** Done-zone day bucket key（稳定键——皮肤换词不破坏折叠状态）：今天 / 昨天 / 更早 (by attempt end, fallback start). */
+type DayKey = 'today' | 'yesterday' | 'earlier'
+function dayKeyOf(iso: string, now: number): DayKey {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '更早'
+  if (Number.isNaN(d.getTime())) return 'earlier'
   const startOf = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const diff = startOf(new Date(now)) - startOf(d)
-  if (diff <= 0) return '今天'
-  if (diff < 2 * 24 * 3600_000) return '昨天'
-  return '更早'
+  if (diff <= 0) return 'today'
+  if (diff < 2 * 24 * 3600_000) return 'yesterday'
+  return 'earlier'
 }
 
 function statusMark(task: BoardTask): ReactNode {
@@ -96,15 +93,15 @@ function relTime(iso: string, now = Date.now()): string {
 
 function qualityChip(quality: BoardQuality): ReactNode {
   if (quality === 'common') return null
-  return createElement('span', { className: `war-chip q-${quality}`, title: '悬赏品质（复杂度分档）' }, QUALITY_LABEL[quality] ?? quality)
+  return createElement('span', { className: `war-chip q-${quality}`, title: warCopy.qualityTitle }, QUALITY_LABEL[quality] ?? quality)
 }
 
 function depLock(task: BoardTask, statuses: Map<string, BoardTask['status']>): ReactNode {
   if (task.deps.length === 0) return null
   const pending = task.deps.filter(d => statuses.get(d) !== 'closed')
   if (pending.length === 0) return null
-  return createElement('span', { className: 'war-lock', title: `前置任务全部收官后解锁；未完成：${pending.join('、')}` },
-    '🔒 前置未解锁：',
+  return createElement('span', { className: 'war-lock', title: `${warCopy.depLock.prefix}${warCopy.depLock.list(pending)}` },
+    warCopy.depLock.prefix,
     pending.map((d, i) => createElement('span', { key: d }, i > 0 ? '、' : null, d)),
   )
 }
@@ -113,14 +110,14 @@ function cronBadge(task: BoardTask): ReactNode {
   if (task.schedule === null || !task.schedule.enabled) return null
   const next = task.schedule.nextRunAt !== null ? new Date(task.schedule.nextRunAt) : null
   const when = next !== null ? `${next.getMonth() + 1}-${String(next.getDate()).padStart(2, '0')} ${String(next.getHours()).padStart(2, '0')}:${String(next.getMinutes()).padStart(2, '0')}` : ''
-  return createElement('span', { className: 'war-cron', title: `日常悬赏，错过不补跑${task.schedule.nextRunAt !== null ? `；下次 ${task.schedule.nextRunAt}` : ''}` },
-    `⏳ 日常 ${task.schedule.cron}${when !== '' ? ` · 下次 ${when}` : ''}`,
+  return createElement('span', { className: 'war-cron', title: warCopy.cron.title(task.schedule.nextRunAt) },
+    warCopy.cron.badge(task.schedule.cron, when),
   )
 }
 
 function wsChip(path: string | null): ReactNode {
   if (path === null) return null
-  return createElement('span', { className: 'war-ws', title: path }, `工作区 ${path}`)
+  return createElement('span', { className: 'war-ws', title: path }, warCopy.wsChip(path))
 }
 
 // --- 命令区 ------------------------------------------------------------------
@@ -128,7 +125,7 @@ function wsChip(path: string | null): ReactNode {
 /** V5 档位徽章：L0 直发 / L1 呈批 / L2 澄清（未分诊不显示）。 */
 function gradeChip(cmd: BoardCommand): ReactNode {
   if (cmd.grade === null) return null
-  const label = cmd.grade === 'L0' ? 'L0 直发' : cmd.grade === 'L1' ? 'L1 呈批' : 'L2 澄清'
+  const label = warCopy.grade[cmd.grade]
   const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}`
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
@@ -156,7 +153,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   ),
   createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}` }, cmd.text),
   cmd.status === 'cancelled' && cmd.cancelledReason !== null
-    ? createElement('div', { className: 'war-fail' }, `取消原因：${cmd.cancelledReason}`)
+    ? createElement('div', { className: 'war-fail' }, warCopy.commandDetail.cancelledReason(cmd.cancelledReason))
     : null,
   )
 }
@@ -191,63 +188,62 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void }): R
   }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, '下达命令'),
-      createElement('div', { className: 'war-modal-sub' }, '用一句大白话写下元首的意图——参谋会接收并向你澄清细节。'),
+      createElement('div', { className: 'war-modal-title' }, warCopy.composer.title),
+      createElement('div', { className: 'war-modal-sub' }, warCopy.composer.sub),
       createElement('textarea', {
         className: 'war-composer',
         value: text,
-        placeholder: '例：帮我做个记账的小工具，每天记一句，能翻回去看以前记的',
+        placeholder: warCopy.composer.placeholder,
         autoFocus: true,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if (e.key === 'Escape') onClose() },
       }),
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, '取消'),
-        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? '下达中…' : '下达命令'),
+        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.composer.cancel),
+        createElement('button', { className: 'war-btn primary', disabled: busy || text.trim() === '', onClick: submit }, busy ? warCopy.composer.busy : warCopy.composer.submit),
       ),
     ),
   )
 }
 
 function CommandDetail(cmd: BoardCommand, task: BoardTask | undefined, onOpenTask: (taskId: string) => void, onClose: () => void, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, onDecidePlan: (decision: 'approve' | 'reject') => void): ReactNode {
-  const GRADE_LABEL: Record<'L0' | 'L1' | 'L2', string> = { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' }
-  const PLAN_LABEL: Record<'pending' | 'approved' | 'rejected', string> = { pending: '待批', approved: '已批准', rejected: '已驳回' }
+  const GRADE_LABEL = warCopy.grade
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
       createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}` : ''}`),
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${COMMAND_STATUS[cmd.status].label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? warCopy.commandDetail.regradesNote(cmd.regrades) : ''}` : ''}`),
       createElement('div', { className: 'war-detail-body' }, cmd.text),
-      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `分诊理由：${cmd.gradeReason}`) : null,
+      cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${warCopy.commandDetail.gradeReasonPrefix}${cmd.gradeReason}`) : null,
       cmd.plan !== null
         ? createElement('div', { className: 'war-plan' },
-          createElement('div', { className: 'war-plan-head' }, `作战计划（${PLAN_LABEL[cmd.plan.status]}）`),
+          createElement('div', { className: 'war-plan-head' }, `作战计划（${warCopy.commandDetail.planTitle[cmd.plan.status]}）`),
           createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
           cmd.plan.status === 'pending'
             ? createElement('div', { className: 'war-modal-actions' },
-              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, '批准计划'),
-              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, '驳回重呈'),
+              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, warCopy.commandDetail.approvePlan),
+              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, warCopy.commandDetail.rejectPlan),
             )
             : null,
         )
         : null,
-      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, `取消原因：${cmd.cancelledReason}`) : null,
+      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, warCopy.commandDetail.cancelledReason(cmd.cancelledReason)) : null,
       regradable
-        ? createElement('div', { className: 'war-modal-sub' }, '升降档（元首覆写参谋分诊，改后需通知参谋按新档执行）：')
+        ? createElement('div', { className: 'war-modal-sub' }, warCopy.commandDetail.regradeHint)
         : null,
       regradable
         ? createElement('div', { className: 'war-modal-actions' },
           (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
-            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, `改为 ${GRADE_LABEL[g]}`)))
+            createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, warCopy.commandDetail.regradeTo(GRADE_LABEL[g]))))
         : null,
       cmd.status === 'approved' && cmd.taskId !== null
         ? createElement('div', { className: 'war-modal-actions' },
-          createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, `查看任务 ${cmd.taskId}`),
+          createElement('button', { className: 'war-btn primary', onClick: () => { onOpenTask(cmd.taskId as string); onClose() } }, warCopy.commandDetail.viewTask(cmd.taskId)),
         )
         : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, '关闭'),
+        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.commandDetail.close),
       ),
     ),
   )
@@ -266,23 +262,23 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
     ),
     createElement('div', { className: 'war-card-top' },
       createElement('span', { className: 'war-taskid' }, task.taskId),
-      task.attempts > 1 ? createElement('span', { className: 'war-chip', title: '含自动重派的尝试次数' }, `第 ${task.attempts} 次尝试`) : null,
+      task.attempts > 1 ? createElement('span', { className: 'war-chip', title: warCopy.taskCard.attemptNTitle }, warCopy.taskCard.attemptN(task.attempts)) : null,
       relTime(task.startedAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(task.startedAt)) : null,
     ),
     depLock(task, statuses),
     task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
     wsChip(task.workspacePath),
     task.brief !== '' ? createElement('div', { className: 'war-brief' }, task.brief) : null,
-    task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: '重试已用尽，等元首让参谋重新立案' }, `败因：${task.lastError}`) : null,
+    task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: warCopy.taskCard.failTitle }, warCopy.taskCard.failReason(task.lastError)) : null,
     task.deliverables.length > 0
       ? createElement('div', { className: 'war-loot' },
-        createElement('span', { className: 'war-loot-item' }, '战利品：'),
+        createElement('span', { className: 'war-loot-item' }, warCopy.taskCard.lootPrefix),
         task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
       )
       : null,
     onHandle !== null
       ? createElement('div', { className: 'war-card-top' },
-        createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, '去处理 · 参谋会话'),
+        createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, warCopy.taskCard.handle),
       )
       : null,
   )
@@ -320,28 +316,28 @@ function TaskDetail(props: { task: BoardTask; statuses: Map<string, BoardTask['s
         depLock(task, statuses),
         task.schedule !== null && task.schedule.enabled ? cronBadge(task) : null,
         wsChip(task.workspacePath),
-        createElement('div', { className: 'war-detail-section' }, '任务书'),
-        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : '（参谋未附任务书正文）'),
-        createElement('div', { className: 'war-detail-section' }, '验收标准'),
-        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : '（未声明）'),
+        createElement('div', { className: 'war-detail-section' }, warCopy.detail.briefSection),
+        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : warCopy.detail.briefMissing),
+        createElement('div', { className: 'war-detail-section' }, warCopy.detail.acceptanceSection),
+        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : warCopy.detail.acceptanceMissing),
         latest !== undefined
-          ? createElement('div', { className: 'war-report' }, `【汇报】${latest.text}`)
+          ? createElement('div', { className: 'war-report' }, `${warCopy.detail.reportPrefixPlain}${latest.text}`)
           : null,
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
         task.deliverables.length > 0
           ? createElement('div', { className: 'war-loot' },
-            createElement('span', { className: 'war-loot-item' }, '战利品：'),
+            createElement('span', { className: 'war-loot-item' }, warCopy.taskCard.lootPrefix),
             task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
           )
           : null,
-        task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, `败因：${task.lastError}`) : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `【判定】${task.closedVerdict}`) : null,
+        task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.taskCard.failReason(task.lastError)) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${warCopy.detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         handleable
-          ? createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget as string); onClose() } }, '去处理 · 参谋会话')
+          ? createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget as string); onClose() } }, warCopy.taskCard.handle)
           : null,
-        createElement('button', { className: 'war-btn', onClick: onClose }, '关闭'),
+        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.detail.close),
       ),
     ),
   )
@@ -357,12 +353,12 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   return createElement('div', {
     key,
     className: `war-card war-session-card clickable q-edge-${task.quality}`,
-    title: `指挥官会话 ${attempt.sessionId}——点击查看作战详情`,
+    title: warCopy.session.cardTitle(attempt.sessionId),
     onClick: () => { onDetail(task, attempt) },
   },
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
-    attempt.n > 1 ? createElement('span', { className: 'war-chip', title: '重试尝试' }, `第 ${attempt.n} 次`) : null,
+    attempt.n > 1 ? createElement('span', { className: 'war-chip', title: warCopy.session.attemptNTitle }, warCopy.session.attemptN(attempt.n)) : null,
     createElement('span', { className: 'war-time' }, relTime(attempt.startedAt)),
   ),
   createElement('div', { className: 'war-title' }, task.title),
@@ -370,9 +366,9 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
     wsChip(task.workspacePath),
   ),
-  outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, `败因：${task.lastError}`) : null,
-  outcomeKey === 'succeeded' && loot !== null ? createElement('div', { className: 'war-loot-summary', title: loot }, `战利品：${loot.slice(0, 80)}${loot.length > 80 ? '…' : ''}`) : null,
-  outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, '证据已核验，等元首翻阅收官') : null,
+  outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.session.failReason(task.lastError)) : null,
+  outcomeKey === 'succeeded' && loot !== null ? createElement('div', { className: 'war-loot-summary', title: loot }, warCopy.session.lootSummary(loot, loot.slice(0, 80), loot.length > 80)) : null,
+  outcomeKey === 'reported' ? createElement('div', { className: 'war-waiting' }, warCopy.session.waitingReport) : null,
   )
 }
 
@@ -397,30 +393,30 @@ function SessionDetail(props: { task: BoardTask; attempt: BoardAttempt; services
         `${task.taskId} · ${meta.label}${attempt.n > 1 ? ` · 第 ${attempt.n} 次尝试` : ''} · ${relTime(attempt.startedAt)}${attempt.endedAt !== null ? ` → ${relTime(attempt.endedAt)}` : ''} · ⌁ ${attempt.sessionId}`),
       createElement('div', { className: 'war-detail-body' },
         wsChip(task.workspacePath),
-        createElement('div', { className: 'war-detail-section' }, '任务书'),
-        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : '（参谋未附任务书正文）'),
-        createElement('div', { className: 'war-detail-section' }, '验收标准'),
-        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : '（未声明）'),
-        task.reports.length > 0 ? createElement('div', { className: 'war-detail-section' }, '战报') : null,
-        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report' }, `【汇报 · ${relTime(r.ts)}】${r.text}`)),
+        createElement('div', { className: 'war-detail-section' }, warCopy.detail.briefSection),
+        createElement('div', { className: 'war-detail-text' }, task.brief !== '' ? task.brief : warCopy.detail.briefMissing),
+        createElement('div', { className: 'war-detail-section' }, warCopy.detail.acceptanceSection),
+        createElement('div', { className: 'war-detail-text' }, task.acceptance !== '' ? task.acceptance : warCopy.detail.acceptanceMissing),
+        task.reports.length > 0 ? createElement('div', { className: 'war-detail-section' }, warCopy.detail.reportsSection) : null,
+        task.reports.map((r, i) => createElement('div', { key: `r${i}`, className: 'war-report' }, `${warCopy.detail.reportPrefix(relTime(r.ts))}${r.text}`)),
         latest !== undefined && latest.evidence !== null ? EvidenceBlock(latest.evidence) : null,
-        task.comments.length > 0 ? createElement('div', { className: 'war-detail-section' }, '批注') : null,
-        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report' }, `【批注 · ${relTime(c.ts)}】${c.text}`)),
+        task.comments.length > 0 ? createElement('div', { className: 'war-detail-section' }, warCopy.detail.commentsSection) : null,
+        task.comments.map((c, i) => createElement('div', { key: `c${i}`, className: 'war-report' }, `${warCopy.detail.commentPrefix(relTime(c.ts))}${c.text}`)),
         task.deliverables.length > 0
           ? createElement('div', { className: 'war-loot' },
-            createElement('span', { className: 'war-loot-item' }, '战利品：'),
+            createElement('span', { className: 'war-loot-item' }, warCopy.session.lootPrefix),
             task.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)),
           )
           : null,
-        outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, `败因：${task.lastError}`) : null,
-        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `【判定】${task.closedVerdict}`) : null,
+        outcomeKey === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail' }, warCopy.session.failReason(task.lastError)) : null,
+        task.closedVerdict !== null ? createElement('div', { className: 'war-report' }, `${warCopy.detail.verdictPrefix}${task.closedVerdict}`) : null,
       ),
       createElement('div', { className: 'war-modal-actions' },
         outcomeKey === 'reported' && staffTarget !== null
-          ? createElement('button', { className: 'war-btn', onClick: openStaff }, '去处理 · 参谋会话')
+          ? createElement('button', { className: 'war-btn', onClick: openStaff }, warCopy.session.goHandle)
           : null,
-        createElement('button', { className: 'war-btn primary', onClick: openThread }, '进入会话复盘'),
-        createElement('button', { className: 'war-btn', onClick: onClose }, '关闭'),
+        createElement('button', { className: 'war-btn primary', onClick: openThread }, warCopy.session.enterReview),
+        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.detail.close),
       ),
     ),
   )
@@ -433,21 +429,21 @@ function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, o
   return createElement('div', {
     key: `ext-${thread.sessionId}`,
     className: 'war-card war-external-card clickable',
-    title: `外部挂载的会话 ${thread.sessionId}——点击进入该会话窗口`,
+    title: warCopy.attach.cardTitle(thread.sessionId),
     onClick: () => { services.sessions?.open(thread.sessionId) },
   },
   createElement('div', { className: 'war-card-top' },
-    createElement('span', { className: 'war-chip ext-badge' }, '外部'),
+    createElement('span', { className: 'war-chip ext-badge' }, warCopy.attach.badge),
     createElement('span', { className: 'war-time' }, relTime(thread.attachedAt)),
   ),
-  createElement('div', { className: 'war-title' }, thread.note !== '' ? thread.note : '（未备注的外部会话）'),
+  createElement('div', { className: 'war-title' }, thread.note !== '' ? thread.note : warCopy.attach.noNote),
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: thread.sessionId }, `⌁ ${thread.sessionId.slice(0, 10)}…`),
     createElement('button', {
       className: 'war-btn war-detach',
-      title: '从战场摘除这张外部卡（不影响会话本身）',
+      title: warCopy.attach.detachTitle,
       onClick: e => { e.stopPropagation(); onDetach(thread.sessionId) },
-    }, '摘除'),
+    }, warCopy.attach.detach),
   ),
   )
 }
@@ -476,18 +472,18 @@ function AttachThreadModal(props: { onClose: () => void; refresh: () => void }):
         refresh()
         onClose()
       } else {
-        setError(result.error ?? '挂载失败，请重试。')
+        setError(result.error ?? warCopy.attach.failFallback)
       }
     })()
   }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', onClick: e => e.stopPropagation() },
-      createElement('div', { className: 'war-modal-title' }, '挂载会话'),
-      createElement('div', { className: 'war-modal-sub' }, '把一个已存在的 thread 会话号挂上战场，作为「外部」卡管理（只读 + 跳转，不影响会话本身）。'),
+      createElement('div', { className: 'war-modal-title' }, warCopy.attach.title),
+      createElement('div', { className: 'war-modal-sub' }, warCopy.attach.sub),
       createElement('input', {
         className: 'war-attach-input',
         value: sessionId,
-        placeholder: '会话号（sessionId）',
+        placeholder: warCopy.attach.sessionIdPlaceholder,
         autoFocus: true,
         onChange: e => { setSessionId((e.target as HTMLInputElement).value) },
         onKeyDown: e => { if (e.key === 'Escape') onClose() },
@@ -495,14 +491,14 @@ function AttachThreadModal(props: { onClose: () => void; refresh: () => void }):
       createElement('input', {
         className: 'war-attach-input',
         value: note,
-        placeholder: '备注（可选，一句话：这个 thread 在干什么）',
+        placeholder: warCopy.attach.notePlaceholder,
         onChange: e => { setNote((e.target as HTMLInputElement).value) },
         onKeyDown: e => { if (e.key === 'Enter') submit() },
       }),
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
-        createElement('button', { className: 'war-btn', onClick: onClose }, '取消'),
-        createElement('button', { className: 'war-btn primary', disabled: busy || sessionId.trim() === '', onClick: submit }, busy ? '挂载中…' : '挂载'),
+        createElement('button', { className: 'war-btn', onClick: onClose }, warCopy.attach.cancel),
+        createElement('button', { className: 'war-btn primary', disabled: busy || sessionId.trim() === '', onClick: submit }, busy ? warCopy.attach.busy : warCopy.attach.submit),
       ),
     ),
   )
@@ -510,8 +506,9 @@ function AttachThreadModal(props: { onClose: () => void; refresh: () => void }):
 
 // --- 区块与主视图 --------------------------------------------------------------
 
-function Zone(title: string, count: number, empty: string, children: ReactNode[], extra?: ReactNode): ReactNode {
-  return createElement('div', { key: title, className: `war-col zone-${title}` },
+/** A board column. `key` is the stable style/state hook — 皮肤改标题不破坏类名。 */
+function Zone(key: string, title: string, count: number, empty: string, children: ReactNode[], extra?: ReactNode): ReactNode {
+  return createElement('div', { key, className: `war-col zone-${key}` },
     createElement('div', { className: 'war-col-head' },
       createElement('span', { className: 'war-col-title' }, title),
       createElement('span', { className: 'war-col-count' }, String(count)),
@@ -540,7 +537,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     const [detailAttempt, setDetailAttempt] = useState<{ taskId: string; attemptId: string } | null>(null)
-    const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['昨天', '更早']))
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<DayKey>>(() => new Set(['yesterday', 'earlier']))
     const tasks = data?.tasks ?? []
     const commands = data?.commands ?? []
     const threads = data?.threads ?? []
@@ -565,54 +562,54 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const done = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const failed = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const commandsNewest = [...commands].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    // Done-zone day buckets (newest-first input keeps label order 今天→昨天→更早).
+    // Done-zone day buckets (stable keys — 皮肤换词不破坏折叠状态).
     const now = Date.now()
-    const doneGroups: Array<{ label: string; items: Array<{ t: BoardTask; a: BoardAttempt }> }> = []
+    const doneGroups: Array<{ key: DayKey; items: Array<{ t: BoardTask; a: BoardAttempt }> }> = []
     for (const entry of done) {
-      const label = dayLabel(entry.a.endedAt ?? entry.a.startedAt, now)
+      const key = dayKeyOf(entry.a.endedAt ?? entry.a.startedAt, now)
       const last = doneGroups[doneGroups.length - 1]
-      if (last !== undefined && last.label === label) last.items.push(entry)
-      else doneGroups.push({ label, items: [entry] })
+      if (last !== undefined && last.key === key) last.items.push(entry)
+      else doneGroups.push({ key, items: [entry] })
     }
-    const toggleGroup = (label: string): void => {
+    const toggleGroup = (key: DayKey): void => {
       setCollapsedGroups(prev => {
         const next = new Set(prev)
-        if (next.has(label)) next.delete(label)
-        else next.add(label)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
         return next
       })
     }
     const openSessionDetail = (t: BoardTask, a: BoardAttempt): void => { setDetailAttempt({ taskId: t.taskId, attemptId: a.id }) }
-    const doneChildren: ReactNode[] = doneGroups.map(g => createElement('div', { key: g.label, className: `war-day-group${collapsedGroups.has(g.label) ? ' collapsed' : ''}` },
-      createElement('button', { className: 'war-day-head', onClick: () => { toggleGroup(g.label) } },
+    const doneChildren: ReactNode[] = doneGroups.map(g => createElement('div', { key: g.key, className: `war-day-group${collapsedGroups.has(g.key) ? ' collapsed' : ''}` },
+      createElement('button', { className: 'war-day-head', onClick: () => { toggleGroup(g.key) } },
         createElement('span', { className: 'war-day-caret' }, '▼'),
-        createElement('span', null, g.label),
+        createElement('span', null, warCopy.days[g.key]),
         createElement('span', { className: 'war-day-count' }, String(g.items.length)),
       ),
-      collapsedGroups.has(g.label) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
+      collapsedGroups.has(g.key) ? null : g.items.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
     ))
     return createElement('div', { className: 'war-root' },
       createElement('div', { className: 'war-head' },
         createElement('span', { className: `war-head-dot${data?.active === true ? ' on' : ''}` }),
-        createElement('span', { className: 'war-head-title' }, '作战室 · 指挥中心'),
-        createElement('span', { className: 'war-head-sub' }, data !== null && data.active ? '命令 → 任务 → 作战 → 结果 · 左区指挥 · 右区战场' : '退役中（/war 启用）'),
+        createElement('span', { className: 'war-head-title' }, warCopy.head.title),
+        createElement('span', { className: 'war-head-sub' }, data !== null && data.active ? warCopy.head.subActive : warCopy.head.subIdle),
       ),
       data === null
         ? createElement('div', { className: 'war-body' },
-          error !== null ? createElement('span', { className: 'war-err' }, `任务栏不可达：${error}`) : createElement('span', { className: 'war-empty' }, '连接任务栏…'),
+          error !== null ? createElement('span', { className: 'war-err' }, warCopy.loading.unreachable(error)) : createElement('span', { className: 'war-empty' }, warCopy.loading.connecting),
         )
         : createElement('div', { className: 'war-board' },
           createElement('div', { className: 'war-zone war-hq' },
-            zoneHead('指挥中心', '元首的输入都在这里'),
+            zoneHead(warCopy.zones.hq.title, warCopy.zones.hq.note),
             createElement('div', { className: 'war-zone-cols' },
-              Zone('命令', commandsNewest.length, '点 + 下达第一道命令',
+              Zone('commands', warCopy.columns.commands.title, commandsNewest.length, warCopy.columns.commands.empty,
                 commandsNewest.map(c => CommandCard(c, hqSessionId, services, cmd => setDetailCommandId(cmd.commandId))),
                 createElement('span', { className: 'war-col-actions' },
-                  createElement('button', { className: 'war-btn war-attach-btn', title: '挂载一个外部会话上战场', onClick: () => setAttachOpen(true) }, '⌁ 挂载'),
-                  createElement('button', { className: 'war-btn primary war-plus', title: '新建命令', onClick: () => setComposerOpen(true) }, '+'),
+                  createElement('button', { className: 'war-btn war-attach-btn', title: warCopy.colActions.attachTitle, onClick: () => setAttachOpen(true) }, warCopy.colActions.attachLabel),
+                  createElement('button', { className: 'war-btn primary war-plus', title: warCopy.colActions.newTitle, onClick: () => setComposerOpen(true) }, '+'),
                 ),
               ),
-              Zone('任务', tasks.length, '等参谋发布第一张悬赏',
+              Zone('tasks', warCopy.columns.tasks.title, tasks.length, warCopy.columns.tasks.empty,
                 tasks.map(t => TaskCard(t, statuses, id => setDetailTaskId(id),
                   (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
                     ? () => { openStaff(t.taskId) }
@@ -621,16 +618,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             ),
           ),
           createElement('div', { className: 'war-zone war-field' },
-            zoneHead('战场', '只读结果 · 点卡看详情 · 复盘跳 thread'),
+            zoneHead(warCopy.zones.field.title, warCopy.zones.field.note),
             createElement('div', { className: 'war-zone-cols' },
-              Zone('进行中', live.length + threads.length, '下达命令后，指挥官的作战会话会出现在这里',
+              Zone('live', warCopy.columns.live.title, live.length + threads.length, warCopy.columns.live.empty,
                 [...live.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
                   ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }))],
               ),
-              Zone('已完成', done.length, '还没有打赢的会话',
+              Zone('done', warCopy.columns.done.title, done.length, warCopy.columns.done.empty,
                 doneChildren,
               ),
-              Zone('已失败', failed.length, '暂无失败会话',
+              Zone('failed', warCopy.columns.failed.title, failed.length, warCopy.columns.failed.empty,
                 failed.map(({ t, a }) => SessionCard(t, a, openSessionDetail)),
               ),
             ),
@@ -667,8 +664,9 @@ export function WarDockPill(): ReactNode {
     + data.tasks.filter(t => t.status === 'reported' && fresh(t.reports.length > 0 ? t.reports[t.reports.length - 1]!.ts : t.startedAt)).length
     + data.tasks.filter(t => t.status === 'failed' && fresh(t.attemptLog.find(a => a.outcome === 'failed')?.endedAt ?? t.startedAt)).length
   const goHome = (): void => { document.dispatchEvent(new CustomEvent('warroom-open-request')) }
-  return createElement('button', { className: 'war-dockpill war-dock-home', type: 'button', onClick: goHome, title: `待接命令 ${pending} · 待领取 ${waiting} · 进行中 ${active}${failed > 0 ? ` · 已失败 ${failed}` : ''} —— 点击回到作战室` },
-    createElement('span', { className: 'war-dockseg' }, `作战室${pending > 0 ? ` 命令${pending}` : ''} 待领${waiting} 进行${active}${failed > 0 ? ` 失败${failed}` : ''}`),
-    unread > 0 ? createElement('span', { className: 'war-dock-unread' }, `${unread} 新`) : null,
+  const counts = { pending, waiting, active, failed }
+  return createElement('button', { className: 'war-dockpill war-dock-home', type: 'button', onClick: goHome, title: warCopy.dock.titleLine(counts) },
+    createElement('span', { className: 'war-dockseg' }, warCopy.dock.segLine(counts)),
+    unread > 0 ? createElement('span', { className: 'war-dock-unread' }, warCopy.dock.unread(unread)) : null,
   )
 }
