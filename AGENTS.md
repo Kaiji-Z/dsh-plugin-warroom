@@ -1,6 +1,6 @@
 # AGENTS.md · dsh-plugin-warroom 迭代指引
 
-本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、指挥官 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。V4 归档 `.goal/SPEC-v4.md`。V6 候选见 SPEC §8（计划批准回推 K17、命令拆解等）。新会话在此迭代前先读这份文件，再按需深挖。
+本仓库是 dsh（DeepSeek Harness）插件「作战室」——**V5「参谋自动化（AFK）」已达标（2026-08-25 真实 LLM 全链考题，证据 `.goal/evidence/v5/`，机检 assert-v5 PASS）**：三档自主度 L0/L1/L2（`war_triage` + `!!直接做`/`??先看方案` 覆写 + 元首升降档）、计划态插件自建（`war_plan` 呈批 + 发布硬门，R1 定案宿主 plan-mode 不可达改道）、goal 代管（`{id,revision}` CAS 链、指挥官 armed/参谋 disarm 红线、`war_set_goal`）、KillCredit 全绿自动收官（越界一票否决）、分级推+去抖唤醒 + 板摘要注入 + 起草法内嵌（坑2 正解）、`lintPublish`、配额熔断（`agent/error` code 判据 + 原地暂停恢复）。**V6 增量已交付（2026-08-25，SPEC §8）**：K17 计划判定回推（pushToStaff）、皮肤系统（WarCopy 词典 + 军事/平话双皮肤 + 切换器）、命令拆解成链（`war_decompose`/`war_publish_chain`，flag staff-decompose）、goal 接力原子性补偿（`armMissingCommanderGoals` 60s 巡检）。V4 归档 `.goal/SPEC-v4.md`。新会话在此迭代前先读这份文件，再按需深挖。
 
 ## 开局必读
 
@@ -17,13 +17,13 @@
 | `directives.ts` | 命令区事件流（directives.jsonl append-only + fold，五态生命周期 + 每命令会话绑定 + 终态守卫） |
 | `relay.ts` | **每命令一会话** relay（pending 无会话即建 `参谋·<摘要>`）、命令引信（tickNow 秒级 + 15s 兜底）、征召令/转达文案 |
 | `threads.ts` | 挂载外部会话事件流（threads.jsonl append-only：attach/detach + fold） |
-| `tools.ts` | 14 个 war_* 工具（publish/claim/submit/fail/close/conscript/comment/board/deploy_unit…）+ 工作区互斥 |
+| `tools.ts` | war_* 工具（publish/claim/submit/fail/close/conscript/comment/board/deploy_unit/plan/decompose/publish_chain…）+ 工作区互斥 + goal 接力补偿扫描（`armMissingCommanderGoals`） |
 | `events.ts` | 战役事件 fold：attemptLog（尝试级会话卡）、结算转移（reported/succeeded/failed） |
 | `rules.ts` | 工作区归一化/冲突检测、征召计划（同区排队跨区并行）、任务链依赖检查 |
 | `workspace.ts` | 工作区物化、`@new:` 新副本（instances/） |
 | `dossier.ts` | 指挥官履历档案（退任落盘、征召注入） |
 | `dashboard.ts` | Host HTTP API（/warroom/api/*：board/commands/talking/events(SSE)/threads/threads/detach）+ 板投影 |
-| `client/` | 看板前端：views.tsx（**两区：指挥中心/战场** + 详情浮层 + 挂载）、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
+| `client/` | 看板前端：views.tsx（**两区：指挥中心/战场** + 详情浮层 + 挂载）、copy.ts（**皮肤词典**：WarCopy 契约 + warCopy 军事/plainCopy 平话 + react-free 皮肤 store）、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
 | `skill.ts` | 参谋起草法（warroom-bounty-drafting，编程注册——**对 apiProxy 会话不可见**，靠 relay 内嵌要点兜底，见 SPEC §7） |
 | `persona.ts` / `units.ts` / `toml.ts` | 指挥官 persona / 兵种 roster / TOML 加载 |
 | `commands.ts` | `/war` 斜杠命令（host 侧入口）：激活先于提示落队（顺序保证） |
@@ -47,8 +47,8 @@ tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scrip
 ## 本地起服（验收/联调）
 
 ```bash
-# 在 deepseek-harness checkout 内（V4 四旗 + V5 六旗默认带上；v5-spike 探针旗按需另加）：
-WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park,staff-triage,staff-auto-close,staff-plan,staff-goal,staff-wake,quota-recovery \
+# 在 deepseek-harness checkout 内（V4 四旗 + V5 六旗 + V6 拆解旗默认带上；v5-spike 探针旗按需另加）：
+WARROOM_FEATURES=troop-llm-routing,troop-mailbox,troop-scheduler,troop-park,staff-triage,staff-auto-close,staff-plan,staff-goal,staff-wake,quota-recovery,staff-decompose \
   pnpm dsh --profile web --patch D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/cordis.dev.yml --port 3080 --no-open
 # 旧实例先 netstat -ano | grep :3080 找 PID kill；日志惯例重定向到 ~/.dsh/warroom-plugin/server.log
 ```
@@ -59,7 +59,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 
 ## 迭代注意
 
-- V5（现行 goal，SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻指挥官否决）、参谋 goal 永远 disarm、判定环用决策卡。后续候选：命令拆解（V6）、路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
+- V5（SPEC.md §4）：R1 机制验证 spike（ctx.planMode/ctx.goals 可用性）→ R2 分诊+L0+自动收官（staff-triage/staff-auto-close）→ R3 计划态+goal 闭环（staff-plan/staff-goal）→ R4 唤醒+注入+配额自愈+lint（quota-recovery）→ R5 AFK 真实考题。已定案不重议：L0 全自动默认、维持征召制（常驻指挥官否决）、参谋 goal 永远 disarm、判定环用决策卡。**V6 增量（SPEC §8，2026-08-25）**：K17 计划判定回推（dashboard pushToStaff→参谋会话，ee21855）、皮肤系统（WarCopy+plainCopy+useSyncExternalStore 切换器，3a42b7c）、v5-spike 定案保留（2ffd12c）、命令拆解成链（staff-decompose：war_decompose 呈批复用计划卡 + war_publish_chain 顺序 deps 链级同工作区，38dbbfd）、goal 接力原子性补偿（60s goalRelayFuse 扫补武装 swept 入账，628e5b8）。后续候选：路由冷恢复桥、调度轮转优化、飞书遥控、worktree 隔离、战绩/声望、多参谋、npm 发布。
 - **v5-spike 探针定案保留**（2026-08-25，非一次性脚手架）：它是唯一能在运行时复检宿主面结构契约的工具（goals/sessions/agents 可达性、toolFilter 接受性、错误面 code）。flag 默认 off、路由缺省不注册（404）、off 时零成本——保留不碍事，删了就要靠考古 R1 证据。宿主 deepseek-harness 升级后：`WARROOM_FEATURES=v5-spike` 起服 + `GET /warroom/api/v5-spike` 一键复检（probe 会话/goal 用后即清，见 K15 残留自愈）。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
 - git-bash curl POST 中文 JSON 会乱码入账——API 抽查一律走浏览器 fetch 或 node fetch。
