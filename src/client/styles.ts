@@ -167,6 +167,13 @@ const WAR_CSS = `
 .war-recent-item{cursor:pointer;font-size:11px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .war-recent-item:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
 
+/* --- V7-⑥ 空板首用引导 -------------------------------------------------------- */
+.war-onboard{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px 20px;text-align:center}
+.war-onboard-title{font-size:16px;font-weight:700;color:var(--dsw-alias-label-primary)}
+.war-onboard-lead{max-width:540px;font-size:13px;line-height:1.7;color:var(--dsw-alias-label-secondary)}
+.war-onboard-steps{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);text-align:left}
+.war-onboard-cta{font-size:14px;padding:8px 18px}
+
 /* 任务链行（命令详情浮层）：一环一行，点行跳任务卡 */
 .war-chain-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:pointer;transition:border-color .12s ease}
 .war-chain-row:hover{border-color:var(--dsw-alias-state-business-primary)}

@@ -113,6 +113,8 @@ gate('bundle', () => {
     [client, 'applyGradeMarker', 'composer grade marker (pure)'],
     [client, 'war-preflight', 'preflight row on command cards'],
     [client, 'war-grade-seg', 'composer autonomy toggles'],
+    // V7-⑥ 空板首用引导。
+    [client, 'war-onboard', 'empty-board onboarding panel'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],

@@ -77,6 +77,13 @@ export interface WarCopy {
     toDirect: string
     title: string
   }
+  /** V7-⑥ 空板首用引导（无命令无任务时的第一屏）。 */
+  onboard: {
+    title: string
+    lead: string
+    steps: [string, string, string]
+    cta: string
+  }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -229,6 +236,16 @@ export const warCopy: WarCopy = {
     hint: '将停在计划待批——夜间无人值守会停整晚',
     toDirect: '改直发',
     title: '升档 L1/L2 的命令要等你批准计划才会继续，夜里没人批就一直停着。可改为 L0 直发（参谋直接发布执行），或保持等你批。',
+  },
+  onboard: {
+    title: '作战室 · 把意图说成一句话',
+    lead: '你用大白话下命令，参谋接令分诊并写任务书，指挥官在隔离工作区替你干活，带着证据与结果回来。',
+    steps: [
+      '① 下达命令：一句大白话写清你想要什么',
+      '② 自动运转：简单的直接执行；复杂的先呈计划等你批',
+      '③ 收菜：完成的进战报区，点卡看证据、验收、收产出',
+    ],
+    cta: '＋ 下达第一道命令',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
@@ -419,6 +436,16 @@ export const plainCopy: WarCopy = {
     hint: '需要你批准方案后才会继续——夜里没人处理会一直停着',
     toDirect: '改为直接执行',
     title: '标记为 L1/L2 的任务要等你批准方案才会继续，夜里没人处理就一直停着。可改为直接执行（参谋直接发布），或保持等你批。',
+  },
+  onboard: {
+    title: '作战室 · 把意图说成一句话',
+    lead: '你用大白话下命令，系统接令、拆解成任务并在隔离工作区执行，完成后带着证据与结果回来。',
+    steps: [
+      '① 下达命令：一句大白话写清你想要什么',
+      '② 自动运转：简单的直接执行；复杂的先出方案等你批',
+      '③ 收结果：完成的进结果区，点卡看证据、验收与产出',
+    ],
+    cta: '＋ 下达第一条命令',
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {

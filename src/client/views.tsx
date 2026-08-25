@@ -799,6 +799,20 @@ function FocusBar(text: string, onExit: () => void): ReactNode {
   )
 }
 
+/** V7-⑥ 空板首用引导：无命令无任务时的第一屏——一句话定位 + 三步示意 +
+ * 直达起草器；有数据即隐退（三区板接管）。 */
+function OnboardPanel(onCompose: () => void): ReactNode {
+  const copy = activeCopy().onboard
+  return createElement('div', { className: 'war-onboard' },
+    createElement('div', { className: 'war-onboard-title' }, copy.title),
+    createElement('div', { className: 'war-onboard-lead' }, copy.lead),
+    createElement('div', { className: 'war-onboard-steps' },
+      copy.steps.map((s, i) => createElement('div', { key: i }, s)),
+    ),
+    createElement('button', { className: 'war-btn primary war-onboard-cta', onClick: onCompose }, copy.cta),
+  )
+}
+
 /** Build the war map tab component bound to the framework services. */
 export function warView(services: ClientServicesFace): () => ReactNode {
   return function WarView(): ReactNode {
@@ -914,7 +928,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         ? createElement('div', { className: 'war-body' },
           error !== null ? createElement('span', { className: 'war-err' }, activeCopy().loading.unreachable(error)) : createElement('span', { className: 'war-empty' }, activeCopy().loading.connecting),
         )
-        : createElement('div', { className: 'war-board' },
+        : commands.length === 0 && tasks.length === 0
+          ? OnboardPanel(() => { setComposerOpen(true) })
+          : createElement('div', { className: 'war-board' },
           // 三区：指挥中心（命令+任务）| 战场（进行中）| 战报（已完成+已失败）。
           createElement('div', { className: 'war-zone war-hq' },
             zoneHead(activeCopy().zones.hq.title, activeCopy().zones.hq.note),
