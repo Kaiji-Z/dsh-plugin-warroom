@@ -361,7 +361,7 @@ export const warCopy: WarCopy = {
     stages: { command: '命令', task: '任务', battle: '执行', report: '战报' },
     waitingStaff: '参谋接收中',
     approvedAwaitingPublish: '任务待发布',
-    waitingClarify: '等你答问（点卡进对话）',
+    waitingClarify: '等你答问',
     planPending: '计划待你批',
     waitingClaim: '待指挥官领取',
     attemptN: n => `第 ${n} 次尝试`,
@@ -673,7 +673,7 @@ export const plainCopy: WarCopy = {
   },
   lifecycle: {
     stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
-    waitingClarify: '等你回答（点卡进对话）',
+    waitingClarify: '等你回答',
     waitingStaff: '参谋接收中',
     approvedAwaitingPublish: '任务待发布',
     planPending: '方案待你批',

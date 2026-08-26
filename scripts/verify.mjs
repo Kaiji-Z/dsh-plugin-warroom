@@ -329,6 +329,8 @@ gate('bundle', () => {
     { ok: !client.includes('进入会话复盘'), label: 'V9.9: session-detail modal stays retired (focus page owns details)' },
     // V9.10 negative face：1234 阶段跳转导航钮退役（段头只剩静态标签）。
     { ok: !client.includes('war-cd-step'), label: 'V9.10: stage jump-nav buttons stay retired (no war-cd-step anywhere)' },
+    // 生命条状态行只描述状态；进对话动作归卡上 chip/聚焦页 ghost，点卡指示不许回流。
+    { ok: !client.includes('点卡进对话'), label: 'V9.10: lifecycle status stays instruction-free (no 点卡进对话)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}
