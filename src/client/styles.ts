@@ -53,6 +53,10 @@ const WAR_CSS = `
   --war-backdrop: rgba(15, 23, 42, .34);
   font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;height:100%;min-height:0;background:var(--war-canvas);position:relative;scrollbar-color:var(--dsw-alias-scrollbar-bg-l2, auto) transparent}
 .war-root ::selection{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent)}
+/* 宿主不给插件子树提供 border-box 复位——content-box 下一切 width:100%+padding
+ * 的件（弹窗本体/命令输入框/cron 输入/侧栏行）都会横向戳出父容器（元首报修
+ * 实测：composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640）。 */
+.war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}
 body[data-ds-dark-theme] .war-root{
   /* 深色层梯：宿主暗色层不塌缩，四级容器各落一层（浅色因 layer 全白不覆盖
    * zone/card/pop，靠灰画布分层）。层梯可辨性由 shoot-theme 断言兜底。 */

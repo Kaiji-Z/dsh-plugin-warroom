@@ -254,6 +254,9 @@ gate('bundle', () => {
     [client, '--war-select-tint', 'selected option-card tint token (measurable wash, both themes)'],
     [client, '--war-select-name', 'selected option-card name color token (light=deep blue, dark=white)'],
     [client, '.war-grade-card.on .war-grade-card-name::before', 'selected card dot marker (non-color channel)'],
+    // V9.13 补丁二：宿主不给插件子树 border-box——content-box 下 width:100%+padding 的件横向戳出
+    // （composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640，元首报修实测）。
+    [client, '.war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}', 'plugin subtree border-box reset (no width:100%+padding overflow)'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],
