@@ -381,6 +381,22 @@ function fmtSchedule(iso: string | null): string {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** V10 战线代际：罗马数字到 Ⅻ，溢出走「第N代」；初代返回空串（不给徽标）。 */
+const GEN_ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ', 'Ⅺ', 'Ⅻ']
+function genLabel(generation: number): string {
+  return generation < 2 ? '' : (GEN_ROMAN[generation] ?? `第${generation}代`)
+}
+/** 世代徽标（链色槽位着色；shoot 断言锚 data-war-gen）。 */
+function genBadge(cmd: BoardCommand): ReactNode {
+  const label = genLabel(cmd.chain.generation)
+  if (label === '') return null
+  return createElement('span', {
+    className: `war-gen-badge war-chain-hue-${cmd.chain.hueSlot}`,
+    'data-war-gen': String(cmd.chain.generation),
+    title: activeCopy().chain.genBadgeTitle(cmd.chain.length),
+  }, label)
+}
+
 function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, tour = false): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
@@ -410,6 +426,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     createElement('span', { className: `war-dot ${meta.dot}` }),
     createElement('span', { className: `war-chip ${meta.cls}` }, meta.label),
     gradeChip(cmd),
+    genBadge(cmd),
     cmd.schedule !== null && cmd.schedule.dispatchedAt === null
       ? createElement('span', {
           className: 'war-chip sched',
@@ -595,8 +612,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
@@ -810,7 +827,20 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       // V9.9：footer 收编为两颗会话跳钮，窗口关闭走右上 ✕（+Esc+点背板）。
       createElement('button', { className: 'war-cd-x', type: 'button', 'aria-label': copy.close, title: copy.close, onClick: onClose }, '✕'),
       createElement('div', { className: 'war-modal-title war-cd-title', title: cmd.text }, `「${cmd.text.slice(0, 42)}${cmd.text.length > 42 ? '…' : ''}」`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${cmd.commandId} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}`),
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${cmd.commandId} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}${cmd.continuation !== null ? ` · ${activeCopy().chain.tags[cmd.continuation.mode]}` : ''}`),
+      // V10 战线族谱：多代才显形——Ⅰ→…→本代逐级可跳（换窗到该代聚焦页）。
+      chainMembers.length > 1
+        ? createElement('div', { className: 'war-cd-chain', role: 'list', 'aria-label': activeCopy().chain.breadcrumbAria, 'data-war-chain-length': String(chainMembers.length) },
+          ...chainMembers.map(m =>
+            createElement('button', {
+              key: m.commandId,
+              type: 'button',
+              role: 'listitem',
+              className: `war-cd-chain-item war-chain-hue-${m.chain.hueSlot}${m.commandId === cmd.commandId ? ' now' : ''}`,
+              title: m.text,
+              onClick: () => { if (m.commandId !== cmd.commandId) onOpenCommand?.(m.commandId) },
+            }, `${genLabel(m.chain.generation)} ${m.text.slice(0, 10)}${m.text.length > 10 ? '…' : ''}`)))
+        : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
       // 决策带（置顶常驻）：有事给动作，无事给安神行。
       createElement('div', { className: `war-cd-band${actionKind === null ? ' quiet' : ''}`, role: actionKind === null ? undefined : 'region', 'aria-label': actionKind === null ? undefined : band.title },
@@ -1743,6 +1773,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
         chain: chainOf(detailCommand),
+        // V10 战线族谱：同根全体按 createdAt 升序（Ⅰ→…）；跨代点击换窗。
+        chainMembers: commandsNewest.filter(c => c.chain.rootId === detailCommand.chain.rootId).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)),
+        onOpenCommand: id => { setDetailCommandId(id) },
         statuses,
         hqSessionId,
         services,

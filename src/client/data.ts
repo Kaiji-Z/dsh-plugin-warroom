@@ -63,6 +63,10 @@ export interface BoardCommand {
   plan: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt: string | null } | null
   /** V9.2 定时下达（未定时为 null；dispatchedAt 空 = 待发，nextRunAt 为下次触发）。 */
   schedule: { cron: string; dispatchedAt: string | null; nextRunAt: string | null } | null
+  /** V10 战线链身份（服务端 foldChains 单点计算；初代也给对象，generation=1）。 */
+  chain: { generation: number; rootId: string; length: number; hueSlot: number }
+  /** V10 续接意图（初代为 null）。 */
+  continuation: { mode: 'deepen' | 'retry' | 'pivot' } | null
 }
 
 export interface BoardTask {

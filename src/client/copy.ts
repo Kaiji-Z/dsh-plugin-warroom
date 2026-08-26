@@ -161,6 +161,12 @@ export interface WarCopy {
     handle: string
   }
   grade: Record<'L0' | 'L1' | 'L2', string>
+  /** V10 战线链身份：世代徽标悬停语 / 族谱面包屑 aria / 续接模式正名。 */
+  chain: {
+    genBadgeTitle: (generations: number) => string
+    breadcrumbAria: string
+    tags: Record<'deepen' | 'retry' | 'pivot', string>
+  }
   commandDetail: {
     gradeReasonPrefix: string
     regradesNote: (n: number) => string
@@ -483,6 +489,11 @@ export const warCopy: WarCopy = {
     handleRetryTitle: '重试授权在参谋会话说——板是读投影，发令走参谋',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
+  chain: {
+    genBadgeTitle: n => `本命令是这条战线的第 ${n} 代续作`,
+    breadcrumbAria: '战线族谱：历代替续，逐级可跳',
+    tags: { deepen: '续战令·深化', retry: '续战令·再战', pivot: '续战令·转向' },
+  },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（元首改档 ${n} 次）`,
@@ -800,6 +811,11 @@ export const plainCopy: WarCopy = {
     handleRetryTitle: '重试授权在参谋会话说——板是只读的，发令走参谋',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
+  chain: {
+    genBadgeTitle: n => `这条命令是同一件事的第 ${n} 次跟进`,
+    breadcrumbAria: '跟进链路：历史各步，逐级可看',
+    tags: { deepen: '跟进·接着做', retry: '跟进·重试', pivot: '跟进·改方向' },
+  },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（改档 ${n} 次）`,

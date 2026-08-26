@@ -425,6 +425,36 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 h2.war-col-title{margin:0;font-size:13px}
 
 /* == WAR_CSS 追加锚点：新 CSS 插在本行之后 == */
+/* --- V10 战线链色与身份 -------------------------------------------------------
+ * 链是隐形语义的可见显影：8 个低饱和槽位、双主题各自成章（浅=压黑保白底对比，
+ * 深=原值微亮）；strength/mixto 两枚主题变量让组件规则免写裸色值。槽位本体是
+ * 故意调开的八相（与状态四档蓝琥珀绿红错位），像 quality 调色板一样是语义层
+ * 之外的第二条刻意色谱。 */
+.war-root{--war-chain-strength:62%;--war-chain-mixto:#000}
+body[data-ds-dark-theme] .war-root{--war-chain-strength:85%;--war-chain-mixto:#fff}
+.war-chain-hue-0{--chain-hue:#6f5bd6}
+.war-chain-hue-1{--chain-hue:#0e7f76}
+.war-chain-hue-2{--chain-hue:#4c8f3f}
+.war-chain-hue-3{--chain-hue:#9a6b1f}
+.war-chain-hue-4{--chain-hue:#b04a3c}
+.war-chain-hue-5{--chain-hue:#a83d84}
+.war-chain-hue-6{--chain-hue:#3465b8}
+.war-chain-hue-7{--chain-hue:#5d6b7a}
+body[data-ds-dark-theme] .war-root .war-chain-hue-0{--chain-hue:#ab9df2}
+body[data-ds-dark-theme] .war-root .war-chain-hue-1{--chain-hue:#63d8cd}
+body[data-ds-dark-theme] .war-root .war-chain-hue-2{--chain-hue:#93d47f}
+body[data-ds-dark-theme] .war-root .war-chain-hue-3{--chain-hue:#e3b566}
+body[data-ds-dark-theme] .war-root .war-chain-hue-4{--chain-hue:#ef9083}
+body[data-ds-dark-theme] .war-root .war-chain-hue-5{--chain-hue:#eb97d5}
+body[data-ds-dark-theme] .war-root .war-chain-hue-6{--chain-hue:#8fb2f2}
+body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
+/* 世代徽标（Ⅱ 起）：命令卡顶部一行的小徽章，12px 底线以内 */
+.war-gen-badge{display:inline-flex;align-items:center;padding:0 6px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;color:color-mix(in srgb,var(--chain-hue,#888) var(--war-chain-strength),var(--war-chain-mixto));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 45%,transparent);background:color-mix(in srgb,var(--chain-hue,#888) 12%,transparent)}
+/* 聚焦页战线族谱：Ⅰ→…→本代，逐级可跳；当前代加粗高亮不可再点自己 */
+.war-cd-chain{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.war-cd-chain-item{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid color-mix(in srgb,var(--chain-hue,#888) 35%,transparent);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px;padding:1px 8px;border-radius:999px;cursor:pointer;text-align:left;font-family:var(--dsw-font-family)}
+.war-cd-chain-item.now{font-weight:700;color:color-mix(in srgb,var(--chain-hue,#888) var(--war-chain-strength),var(--war-chain-mixto));border-color:color-mix(in srgb,var(--chain-hue,#888) 60%,transparent);cursor:default}
+.war-cd-chain-item:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}
