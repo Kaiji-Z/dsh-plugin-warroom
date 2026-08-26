@@ -26,6 +26,8 @@ ts = lambda mins_ago: (datetime.now(timezone.utc) - timedelta(minutes=mins_ago))
 
 shutil.rmtree(STATE / "campaigns", ignore_errors=True)
 (STATE / "directives.jsonl").unlink(missing_ok=True)
+# 织换标记一并清——下次开机 demo-weave 重织（换一批新真会话）。
+(STATE / ".demo-woven.json").unlink(missing_ok=True)
 print(f"cleared playground state: {STATE}")
 
 subprocess.run(

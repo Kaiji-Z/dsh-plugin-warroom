@@ -28,6 +28,7 @@ Path(OUT).mkdir(parents=True, exist_ok=True)
 # --- Phase 0: 清空 smoke 态（只动隔离目录——默认目录绝不能碰，v6 事故教训）。 ---
 shutil.rmtree(STATE / "campaigns", ignore_errors=True)
 (STATE / "directives.jsonl").unlink(missing_ok=True)
+(STATE / ".demo-woven.json").unlink(missing_ok=True)  # 织换标记同清（与 playground 协议对齐）
 print(f"cleared smoke state: {STATE}")
 # 清盘后服务端的折叠缓存可能短暂回旧内容（实测竞态）——轮询等板真空再开测。
 import time as _time
@@ -180,9 +181,11 @@ with sync_playwright() as p:
 
     # V9.11 R1 卡位模型机检：任务列=参谋侧台账（成形卡置顶 + 终局任务书卡常驻调暗）
     # + 生命条上报即进战报段（修「卡已到战报列、条停在执行段」的打架）。
+    leave_island()  # 岛面板悬停展开会盖住列区——先收，别挡后续点卡
+    page.wait_for_timeout(350)
     ledger = page.locator(".war-col.zone-tasks")
     forming = ledger.locator(".war-forming")
-    assert forming.count() == 3, f"ledger must carry 3 forming cards (drafting/talking/plan), got {forming.count()}"
+    assert forming.count() == 5, f"ledger must carry 5 forming cards (2 drafting/talking/plan/approved-awaiting), got {forming.count()}"
     warn_f = ledger.locator(".war-forming.warn")
     assert warn_f.count() == 1, "talking command must surface exactly one warn forming card"
     warn_txt = warn_f.inner_text()
@@ -191,7 +194,10 @@ with sync_playwright() as p:
     assert plan_f.count() == 1 and "计划待你批" in plan_f.first.inner_text(), "plan-pending command must surface its forming card"
     draft_f = forming.filter(has_text="能翻回去看以前记的吗")
     assert draft_f.count() == 1 and "成形中" in draft_f.first.inner_text(), "received(+staff session) command must carry the drafting forming card"
+    approved_f = forming.filter(has_text="README 补一页英文版")
+    assert approved_f.count() == 1 and "任务待发布" in approved_f.first.inner_text(), "approved-awaiting-publish command must surface its forming card"
     assert forming.filter(has_text="算了").count() == 0, "cancelled command must not surface a forming card"
+    assert forming.filter(has_text="每周一早上 9 点").count() == 0, "scheduled command must not surface a forming card (not yet relayed)"
     settled = ledger.locator(".war-card.settled")
     assert settled.count() == 2, f"ledger must keep BOTH terminal task cards (failed t3 + closed t6), got {settled.count()}"
     settled_txt = settled.all_inner_texts()
@@ -202,6 +208,27 @@ with sync_playwright() as p:
     assert d3_cmd.count() == 1, "d3 command card must sit in the dispatch strip"
     now_stage = d3_cmd.locator(".war-life-label.now").all_inner_texts()
     assert now_stage == ["战报"], f"reported command life strip must sit on the REPORT stage, got {now_stage}"
+    # V9.11 指示器跟卡走：成形卡在任务列（d1/d2/d5 参谋已接手）→ 前沿到任务段；
+    # 未被接手的 d0 → 停在命令段；战报未读 → 战报段呼吸（now）而非转绿（done）。
+    def strip_now(text):
+        card = page.locator(".war-dispatch .war-command-card", has_text=text)
+        return card.locator(".war-life-label.now").all_inner_texts()
+    assert strip_now("顺便给小工具加个导出 csv") == ["任务"], "talking (forming card live) strip must sit on TASK stage"
+    assert strip_now("能翻回去看以前记的吗") == ["任务"], "received+staff (drafting forming card) strip must sit on TASK stage"
+    assert strip_now("等下帮我把 projA 的依赖全部升到最新") == ["任务"], "drafting forming card (seeded received) must sit on TASK stage"
+    assert strip_now("每周一早上 9 点把上周战报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
+    rep_label = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+    assert "now" in (rep_label.get_attribute("class") or ""), "unseen report must breathe (now), not turn green"
+    # 战报已阅转绿：点 d3 的战报列卡（t1 尝试会话卡，经 lineage 开聚焦页战报段）
+    # → 战报段进视野 → 关闭后调度条上该命令战报段转绿（done）、无呼吸位。
+    page.locator(".war-col.zone-report .war-card", has_text="每日一句").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.wait_for_timeout(600)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(400)
+    assert d3_cmd.locator(".war-life-label.now").count() == 0, "after viewing the report, no stage should breathe"
+    rep_label2 = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+    assert "done" in (rep_label2.get_attribute("class") or ""), "viewed report stage must turn green (done)"
     page.screenshot(path=f"{OUT}/v9-ledger.png")
     # 成形卡点击 → 源命令聚焦页任务段（与聚焦页 ghost 同一变体判定，不分叉）。
     warn_f.click()
@@ -210,7 +237,7 @@ with sync_playwright() as p:
     assert page.locator(".war-modal .war-tour-ghost.warn").count() == 1, "focus task stage must show the same talking ghost (shared variant derivation)"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
-    print("V9.11 R1 ledger: 3 forming cards (talking-warn/plan/drafting) + terminal cards dimmed-in-place + life strip reported→report")
+    print("V9.11 R1 ledger: 5 forming cards (talking-warn/plan/2 drafting/approved) + terminal cards dimmed-in-place + life strip reported→report + scheduled stays on command")
 
     # V9.9 导航断言：点上方任务卡 = 打开源命令的聚焦页（四段导览 + 底部双跳钮）。
     leave_island()  # 面板收起，别让它盖住任务卡
@@ -256,9 +283,9 @@ with sync_playwright() as p:
     # --- Phase E: 悬停族系高亮（瞬态）+ 自动滚动（小视口下族系卡滚进视野）。 ---
     page.set_viewport_size({"width": 1720, "height": 640})  # 压矮视口逼出列内滚动
     page.wait_for_timeout(300)
-    t1_card = page.locator(".war-col.zone-tasks .war-card", has_text="每日一句").first
+    t1_card = page.locator(".war-col.zone-tasks .war-card", has_text="CLI 小工具").first
     t1_card.hover()
-    page.wait_for_timeout(700)  # 300ms 防抖 + smooth 滚动余量
+    page.wait_for_timeout(1400)  # 300ms 防抖 + smooth 滚动余量（V9.11 列变长，13 卡）
     same = page.locator(".war-rel-same").count()
     dim = page.locator(".war-rel-dim").count()
     assert same >= 3, f"hover family highlight too thin: same={same}"

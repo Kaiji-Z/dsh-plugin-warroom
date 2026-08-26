@@ -140,7 +140,9 @@ function qualityChip(quality: BoardQuality): ReactNode {
 // --- 命令区 ------------------------------------------------------------------
 
 /** 命令的任务域（全生命周期追踪的核心）：头任务 + 全部传递依赖它的任务
- *  （V6 链的后继经 deps 闭包归队）。命令卡/命令详情据此聚合进度。 */
+ *  （V6 链的后继经 deps 闭包归队）。命令卡/命令详情据此聚合进度。
+ *  V9.11：返回按**依赖序**排列（前驱永远在后继前面）——投影数组按状态排序，
+ *  直通 filter 会把 published 的后继排到 reported 的前驱前面，读链就倒了。 */
 function commandTasks(cmd: BoardCommand, tasks: BoardTask[]): BoardTask[] {
   if (cmd.taskId === null) return []
   const members = new Set<string>([cmd.taskId])
@@ -155,43 +157,106 @@ function commandTasks(cmd: BoardCommand, tasks: BoardTask[]): BoardTask[] {
       }
     }
   }
-  return tasks.filter(t => members.has(t.taskId))
+  const byId = new Map(tasks.map(t => [t.taskId, t]))
+  const ordered: BoardTask[] = []
+  const emitted = new Set<string>()
+  let pending = tasks.filter(t => members.has(t.taskId))
+  while (pending.length > 0) {
+    const ready = pending.filter(t => t.deps.every(d => !members.has(d) || emitted.has(d)))
+    if (ready.length === 0) break // 环防御：残量按投影原序跟上，不死循环
+    for (const t of ready) {
+      ordered.push(t)
+      emitted.add(t.taskId)
+    }
+    pending = pending.filter(t => !emitted.has(t.taskId))
+  }
+  return [...ordered, ...pending.filter(t => byId.has(t.taskId))]
 }
 
 type LifeStage = 'command' | 'task' | 'battle' | 'report'
 
-/** 阶段条状态机：命令→任务→执行→战报，now 是当前关注位（呼吸条）。 */
-function lifecycleOf(cmd: BoardCommand, chain: BoardTask[]): { reached: Record<LifeStage, boolean>; now: LifeStage | null; status: string; tone: '' | 'warn' | 'err' } {
+/** 战报已阅账本（localStorage，per 命令记「最近一次点开战报」时刻）：战报段
+ * 由呼吸转绿的唯一依据——seen 必须晚于该命令最近一次定论（新战报会重新拉回
+ * 呼吸态）。无 localStorage 环境（测试/隐身）静默降级为未读。 */
+const REPORT_SEEN_KEY = 'warroom-report-seen'
+function reportSeenAtOf(commandId: string): number | undefined {
+  try {
+    const m = JSON.parse(localStorage.getItem(REPORT_SEEN_KEY) ?? '{}') as Record<string, number>
+    const v = m[commandId]
+    return typeof v === 'number' ? v : undefined
+  } catch {
+    return undefined
+  }
+}
+function markReportSeen(commandId: string): void {
+  try {
+    const m = JSON.parse(localStorage.getItem(REPORT_SEEN_KEY) ?? '{}') as Record<string, number>
+    m[commandId] = Date.now()
+    localStorage.setItem(REPORT_SEEN_KEY, JSON.stringify(m))
+  } catch {
+    // 静默降级：读投影不受影响，只是战报段不转绿。
+  }
+}
+
+/** 链上最近一次「定论时刻」（战报/上报/失败尝试的末次时间）——战报已阅只在
+ * 晚于它时才作数（驳回重跑出了新战报 → 呼吸态回归，等你再看）。 */
+function latestSettleMs(chain: BoardTask[]): number {
+  let latest = 0
+  for (const t of chain) {
+    for (const r of t.reports) {
+      const ms = Date.parse(r.ts)
+      if (Number.isFinite(ms) && ms > latest) latest = ms
+    }
+    for (const a of t.attemptLog ?? []) {
+      if (a.endedAt !== null && a.outcome !== null) {
+        const ms = Date.parse(a.endedAt)
+        if (Number.isFinite(ms) && ms > latest) latest = ms
+      }
+    }
+  }
+  return latest
+}
+
+/** 阶段条状态机（V9.11 指示器跟卡走，元首定案）：now 是当前关注位（呼吸条）。
+ * 规则：卡进任务列（成形卡或任务书卡）前沿即到任务段——只有定时未出发/未被
+ * 参谋接手的命令停在命令段；执行段认 live 尝试；战报到场先呼吸（等你点开），
+ * 看过之后（seen 晚于最近定论）整条转绿收官。 */
+function lifecycleOf(cmd: BoardCommand, chain: BoardTask[], reportSeenAt?: number): { reached: Record<LifeStage, boolean>; now: LifeStage | null; status: string; tone: '' | 'warn' | 'err' } {
   const copy = activeCopy().lifecycle
   if (cmd.status === 'cancelled') {
     return { reached: { command: true, task: false, battle: false, report: false }, now: null, status: copy.cancelled, tone: 'err' }
   }
-  // 计划待批是最要紧的行动位（不属任何阶段——压在状态行上高亮）。
   const planPending = cmd.plan?.status === 'pending'
   if (chain.length === 0) {
-    // V9.3（复评 P2-1）：approved→publish 窗口期不再是「参谋接收中」——绿
-    // 「已批准」旁挂 warn 接收中是两个状态通道打架，给中性「任务待发布」。
-    // V9.9：此窗口任务卡尚未成形，reached.task 不再点亮（now 仍指 task 作
-    // 前沿呼吸位）——阶段条只反映真实在场的卡片，不预告还没发生的事。
-    if (cmd.status === 'approved') {
-      return { reached: { command: true, task: false, battle: false, report: false }, now: 'task', status: copy.approvedAwaitingPublish, tone: '' }
+    // V9.11：成形卡在场（接令起）＝卡片已进任务列 → 前沿到任务段；talking/
+    // plan 待批是等你动作的位，状态行挂 warn。
+    if (formingVariantOf(cmd, chain) !== null) {
+      const status = cmd.status === 'talking' ? copy.waitingClarify
+        : planPending ? copy.planPending
+        : cmd.status === 'approved' ? copy.approvedAwaitingPublish
+        : copy.waitingStaff
+      const tone = cmd.status === 'talking' || planPending ? 'warn' : ''
+      return { reached: { command: true, task: true, battle: false, report: false }, now: 'task', status, tone }
     }
-    const status = cmd.status === 'talking' ? copy.waitingClarify : planPending ? copy.planPending : copy.waitingStaff
-    return { reached: { command: true, task: false, battle: false, report: false }, now: 'command', status, tone: 'warn' }
+    // 未被参谋拿到 / 定时未出发：无任务卡可指，前沿停在命令段。
+    return { reached: { command: true, task: false, battle: false, report: false }, now: 'command', status: copy.waitingStaff, tone: 'warn' }
   }
   const closed = chain.filter(t => t.status === 'closed').length
-  const battleLive = chain.some(t => t.status === 'in_progress' || t.status === 'reported' || t.attemptLog.length > 0)
-  // V9.11：上报（reported）即进战报段——执行卡已平移到战报列，生命条不许停在执行段
-  // 打架；状态标签优先级 定论(closed/failed) > 待验收(reported)。
+  // V9.11：上报（reported）即进战报段——执行卡已平移到战报列，生命条不许停在
+  // 执行段打架；状态标签优先级 定论(closed/failed) > 待验收(reported)。
   const reportDone = chain.some(t => t.status === 'closed' || t.status === 'failed' || t.status === 'reported')
   const chainPrefix = chain.length > 1 ? `${copy.chain(closed, chain.length)} · ` : ''
   if (reportDone) {
     const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed') ?? chain.find(t => t.status === 'reported')
     const label = terminal !== undefined ? activeCopy().taskStatus[terminal.status] : ''
-    return { reached: { command: true, task: true, battle: true, report: true }, now: 'report', status: `${chainPrefix}${label}`, tone: '' }
+    const seen = reportSeenAt !== undefined && reportSeenAt >= latestSettleMs(chain)
+    return seen
+      ? { reached: { command: true, task: true, battle: true, report: true }, now: null, status: `${chainPrefix}${label}`, tone: '' }
+      : { reached: { command: true, task: true, battle: true, report: false }, now: 'report', status: `${chainPrefix}${label}`, tone: '' }
   }
+  const battleLive = chain.some(t => t.status === 'in_progress' || t.attemptLog.length > 0)
   if (battleLive) {
-    const current = chain.find(t => t.status === 'in_progress' || t.status === 'reported') ?? chain[chain.length - 1]!
+    const current = chain.find(t => t.status === 'in_progress') ?? chain[chain.length - 1]!
     const attemptSuffix = current.attempts > 1 ? ` · ${copy.attemptN(current.attempts)}` : ''
     return { reached: { command: true, task: true, battle: true, report: false }, now: 'battle', status: `${chainPrefix}${activeCopy().taskStatus[current.status]}${attemptSuffix}`, tone: '' }
   }
@@ -208,7 +273,7 @@ function formingVariantOf(cmd: BoardCommand, chain: BoardTask[]): 'plan' | 'talk
 /** 阶段条（4 段分段进度：done 绿 / now 蓝呼吸 / 其余灰）。 */
 function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   const copy = activeCopy().lifecycle
-  const life = lifecycleOf(cmd, chain)
+  const life = lifecycleOf(cmd, chain, reportSeenAtOf(cmd.commandId))
   const stages: Array<{ key: LifeStage; label: string }> = [
     { key: 'command', label: copy.stages.command },
     { key: 'task', label: copy.stages.task },
@@ -530,8 +595,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
@@ -543,6 +608,28 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     const stage = focusSegment === 'report' ? 'report' : 'task'
     document.querySelector(`.war-modal .war-cd-stage[data-stage='${stage}']`)?.scrollIntoView({ block: 'center' })
   }, [focusSegment])
+  // V9.11 战报已阅（元首定）：分段直达战报段＝看过；自行滚到战报段进视野（决策
+  // 带「去看战报」或手动滚动）也算看过——生命条战报段由此从呼吸转绿收官。标记
+  // 走 localStorage（seen 晚于最近定论才作数），onReportSeen 让调度条立即重渲染。
+  useEffect(() => {
+    if (focusSegment === 'report') {
+      markReportSeen(cmd.commandId)
+      onReportSeen()
+    }
+  }, [focusSegment, cmd.commandId])
+  useEffect(() => {
+    const stage = document.querySelector(`.war-modal .war-cd-stage[data-stage='report']`)
+    if (stage === null || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(en => en.isIntersecting)) {
+        markReportSeen(cmd.commandId)
+        onReportSeen()
+        io.disconnect()
+      }
+    }, { threshold: 0.35 })
+    io.observe(stage)
+    return () => io.disconnect()
+  }, [cmd.commandId])
   // 滚动高亮随 V9.10 导航钮一起退役：四段本身不长，滚动即读，无需段落指示。
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
@@ -569,6 +656,12 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   // 底部两颗会话跳钮的目标：任务会话=参谋计划会话（无则 hq 兜底）；执行会话=
   // 进行中的那次尝试，无进行中退到最近一次尝试。
   const staffTarget = cmd.staffSessionId ?? hqSessionId
+  // 跳原生会话 = 离开聚焦页：宿主切走会话，弹窗同时收起（不留在头顶挡路）。
+  const jumpSession = (sessionId: string | null): void => {
+    if (sessionId === null) return
+    services.sessions?.open(sessionId)
+    onClose()
+  }
   const execTarget = liveAttempts[0]?.a.sessionId ?? execSessions[0]?.a.sessionId ?? null
   const failedChain = chain.some(t => t.status === 'failed')
   const scheduled = cmd.schedule !== null && cmd.schedule.dispatchedAt === null
@@ -640,7 +733,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             createElement('button', { key: 'ap', className: 'war-btn primary', onClick: () => { onDecidePlan('approve') } }, copy.approvePlan),
             createElement('button', { key: 'rj', className: 'war-btn', onClick: () => { onDecidePlan('reject') } }, copy.rejectPlan),
             staffTarget !== null
-              ? createElement('button', { key: 'in', className: 'war-btn', onClick: () => { services.sessions?.open(staffTarget) } }, fp.planEnterSession)
+              ? createElement('button', { key: 'in', className: 'war-btn', onClick: () => { jumpSession(staffTarget) } }, fp.planEnterSession)
               : null,
           ])
           : null,
@@ -653,7 +746,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
         staffTarget !== null
           ? subActions([createElement('button', {
               className: 'war-btn primary war-btn-warn',
-              onClick: () => { void markTalking(cmd.commandId); services.sessions?.open(staffTarget) },
+              onClick: () => { void markTalking(cmd.commandId); jumpSession(staffTarget) },
             }, fp.talkingEnterBtn)])
           : null,
       )
@@ -665,7 +758,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
         : fp.triagePending),
       cmd.gradeReason !== null ? subRow(copy.gradeReasonPrefix, cmd.gradeReason) : null,
       staffTarget !== null
-        ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, fp.planEnterSession)])
+        ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { jumpSession(staffTarget) } }, fp.planEnterSession)])
         : null,
     )
   }
@@ -681,7 +774,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     subRow(fp.taskBrief, t.brief !== '' ? t.brief : fp.briefMissing),
     subRow(fp.taskAcceptance, t.acceptance !== '' ? t.acceptance : fp.acceptanceMissing),
     (t.status === 'reported' || t.status === 'failed') && staffTarget !== null
-      ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, activeCopy().taskCard.handle)])
+      ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { jumpSession(staffTarget) } }, activeCopy().taskCard.handle)])
       : null,
   )
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
@@ -707,7 +800,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
               createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
               createElement('span', { className: 'war-cd-band-hint' }, band.clarifyHint),
               createElement('span', { className: 'war-cd-band-actions' },
-                createElement('button', { className: 'war-btn primary', onClick: () => { if (cmd.staffSessionId !== null) { void markTalking(cmd.commandId); services.sessions?.open(cmd.staffSessionId) } } }, band.clarifyBtn),
+                createElement('button', { className: 'war-btn primary', onClick: () => { void markTalking(cmd.commandId); jumpSession(cmd.staffSessionId) } }, band.clarifyBtn),
               ),
             )
             : actionKind === 'review'
@@ -803,7 +896,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           stageHead('battle', liveAttempts.length > 0 ? fp.battleLive(liveAttempts.length) : ''),
           liveAttempts.length > 0
             ? createElement('div', { className: 'war-tour-cards' },
-              ...liveAttempts.map(({ t, a }) => SessionCard(t, a, (_t, a2) => { services.sessions?.open(a2.sessionId) }, NO_TRACE)))
+              ...liveAttempts.map(({ t, a }) => SessionCard(t, a, (_t, a2) => { jumpSession(a2.sessionId) }, NO_TRACE)))
             : createElement('div', { className: 'war-tour-hint' }, execSessions.length > 0 ? fp.battleDone : fp.battleNone),
         ),
         // ④ 战报 · 结果如何：战报卡（最新战报宿主环的末次会话卡）点开看收官
@@ -831,7 +924,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                     ? subRow(fp.attemptsSection, createElement('span', { className: 'war-sub-attempts' },
                       execSessions.map(({ t, a }) => createElement('button', {
                         key: a.id, className: 'war-cd-session', type: 'button', title: a.sessionId,
-                        onClick: () => { services.sessions?.open(a.sessionId) },
+                        onClick: () => { jumpSession(a.sessionId) },
                       },
                       createElement('span', { className: `war-chip ${(a.outcome ?? 'live') === 'live' ? 'st-in_progress' : a.outcome === 'failed' ? 'oc-fail' : a.outcome === 'reported' ? 'oc-reported' : 'oc-done'}` }, outcomeLabel(a.outcome ?? 'live').label),
                       createElement('span', { className: 'war-taskid' }, `⌁ ${a.sessionId.slice(0, 10)}… · ${t.taskId}`),
@@ -839,7 +932,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                       ))))
                     : null,
                   (lastReport !== undefined && chain.some(t => t.status === 'reported') || failedChain) && staffTarget !== null
-                    ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, activeCopy().taskCard.handle)])
+                    ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { jumpSession(staffTarget) } }, activeCopy().taskCard.handle)])
                     : null,
                 )
                 : null)
@@ -853,13 +946,13 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           className: 'war-btn war-jump-btn', type: 'button',
           disabled: staffTarget === null,
           title: staffTarget !== null ? staffTarget : fp.taskSessionHint,
-          onClick: () => { if (staffTarget !== null) services.sessions?.open(staffTarget) },
+          onClick: () => { jumpSession(staffTarget) },
         }, `⌁ ${fp.taskSessionBtn}`),
         createElement('button', {
           className: 'war-btn war-jump-btn', type: 'button',
           disabled: execTarget === null,
           title: execTarget !== null ? execTarget : fp.execSessionHint,
-          onClick: () => { if (execTarget !== null) services.sessions?.open(execTarget) },
+          onClick: () => { jumpSession(execTarget) },
         }, `⌁ ${fp.execSessionBtn}`),
       ),
     ),
@@ -1367,6 +1460,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V9.2 设置抽屉的看板行为开关（纯展示层偏好，localStorage 持久化）。
     const [hoverFamilyOn, setHoverFamilyOn] = useState(() => localStorage.getItem('warroom-cfg-hover-family') !== '0')
     const [autoScrollOn, setAutoScrollOn] = useState(() => localStorage.getItem('warroom-cfg-auto-scroll') !== '0')
+    // V9.11 战报已阅：聚焦页战报段进视野时 bump——调度条生命条（战报呼吸→绿）
+    // 读 localStorage 渲染，靠这次重渲染立即生效。
+    const [, setReportSeenRev] = useState(0)
     useEscOnlyLayer(focusCommandId !== null, () => { setFocusCommandId(null) })
     // V9.5（复评 P2-2）：全板快捷键 n = 新建命令（无弹窗层且不在输入框时）——
     // 主写操作不再藏在 20 个 Tab 之后的坞左端。
@@ -1399,15 +1495,31 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       return () => { clearTimeout(timer) }
     }, [actionError])
     // V8 悬停自动滚动：族系高亮确定后（300ms 防抖），把各滚动容器里被高亮但
-    // 不在视口内的卡片滚到眼前——上方三列（纵向）+ 底部调度条（横向）都要管；
-    // nearest 只滚最小必要距离，已可见的不动；reduced-motion 用户用瞬移。
+    // 不在视口内的卡片滚到眼前。调度条（单行横滚，族系内至多一张卡）用
+    // nearest 即可；上方三列按**列聚合**一次滚——同列多张同族卡（V6 链）逐卡
+    // nearest 会互相挤出（最后一张赢、前面被顶出视口，V9.11 多任务链实测），
+    // 聚合后整段放得下就对齐链头，放不下也保链头。reduced-motion 用瞬移。
     // 悬停离开（null）不滚——不抢用户的滚动权。
     useEffect(() => {
       if (hoverFamily === null || !autoScrollOn) return
       const timer = setTimeout(() => {
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        document.querySelectorAll<HTMLElement>('.war-col-body .war-rel-same, .war-dispatch .war-rel-same').forEach(el => {
-          el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' })
+        const behavior = reduced ? 'auto' as const : 'smooth' as const
+        document.querySelectorAll<HTMLElement>('.war-dispatch .war-rel-same').forEach(el => {
+          el.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' })
+        })
+        document.querySelectorAll<HTMLElement>('.war-col-body').forEach(col => {
+          const same = [...col.querySelectorAll<HTMLElement>('.war-rel-same')]
+          if (same.length === 0) return
+          const cr = col.getBoundingClientRect()
+          const topR = same[0]!.getBoundingClientRect()
+          const botR = same[same.length - 1]!.getBoundingClientRect()
+          const above = topR.top < cr.top - 1
+          const below = botR.bottom > cr.bottom + 1
+          if (!above && !below) return
+          const span = botR.bottom - topR.top
+          const delta = span <= cr.height || above ? topR.top - cr.top : botR.bottom - cr.bottom
+          col.scrollBy({ top: delta, behavior })
         })
       }, 300)
       return () => { clearTimeout(timer) }
@@ -1586,6 +1698,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         onClose: () => { setDetailCommandId(null) },
         onRegrade: grade => { actNote(regradeCommand(detailCommand.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade])) },
         onDecidePlan: decision => { actNote(decidePlan(detailCommand.commandId, decision), decision === 'approve' ? activeCopy().commandDetail.approvePlan : activeCopy().commandDetail.rejectPlan) },
+        onReportSeen: () => { setReportSeenRev(x => x + 1) },
       }) : null,
       settingsOpen ? createElement(SettingsDrawer, {
         key: 'settings',

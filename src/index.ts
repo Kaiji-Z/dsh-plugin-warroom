@@ -36,6 +36,7 @@ import { featureEnabled, runtimeFlags } from './flags.ts'
 import { kickIdleTroops, warTools, armMissingCommanderGoals, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
 import { conscriptPlan, workspaceConflict } from './rules.ts'
 import { ActivityTracker } from './activity.ts'
+import { weaveDemoSessions } from './demo-weave.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
 import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot } from './workspace.ts'
@@ -464,6 +465,14 @@ export function apply(ctx: Context, config: Config): void {
     commander.bindRelay(api.sessions, api.workspace)
     commandFuse.bind(api.sessions)
     sessionsRef.face = api.sessions
+    // V9.11 演示织换（config.demoWeave，smoke overlay 专用）：faces 就绪即把种子
+    // 假会话号换成宿主真会话（建在当前工作区——web 跳转只认当前工作区会话表）。
+    // best-effort，失败只记日志绝不进事件循环。
+    if (config.demoWeave) {
+      void weaveDemoSessions(stateDir, { sessions: api.sessions, currentRoot: process.cwd() }).catch(err => {
+        console.log(`[warroom] demo weave skipped: ${String(err)}`)
+      })
+    }
   })
   // The staff's drafting craft rides the runtime skill registry (no
   // filesystem writes — the runtime provider owns it, base bundles without

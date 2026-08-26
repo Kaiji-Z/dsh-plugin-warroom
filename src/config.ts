@@ -41,6 +41,12 @@ export interface Config {
    * force at every load; `auto` (default) follows the persisted activation.
    */
   active: 'auto' | 'on' | 'off'
+  /**
+   * 演示织换（smoke/playground overlay 专用，缺省 false）：开机时把播种器写进
+   * 事件流的假会话号按 `.demo-sessions.json` manifest 换成宿主真会话——演示板
+   * 上所有「直跳原生会话」的点击才有着落。生产配置绝不开。
+   */
+  demoWeave: boolean
 }
 
 /** Schemastery configuration validated at plugin load. */
@@ -51,4 +57,5 @@ export const Config: z<Config> = z.object({
   statePath: z.string().default(''),
   warRoot: z.string().default(''),
   active: z.union(['auto', 'on', 'off'] as const).default('auto'),
+  demoWeave: z.boolean().default(false),
 })

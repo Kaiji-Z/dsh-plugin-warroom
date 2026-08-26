@@ -227,6 +227,12 @@ gate('bundle', () => {
     [host, 'ActivityTracker', 'session/event → activity tracker (read-only)'],
     [host, 'activitySalt', 'board revision folds the activity salt (SSE rev-only intact)'],
     [client, 'war-activity', 'exec card live activity line'],
+    // V9.11 指示器跟卡走 + 战报已阅转绿。
+    [client, 'warroom-report-seen', 'report-seen ledger (localStorage) drives green report stage'],
+    [client, 'latestSettleMs', 'seen only counts when newer than the latest settlement'],
+    // V9.11 demo 织换：假会话号开机换成宿主真会话——所有演示点击真跳转。
+    [host, 'weaveDemoSessions', 'boot-time demo session weave (config demoWeave)'],
+    [host, '.demo-sessions.json', 'seed manifest consumed by the weaver'],
     [client, 'warroom-open-request', 'dock pill home event'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],

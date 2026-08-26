@@ -143,7 +143,7 @@ const WAR_CSS = `
 .war-inbox-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-secondary);letter-spacing:.04em}
 .war-inbox-count{font-size:12px;line-height:18px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .war-inbox-items{display:flex;flex-direction:column;max-height:176px;overflow-y:auto}
-.war-inbox-item{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-inbox-item{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--dsw-alias-border-l1);scroll-margin-top:36px}
 .war-inbox-item:last-child{border-bottom:0}
 .war-inbox-item:hover{background:var(--dsw-alias-bg-layer-2)}
 .war-inbox-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

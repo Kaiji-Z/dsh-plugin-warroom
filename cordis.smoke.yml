@@ -1,6 +1,8 @@
 # Smoke overlay: name-based entry (client-bundle discovery requires the
 # package name) + an isolated statePath so seeded demo tasks never touch the
-# real board. Run from the deepseek-harness checkout:
+# real board. demoWeave=true: boot-time swap of seeded fake session ids for
+# REAL host sessions — every demo click lands on a real navigation target.
+# Run from the deepseek-harness checkout:
 #   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.smoke.yml
 - insert:
     - id: warroom
@@ -8,3 +10,4 @@
       config:
         statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/state.json'
         warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/war'
+        demoWeave: true
