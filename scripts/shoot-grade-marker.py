@@ -1,274 +1,286 @@
-"""取证：起草器档位开关把 !!/?? 标记拼进命令文本（任务 20260827-004113-7d3c）.
+"""Grade-marker forensics — 起草器档位开关把 !!/?? 标记拼进命令文本（取证 20260827-030156-06e5）.
 
-机制（代码实现的标记格式，取证以此为准）：
-  src/client/preflight.ts applyGradeMarker
-    L0 档 -> `!!直接做 <正文>` 前缀
-    L2 档 -> `??先看方案 <正文>` 前缀
-    auto 档 -> 原文（无前缀）
-  src/client/views.tsx CommandComposer: createCommand(applyGradeMarker(text, grade))
-  src/dashboard.ts POST /warroom/api/commands -> directives.jsonl
-    directive_created 落账原文 verbatim。
+证明 V7 起草器档位开关在当前构建真实生效（机检、UI 全链、隔离环境）：
+  ① UI 选「!! 直接做」(L0) 档提交 → 命令文本拼入「!!直接做」前缀；
+  ② UI 选「?? 先看方案」(L2) 档提交 → 同理拼入「??先看方案」；
+  ③ 幂等回归（取证 20260825-41e3 缺陷①）：正文手打「!!直接做」开头提交，
+     不产生重复前缀（不得落「!!直接做 !!直接做 …」）；
+  ④ 负控：参谋分诊(auto)档正文零标记——证明标记来自档位开关而非其他通道；
+  ⑤ 空体守卫：纯空白正文时提交键 disabled（applyGradeMarker 空体硬化的 UI 面）。
 
-断言链（全部机检）：
-  浏览器起草器三档卡（.war-grade-card ×3：auto/L0/L2）提交
-  → 磁盘级 directives.jsonl directive_created 原文 verbatim（前缀逐字比对）
-  → 命令卡文本前缀（.war-command-card .war-command-text）
-  → GET /warroom/api/board 投影 text 双通道复核
-  → 阴性对照：auto 档落账文本不含 !!/?? 标记
-  → 幂等回归：正文已手打同标记再选同档，全链只落一个标记
-  → 空体守卫：纯空白正文提交键 disabled。
-取证命令逐个 directive_cancelled 收尾；evidence 目录内归档
-directives.jsonl 片段 + 板投影 JSON + 截图 + REPORT.md（含一行结论）。
+被取证机制链（本脚本不改产品代码，纯取证）：
+  src/client/preflight.ts  applyGradeMarker —— 档位→标记拼装（幂等 + 空体硬化）
+  src/client/views.tsx     CommandComposer submit —— createCommand(applyGradeMarker(text, grade), …)
+  src/directives.ts        overrideMarkerOf —— 服务端识别标记强制改档
+  src/dashboard.ts         POST /warroom/api/commands —— directive_created 落 directives.jsonl 原文
 
-Usage: python scripts/shoot-grade-marker.py [outDir] [baseUrl] [stateDir]
-  baseUrl 默认 http://127.0.0.1:3099（cordis.forensic.yml 烟服）
-  stateDir 默认 .forensic-state（护栏：路径不含 .forensic-state 一律拒跑）。
-约定：domcontentloaded + 选择器等待（SSE 挡 networkidle）。
+读回双通道：隔离 state 的 directives.jsonl（append-only 账本原文）+ 板 API commands
+投影（GET /warroom/api/commands 不存在则回退 GET /warroom/api/board）。
+取证正文显式「请勿成案，直接 war_abandon_command」——引信会把命令中继给真实
+参谋会话（POST 即 tickNow），stand-down 措辞把 LLM 弹药消耗钉在一两轮。
+
+Usage: python scripts/shoot-grade-marker.py [outDir] [baseUrl] [smokeStateDir]
+Assumes the smoke-overlay server (cordis.smoke.yml, isolated statePath .smoke-state)
+is running on BASE. 安全边界：按端口拒跑 3080 主服；state 目录名必须是 .smoke-state。
+约定：domcontentloaded + 选择器等待（SSE 挡 networkidle，勿用）。
 """
 import json
 import shutil
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from playwright.sync_api import sync_playwright
 
-CMD_NO = "20260827-004113-7d3c"
+CMD_NO = "20260827-030156-06e5"
 REPO = Path(__file__).resolve().parents[1]
-OUT = Path(sys.argv[1] if len(sys.argv) > 1 else f".goal/evidence/grade-marker-{CMD_NO[-4:]}")
-BASE = sys.argv[2] if len(sys.argv) > 2 else "http://127.0.0.1:3099"
-STATE = Path(sys.argv[3] if len(sys.argv) > 3 else ".forensic-state").resolve()
+OUT = Path(sys.argv[1] if len(sys.argv) > 1 else ".goal/evidence/grade-marker-06e5")
+BASE = sys.argv[2] if len(sys.argv) > 2 else "http://127.0.0.1:3181"
+STATE = Path(sys.argv[3] if len(sys.argv) > 3 else ".smoke-state").resolve()
+OUT = OUT if OUT.is_absolute() else REPO / OUT
 
-# 护栏：只准动隔离取证目录（.smoke-state 是 playground 演示板、默认目录是真实数据）。
-if ".forensic-state" not in str(STATE):
-    sys.exit(f"refusing to run against non-forensic state dir: {STATE}")
-OUT = REPO / OUT if not OUT.is_absolute() else OUT
+# --- 边界守卫：绝不动 3080 主服；state 目录只认隔离 .smoke-state（默认目录是真实数据）。 ---
+_u = urllib.parse.urlparse(BASE)
+if (_u.port or (443 if _u.scheme == "https" else 80)) == 3080:
+    raise SystemExit("refusing BASE on port 3080 (main server) — boot an isolated smoke server instead")
+if STATE.name != ".smoke-state":
+    raise SystemExit(f"refusing state dir {STATE!r} — must be the isolated .smoke-state directory")
+
+M_L0, M_L2 = "!!直接做", "??先看方案"
+B1 = "取证占位：请勿成案，直接 war_abandon_command（档位标记取证 1/4）"
+B2 = "取证占位：请勿成案，直接 war_abandon_command（档位标记取证 2/4）"
+B3 = f"{M_L0} 取证占位：请勿成案，直接 war_abandon_command（档位标记取证 3/4，幂等回归）"
+B4 = "取证占位：请勿成案，直接 war_abandon_command（档位标记取证 4/4，负控）"
+
 OUT.mkdir(parents=True, exist_ok=True)
-
-L0M, L2M = "!!直接做", "??先看方案"
+checks: list[dict] = []
 failures: list[str] = []
-n_checks = 0
 
 
-def check(cond: bool, label: str) -> bool:
-    global n_checks
-    n_checks += 1
-    mark = "PASS" if cond else "FAIL"
-    print(f"[{mark}] {label}")
-    if not cond:
-        failures.append(label)
-    return cond
+def check(name: str, ok: bool, detail: str = "") -> None:
+    checks.append({"name": name, "passed": bool(ok), "detail": detail})
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail and not ok else ""))
+    if not ok:
+        failures.append(f"{name} — {detail}")
 
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-
-
-# --- Phase 0: 清空隔离取证态（只动 .forensic-state）。 ---
+# --- Phase 0: 清空隔离 smoke 态（只动 .smoke-state——默认目录绝不能碰，v6 事故教训）。 ---
 shutil.rmtree(STATE / "campaigns", ignore_errors=True)
 (STATE / "directives.jsonl").unlink(missing_ok=True)
-print(f"forensics for command {CMD_NO} | server {BASE} | state {STATE}")
-print(f"cleared forensic state: {STATE}")
-
-# --- Phase 0b: 等烟服就绪（最多 120s）。 ---
-deadline = time.time() + 120
-while True:
+(STATE / ".demo-woven.json").unlink(missing_ok=True)
+print(f"forensics {CMD_NO} | server {BASE} | state {STATE}")
+print(f"cleared smoke state: {STATE}")
+# 清盘后服务端折叠缓存可能短暂回旧内容（shoot-v7 实测竞态）——轮询等板真空再开测。
+for _ in range(30):
     try:
-        with urllib.request.urlopen(f"{BASE}/warroom/api/board", timeout=3) as r:
-            if r.status == 200:
-                print("server ready")
-                break
+        _body = json.loads(urllib.request.urlopen(f"{BASE}/warroom/api/board", timeout=5).read())
+        if not _body.get("commands") and not _body.get("tasks"):
+            break
     except Exception:
-        if time.time() > deadline:
-            sys.exit(f"server not ready on {BASE} after 120s")
-        time.sleep(1.5)
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit("board did not drain after clearing smoke state")
+print("board drained (empty, onboarding-ready)")
 
 
-def ledger_lines() -> list[dict]:
+def read_created() -> list[dict]:
+    events: list[dict] = []
     p = STATE / "directives.jsonl"
     if not p.exists():
-        return []
-    out = []
+        return events
     for line in p.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
         try:
-            out.append(json.loads(line))
+            ev = json.loads(line)
         except json.JSONDecodeError:
             continue
-    return out
+        if ev.get("type") == "directive_created":
+            events.append(ev)
+    return events
 
 
-def ledger_events(ev_type: str) -> list[dict]:
-    return [e for e in ledger_lines() if e.get("type") == ev_type]
+def wait_created(text: str, timeout_s: float = 15.0) -> dict:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        for ev in read_created():
+            if ev.get("text") == text:
+                return ev
+        time.sleep(0.5)
+    raise AssertionError(f"directive_created for {text!r} not found in {STATE / 'directives.jsonl'}")
 
 
-def cancel_command(command_id: str) -> None:
-    with open(STATE / "directives.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({"type": "directive_cancelled", "ts": now_iso(),
-                            "directiveId": command_id, "reason": f"取证收尾（{CMD_NO}）：命令卡取消"},
-                           ensure_ascii=False) + "\n")
+def api_channel() -> tuple[str, list[dict]]:
+    """板 API 读回：专用 commands 端点优先，回退 board 投影的 commands 数组。"""
+    for path in ("/warroom/api/commands", "/warroom/api/board"):
+        try:
+            with urllib.request.urlopen(BASE + path, timeout=10) as r:
+                body = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError:
+            continue
+        cmds = body.get("commands")
+        if isinstance(cmds, list):
+            return path, cmds
+    raise AssertionError("no API channel returned a commands array")
 
 
-touched_ids: list[str] = []
-projection_rows: list[dict] = []
+def api_find(command_id: str, timeout_s: float = 10.0) -> dict:
+    deadline = time.time() + timeout_s
+    seen = 0
+    while time.time() < deadline:
+        _, cmds = api_channel()
+        seen = len(cmds)
+        for c in cmds:
+            if c.get("commandId") == command_id:
+                return c
+        time.sleep(0.5)
+    raise AssertionError(f"command {command_id!r} missing from API projection (saw {seen})")
 
-errors: list[str] = []
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page(viewport={"width": 1720, "height": 940})
-    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-    page.on("pageerror", lambda e: errors.append(str(e)))
 
-    def open_board():
+console_errors: list[str] = []
+cases: list[dict] = []
+shots: list[str] = []
+
+
+def run_case(page, *, key: str, body: str, expected: str, grade_label: str | None,
+             idem: bool = False, negative: bool = False, empty_guard: bool = False) -> None:
+    """开起草器 → 档位选中态机检 → 空体守卫(可选) → 填正文 → UI 提交 → 双通道读回断言。"""
+    if page.locator(".war-dispatch-add").count() == 1:
+        page.locator(".war-dispatch-add").click()
+    else:
+        assert page.locator(".war-onboard-cta").count() == 1, "no compose entry (neither dispatch-add nor onboarding CTA)"
+        page.locator(".war-onboard-cta").click()
+    page.wait_for_selector(".war-composer-modal", timeout=8000)
+
+    # 起草器三档卡在场；默认选中 auto（不含 直接做/先看方案 字样的那张）。
+    cards = page.locator(".war-composer-modal .war-grade-card")
+    assert cards.count() == 3, f"expected 3 grade cards, got {cards.count()}"
+    names = [cards.nth(i).inner_text() for i in range(3)]
+    auto_idx = next(i for i, n in enumerate(names) if "直接做" not in n and "先看方案" not in n)
+    check(f"{key}: composer offers 3 grade cards, auto default-on",
+          cards.nth(auto_idx).get_attribute("aria-pressed") == "true", f"names={names!r}")
+
+    if grade_label is not None:
+        card = page.locator(".war-composer-modal .war-grade-card", has_text=grade_label)
+        assert card.count() == 1, f"grade card {grade_label!r} not unique: {card.count()}"
+        card.click()
+        page.wait_for_timeout(250)
+        check(f"{key}: picked「{grade_label}」flips aria-pressed",
+              card.get_attribute("aria-pressed") == "true" and cards.nth(auto_idx).get_attribute("aria-pressed") == "false",
+              "grade switch state did not flip")
+
+    if empty_guard:
+        page.locator(".war-composer").fill("   ")
+        page.wait_for_timeout(150)
+        btn = page.locator(".war-modal-actions .war-btn.primary")
+        check(f"{key}: empty-body guard — submit disabled on whitespace-only text", btn.is_disabled())
+
+    page.locator(".war-composer").fill(body)
+    page.screenshot(path=str(OUT / f"{key}-composer.png"))
+    shots.append(f"{key}-composer.png")
+    print(f"shot: {key}-composer.png")
+
+    page.locator(".war-modal-actions .war-btn.primary").click()
+    page.wait_for_selector(".war-composer-modal", state="detached", timeout=15000)
+
+    ev = wait_created(expected)
+    api = api_find(ev["directiveId"])
+    stored, api_text = ev["text"], api.get("text")
+    cases.append({
+        "case": key, "gradeCard": grade_label or "参谋分诊(auto·默认)",
+        "typed": body, "expected": expected,
+        "jsonl": {"directiveId": ev["directiveId"], "ts": ev.get("ts"), "text": stored},
+        "api": {"commandId": api.get("commandId"), "text": api_text},
+    })
+
+    check(f"{key}: directives.jsonl text == expected", stored == expected, f"jsonl={stored!r}")
+    check(f"{key}: API projection text == expected", api_text == expected, f"api={api_text!r}")
+    if idem:
+        check(f"{key}: idempotent — single {M_L0} prefix (20260825-41e3 ① regression)",
+              stored.count(M_L0) == 1 and not stored.startswith(f"{M_L0} {M_L0}"),
+              f"stored={stored!r} occurrences={stored.count(M_L0)}")
+    if negative:
+        check(f"{key}: negative control — auto grade adds no marker",
+              M_L0 not in stored and M_L2 not in stored, f"stored={stored!r}")
+    # 板上命令卡显示拼装后的文本（UI 全链可见）。
+    page.locator(".war-command-card", has_text=expected).first.wait_for(timeout=10000)
+    page.screenshot(path=str(OUT / f"{key}-board.png"))
+    shots.append(f"{key}-board.png")
+    print(f"shot: {key}-board.png")
+
+
+try:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1720, "height": 940})
+        page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: console_errors.append(str(e)))
+
+        # --- Phase 1: 空板引导 → 起草器 →「!! 直接做」档（L0 标记 + 空体守卫）。 ---
         page.goto(BASE)
         page.wait_for_load_state("domcontentloaded")
-        page.wait_for_selector("[data-dsh-warroom-entry]", timeout=20000).click()
-        page.wait_for_timeout(1200)
-
-    def compose(body: str, card_index: int):
-        """打开起草器 → 填正文 → 选档位卡（0=auto/1=L0/2=L2）。不提交。"""
-        page.locator(".war-dispatch-add").click()
-        page.wait_for_selector(".war-modal", timeout=3000)
-        check(page.locator(".war-grade-card").count() == 3, "起草器三档卡在位（.war-grade-card ×3）")
-        check("on" in (page.locator(".war-grade-card").nth(0).get_attribute("class") or ""),
-              "auto 档为默认选中态")
-        page.locator(".war-composer").fill(body)
-        if card_index > 0:
-            page.locator(".war-grade-card").nth(card_index).click()
-            page.wait_for_timeout(150)
-
-    def submit_composer():
-        page.locator(".war-modal-actions button.primary").click()
+        page.wait_for_selector("[data-dsh-warroom-entry]", timeout=30000).click()
         page.wait_for_timeout(1500)
+        assert page.locator(".war-onboard").count() == 1, "empty board must show onboarding (no seed needed)"
+        print("onboarding shown on empty smoke board")
+        run_case(page, key="01-l0-marker", body=B1, expected=f"{M_L0} {B1}", grade_label="直接做", empty_guard=True)
 
-    def case(name: str, body: str, card_index: int, marker: str, shots: tuple[str, str]):
-        """一档取证：提交 → 落账逐字断言 → 卡文本前缀断言 → 板投影复核 → 取消收尾。
-        marker='' 表 auto 阴性对照（断言不含任何标记）。"""
-        compose(body, card_index)
-        page.screenshot(path=f"{OUT}/{shots[0]}")
-        print(f"shot: {shots[0]}")
-        submit_composer()
-        expected_text = f"{marker} {body}" if marker else body
-        created = [e for e in ledger_events("directive_created") if e.get("text") == expected_text]
-        check(len(created) == 1, f"{name}：落账 directive_created 原文 verbatim（{expected_text!r}）")
-        if not created:
-            return
-        command_id = created[0]["directiveId"]
-        touched_ids.append(command_id)
-        # 浏览器级：命令卡文本前缀。
-        open_board()
-        card = page.locator(".war-command-card", has_text=body).first
-        appeared = True
-        try:
-            card.wait_for(timeout=10000)
-        except Exception:
-            appeared = False
-        check(appeared and card.count() == 1, f"{name}：命令卡上板（文本含「{body}」）")
-        card_text = card.locator(".war-command-text").inner_text()
-        if marker:
-            check(card_text.startswith(f"{marker} "), f"{name}：卡文本以「{marker} 」开头")
-        else:
-            check(L0M not in card_text and L2M not in card_text and "??" not in card_text,
-                  f"{name}：阴性对照——卡文本不含 !!/?? 标记")
-        page.screenshot(path=f"{OUT}/{shots[1]}")
-        print(f"shot: {shots[1]}")
-        # 投影级：GET /warroom/api/board 双通道复核（浏览器 fetch，避免 curl 乱码坑）。
-        commands = page.evaluate("() => fetch('/warroom/api/board').then(r => r.json())").get("commands", [])
-        proj = [c for c in commands if c.get("commandId") == command_id]
-        check(len(proj) == 1 and proj[0].get("text") == expected_text,
-              f"{name}：板投影 text 与账本逐字一致")
-        if proj:
-            projection_rows.append(proj[0])
-        cancel_command(command_id)
-        print(f"  cancelled {command_id}（取证收尾）")
+        # --- Phase 2:「?? 先看方案」档（L2 标记）。 ---
+        run_case(page, key="02-l2-marker", body=B2, expected=f"{M_L2} {B2}", grade_label="先看方案")
 
-    # --- Case L0：!!直接做 前缀。 ---
-    case("L0", "取证L0：给工具箱加每日格言", 1, L0M, ("composer-L0.png", "board-L0.png"))
+        # --- Phase 3: 幂等回归（取证 20260825-41e3 缺陷①）。 ---
+        run_case(page, key="03-idempotent", body=B3, expected=B3, grade_label="直接做", idem=True)
 
-    # --- Case L2：??先看方案 前缀。 ---
-    case("L2", "取证L2：重构配置层", 2, L2M, ("composer-L2.png", "board-L2.png"))
+        # --- Phase 4: 负控——auto 档零标记。 ---
+        run_case(page, key="04-auto-negative", body=B4, expected=B4, grade_label=None, negative=True)
 
-    # --- Case auto 阴性对照：无前缀、落账不含 !!/??。 ---
-    case("auto", "取证auto：做个记账小工具", 0, "", ("composer-auto.png", "board-auto.png"))
+        browser.close()
+    check("console errors: none", console_errors == [], f"{console_errors[:5]}")
+finally:
+    ledger = {
+        "script": "scripts/shoot-grade-marker.py",
+        "task": CMD_NO,
+        "base": BASE,
+        "smokeState": str(STATE),
+        "regression-of": "取证 20260825-41e3 缺陷①（!! 前缀重复拼接）",
+        "cases": cases,
+        "checks": checks,
+        "screenshots": shots,
+        "consoleErrors": len(console_errors),
+    }
+    (OUT / "grade-marker-forensics.json").write_text(
+        json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8")
+    passed = sum(1 for c in checks if c["passed"])
+    verdict = "BEHAVIOR CONFIRMED" if not failures else "BEHAVIOR BROKEN / FORENSIC FAILED"
+    report = [
+        f"# 取证报告：起草器档位开关把 !!/?? 标记拼进命令文本（{CMD_NO}）",
+        "",
+        f"**结论：{verdict}** — {passed}/{len(checks)} checks passed.",
+        "",
+        "## 断言链",
+        "- 浏览器起草器（.war-composer-modal）三档卡：auto 默认选中、点选 L0/L2 后 aria-pressed 翻转。",
+        "- UI 提交（立即下达）→ POST /warroom/api/commands → directives.jsonl directive_created 原文 verbatim。",
+        "- 双通道读回：directives.jsonl 账本原文 + 板 API commands 投影（/warroom/api/commands 缺席回退 /warroom/api/board）。",
+        "- L0 档拼「!!直接做 」前缀；L2 档拼「??先看方案 」；auto 档零标记（负控）。",
+        "- 幂等回归（20260825-41e3 ①）：正文手打「!!直接做」开头 + L0 档 → 全链单标记，无重复前缀。",
+        "- 空体守卫：纯空白正文提交键 disabled。",
+        "- 板上命令卡文本展示拼装结果（UI 全链可见）。",
+        "",
+        "## 证据",
+        "- grade-marker-forensics.json — 逐 case 的 typed/expected/jsonl/api 四元组 + 全部 checks。",
+        "- 0X-*-composer.png — 选档后、提交前的起草器截图（档位卡选中态可见）。",
+        "- 0X-*-board.png — 提交后板上命令卡截图（标记文本可见）。",
+        f"- 环境：cordis.smoke.yml 隔离 state（{STATE.name}），BASE={BASE}，未触碰 3080 主服。",
+    ]
+    if failures:
+        report += ["", "## 失败项", ""] + [f"- {f}" for f in failures]
+    (OUT / "REPORT.md").write_text("\n".join(report) + "\n", encoding="utf-8")
+    print(f"ledger: {OUT / 'grade-marker-forensics.json'} ({passed}/{len(checks)} checks passed)")
 
-    # --- Case 幂等回归：正文已手打 !! 标记再选 L0 档 → 全链只落一个标记。 ---
-    idem_body = "!!直接做 取证幂等：同标记不重复拼"
-    compose(idem_body, 1)
-    page.screenshot(path=f"{OUT}/composer-idem.png")
-    print("shot: composer-idem.png")
-    submit_composer()
-    created = [e for e in ledger_events("directive_created") if e.get("text") == idem_body]
-    check(len(created) == 1 and created[0]["text"].count(L0M) == 1,
-          "幂等：落账文本与输入逐字相同，「!!直接做」恰出现 1 次")
-    if created:
-        touched_ids.append(created[0]["directiveId"])
-        cancel_command(created[0]["directiveId"])
-        print(f"  cancelled {created[0]['directiveId']}（取证收尾）")
-
-    # --- Case 空体守卫：纯空白正文 → 提交键 disabled。 ---
-    page.locator(".war-dispatch-add").click()
-    page.wait_for_selector(".war-modal", timeout=3000)
-    page.locator(".war-composer").fill("   ")
-    page.wait_for_timeout(150)
-    check(page.locator(".war-modal-actions button.primary").is_disabled(),
-          "空体：纯空白正文提交键 disabled（不产出只有标记的命令）")
-    page.screenshot(path=f"{OUT}/composer-empty-guard.png")
-    print("shot: composer-empty-guard.png")
-    page.locator(".war-modal-actions button", has_text="取消").click()
-    page.wait_for_timeout(200)
-
-    # --- 终盘：取证命令全部 directive_cancelled。 ---
-    open_board()
-    cancelled_ids = {e["directiveId"] for e in ledger_events("directive_cancelled")}
-    struck = page.locator(".war-command-text.struck").count()
-    check(len(cancelled_ids) >= 4 and struck >= 4,
-          f"收尾：取证命令全部 directive_cancelled（卡面 struck ×{struck}）")
-    page.screenshot(path=f"{OUT}/board-final-cancelled.png")
-    print("shot: board-final-cancelled.png")
-
-    browser.close()
-
-check(errors == [], f"浏览器 console 无错误泄漏（{errors[:5]}）")
-
-# --- 归档：directives.jsonl 片段 + 板投影 JSON + 结论报告。 ---
-fragment = [e for e in ledger_lines() if e.get("directiveId") in touched_ids
-            or e.get("type") == "directive_created"]
-(OUT / "ledger-fragment.jsonl").write_text(
-    "\n".join(json.dumps(e, ensure_ascii=False) for e in fragment) + "\n", encoding="utf-8")
-(OUT / "board-projection.json").write_text(
-    json.dumps(projection_rows, ensure_ascii=False, indent=2), encoding="utf-8")
-
-verdict = "生效" if not failures else "不生效"
-report = [
-    f"# 取证报告：起草器档位开关标记拼接（{CMD_NO}）",
-    "",
-    f"## 结论：{verdict}",
-    "",
-    f"- 机检断言 {n_checks} 项，失败 {len(failures)} 项。",
-    "- 标记格式（代码实现，`src/client/preflight.ts:24-29` applyGradeMarker）："
-    f"L0 档前缀 `!!直接做 `、L2 档前缀 `??先看方案 `、auto 档原文不加前缀。",
-    "- 链路：起草器三档卡（views.tsx CommandComposer）→ createCommand(applyGradeMarker)"
-    "→ POST /warroom/api/commands → directives.jsonl directive_created 原文 verbatim 落账"
-    "（dashboard.ts）→ /warroom/api/board 投影同文。",
-    "- 覆盖：L0/L2 档前缀逐字断言（账本+卡面+投影三通道）、auto 阴性对照（不含 !!/??）、"
-    "幂等回归（手打同标记不重复拼）、空体守卫（纯空白提交键 disabled）。",
-    "- 证据：ledger-fragment.jsonl（directives.jsonl 片段）、board-projection.json"
-    "（板投影）、composer-*.png / board-*.png（截图）。",
-    "- 环境：cordis.forensic.yml 隔离 state（.forensic-state），端口 3099，工作树构建。",
-]
-if failures:
-    report += ["", "## 失败项", ""] + [f"- {f}" for f in failures]
-(OUT / "REPORT.md").write_text("\n".join(report) + "\n", encoding="utf-8")
-
-print(f"console errors: {len(errors)}")
-print(f"checks: {n_checks}, failures: {len(failures)}")
-print(f"evidence dir: {OUT}")
 if failures:
     print("FAILED:")
     for f in failures:

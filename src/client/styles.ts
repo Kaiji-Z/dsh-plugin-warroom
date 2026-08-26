@@ -518,8 +518,8 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
  * （CALLS/MESSAGES 语言）；命令坞满宽压底不参战。列表态零改动（类不挂即原样）。 */
 .war-board{position:relative}
 .war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（元首定）：调度/任务/战报全部浮于其上 */
-.war-board.war-mapmode .war-ops{position:absolute;inset:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
-.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:210px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
+.war-board.war-mapmode .war-ops{position:relative;flex:1 1 auto;min-height:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible} /* V10.1 结构修：容器回文档流，底边=坞顶——舱底随坞高自适应，重叠构造上不可能 */
+.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:8px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
 body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
 @supports (backdrop-filter: blur(10px)){
   .war-board.war-mapmode .war-zone{backdrop-filter:blur(10px)}
