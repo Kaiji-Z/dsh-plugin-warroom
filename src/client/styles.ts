@@ -527,7 +527,10 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-board.war-mapmode .war-zone.war-tasks{left:10px} /* 左右 10px=坞内缩同款（元首目检 2026-08-27） */
 .war-board.war-mapmode .war-zone.war-report{right:10px}
 .war-board.war-mapmode .war-zone.war-field{display:none}
-.war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
+.war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto;padding:10px 10px 6px}
+/* V10.1 坞零纵向滚动：富余做进 track 盒（抬起 6px/下沉 10px/阴影都在盒内），
+ * overflow-x:auto 的纵向 auto 副作用因此无料可滚（元首目检 2026-08-27） */
+.war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
 /* --- V10.1 调度坞卡牌组：同链命令错位叠成一副手牌，hover 抬起 ---------------- */
 .war-cmd-group{display:flex}
 .war-cmd-group .war-command-card{min-width:200px;transition:transform .18s ease}

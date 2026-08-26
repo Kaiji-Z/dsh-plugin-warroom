@@ -133,6 +133,7 @@ with sync_playwright() as p:
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
+    assert page.evaluate("() => { const t = document.querySelector('.war-dispatch-track'); return t.scrollHeight <= t.clientHeight + 1 }"), "调度坞轨道不得出现纵向滚动（高度须容下所有卡+富余）"
     sf_bb = page.locator(".war-starfield").bounding_box()
     for floater in (".war-zone.war-tasks", ".war-zone.war-report", ".war-dispatch"):
         fb = page.locator(floater).bounding_box()
