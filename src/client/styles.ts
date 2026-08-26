@@ -525,7 +525,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-board.war-mapmode .war-zone.war-tasks{left:0}
 .war-board.war-mapmode .war-zone.war-report{right:0}
 .war-board.war-mapmode .war-zone.war-field{display:none}
-.war-board.war-mapmode .war-dispatch{position:relative;z-index:3}
+.war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
 /* --- V10.1 调度坞卡牌组：同链命令错位叠成一副手牌，hover 抬起 ---------------- */
 .war-cmd-group{display:flex}
 .war-cmd-group .war-command-card{min-width:200px;transition:transform .18s ease}

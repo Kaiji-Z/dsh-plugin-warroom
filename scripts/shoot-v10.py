@@ -131,6 +131,8 @@ with sync_playwright() as p:
     sf = page.locator(".war-starfield")
     assert sf.count() == 1 and sf.is_visible(), "星域画布未现身（board 级铺满）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
+    dock_y = page.locator(".war-dispatch").bounding_box()["y"]
+    assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
     planets = page.locator(".war-planet[data-ws-index]")
     assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"
