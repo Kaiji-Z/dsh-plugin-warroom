@@ -25,7 +25,7 @@ export interface WarCopy {
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
-  starfield: { aria: string; hqOn: string; hqOff: string }
+  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
@@ -512,6 +512,7 @@ export const warCopy: WarCopy = {
     aria: '星域战场：每片战区一颗星，执行中的部队绕星而行',
     hqOn: '司令部在线——战时状态，全局开关亮着',
     hqOff: '停战状态——司令部熄灯',
+    orbIdle: '执行中',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
@@ -845,6 +846,7 @@ export const plainCopy: WarCopy = {
     aria: '项目全景：每个项目一颗星球，正在干活的任务绕圈转',
     hqOn: '作战状态中——总部亮着',
     hqOff: '当前没有激活的战线',
+    orbIdle: '进行中',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',

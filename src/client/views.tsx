@@ -1561,6 +1561,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [viewPref, setViewPref] = useState<'list' | 'map'>(() => {
       try { return localStorage.getItem('warroom-cfg-view') === 'map' ? 'map' : 'list' } catch { return 'list' }
     })
+    // V10.1 对抗审查 P1：窗口跨 900px 界限即时回退/恢复地图（此前只在渲染时判一次）。
+    const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1720))
+    useEffect(() => {
+      const on = (): void => { setWinW(window.innerWidth) }
+      window.addEventListener('resize', on)
+      return () => window.removeEventListener('resize', on)
+    }, [])
     // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/战报）。
     const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
@@ -1709,11 +1716,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const wsOrder = workspaceCreationOrder(tasks)
     const planetSpecs = galaxyLayout(wsOrder)
     const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
+    const moonSlot = new Map<string, number>()
     const starTroops = live.flatMap(({ t, a }) => {
       const idx = wsOrder.indexOf(t.workspacePath ?? '')
       if (idx < 0) return []
       const spec = planetSpecs[idx]!
-      const pos = moonPos(spec, a.sessionId)
+      // V10.1 对抗审查 P1：同星多活体确定性避让——按序偏移 π/3（hash 相位撞车无防线）。
+      const k = moonSlot.get(spec.wsPath) ?? 0
+      moonSlot.set(spec.wsPath, k + 1)
+      const pos = moonPos(spec, a.sessionId, k * Math.PI / 3)
       return [{
         sessionId: a.sessionId,
         planet: spec,
@@ -1724,10 +1735,26 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         sourceCommandId: lineageOf(t.taskId)?.commandId ?? null,
       }]
     })
-    const mapView = viewPref === 'map' && typeof window !== 'undefined' && window.innerWidth >= 900
+    const mapView = viewPref === 'map' && winW >= 900
+    // V10.1 对抗审查 P0-2：hover/聚焦某战线时，其已结算 attempts 在星域显「昔日阵地」
+    // ghost（元首 V10 定案「凯旋印记 hover 显形」本体——平时不留常驻位，追问才显形）。
+    const ghostFamily = hoverFamily ?? focusCommandId
+    const starGhosts = ghostFamily !== null
+      ? tasks.flatMap(t => {
+          if (lineageOf(t.taskId)?.commandId !== ghostFamily) return []
+          const idx = wsOrder.indexOf(t.workspacePath ?? '')
+          if (idx < 0) return []
+          const spec = planetSpecs[idx]!
+          return t.attemptLog
+            .filter(a => a.outcome !== null)
+            .map(a => { const pos = moonPos(spec, a.sessionId); return { sessionId: a.sessionId, xPct: pos.xPct, yPct: pos.yPct, outcome: a.outcome! } })
+        })
+      : []
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
+    // V10.1 对抗审查 P0-1：外部挂载卡随 field 隐退会人间蒸发——地图态改驻任务舱尾（台账语义）。
+    const threadCards = threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))
     // V9.11 任务列=参谋侧台账：成形卡（接令起、任务书未挂出的命令）置顶——参谋
     // 产线全览；任务书卡（tasks 全量，终局调暗）随后。成形中列首正是「参谋在做什么」。
     const formingCards = commandsNewest.flatMap(c => {
@@ -1820,6 +1847,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             onOrbHover: id => {
               if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
             },
+            ghosts: starGhosts,
+            orbIdleLabel: activeCopy().starfield.orbIdle,
           })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
@@ -1844,13 +1873,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                       ? () => { openStaff(t.taskId) }
                       : null,
                     lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                ],
+                ...(mapView ? threadCards : [])],
               ),
             ),
             createElement('div', { className: 'war-zone war-field' },
               Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
                 [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
+                  ...(mapView ? [] : threadCards)],
               ),
             ),
             createElement('div', { className: 'war-zone war-report' },

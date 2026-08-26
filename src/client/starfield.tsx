@@ -62,8 +62,8 @@ export function moonAngleRad(sessionId: string): number {
 /** 近地轨道半径（百分比）。 */
 const MOON_R_PCT = 4.6
 
-export function moonPos(planet: PlanetSpec, sessionId: string): { xPct: number; yPct: number } {
-  const a = moonAngleRad(sessionId)
+export function moonPos(planet: PlanetSpec, sessionId: string, slotOffsetRad = 0): { xPct: number; yPct: number } {
+  const a = moonAngleRad(sessionId) + slotOffsetRad
   return {
     xPct: +(planet.xPct + MOON_R_PCT * Math.cos(a)).toFixed(2),
     yPct: +(planet.yPct + MOON_R_PCT * 0.72 * Math.sin(a)).toFixed(2),
@@ -134,12 +134,16 @@ export interface StarfieldProps {
   readonly onOpenCommand?: (commandId: string) => void
   /** V10-R4 族链联动：光点悬停→点亮其源命令全族（CardTrace 同一状态机）。 */
   readonly onOrbHover?: (sourceCommandId: string | null) => void
+  /** V10.1 昔日阵地：hover 族链时已结算 attempts 的 ghost 光点（平时不留常驻位）。 */
+  readonly ghosts?: ReadonlyArray<{ sessionId: string; xPct: number; yPct: number; outcome: 'failed' | 'reported' | 'succeeded' }>
+  /** 光点无动词时的无障碍兜底标签。 */
+  readonly orbIdleLabel?: string
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec' } = props
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -178,6 +182,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-session': t.sessionId,
         style: { left: `${t.xPct}%`, top: `${t.yPct}%` },
         title: t.verbLabel !== null && t.verbLabel !== '' ? t.verbLabel : undefined,
+        'aria-label': `${t.verbLabel ?? orbIdleLabel} · ${t.sessionId.slice(0, 8)}`,
         onMouseEnter: () => { onOrbHover?.(t.sourceCommandId) },
         onMouseLeave: () => { onOrbHover?.(null) },
         onFocus: () => { onOrbHover?.(t.sourceCommandId) },
@@ -187,5 +192,14 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       createElement('span', { className: 'war-orb-body', 'aria-hidden': 'true' }),
       t.verbLabel !== null && t.verbLabel !== '' ? createElement('span', { className: 'war-orb-verb' }, t.verbLabel) : null,
       )),
+    ...ghosts.map(g =>
+      createElement('div', {
+        key: `ghost-${g.sessionId}`,
+        className: `war-orb-ghost${g.outcome === 'failed' ? ' fail' : ''}`,
+        'data-ghost': g.outcome,
+        style: { left: `${g.xPct}%`, top: `${g.yPct}%` },
+        'aria-hidden': 'true',
+      }),
+    ),
   )
 }

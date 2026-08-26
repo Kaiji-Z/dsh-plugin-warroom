@@ -504,6 +504,9 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-dispatch-view{cursor:pointer;align-self:center;font-size:12px;line-height:18px;padding:2px 10px;margin-right:4px;border-radius:999px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:transparent;font-family:var(--dsw-font-family);white-space:nowrap}
 .war-dispatch-view.on{border-style:solid;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);color:var(--war-run-strong);background:var(--war-run-tint)}
 .war-dispatch-view:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
+/* V10.1 昔日阵地 ghost：hover 族链时显形的已结算 attempt——空心静止，绿=善终/红=败 */
+.war-orb-ghost{position:absolute;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;border:2px solid var(--war-done);background:transparent;opacity:.6;pointer-events:none}
+.war-orb-ghost.fail{border-color:var(--war-fail)}
 /* --- V10-R3b 星域态悬浮舱：中列让位恒星系后，左右两列窄幅半透明浮起 ---------- */
 .war-ops.war-map{grid-template-columns:minmax(230px,19%) minmax(0,1fr) minmax(230px,21%)}
 .war-ops.war-map .war-zone{background:color-mix(in srgb, var(--war-card-bg) 78%, transparent);border-color:transparent;box-shadow:0 8px 28px color-mix(in srgb,#000 18%,transparent)}
