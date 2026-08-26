@@ -866,7 +866,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
               className: `war-cd-chain-item war-chain-hue-${m.chain.hueSlot}${m.commandId === cmd.commandId ? ' now' : ''}`,
               title: m.text,
               onClick: () => { if (m.commandId !== cmd.commandId) onOpenCommand?.(m.commandId) },
-            }, `${genLabel(m.chain.generation)} ${m.text.slice(0, 10)}${m.text.length > 10 ? '…' : ''}`)))
+            }, `${GEN_ROMAN[m.chain.generation] ?? `第${m.chain.generation}代`} ${m.text.slice(0, 10)}${m.text.length > 10 ? '…' : ''}`)))
         : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
       // 决策带（置顶常驻）：有事给动作，无事给安神行。
@@ -1728,6 +1728,17 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const ch = chainOf(c)
       return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed'))
     }
+    // V10.1 critique P2-1：主打视图藏在 ⚙ 里——≥3 战区时一次性指路 toast（点击即开）。
+    const [mapHint, setMapHint] = useState(false)
+    useEffect(() => {
+      try {
+        if (localStorage.getItem('warroom-map-hint-seen') === '1') return
+        if (new Set(tasks.filter(t => t.workspacePath !== null).map(t => t.workspacePath)).size >= 3) {
+          setMapHint(true)
+          localStorage.setItem('warroom-map-hint-seen', '1')
+        }
+      } catch { /* 隐私模式 */ }
+    }, [tasks.length])
     const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
     // V10.1 卡牌组：同链命令按链根聚拢成叠（调度坞上的「一副手牌」）。
     const dispatchGroups: Array<{ rootId: string; cards: BoardCommand[] }> = []
@@ -1889,6 +1900,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             },
             ghosts: starGhosts,
             orbIdleLabel: activeCopy().starfield.orbIdle,
+            onPlanetOpen: (wsPath: string) => {
+              // critique P1-1：行星可达后的落点——该战区最新有仗的源命令聚焦页。
+              const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
+              if (c !== undefined) openCommand(c.commandId)
+            },
           })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
@@ -1946,13 +1962,19 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             ),
           ),
         ),
+      mapHint && !mapView
+        ? createElement('button', {
+            key: 'map-hint', type: 'button', className: 'war-map-hint', 'data-war-map-hint': '1',
+            onClick: () => { setMapHint(false); setViewPref('map'); try { localStorage.setItem('warroom-cfg-view', 'map') } catch { /* noop */ } },
+          }, '🪐 战区不止一个——试试星域战场视图（点此开启，⚙ 里随时可关）')
+        : null,
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
         chain: chainOf(detailCommand),
         // V10 战线族谱：同根全体按 createdAt 升序（Ⅰ→…）；跨代点击换窗。
-        chainMembers: commandsNewest.filter(c => c.chain.rootId === detailCommand.chain.rootId).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)),
+        chainMembers: commandsNewest.filter(c => c.chain.rootId === detailCommand.chain.rootId).sort((a, b) => a.chain.generation - b.chain.generation),
         onOpenCommand: id => { setDetailCommandId(id) },
         onContinue: () => { setContinueSeed(detailCommand.commandId); setComposerOpen(true) },
         statuses,

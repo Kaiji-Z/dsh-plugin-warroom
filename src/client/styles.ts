@@ -491,7 +491,8 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-hq{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:20px;line-height:1;color:var(--dsw-alias-label-tertiary);filter:saturate(.2);pointer-events:none;font-family:var(--dsw-font-family)}
 .war-hq.lit{color:#f6c453;filter:none;text-shadow:0 0 14px color-mix(in srgb,#f6c453 65%,transparent),0 0 40px color-mix(in srgb,#f6c453 25%,transparent)}
 body:not([data-ds-dark-theme]) .war-root .war-hq.lit{color:color-mix(in srgb,#f6c453 45%,#2b1d00);text-shadow:0 0 10px color-mix(in srgb,#f6c453 38%,transparent)}
-.war-planet{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto}
+.war-planet{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto;background:transparent;border:none;padding:0;cursor:pointer;font-family:var(--dsw-font-family)}
+.war-planet:focus-visible{outline:2px solid var(--war-focus);outline-offset:4px;border-radius:10px}
 .war-planet-ball{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 32% 30%, color-mix(in srgb,#fff 28%,transparent), transparent 46%), var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2)}
 .war-planet.busy .war-planet-ball{width:20px;height:20px;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, transparent)}
 .war-planet-label{font-size:12px;color:var(--dsw-alias-label-secondary);max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -519,6 +520,16 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-wait{background:var(--dsw
 body[data-ds-dark-theme] .war-root .war-legend-dot.dot-done{background:var(--dsw-alias-state-success-label,var(--dsw-alias-state-success-primary))}
 body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary))}
 .war-detach,.war-cd-session{min-height:24px}
+/* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
+.war-live-bar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:6px 14px;border-radius:999px;background:color-mix(in srgb, var(--war-card-bg) 82%, transparent);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 22px color-mix(in srgb,#000 18%,transparent);max-width:72%;overflow:hidden}
+@supports (backdrop-filter: blur(8px)){.war-live-bar{backdrop-filter:blur(8px)}}
+.war-live-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.war-live-verb{font-weight:700;color:var(--war-run-strong)}
+.war-live-cmd{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+/* V10.1 星域指路 toast（一次性） */
+.war-map-hint{position:fixed;right:18px;bottom:18px;z-index:40;max-width:340px;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);background:var(--war-card-bg);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;cursor:pointer;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--dsw-font-family);text-align:left}
+.war-map-hint:hover{background:var(--war-run-tint)}
+.war-map-hint:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 .war-settings-body{padding-bottom:32px}
 @media (max-width:899px){
   .war-ops{grid-template-columns:1fr 1fr}

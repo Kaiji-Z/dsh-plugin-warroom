@@ -158,6 +158,11 @@ with sync_playwright() as p:
     assert alpha_t.get_attribute("data-triumphs") == "2", f"alpha 两代皆胜应记 2 功：{alpha_t.get_attribute('title')}"
     orb = page.locator(".war-orb[data-session='sess-demo-live']")
     assert orb.count() == 1, "活体执行会话光点未挂上 beta 星轨道"
+    # V10.1 critique 收口：行星可达（button+aria）+ 今战速报条在场
+    planet_el = page.locator(".war-planet").first
+    assert planet_el.evaluate("e => e.tagName") == "BUTTON" and (planet_el.get_attribute("aria-label") or "").startswith("战区"), "行星必须键盘/读屏可达"
+    live_bar = page.locator(".war-live-bar")
+    assert live_bar.count() == 1 and live_bar.get_attribute("data-war-live") == "1", "今战速报条缺席（星域态活体主表面）"
     orb.hover()
     page.wait_for_timeout(400)
     same = page.locator(".war-dispatch .war-command-card.war-rel-same").count()
@@ -178,6 +183,7 @@ with sync_playwright() as p:
     page.wait_for_selector(".war-cd-modal", timeout=5000)
     crumb = page.locator(".war-cd-chain[data-war-chain-length='2']")
     assert crumb.count() == 1, "战线族谱面包屑未显形或代数不对"
+    assert crumb.locator(".war-cd-chain-item").first.text_content().strip().startswith("Ⅰ"), "面包屑首枚必须带 Ⅰ 代标识（半套代际正名）"
     subline = page.locator(".war-modal-sub").inner_text()
     assert "续战令·深化" in subline, f"副行缺续接正名：{subline}"
     page.screenshot(path=str(OUT / "v10-focus-chain.png"))

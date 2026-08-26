@@ -147,12 +147,14 @@ export interface StarfieldProps {
   readonly ghosts?: ReadonlyArray<{ sessionId: string; xPct: number; yPct: number; outcome: 'failed' | 'reported' | 'succeeded' }>
   /** 光点无动词时的无障碍兜底标签。 */
   readonly orbIdleLabel?: string
+  /** V10.1 critique P1-1：行星可达——点击/回车跳该战区最近的源命令聚焦页。 */
+  readonly onPlanetOpen?: (wsPath: string) => void
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec' } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen } = props
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -172,13 +174,17 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       title: active ? hqTitleLit : hqTitleDark,
     }, active ? '☀' : '☄'),
     ...planets.map(({ spec, garrison }) =>
-      createElement('div', {
+      createElement('button', {
         key: spec.wsPath,
+        type: 'button',
         className: `war-planet${garrison.orbs.length > 0 ? ' busy' : ''}`,
         'data-ws-index': String(spec.ring),
         'data-triumphs': String(garrison.triumphs),
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
         title: `${planetLabel(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
+        'aria-label': `战区 ${planetLabel(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、凯旋 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
+        onClick: () => { onPlanetOpen?.(spec.wsPath) },
+        onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanetOpen?.(spec.wsPath) } },
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
       createElement('span', { className: 'war-planet-label' }, `${planetLabel(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
@@ -205,6 +211,13 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       createElement('span', { className: 'war-orb-body', 'aria-hidden': 'true' }),
       t.verbLabel !== null && t.verbLabel !== '' ? createElement('span', { className: 'war-orb-verb' }, t.verbLabel) : null,
       )),
+    troops.length > 0
+      ? createElement('div', { className: 'war-live-bar', role: 'status', 'aria-live': 'polite', 'data-war-live': String(troops.length) },
+          ...troops.slice(0, 3).map(t =>
+            createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
+              createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
+              createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? t.sessionId.slice(0, 8)))))
+      : null,
     ...ghosts.map(g =>
       createElement('div', {
         key: `ghost-${g.sessionId}`,
