@@ -244,6 +244,12 @@ gate('bundle', () => {
     [client, 'jumpMissHint', 'cold-session jump no-op surfaces a warning'],
     // V9.12 R2 ⑦ 织换真实目录守卫。
     [host, 'REFUSED', 'weave refuses the default real data dir'],
+    // V9.13 色彩系统：--war-* 语义令牌层，主题跟随宿主 body 开关，深色四级层梯。
+    [client, '--war-canvas', 'semantic token layer (canvas token defined)'],
+    [client, 'body[data-ds-dark-theme] .war-root', 'dark theme follows the host body switch (no second toggle)'],
+    [client, '--war-zone-bg: var(--dsw-alias-bg-layer-1)', 'dark ladder: zone on layer-1 (zones distinguishable from canvas)'],
+    [client, '--war-well-bg: var(--dsw-alias-bg-layer-3)', 'dark ladder: well on layer-3 (one step above card)'],
+    [client, 'outline:2px solid var(--war-focus)', 'focus rings ride the war-focus token (host has no focus-ring alias)'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],

@@ -231,3 +231,19 @@
 - **板全量重读**：SSE revision-only 触发 GET /board 全量投影（无增量）——14 命令/8 任务量级 <10ms，等真实规模再议增量协议。
 
 **门禁**：verify 194 测（新针脚 parseUnitReportEvent/去验收/去下重试令/jumpMissHint/REFUSED + 负针脚旧去处理）；shoot 新增 seen 三通道断言组（钉顶 1.1s 不许转绿的收紧回归位 + 展开即绿 + 滚底停留即绿）与正名分野（d3 去验收在/d7 去下重试令在/交叉不在）；探针：二次重建 weave 日志 `N reused, 0 created`、board staffSessionId 互异、18/18 卡点击覆盖。
+
+## V9.13 色彩系统（2026-08-26，元首点单：浅深双主题 + 语义明确 + 容器色重设计）
+
+**令牌架构**（styles.ts v4.0 全量重写，`--war-*` 语义层）：
+- **单开关跟随宿主**：令牌定义在 `.war-root`（浅色缺省）+ `body[data-ds-dark-theme] .war-root`（深色覆盖）——插件不设第二套主题开关，宿主 theme-presenter 翻 body 属性即全板换装。组件规则只吃令牌与「宿主语义 token 为基的衍生色混」，不直写裸色值。
+- **容器海拔四级**：canvas（画布）→ zone（三区容器）→ card（卡片）→ well（凹槽/输入/小控件底）+ pop（弹层顶格）。**宿主边界实测**：浅色主题宿主四层 bg 全白（分层塌缩）——浅色自建层级（灰画布 bluish-50 vs 白容器 vs bluish-75 凹槽）；深色主题宿主层不塌缩——四级各落宿主海拔一层（base/layer-1/layer-2/layer-3，实测 #151517→#232324→#2c2c2e→#353638 两两可辨）。首版漏了 dark zone/card/pop 覆盖（zone 落回 bg-base 与画布同色，容器只剩边框可辨）——目检抓到后补齐，并给 shoot-theme 加「层梯可辨」永久断言。
+- **状态语义四档**（12px 正文级，两主题各 ≥4.5:1）：蓝=机器在动（received/进行/定时/L1 档）/ 琥珀=等你（talking/plan 待批/warn/L2）/ 绿=善终（closed/收官/`!!` 直做/L0）/ 红=败（failed/error/重试）。V9.13 语义细分：st-received（蓝）与 st-talking（琥珀）拆分、k-clarify 归琥珀、`.war-mark.bang` 归绿（与档位 chip 对齐）。
+- **取材原则——两主题各自成章，不机械反转**：浅色=宿主 alias + 定向压黑（color-mix X% #000，白底 5.2-9.9:1）；深色=宿主明度档原值直用（为深底调的 -400/-500，4.8-7.3:1）。实测律：压黑混法在深底会塌到 2.3-2.8:1，反之深色原值在白底也不达标——所以两套覆盖表分开作曲。深色卡片层提亮一档后 fail 掉到 4.24 → error-primary 86% 混白回 4.94。
+- **宿主缺口绕行**：`--dsw-alias-state-warn-label` 两主题同为琥珀 600（浅色直接用会 2.79:1）——走 fallback 链 + 压黑/原值双轨；`state-focus-ring` alias 不存在（旧 4 处 outline 引用全是无效声明=无焦点环）——新增 `--war-focus` 令牌统一焦点环。
+- **浏览器面**：::selection 染业务蓝、scrollbar-color 跟宿主滚动槽令牌、三档投影浅色蓝黑低强度/深色纯黑高强度、遮罩浅 .34/深 .55。
+
+**取证**（`scripts/shoot-theme.py` 新工具）：双主题各跑 10 组前景/容器对比对（含半透明底染合成——alpha tint 必须叠到最近不透明祖先再算，Chromium 对 color-mix 返回 color(srgb) 记法，解析器两代都收）+ 层梯断言 + 四截图。当前 20/20 全绿（浅 5.21-9.92 / 深 4.94-10.42）。
+
+**微调轮**（impeccable 目检→批量修→机检确认）：dark 层梯补齐（上）+ `.war-plan-body` 从 label-secondary 升 primary（计划原文是正文级内容，灰字在浅色聚焦页发灰）+ 深色 fail 混白补差。
+
+**门禁**：verify 199 测（新针脚 --war-canvas / body[data-ds-dark-theme] .war-root / dark 层梯两条 / 焦点环令牌）；shoot-v7 全绿（浅色侧既有断言 6.65-6.96:1 不回退）；shoot-theme 20/20 + 层梯两主题成立。
