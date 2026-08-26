@@ -531,15 +531,12 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 /* V10.1 坞零纵向滚动：富余做进 track 盒（抬起 6px/下沉 10px/阴影都在盒内），
  * overflow-x:auto 的纵向 auto 副作用因此无料可滚（元首目检 2026-08-27） */
 .war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
-/* --- V10.1 调度坞卡牌组：同链命令错位叠成一副手牌，hover 抬起 ---------------- */
+/* --- V10.1 调度坞卡牌组（元首二改）：纯横向深叠，每卡只露 60px 标签缘，
+ * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
 .war-cmd-group{display:flex}
-.war-cmd-group .war-command-card{min-width:200px;transition:transform .18s ease}
-.war-cmd-group .war-command-card + .war-command-card{margin-left:-118px}
-.war-cmd-group .war-command-card:nth-child(2){transform:translateY(5px)}
-.war-cmd-group .war-command-card:nth-child(2):hover{transform:translateY(-2px)}
-.war-cmd-group .war-command-card:nth-child(3){transform:translateY(10px)}
-.war-cmd-group .war-command-card:nth-child(3):hover{transform:translateY(2px)}
-.war-cmd-group .war-command-card:hover{transform:translateY(-6px);z-index:5}
+.war-cmd-group .war-command-card{min-width:200px;transition:transform .16s ease,box-shadow .16s ease}
+.war-cmd-group .war-command-card + .war-command-card{margin-left:-140px}
+.war-cmd-group .war-command-card:hover{transform:translateY(-4px);z-index:10;box-shadow:0 12px 30px color-mix(in srgb,#000 32%,transparent)}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}
