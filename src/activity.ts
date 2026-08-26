@@ -135,8 +135,15 @@ export class ActivityTracker {
     const next = reduceActivity(cur, ev, this.clock())
     if (next !== cur) this.bySession.set(sessionId, next)
     if (this.bySession.size > 256) {
-      const oldest = this.bySession.keys().next().value
-      if (oldest !== undefined) this.bySession.delete(oldest)
+      // V9.12 R1：按最旧 ts 驱逐——活跃尝试会话 ts 持续刷新，永不成为最旧；
+      // 插入序 FIFO 会把「最早出现但仍在打」的会话挤掉（P2-6）。
+      let oldestId: string | undefined
+      let oldestTs = Number.POSITIVE_INFINITY
+      for (const [id, a] of this.bySession) {
+        const t = a.ts === '' ? 0 : Date.parse(a.ts)
+        if (!Number.isNaN(t) && t < oldestTs) { oldestTs = t; oldestId = id }
+      }
+      if (oldestId !== undefined) this.bySession.delete(oldestId)
     }
   }
 

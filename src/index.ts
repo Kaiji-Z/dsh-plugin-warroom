@@ -36,6 +36,7 @@ import { featureEnabled, runtimeFlags } from './flags.ts'
 import { kickIdleTroops, warTools, armMissingCommanderGoals, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
 import { conscriptPlan, workspaceConflict } from './rules.ts'
 import { ActivityTracker } from './activity.ts'
+import { parseUnitReportEvent } from './report-capture.ts'
 import { weaveDemoSessions } from './demo-weave.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
@@ -191,17 +192,15 @@ function createConscriptor(deps: {
 function registerReportCapture(ctx: Context, stateDir: string, store: WarStore): void {
   const onEvent = (session: unknown, ev: unknown): void => {
     try {
-      const event = ev as { type?: string; source?: { kind?: string }; content?: ReadonlyArray<{ type?: string; text?: string }> }
-      if (event?.type !== 'user/message') return
-      const kind = event.source?.kind
-      if (kind !== 'subagent-report' && kind !== 'subagent-settled') return
+      // V9.12 R1：解析抽纯函数（嵌套 event.data 优先、扁平退回）——旧顶层
+      // 读法在宿主嵌套形状下静默失效，战报自动记账一度全灭。
+      const parsed = parseUnitReportEvent(ev)
+      if (parsed === null) return
       const war = store.get()
       if (!war.active) return
       const sessionId = (session as { id?: string } | undefined)?.id
       if (sessionId === undefined) return
-      const text = (event.content ?? []).filter(b => b?.type === 'text').map(b => b.text ?? '').join('\n')
-      const childId = /Background subagent ([\w-]+)/.exec(text)?.[1]
-      if (childId === undefined) return
+      const { kind, childId, text } = parsed
       for (const taskId of listCampaignIds(stateDir)) {
         const task = loadCampaign(stateDir, taskId)
         if (!task.units.has(childId)) continue

@@ -110,6 +110,23 @@ test('V9.11 R2 revision 盐: 只随动词变化（同动词连发不空转 SSE�
   assert.notEqual(t.salt(), s2)
 })
 
+test('V9.12 R1 滚动表驱逐: 最旧 ts 先驱逐——持续活跃的会话永不被挤掉（旧 FIFO 会）', () => {
+  let nowMs = Date.parse(T0)
+  const t = new ActivityTracker(() => new Date(nowMs).toISOString())
+  const bump = (step = 1000): void => { nowMs += step }
+  // live 最先出现（插入序最老），但持续在动：每灌 10 个一次性会话就再动一次。
+  for (let i = 0; i < 300; i++) {
+    t.handle(`stale-${i}`, ev('tool/call', { callId: 'c', name: 'read' }))
+    bump()
+    if (i % 10 === 0) { t.handle('live', ev('step/start')); bump(5000) }
+  }
+  // 断言与旧实现分野：插入序 FIFO 在第一次溢出（第 257 个会话）就驱逐 live；
+  // 最旧 ts 驱逐只清 stale-*（ts 远早于 live 的每次刷新）。
+  assert.notEqual(t.snapshot('live'), null)
+  assert.equal(t.snapshot('stale-0'), null)
+  assert.equal(t.snapshot('stale-1'), null)
+})
+
 test('V9.11 R2 revision: 活动盐折叠进 boardRevision（动词变→revision 变；SSE 仍只发 rev）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-activity-rev-'))
   try {
