@@ -438,7 +438,7 @@ with sync_playwright() as p:
     page.wait_for_selector(".war-settings-drawer", timeout=3000)
     assert page.locator(".war-skin-opt").count() == 2, "skin options missing in settings drawer"
     assert page.locator(".war-legend-rows").count() >= 1, "legend rows missing in settings drawer"
-    assert page.locator(".war-switch").count() == 2, "behavior toggles missing in settings drawer"
+    assert page.locator(".war-switch").count() == 3, "behavior toggles missing in settings drawer (V10.1 adds view switch)"
     assert page.locator(".war-set-conn-dot").count() == 1, "connection status missing in settings drawer"
     # 开关翻转要落 localStorage（刷新后仍生效）。
     page.locator(".war-switch").first.click()

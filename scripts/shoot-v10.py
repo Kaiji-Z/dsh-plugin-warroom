@@ -113,21 +113,25 @@ with sync_playwright() as p:
 
     open_board()
 
-    # --- P1 列表缺省 -----------------------------------------------------------
-    assert page.locator(".war-ops:not(.war-map)").count() == 1, "列表视图应为缺省且无 war-map 类"
+    # --- P1 列表缺省 + 坞按钮退役（开关迁设置抽屉）------------------------------
+    assert page.locator(".war-ops:not(.war-mapmode)").count() == 1, "列表视图应为缺省（war-mapmode 不挂）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "三列布局必须原样在场"
     assert page.locator(".war-starfield").count() == 0, "列表态不应渲染星域"
+    assert page.locator("[data-war-view-toggle]").count() == 0, "坞上切换按钮必须退役（V10.1 迁设置）"
     n_badge = page.locator('.war-dispatch .war-gen-badge[data-war-gen="2"]').count()
     assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
+    grp = page.locator(".war-cmd-group[data-war-group]")
+    assert grp.count() >= 1, "同链命令必须叠成卡牌组"
+    assert grp.first.locator(".war-command-card").count() == 2, "卡牌组内应恰好两代"
     print("P1 list-default ok")
 
-    # --- P2 星域 ---------------------------------------------------------------
-    page.locator("[data-war-view-toggle]").click()
-    page.wait_for_timeout(600)
-    ops_class = page.evaluate("() => document.querySelector('.war-ops').className")
-    assert "war-map" in ops_class, f"切换后 war-map 未置上：{ops_class}"
+    # --- P2 星域（localStorage 路径切换——开关 UI 在设置抽屉）-------------------
+    page.evaluate("() => localStorage.setItem('warroom-cfg-view','map')")
+    open_board()
     sf = page.locator(".war-starfield")
-    assert sf.count() == 1 and sf.is_visible(), "星域画布未现身"
+    assert sf.count() == 1 and sf.is_visible(), "星域画布未现身（board 级铺满）"
+    assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
+    assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
     planets = page.locator(".war-planet[data-ws-index]")
     assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"
     assert page.locator('[data-triumphs]:not([data-triumphs="0"])').count() == 2, "两颗凯旋星（alpha/gamma）应各带印记计数"
@@ -135,20 +139,19 @@ with sync_playwright() as p:
     assert alpha_t.get_attribute("data-triumphs") == "2", f"alpha 两代皆胜应记 2 功：{alpha_t.get_attribute('title')}"
     orb = page.locator(".war-orb[data-session='sess-demo-live']")
     assert orb.count() == 1, "活体执行会话光点未挂上 beta 星轨道"
-    # 光点悬停 → 族链高亮（war-rel-same 唯一落在其源命令卡上）。
     orb.hover()
     page.wait_for_timeout(400)
     same = page.locator(".war-dispatch .war-command-card.war-rel-same").count()
     assert same == 1, f"hover 光点应点亮唯一源命令卡，got {same}"
-    page.mouse.move(8, 900)
+    page.mouse.move(8, 300)
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 
     # --- P3 回列表 ---------------------------------------------------------------
-    page.locator("[data-war-view-toggle]").click()
-    page.wait_for_timeout(400)
-    assert "war-map" not in page.evaluate("() => document.querySelector('.war-ops').className"), "切回列表失败"
+    page.evaluate("() => localStorage.setItem('warroom-cfg-view','list')")
+    open_board()
     assert page.locator(".war-starfield").count() == 0, "回列表后星域应卸载"
+    assert page.locator(".war-zone.war-field").is_visible(), "回列表后战场列回归"
     print("P3 back-to-list ok")
 
     # --- P4 聚焦页族谱 -----------------------------------------------------------

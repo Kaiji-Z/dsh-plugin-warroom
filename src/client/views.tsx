@@ -1431,8 +1431,8 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
  * 退役（元首：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
-function DispatchStrip(props: { onCompose: () => void; children: ReactNode[]; viewMode?: 'list' | 'map'; onToggleView?: () => void }): ReactNode {
-  const { onCompose, children, viewMode = 'list', onToggleView } = props
+function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
+  const { onCompose, children } = props
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = ref.current
@@ -1465,16 +1465,6 @@ function DispatchStrip(props: { onCompose: () => void; children: ReactNode[]; vi
     }
   }, [children.length])
   return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label },
-    onToggleView !== undefined
-      ? createElement('button', {
-        className: `war-dispatch-view${viewMode === 'map' ? ' on' : ''}`,
-        type: 'button',
-        'data-war-view-toggle': '1',
-        'aria-pressed': viewMode === 'map',
-        title: viewMode === 'map' ? activeCopy().dispatch.viewBackHint : activeCopy().dispatch.viewMapHint,
-        onClick: onToggleView,
-      }, viewMode === 'map' ? '☰ 列表' : '🪐 星域')
-      : null,
     createElement('button', {
       className: 'war-dispatch-add',
       type: 'button',
@@ -1497,8 +1487,11 @@ function SettingsDrawer(props: {
   onToggleAutoScroll: (v: boolean) => void
   connected: boolean
   onRefresh: () => void
+  /** V10.1 战场视图开关（从调度坞退役迁此——坞只管卡，设置管模式）。 */
+  viewMap: boolean
+  onToggleViewMap: (v: boolean) => void
 }): ReactNode {
-  const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh } = props
+  const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh, viewMap, onToggleViewMap } = props
   const copy = activeCopy().settings
   const [skin, setSkinState] = useState(skinId())
   const layer = useModalLayer(onClose, copy.title)
@@ -1542,6 +1535,7 @@ function SettingsDrawer(props: {
           ])),
         createElement('div', { className: 'war-settings-section' }, copy.behaviorSection),
         toggle(copy.hoverFamily, copy.hoverFamilyHint, hoverFamily, onToggleHoverFamily),
+        toggle(copy.viewMap, copy.viewMapHint, viewMap, onToggleViewMap),
         toggle(copy.autoScroll, copy.autoScrollHint, autoScroll, onToggleAutoScroll),
         createElement('div', { className: 'war-settings-section' }, copy.connSection),
         createElement('div', { className: 'war-set-conn' },
@@ -1691,6 +1685,14 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed'))
     }
     const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
+    // V10.1 卡牌组：同链命令按链根聚拢成叠（调度坞上的「一副手牌」）。
+    const dispatchGroups: Array<{ rootId: string; cards: BoardCommand[] }> = []
+    for (const c of dispatchCommands) {
+      let g = dispatchGroups.find(x => x.rootId === c.chain.rootId)
+      if (g === undefined) { g = { rootId: c.chain.rootId, cards: [] }; dispatchGroups.push(g) }
+      g.cards.push(c)
+    }
+    for (const g of dispatchGroups) g.cards.sort((a, b) => a.chain.generation - b.chain.generation)
     // V10 起草器续接候选：已批准且任务已成形（新→旧 ≤5）；live=有未收束 attempt。
     const continueCandidates: ContinueCandidate[] = commandsNewest
       .filter(c => c.status === 'approved' && c.taskId !== null)
@@ -1803,14 +1805,29 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         )
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
-          : createElement('div', { className: 'war-board' },
+          : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}` },
+          // V10.1 TITP 化（元首示意图定案）：星域=界面本体，board 级铺满为底；
+          // 任务/战报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
+          ...(mapView ? [createElement(StarfieldMap, {
+            key: 'starfield',
+            active: data.active,
+            planets: starPlanets,
+            troops: starTroops,
+            ariaLabel: activeCopy().starfield.aria,
+            hqTitleLit: activeCopy().starfield.hqOn,
+            hqTitleDark: activeCopy().starfield.hqOff,
+            onOpenCommand: id => { openCommand(id) },
+            onOrbHover: id => {
+              if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
+            },
+          })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
           // V10-R3a 星域底版：中列「战场」换恒星系画布——任务列左、星域中、
           // 战报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
           // V10-R3b 星域态=悬浮舱：左右两列收窄半透明浮于星域之上，中列让位恒星系。
-          createElement('div', { className: `war-ops${mapView ? ' war-map' : ''}` },
+          createElement('div', { className: `war-ops${mapView ? ' war-mapmode' : ''}` },
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,
@@ -1831,25 +1848,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               ),
             ),
             createElement('div', { className: 'war-zone war-field' },
-              mapView
-                ? createElement(StarfieldMap, {
-                  key: 'starfield',
-                  active: data.active,
-                  planets: starPlanets,
-                  troops: starTroops,
-                  ariaLabel: activeCopy().starfield.aria,
-                  hqTitleLit: activeCopy().starfield.hqOn,
-                  hqTitleDark: activeCopy().starfield.hqOff,
-                  onOpenCommand: id => { openCommand(id) },
-                  // V10-R4 族链联动：光点悬停点亮源命令全族（与卡片 CardTrace 同状态机同门槛）。
-                  onOrbHover: id => {
-                    if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
-                  },
-                })
-                : Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
-                  [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                    ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
-                ),
+              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
+                [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
+              ),
             ),
             createElement('div', { className: 'war-zone war-report' },
               Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
@@ -1862,18 +1864,17 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           createElement(DispatchStrip, {
             key: 'dispatch',
             onCompose: () => { setComposerOpen(true) },
-            viewMode: mapView ? 'map' : 'list',
-            onToggleView: () => {
-              setViewPref(p => {
-                const next = p === 'map' ? 'list' : 'map'
-                try { localStorage.setItem('warroom-cfg-view', next) } catch { /* 隐私模式 */ }
-                return next
-              })
-            },
           },
-            ...dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
-              actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
-            })),
+            ...dispatchGroups.flatMap(g =>
+              g.cards.length === 1
+                ? [CommandCard(g.cards[0]!, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(g.cards[0]!), traceFor(g.cards[0]!.commandId), grade => {
+                  actNote(regradeCommand(g.cards[0]!.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
+                })]
+                : [createElement('div', { key: `grp-${g.rootId}`, className: 'war-cmd-group', 'data-war-group': g.rootId },
+                  ...g.cards.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
+                    actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
+                  })))],
+            ),
           ),
         ),
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
@@ -1904,6 +1905,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         onToggleAutoScroll: v => { setAutoScrollOn(v); localStorage.setItem('warroom-cfg-auto-scroll', v ? '1' : '0') },
         connected: error === null,
         onRefresh: refresh,
+        viewMap: viewPref === 'map',
+        onToggleViewMap: v => {
+          const next = v ? 'map' : 'list'
+          setViewPref(next)
+          try { localStorage.setItem('warroom-cfg-view', next) } catch { /* 隐私模式 */ }
+        },
       }) : null,
     )
   }

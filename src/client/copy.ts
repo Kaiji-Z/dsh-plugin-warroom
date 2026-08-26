@@ -38,6 +38,9 @@ export interface WarCopy {
     behaviorSection: string
     hoverFamily: string
     hoverFamilyHint: string
+    /** V10.1 战场视图开关（星域地图 ⇄ 三列局势墙）。 */
+    viewMap: string
+    viewMapHint: string
     autoScroll: string
     autoScrollHint: string
     connSection: string
@@ -353,6 +356,8 @@ export const warCopy: WarCopy = {
     behaviorSection: '看板行为',
     hoverFamily: '悬停族系高亮',
     hoverFamilyHint: '悬停任一张卡，同命令的卡高亮、其余压暗',
+    viewMap: '星域战场视图',
+    viewMapHint: '开=星域为底、任务/战报浮舱压图；关=三列局势墙',
     autoScroll: '悬停自动滚动',
     autoScrollHint: '高亮的卡不在视野内时，自动滚到眼前',
     connSection: '连接',
@@ -685,6 +690,8 @@ export const plainCopy: WarCopy = {
     behaviorSection: '看板行为',
     hoverFamily: '悬停看同源',
     hoverFamilyHint: '悬停卡片时，同一命令的卡片亮、其他变暗',
+    viewMap: '项目全景图',
+    viewMapHint: '开=星球地图为底；关=三列列表',
     autoScroll: '自动滚到眼前',
     autoScrollHint: '高亮的卡片不在画面里时，自动滚动过去',
     connSection: '连接',

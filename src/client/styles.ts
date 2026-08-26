@@ -511,6 +511,30 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
 @supports (backdrop-filter: blur(8px)){
   .war-ops.war-map .war-zone{backdrop-filter:blur(9px)}
 }
+/* --- V10.1 TITP 化布局（元首示意图定案）：地图=界面本体 ----------------------
+ * 星域从三列网格的中列格子解放，board 级铺满为底；任务/战报列转贴边浮舱压图
+ * （CALLS/MESSAGES 语言）；命令坞满宽压底不参战。列表态零改动（类不挂即原样）。 */
+.war-board{position:relative}
+.war-board.war-mapmode .war-starfield{position:absolute;left:10px;right:10px;top:8px;bottom:150px;min-height:0;flex:none;z-index:0;border-radius:16px}
+.war-board.war-mapmode .war-ops{position:absolute;left:10px;right:10px;top:8px;bottom:150px;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
+.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:0;bottom:0;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
+body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
+@supports (backdrop-filter: blur(10px)){
+  .war-board.war-mapmode .war-zone{backdrop-filter:blur(10px)}
+}
+.war-board.war-mapmode .war-zone.war-tasks{left:0}
+.war-board.war-mapmode .war-zone.war-report{right:0}
+.war-board.war-mapmode .war-zone.war-field{display:none}
+.war-board.war-mapmode .war-dispatch{position:relative;z-index:3}
+/* --- V10.1 调度坞卡牌组：同链命令错位叠成一副手牌，hover 抬起 ---------------- */
+.war-cmd-group{display:flex}
+.war-cmd-group .war-command-card{min-width:200px;transition:transform .18s ease}
+.war-cmd-group .war-command-card + .war-command-card{margin-left:-118px}
+.war-cmd-group .war-command-card:nth-child(2){transform:translateY(5px)}
+.war-cmd-group .war-command-card:nth-child(2):hover{transform:translateY(-2px)}
+.war-cmd-group .war-command-card:nth-child(3){transform:translateY(10px)}
+.war-cmd-group .war-command-card:nth-child(3):hover{transform:translateY(2px)}
+.war-cmd-group .war-command-card:hover{transform:translateY(-6px);z-index:5}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}

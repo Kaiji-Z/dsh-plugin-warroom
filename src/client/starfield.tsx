@@ -48,7 +48,7 @@ export function galaxyLayout(wsPathsInCreationOrder: readonly string[]): PlanetS
     return {
       wsPath,
       ring: k + 1,
-      xPct: +(clamp(50 + rx * Math.cos(ang), 9, 91)).toFixed(2),
+      xPct: +(clamp(50 + rx * 0.55 * Math.cos(ang), 24, 76)).toFixed(2), // X 压中央安全带——左右浮舱永不遮星（V10.1 TITP）
       yPct: +(clamp(42 + rx * 0.62 * Math.sin(ang), 8, 90)).toFixed(2),
     }
   })
