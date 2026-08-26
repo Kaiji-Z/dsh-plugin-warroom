@@ -133,6 +133,9 @@ with sync_playwright() as p:
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
+    for pod in (".war-zone.war-tasks", ".war-zone.war-report"):
+        bb = page.locator(pod).bounding_box()
+        assert bb["y"] + bb["height"] <= dock_y + 2, f"{pod} 底边压进坞区：pod_bottom={bb['y']+bb['height']:.0f} dock_top={dock_y:.0f}"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
     planets = page.locator(".war-planet[data-ws-index]")
     assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"
