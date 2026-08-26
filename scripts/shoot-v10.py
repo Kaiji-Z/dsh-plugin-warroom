@@ -124,7 +124,7 @@ with sync_playwright() as p:
     assert grp.count() >= 1, "同链命令必须叠成卡牌组"
     assert grp.first.locator(".war-command-card").count() == 2, "卡牌组内应恰好两代"
     gb = grp.first.bounding_box(); cw = grp.first.locator(".war-command-card").first.bounding_box()
-    assert abs(gb["width"] - (cw["width"] + 15)) <= 6, f"露出必须≈15px：group_w={gb['width']:.0f} card_w={cw['width']:.0f}"
+    assert abs(gb["width"] - (cw["width"] + 50)) <= 6, f"露出必须≈50px：group_w={gb['width']:.0f} card_w={cw['width']:.0f}"
     print("P1 list-default ok")
 
     # --- P2 星域（localStorage 路径切换——开关 UI 在设置抽屉）-------------------
