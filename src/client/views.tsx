@@ -1601,6 +1601,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     })
     // V10.1 对抗审查 P1：窗口跨 900px 界限即时回退/恢复地图（此前只在渲染时判一次）。
     const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1720))
+    // critique P1：三列 roving——每列单停位，方向键在列内移卡。
+    const opsRef = useRef<HTMLDivElement | null>(null)
+    useEffect(() => {
+      const ops = opsRef.current
+      if (ops === null) return
+      for (const body of ops.querySelectorAll<HTMLElement>('.war-col-body')) {
+        ;[...body.querySelectorAll<HTMLElement>('.war-card')].forEach((c, i) => { c.tabIndex = i === 0 ? 0 : -1 })
+      }
+    })
     useEffect(() => {
       const on = (): void => { setWinW(window.innerWidth) }
       window.addEventListener('resize', on)
@@ -1733,10 +1742,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [mapHint, setMapHint] = useState(false)
     useEffect(() => {
       try {
-        if (localStorage.getItem('warroom-map-hint-seen') === '1') return
+        const last = Number(localStorage.getItem('warroom-map-hint-seen') ?? '0')
+        if (last > 0 && Date.now() - last < 7 * 24 * 3600 * 1000) return // critique P2：7 天冷却（一次性=错过即永久隐身）
         if (new Set(tasks.filter(t => t.workspacePath !== null).map(t => t.workspacePath)).size >= 3) {
           setMapHint(true)
-          localStorage.setItem('warroom-map-hint-seen', '1')
+          localStorage.setItem('warroom-map-hint-seen', String(Date.now()))
         }
       } catch { /* 隐私模式 */ }
     }, [tasks.length])
@@ -1774,8 +1784,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         if (bd !== null) setBoardBox({ w: bd.clientWidth, h: bd.clientHeight, dockH: dk?.clientHeight ?? 230 })
       }
       measure()
-      const t = setInterval(measure, 4000) // 坞高随卡内容漂移——低频轮询足矣（坐标仍确定性：只随几何变）
-      return () => clearInterval(t)
+      // critique P2：ResizeObserver 即时重测（4s 轮询在跨档拖窗后最长 4s 旧禁区）。
+      const ro = new ResizeObserver(measure)
+      const bd = document.querySelector('.war-board')
+      const dk = document.querySelector('.war-dispatch')
+      if (bd !== null) ro.observe(bd)
+      if (dk !== null) ro.observe(dk)
+      return () => ro.disconnect()
     }, [])
     const sidePct = (330 / Math.max(boardBox.w, 1)) * 100
     const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
@@ -1800,7 +1815,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         verbLabel: a.activity?.label ?? activeCopy().starfield.orbIdle,
         paused: t.quotaPaused === true,
         sourceCommandId: src,
+        // critique：兜底不再露会话号片段（「可追查不装」在细节碎玻璃）——词典化「未溯源」。
         sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null,
+        untraced: src === null,
       }]
     })
     const mapView = viewPref === 'map' && winW >= 900
@@ -1918,6 +1935,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             ghosts: starGhosts,
             orbIdleLabel: activeCopy().starfield.orbIdle,
             mapLegend: activeCopy().starfield.mapLegend,
+            untracedLabel: activeCopy().starfield.untraced,
             onPlanetOpen: (wsPath: string) => {
               // critique P1-1：行星可达后的落点——该战区最新有仗的源命令聚焦页。
               const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
@@ -1930,7 +1948,26 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // V10-R3a 星域底版：中列「战场」换恒星系画布——任务列左、星域中、
           // 战报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
           // V10-R3b 星域态=悬浮舱：左右两列收窄半透明浮于星域之上，中列让位恒星系。
-          createElement('div', { className: `war-ops${mapView ? ' war-mapmode' : ''}` },
+          createElement('div', {
+            className: `war-ops${mapView ? ' war-mapmode' : ''}`,
+            // critique P1：三列键盘隧道（45 停靠）——列内 roving，上下键移卡、Tab 跳列。
+            ref: opsRef,
+            onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+              const ops = opsRef.current
+              if (ops === null) return
+              const zones = [...ops.querySelectorAll<HTMLElement>('.war-col-body')]
+              const zone = zones.find(z => z.contains(document.activeElement))
+              if (zone === undefined) return
+              const cards = [...zone.querySelectorAll<HTMLElement>('.war-card')]
+              const idx = cards.findIndex(c => c === document.activeElement)
+              if (idx < 0) return
+              e.preventDefault()
+              const next = e.key === 'ArrowDown' ? Math.min(idx + 1, cards.length - 1) : Math.max(idx - 1, 0)
+              cards.forEach((c, i) => { c.tabIndex = i === next ? 0 : -1 })
+              cards[next]!.focus()
+            },
+          },
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,

@@ -156,6 +156,8 @@ export interface StarfieldTroop {
   readonly sourceCommandId: string | null
   /** aria 用命令摘要——读屏用户不该听会话号（critique A）。 */
   readonly sourceLabel: string | null
+  /** 无源命令时为真（速报条走词典兜底）。 */
+  readonly untraced?: boolean
 }
 
 export interface StarfieldProps {
@@ -176,12 +178,14 @@ export interface StarfieldProps {
   readonly onPlanetOpen?: (wsPath: string) => void
   /** V10.1 critique P3：地图就地微图例（正式图例仍在设置抽屉）。 */
   readonly mapLegend?: string
+  /** 速报条无溯源时的词典化兜底（不再露会话号片段）。 */
+  readonly untracedLabel?: string
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend, untracedLabel } = props
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -199,6 +203,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       className: `war-hq${active ? ' lit' : ''}`,
       'data-active': String(active),
       title: active ? hqTitleLit : hqTitleDark,
+      role: 'img',
+      'aria-label': active ? hqTitleLit : hqTitleDark,
     }, active ? '☀' : '☄'),
     ...planets.map(({ spec, garrison }) =>
       createElement('button', {
@@ -246,11 +252,16 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
             ...troops.slice(0, 3).map(t =>
               createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
                 createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
-                createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? t.sessionId.slice(0, 8)))),
+                createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? untracedLabel ?? t.sessionId.slice(0, 8)))),
             ...(troops.length > 3 ? [createElement('span', { key: 'lb-more', className: 'war-live-item' }, `+${troops.length - 3}`)] : []))
         : null,
       mapLegend !== undefined
-        ? createElement('div', { className: 'war-map-legend', 'aria-hidden': 'true' }, mapLegend)
+        ? createElement('div', { className: 'war-map-legend', 'aria-hidden': 'true' },
+            createElement('span', { className: 'war-legend-dot dot-run' }),
+            createElement('span', { className: 'war-legend-dot dot-wait' }),
+            createElement('span', { className: 'war-legend-dot dot-done' }),
+            createElement('span', { className: 'war-legend-dot dot-fail' }),
+            createElement('span', { className: 'war-map-legend-text' }, mapLegend))
         : null),
     ...ghosts.map(g =>
       createElement('div', {

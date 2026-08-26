@@ -527,7 +527,8 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw
 .war-live-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .war-live-verb{font-weight:700;color:var(--war-run-strong)}
 .war-live-cmd{max-width:180px;overflow:hidden;text-overflow:ellipsis}
-.war-map-legend{font-size:12px;color:var(--dsw-alias-label-tertiary);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1);pointer-events:none;white-space:nowrap}
+.war-map-legend{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1);pointer-events:none;white-space:nowrap}
+.war-map-legend .war-legend-dot{flex:0 0 auto}
 /* V10.1 星域指路 toast（一次性） */
 .war-map-hint{position:fixed;right:18px;bottom:18px;z-index:40;max-width:340px;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);background:var(--war-card-bg);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;cursor:pointer;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--dsw-font-family);text-align:left}
 .war-map-hint:hover{background:var(--war-run-tint)}

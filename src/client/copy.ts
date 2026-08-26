@@ -25,7 +25,7 @@ export interface WarCopy {
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
-  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string }
+  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
@@ -527,8 +527,9 @@ export const warCopy: WarCopy = {
     hqOn: '司令部在线——战时状态，全局开关亮着',
     hqOff: '停战状态——司令部熄灯',
     orbIdle: '执行中',
-    mapLegend: '●蓝 动 · ●琥珀 等 · ●绿 善终 · ●红 败 ｜ 行星=战区 · ✓凯旋 · 呼吸光点=作战中',
+    mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战区（内环=最老）· ✓凯旋 · 呼吸光点=作战中',
     mapHintToast: '🪐 战区不止一个——试试星域战场视图（点此开启，⚙ 设置里随时可关）',
+    untraced: '未溯源执行',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
@@ -873,8 +874,9 @@ export const plainCopy: WarCopy = {
     hqOn: '作战状态中——总部亮着',
     hqOff: '当前没有激活的战线',
     orbIdle: '进行中',
-    mapLegend: '●蓝 干活 · ●琥珀 等你 · ●绿 完成 · ●红 失败 ｜ 星球=项目 · ✓完成数 · 亮点=进行中',
+    mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· ✓完成数 · 亮点=进行中',
     mapHintToast: '🪐 项目不止一个——试试全景图视图（点这里打开，⚙ 设置里可以关掉）',
+    untraced: '还没关联命令',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
