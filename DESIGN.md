@@ -196,3 +196,14 @@
 - **前端**：SessionCard live 态加 `.war-activity` 行（呼吸点+动词，title 带时间戳）；点卡仍直跳原生会话（全文在那边）。
 - **真链取证**（`scripts/shoot-activity.py`）：页面 fetch 下达 L0 直发命令（真实参谋分诊→发布→征召→指挥官真跑工具），轮询 board 断言 live attempt 带 activity、≥2 种动词、revision≥3、截图落证。首跑（扁平形状 bug 版）已 OK（思考中→执行中·tool，12 revision，双截图）；修复后复跑验证真实工具名分类。
 - verify 针脚：ActivityTracker/activitySalt（host）+ war-activity（client）+ V9.11 R1 四针 + 负断言 openTasks 退役；单测 tests/activity.test.ts（八态/嵌套兼容/配对/盐稳定性/revision 折叠）。
+
+## V9.11 demo 升级：指示器跟卡走 + 战报已阅转绿 + 全状态覆盖/全点击可达（2026-08-26，元首三点指示）
+
+> 元首定案：①指示器跟卡走——卡进任务列就到任务段，只有定时/未被参谋接手的命令停在命令段，其余同理；②战报段等用户点开看过才变绿（demo 里点不到就由我定判定）；③demo 覆盖所有状态、所有点击都反映真实跳转（「设计出来的生产环境状态」）。
+
+- **指示器跟卡走**：lifecycleOf 空链分支改为 `formingVariantOf !== null → now:'task'`（成形卡在场=卡片已进任务列），与任务列台账同源判定；无卡态（定时未发/转达中）停命令段。
+- **战报已阅转绿**：`report-seen` localStorage 账本（per 命令记最近点开时刻）+ `latestSettleMs`（链上最近定论时刻）——seen 晚于定论才整条转绿（now 归 null 收官）；驳回重跑出新战报自动拉回呼吸态。判定=聚焦页战报段进视野（focusSegment='report' 直达或 IntersectionObserver 0.35 阈值——决策带「去看战报」/手动滚动/战报列卡点入全覆盖）。
+- **demo 织换器**（`src/demo-weave.ts`，config `demoWeave` 仅 smoke overlay 开）：开机 apiProxy faces 就绪时按 `.demo-sessions.json` 把假会话号换成宿主真会话（`sessions.create({cwd: 当前工作区})`+改名「演示·角色」），重写 campaigns/directives/threads 三条 JSONL，`.demo-woven.json` 标记幂等；播种器清态连标记清（重播→下次开机重织）。**关键实测**：宿主 web 会话目录只收「打开过/retained」的会话——建在 war root 或从未打开的会话 `sessions.open` 静默不切（假号则抛 unknown session）。→ 织换建在当前工作区 + 全任务补 lineage 让板上卡点击统一走聚焦页；**挂账（宿主边界）**：聚焦页底部「任务会话/执行会话」跳钮与「进入对话回答」指向从未打开过的道具会话时首跳不切换（弹窗仍收起有点击反馈；该会话在工作区切换器手动开一次后永久可用）。
+- **种子全状态**：14 命令覆盖 draft 定时（d8 cron）/received×2/talking/approved 五态（链成形 d3 双环、待发布 d6、失败重试 d7、各 lineage d9-d13）/cancelled；8 任务覆盖 epic 待领/deps 锁/cron 悬赏/进行中/已报（战利品+证据）/收官/失败两跳/链第二环。三列 **18/18 卡点击全开聚焦页**（探针机检）。
+- **顺带真修**：commandTasks 输出改依赖序（投影状态序把 published 后继排到 reported 前驱前——读链倒置）；悬停自动滚动按列聚合（同列多张同族卡逐卡 nearest 互相挤出，最后一张赢）；聚焦页 jumpSession 跳会话同时收弹窗；收件箱条目 scroll-margin-top。
+- verify 186 测（针脚 warroom-report-seen/latestSettleMs/weaveDemoSessions/.demo-sessions.json）；shoot 全绿（指示器跟随断言组 + 战报呼吸→点开转绿闭环 + 新状态成形卡断言）。
