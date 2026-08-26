@@ -1807,19 +1807,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
-          // V10-R3a 星域底版：地图视图下取代三列局势墙（列表视图原样保留——
-          // .war-ops 兄弟插入，不重排既有网格；窄屏 mapView=false 自动回列表）。
-          ...(mapView ? [createElement(StarfieldMap, {
-            key: 'starfield',
-            active: data.active,
-            planets: starPlanets,
-            troops: starTroops,
-            ariaLabel: activeCopy().starfield.aria,
-            hqTitleLit: activeCopy().starfield.hqOn,
-            hqTitleDark: activeCopy().starfield.hqOff,
-            onOpenCommand: id => { openCommand(id) },
-          })] : []),
-          createElement('div', { className: 'war-ops', style: mapView ? { display: 'none' } : undefined },
+          // V10-R3a 星域底版：中列「战场」换恒星系画布——任务列左、星域中、
+          // 战报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
+          createElement('div', { className: 'war-ops' },
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,
@@ -1840,10 +1830,21 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               ),
             ),
             createElement('div', { className: 'war-zone war-field' },
-              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
-                [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
-                  ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
-              ),
+              mapView
+                ? createElement(StarfieldMap, {
+                  key: 'starfield',
+                  active: data.active,
+                  planets: starPlanets,
+                  troops: starTroops,
+                  ariaLabel: activeCopy().starfield.aria,
+                  hqTitleLit: activeCopy().starfield.hqOn,
+                  hqTitleDark: activeCopy().starfield.hqOff,
+                  onOpenCommand: id => { openCommand(id) },
+                })
+                : Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
+                  [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                    ...threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))],
+                ),
             ),
             createElement('div', { className: 'war-zone war-report' },
               Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
