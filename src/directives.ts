@@ -11,9 +11,14 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextRunOf } from './schedule.ts'
+import type { TaskStatus } from './types.ts'
 
 /** Directive lifecycle on the 命令区 board column. */
 export type DirectiveStatus = 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
+
+/** V10 战线续接模式——创建时按父命令当时的战线状态冻结（嫁接是历史不是开关）：
+ * deepen=接已终态的成功仗深化、retry=接败仗再战、pivot=插入进行中的执行会话。 */
+export type ContinuationMode = 'deepen' | 'retry' | 'pivot'
 
 /** V5 autonomy grade — L0 直发 / L1 计划后做 / L2 澄清收敛后计划（SPEC §1）。 */
 export type DirectiveGrade = 'L0' | 'L1' | 'L2'
@@ -56,11 +61,17 @@ export interface Directive {
   /** V9.2 定时下达：created 带 cron 即待发（dispatchedAt 空时引信不取）；
    *  到点 tick 补 directive_dispatched 后回归常轨（一次性，不循环）。 */
   schedule?: { cron: string; dispatchedAt?: string }
+  /** V10 战线链：本命令所续接的父命令号（缺省=初代）。append-only 历史零迁移。 */
+  readonly continuesFrom?: string
+  /** V10 续接意图（与 continuesFrom 同源冻结；pivot 的实际投递由引信分路）。 */
+  readonly continuation?: { readonly mode: ContinuationMode; readonly parentId: string }
 }
 
 /** The directive log's entry union (one JSON line each). */
 export type DirectiveEvent =
-  | { type: 'directive_created'; ts: string; directiveId: string; text: string; cron?: string }
+  | { type: 'directive_created'; ts: string; directiveId: string; text: string; cron?: string;
+      /** V10 战线续接：可选嫁接指针 + 冻结模式（旧日志无此字段照常 fold=初代）。 */
+      continuesFrom?: string; continuationMode?: ContinuationMode }
   | { type: 'directive_dispatched'; ts: string; directiveId: string }
   | { type: 'directive_session_opened'; ts: string; directiveId: string; staffSessionId: string }
   | { type: 'directive_received'; ts: string; directiveId: string; staffSessionId: string }
@@ -127,6 +138,14 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
       byId.set(event.directiveId, {
         id: event.directiveId, text: event.text, createdAt: event.ts, status: 'draft',
         ...(event.cron !== undefined ? { schedule: { cron: event.cron } } : {}),
+        ...(event.continuesFrom !== undefined
+          ? {
+              continuesFrom: event.continuesFrom,
+              ...(event.continuationMode !== undefined
+                ? { continuation: { mode: event.continuationMode, parentId: event.continuesFrom } }
+                : {}),
+            }
+          : {}),
       })
       continue
     }
@@ -202,6 +221,102 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
     }
   }
   return [...byId.values()]
+}
+
+/** V10 战线链索引（纯，双端复用）：对已折出的命令集做一次祖先闭包遍历。
+ *  服务端下达路由只允许 continuesFrom 指向账本中已存在的命令，正常数据天然
+ *  无环；本函数仍带深度上限与环/悬挂防御——手改日志最多得到「各自成段」的
+ *  稳定投影，绝不抛错、绝不死循环。 */
+export interface ChainFold {
+  /** 命令 → 链根 id。 */
+  readonly rootByCommand: ReadonlyMap<string, string>
+  /** 命令 → 代际（初代=1，无徽标；Ⅱ 起上徽标）。 */
+  readonly generationOf: ReadonlyMap<string, number>
+  /** 链根 → 全体成员 id（按代序Ⅰ→…）。 */
+  readonly membersOfRoot: ReadonlyMap<string, readonly string[]>
+}
+
+/** 手改日志的环/超深防御上限——真实战线到达不了这个代数。 */
+const CHAIN_DEPTH_CAP = 32
+
+export function foldChains(dirs: ReadonlyArray<Directive>): ChainFold {
+  const byId = new Map(dirs.map(d => [d.id, d]))
+  const rootByCommand = new Map<string, string>()
+  const generationOf = new Map<string, number>()
+  const membersOfRoot = new Map<string, string[]>()
+  for (const d of dirs) {
+    if (generationOf.has(d.id)) continue
+    const path: Directive[] = []
+    const seen = new Set<string>()
+    let cur: Directive = d
+    let truncated = false
+    while (true) {
+      if (seen.has(cur.id) || path.length >= CHAIN_DEPTH_CAP) { truncated = true; break }
+      seen.add(cur.id)
+      path.push(cur)
+      if (cur.continuesFrom === undefined) break // 真初代：path 尾即链根
+      const parent = byId.get(cur.continuesFrom)
+      if (parent === undefined) break // 悬挂指针：上一站按段根投影（半截导入兼容）
+      cur = parent
+    }
+    if (truncated) {
+      // 环或超深（只剩手改日志会出现）：该命令自封一段，不连祖先——稳定、诚实。
+      rootByCommand.set(d.id, d.id)
+      generationOf.set(d.id, 1)
+      membersOfRoot.set(d.id, [d.id])
+      continue
+    }
+    const root = path[path.length - 1]!
+    for (let i = path.length - 1; i >= 0; i--) {
+      const node = path[i]!
+      if (generationOf.has(node.id)) continue
+      const gen = path.length - i
+      generationOf.set(node.id, gen)
+      rootByCommand.set(node.id, root.id)
+      const list = membersOfRoot.get(root.id) ?? []
+      list.push(node.id)
+      membersOfRoot.set(root.id, list)
+    }
+  }
+  return { rootByCommand, generationOf, membersOfRoot }
+}
+
+/** 链色槽位：FNV-1a 变体——同根同槽跨重启稳定；服务端算好喂给客户端，
+ *  前端不复算哈希（单一事实源）。 */
+export function chainHueSlot(rootId: string, slots = 8): number {
+  let h = 2166136261
+  for (let i = 0; i < rootId.length; i++) {
+    h ^= rootId.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0) % slots
+}
+
+/** 续接模式推导输入：父命令的挂链任务执行切片（由调用方从 campaign 投影裁出）。 */
+export interface ContinuationTaskFace {
+  status: TaskStatus
+  /** 尝试日志里最近一个已有结算态的结果。 */
+  lastOutcome?: 'failed' | 'reported' | 'succeeded'
+  /** 未结束 attempt 的指挥官会话号（进行中才有）。 */
+  liveAttemptSessionId?: string
+}
+
+/**
+ * 按父命令当时的状态推导续接模式（纯）——下达路由的冻结依据：
+ * 参谋对话未成形→拒绝（直接继续谈）；执行中→pivot（需活体 attempt 会话）；
+ * 成功仗/closed→deepen；败仗→retry。错误给可直接展示给元首的理由。
+ */
+export function deriveContinuation(
+  parent: { status: DirectiveStatus; taskId?: string },
+  task?: ContinuationTaskFace,
+): { mode: ContinuationMode; targetSessionId?: string } | { error: string } {
+  if (parent.status === 'cancelled') return { error: '被取消的命令没有可续接的战线——请直接下新命令。' }
+  if (parent.status !== 'approved') return { error: '这条命令还在参谋对话里成形，直接点进命令卡继续谈即可；可续接的是已成形的仗。' }
+  if (parent.taskId === undefined || task === undefined) return { error: '命令已批准但任务尚未发布成形，暂无可续接的阵地。' }
+  if (task.lastOutcome === 'failed' || task.status === 'failed') return { mode: 'retry' }
+  if (task.status === 'closed' || task.lastOutcome === 'succeeded' || task.lastOutcome === 'reported') return { mode: 'deepen' }
+  if (task.liveAttemptSessionId !== undefined) return { mode: 'pivot', targetSessionId: task.liveAttemptSessionId }
+  return { error: '作战正在排队（指挥官尚未领令接火），此刻无可转向的执行会话。' }
 }
 
 /** Load all directives from disk (read + fold), oldest first. */

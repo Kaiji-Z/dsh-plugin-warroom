@@ -10,7 +10,8 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { appendDirectiveEvent, loadDirectives, newDirectiveId } from './directives.ts'
+import { appendDirectiveEvent, chainHueSlot, deriveContinuation, loadDirectives, newDirectiveId, foldChains } from './directives.ts'
+import type { ContinuationMode, ContinuationTaskFace } from './directives.ts'
 import { listCampaignIds, loadCampaign } from './events.ts'
 import { appendThreadEvent, loadAttachedThreads } from './threads.ts'
 import { nextRunOf, parseCron } from './schedule.ts'
@@ -231,7 +232,10 @@ export function dueBounties(stateDir: string, nowMs: number): DueBounty[] {
 
 /** The 命令区 projection served to the war map (pure — reusable by tests). */
 export function directiveProjection(stateDir: string): Record<string, unknown>[] {
-  return loadDirectives(stateDir).map(d => {
+  const directives = loadDirectives(stateDir)
+  // V10 战线链身份：一次祖先闭包喂全部命令卡（世代/链根/链长/链色槽）。
+  const chains = foldChains(directives)
+  return directives.map(d => {
     // V9.2 定时下达：未发（dispatchedAt 空）才报 nextRunAt——发完即常轨命令。
     let nextRunAt: string | null = null
     if (d.schedule !== undefined && d.schedule.dispatchedAt === undefined) {
@@ -259,6 +263,14 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
       schedule: d.schedule === undefined
         ? null
         : { cron: d.schedule.cron, dispatchedAt: d.schedule.dispatchedAt ?? null, nextRunAt },
+      // V10 战线链身份（初代也给 chain 对象——generation=1 客户端免分支）。
+      chain: (() => {
+        const gen = chains.generationOf.get(d.id) ?? 1
+        const rootId = chains.rootByCommand.get(d.id) ?? d.id
+        const length = chains.membersOfRoot.get(rootId)?.length ?? 1
+        return { generation: gen, rootId, length, hueSlot: chainHueSlot(rootId) }
+      })(),
+      continuation: d.continuation === undefined ? null : { mode: d.continuation.mode },
     }
   })
 }
@@ -297,7 +309,9 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         // The 命令区 + button: create a draft command card; the command fuse
         // relays it into the staff conversation within 15s. V9.2: optional
         // cron = 定时下达（到点 tick 补 dispatched 后引信才取；一次性）。
-        const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown }
+        // V10: 可选 continuesFrom = 战线续接——父命令必须存在，续接模式按
+        // 其当时状态冻结（嫁接是历史不是开关）；推导失败给明确拒绝理由。
+        const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown; continuesFrom?: unknown }
         const text = typeof body.text === 'string' ? body.text.trim() : ''
         if (text === '') {
           send(400, { ok: false, error: '命令内容为空：请用一句大白话写下元首的意图。' })
@@ -321,14 +335,57 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           }
           cron = body.cron.trim()
         }
+        let continuesFrom: string | undefined
+        let continuationMode: ContinuationMode | undefined
+        let pivotTargetSessionId: string | undefined
+        if (body.continuesFrom !== undefined && body.continuesFrom !== null && body.continuesFrom !== '') {
+          if (typeof body.continuesFrom !== 'string') {
+            send(400, { ok: false, error: 'continuesFrom 必须是父命令号字符串。' })
+            return
+          }
+          const parentId = body.continuesFrom.trim()
+          const parent = loadDirectives(deps.stateDir).find(d => d.id === parentId)
+          if (parent === undefined) {
+            send(400, { ok: false, error: `要续接的命令 ${parentId} 不存在。` })
+            return
+          }
+          let taskFace: ContinuationTaskFace | undefined
+          if (parent.taskId !== undefined) {
+            try {
+              const camp = loadCampaign(deps.stateDir, parent.taskId)
+              if (camp.startedAt !== '') {
+                const recent = [...camp.attemptLog].reverse()
+                taskFace = {
+                  status: camp.status,
+                  lastOutcome: recent.find(a => a.outcome !== undefined)?.outcome,
+                  liveAttemptSessionId: recent.find(a => a.endedAt === undefined)?.sessionId,
+                }
+              }
+            } catch { /* 无此任务账本 → taskFace 留空走统一拒绝口径 */ }
+          }
+          const derived = deriveContinuation(parent, taskFace)
+          if ('error' in derived) {
+            send(400, { ok: false, error: derived.error })
+            return
+          }
+          continuesFrom = parentId
+          continuationMode = derived.mode
+          pivotTargetSessionId = derived.targetSessionId
+        }
         const commandId = newDirectiveId()
         appendDirectiveEvent(deps.stateDir, {
           type: 'directive_created', ts: new Date().toISOString(), directiveId: commandId, text,
           ...(cron !== undefined ? { cron } : {}),
+          ...(continuesFrom !== undefined ? { continuesFrom } : {}),
+          ...(continuationMode !== undefined ? { continuationMode } : {}),
         })
         // 定时命令不立即引信——到点 dispatched 后 15s 引信自会接手。
         if (cron === undefined) deps.onCommandCreated?.()
-        send(200, { ok: true, commandId, ...(cron !== undefined ? { scheduled: true } : {}) })
+        send(200, {
+          ok: true, commandId,
+          ...(cron !== undefined ? { scheduled: true } : {}),
+          ...(continuationMode !== undefined ? { continuationMode, ...(pivotTargetSessionId !== undefined ? { pivotTargetSessionId } : {}) } : {}),
+        })
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/threads') {
