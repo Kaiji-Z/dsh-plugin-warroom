@@ -177,3 +177,22 @@
 - **词典**：focusPage 增 taskScheduledHint/taskRelaying/taskCancelled/drafting 系/talking 系/triageLabel/triagePending/taskBrief/taskAcceptance/briefMissing/acceptanceMissing/lootLabel(war 战利品/plain 交付)/attemptsSection/configRegrade；清死键 planNone/taskPlanning/taskCard.lootPrefix/commandBand.journey。
 - **针脚**：新 needles 进入对话回答/war-btn-warn/taskScheduledHint/taskBrief/war-sub-btns/war-sub-attempts + 负断言 war-cd-step；shoot 增 Phase G6（talking ghost 断言+截图 v9-focus-talking / d3 展开 loots/attempts 计数 / d4 cancelled / composer 定时下达全程）。
 - 目检：v9-focus-talking.png（warn ghost 展开态）+ v9-focus-report.png（战报全量展开态）人工核查通过，落 `.goal/evidence/v7/`。
+
+## V9.11 卡位模型 + 执行卡实时活动（2026-08-26，元首四条规则定案）
+
+> 心智模型（元首原话归纳）：任务列=参谋侧台账（从参谋接令起常驻到终局）；执行卡=原生会话窗口的简略版，只显示动作动词（过程语汇实时接入）；执行完毕执行卡平移成战报卡；命令卡四段生命条如实反映。四点拍板：动词双皮肤同词、成形卡点击进聚焦页、全部完成含真链验收、转达中/定时/已取消不出卡。
+
+**R1 卡位模型（纯客户端，0bf4172）**：
+- **成形卡**：接令起（空链+已建参谋会话）任务列置顶出现，三变体（drafting 成形中/talking warn 等你答问/plan 计划待你批）——与聚焦页 ghost 共用 `formingVariantOf` 判定（分岔口径不分叉）；点卡进源命令聚焦页任务段；批准发布后同卡位变任务书卡。
+- **任务列台账**：`openTasks` 过滤退役，任务书卡全量常驻；终局（closed/failed）调暗 `.settled` 永驻；**reported 保持全亮**（待验收是收件箱动作态，不许被埋——对「终局含 reported」定案的实现取舍）。
+- **生命条段位修复**：`reportDone` 加入 reported——上报即进战报段（修元首抓到的「卡已在战报列、命令卡停在执行段」打架）；状态标签回退链 closed > failed > reported。
+- shoot 增 R1 台账机检（三成形卡/终局两卡调暗/生命条战报段/成形卡点击路由），取证 v9-ledger.png。
+
+**R2 执行卡实时活动（宿主只读 + 前端）**：
+- **动词映射器**（`src/activity.ts` 纯函数）：宿主过程事件 → 思考中（step/start）/探索中→已探索（read/grep/glob/fetch/search…）/编辑中→已编辑（edit/write…）/运行命令→命令完成（bash/shell…）/执行中·工具名（兜底）/待命（turn/end）。工具分类大小写不敏感+子串容忍；callId 配对（乱序 result 不改写、缺 id 退化最近完成）；label 宿主侧单点计算（双皮肤同词天然成立）。
+- **宿主事件形状坑（首跑抓到）**：SessionEvent 载荷在 `.data` 下（`{type, seq, time, data}`，与 api-proxy 消费侧 event.data 同源）——首跑动词全落「执行中·tool」兜底即因读顶层 name；修为 data 优先、扁平退回两头兼容。**同族疑似遗留**：`registerReportCapture`（src/index.ts:196）读 `event.source?.kind`/`event.content` 顶层——按嵌套形状疑似常年不触发（部队 subagent-report 自动入账路径）；未在本轮顺手改（行为面变化需独立验证轮），挂账待元首裁决。
+- **活动追踪**：`ActivityTracker` 内存滚动表（全量会话皆记、256 上限、不落盘——重启归待命即「当前在做什么」语义）；index.ts 第二个 `session/event` 订阅喂入。
+- **板投影/revision**：live attempt 携带 `activity: {verb,label,ts}`（dashboard boardProjection 可选加料）；`boardRevision(stateDir, activitySalt?)` 把动词盐折进签名——**盐只随动词变化**（同动词连续事件不空转 SSE），SSE 仍只发 rev（revision-only 纪律不破）。
+- **前端**：SessionCard live 态加 `.war-activity` 行（呼吸点+动词，title 带时间戳）；点卡仍直跳原生会话（全文在那边）。
+- **真链取证**（`scripts/shoot-activity.py`）：页面 fetch 下达 L0 直发命令（真实参谋分诊→发布→征召→指挥官真跑工具），轮询 board 断言 live attempt 带 activity、≥2 种动词、revision≥3、截图落证。首跑（扁平形状 bug 版）已 OK（思考中→执行中·tool，12 revision，双截图）；修复后复跑验证真实工具名分类。
+- verify 针脚：ActivityTracker/activitySalt（host）+ war-activity（client）+ V9.11 R1 四针 + 负断言 openTasks 退役；单测 tests/activity.test.ts（八态/嵌套兼容/配对/盐稳定性/revision 折叠）。

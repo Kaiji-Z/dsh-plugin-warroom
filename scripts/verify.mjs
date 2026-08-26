@@ -223,6 +223,10 @@ gate('bundle', () => {
     [client, 'war-forming', 'ledger forming card class'],
     [client, '成形中', 'forming drafting chip copy (both skins)'],
     [client, 'war-card.settled', 'settled task cards stay in ledger, dimmed'],
+    // V9.11 R2 执行卡实时活动：session/event → 动词 → 板投影/revision 盐。
+    [host, 'ActivityTracker', 'session/event → activity tracker (read-only)'],
+    [host, 'activitySalt', 'board revision folds the activity salt (SSE rev-only intact)'],
+    [client, 'war-activity', 'exec card live activity line'],
     [client, 'warroom-open-request', 'dock pill home event'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],

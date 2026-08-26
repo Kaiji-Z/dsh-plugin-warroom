@@ -998,6 +998,14 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
   ),
+  // V9.11 R2 实时活动行：live attempt 上宿主动词单点计算的 label（思考中/探索中/
+  // 编辑中…双皮肤同词）——原生会话窗口的过程语汇简略版，点卡仍直跳原生全文。
+  outcomeKey === 'live' && attempt.activity != null && attempt.activity.label !== ''
+    ? createElement('div', { className: 'war-activity', title: `${attempt.activity.label} · ${attempt.activity.ts}` },
+        createElement('span', { className: 'war-activity-dot', 'aria-hidden': 'true' }),
+        createElement('span', { className: 'war-activity-label' }, attempt.activity.label),
+      )
+    : null,
   outcomeKey === 'failed'
     ? task.lastError !== null && isLatestFailedAttempt(task, attempt)
       ? createElement('div', { className: 'war-fail' }, activeCopy().session.failReason(task.lastError))

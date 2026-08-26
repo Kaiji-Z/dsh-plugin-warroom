@@ -40,6 +40,9 @@ export interface BoardAttempt {
   startedAt: string
   endedAt: string | null
   outcome: 'failed' | 'reported' | 'succeeded' | null
+  /** V9.11 R2 执行卡实时活动（宿主 session/event → 动词；仅 live attempt 携带，
+   * label 宿主侧单点计算——双皮肤同词）。无追踪/已结束为 undefined。 */
+  activity?: { verb: string; label: string; ts: string } | null
 }
 
 /** One sovereign command (命令区的卡片). */

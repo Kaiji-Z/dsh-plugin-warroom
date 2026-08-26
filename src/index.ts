@@ -35,6 +35,7 @@ import { bountyDraftingSkill, type SkillsServiceFace } from './skill.ts'
 import { featureEnabled, runtimeFlags } from './flags.ts'
 import { kickIdleTroops, warTools, armMissingCommanderGoals, type CommanderOps, type SubagentsServiceFace, type WarToolsDeps } from './tools.ts'
 import { conscriptPlan, workspaceConflict } from './rules.ts'
+import { ActivityTracker } from './activity.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
 import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot } from './workspace.ts'
@@ -378,6 +379,17 @@ export function apply(ctx: Context, config: Config): void {
     text: () => (store.get().active ? staffPersonaText(config.maxUnits) : ''),
   })
   registerReportCapture(ctx, stateDir, store)
+  // V9.11 R2 执行卡实时活动：全量 session/event 喂进动词滚动表（只读；板投影
+  // 按 live attempt 的 sessionId 取快照）。加法监听器，形状漂移降级为 no-op。
+  const activityTracker = new ActivityTracker()
+  const onActivityEvent = (session: unknown, ev: unknown): void => {
+    try {
+      activityTracker.handle((session as { id?: unknown } | undefined)?.id as string | undefined, ev)
+    } catch {
+      // Additive listener: never propagate into the host event loop.
+    }
+  }
+  ;(ctx as unknown as { on(event: 'session/event', listener: (session: unknown, ev: unknown) => void): unknown }).on('session/event', onActivityEvent)
   // Patrol fuse (征召巡检): 90s net for stranded tasks — published with a free
   // workspace but no live commander spawn (crash/restart recovery). Raw Node
   // interval — accessing ctx.setInterval would demand the cordis timer service
@@ -523,6 +535,9 @@ export function apply(ctx: Context, config: Config): void {
         if (sessions === undefined) return
         void sessions.prompt({ rpcId: `warroom-plan-notice-${Date.now()}`, payload: { sessionId, mode: 'queue', content: [{ type: 'text', text }] } }).catch(() => undefined)
       },
+      // V9.11 R2 执行卡实时活动：session/event → 动词滚动表（只读；盐随动词
+      // 变化进 revision，SSE 仍只发 rev）。
+      activity: activityTracker,
       ...(spike === undefined ? {} : { spike }),
     })
     webCtx.effect(() => disposeDashboard, 'warroom.dashboard()')

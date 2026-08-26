@@ -55,8 +55,12 @@ function readBody(req: unknown): Promise<string> {
  * size, the shared directive log, and the global state file. SSE frames carry
  * ONLY this — clients refetch the full projection when it moves (the
  * wire discipline: never ship task lists on the event channel).
+ *
+ * V9.11 R2: optional activitySalt folds the in-memory exec-activity verbs into
+ * the revision (salt changes only when a VERB changes — same-verb tool streams
+ * don't churn the SSE). Discipline intact: the channel still ships rev only.
  */
-export function boardRevision(stateDir: string): string {
+export function boardRevision(stateDir: string, activitySalt?: string): string {
   let sig = ''
   try {
     const dir = join(stateDir, 'campaigns')
@@ -85,6 +89,7 @@ export function boardRevision(stateDir: string): string {
   } catch {
     sig += 'state:-'
   }
+  if (activitySalt !== undefined) sig += `;activity:${activitySalt}`
   return createHash('sha1').update(sig).digest('hex').slice(0, 12)
 }
 
@@ -106,12 +111,18 @@ export interface DashboardDeps {
    * fuse NOW so the staff receives in ~1s instead of waiting out the 15s
    * interval. Optional so pure-route tests can omit it. */
   onCommandCreated?: () => void
+  /** V9.11 R2 执行卡实时活动（只读）：session/event → 动词的内存滚动表。
+   * 缺席时投影不带 activity 字段、revision 不含活动盐——纯路由测试可省略。 */
+  activity?: {
+    salt(): string
+    snapshot(sessionId: string): { verb: string; label: string; ts: string } | null
+  }
 }
 
 const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in_progress: 1, reported: 2, draft: 3, failed: 4, closed: 5 }
 
 /** The board projection served to the war map (pure — reusable by tests). */
-export function boardProjection(stateDir: string): Record<string, unknown>[] {
+export function boardProjection(stateDir: string, activityOf?: (sessionId: string) => { verb: string; label: string; ts: string } | null): Record<string, unknown>[] {
   const campaigns = listCampaignIds(stateDir)
     .map(id => loadCampaign(stateDir, id))
     .filter(t => t.startedAt !== '')
@@ -155,7 +166,17 @@ export function boardProjection(stateDir: string): Record<string, unknown>[] {
         quotaPaused: task.quotaPaused === true,
         // Session cards: every commander attempt with its conversation id.
         // (Named attemptLog — `attempts` is already the numeric count.)
-        attemptLog: task.attemptLog.map(a => ({ id: a.id, n: a.n, sessionId: a.sessionId, startedAt: a.startedAt, endedAt: a.endedAt ?? null, outcome: a.outcome ?? null })),
+        // V9.11 R2: live attempts carry the exec-activity verb (read-only
+        // projection add-on; absent when no tracker is wired).
+        attemptLog: task.attemptLog.map(a => ({
+          id: a.id,
+          n: a.n,
+          sessionId: a.sessionId,
+          startedAt: a.startedAt,
+          endedAt: a.endedAt ?? null,
+          outcome: a.outcome ?? null,
+          ...(a.outcome === undefined && activityOf !== undefined ? { activity: activityOf(a.sessionId) } : {}),
+        })),
         troops: [...task.units.values()].map(u => ({
           childId: u.childId,
           label: u.label,
@@ -263,9 +284,9 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           active: deps.store.get().active,
           warRoot: deps.warRoot,
           hqSessionId: deps.store.get().hqSessionId ?? null,
-          revision: boardRevision(deps.stateDir),
+          revision: boardRevision(deps.stateDir, deps.activity?.salt()),
           commands: directiveProjection(deps.stateDir),
-          tasks: boardProjection(deps.stateDir),
+          tasks: boardProjection(deps.stateDir, deps.activity?.snapshot.bind(deps.activity)),
           threads: loadAttachedThreads(deps.stateDir).map(t => ({ sessionId: t.sessionId, note: t.note, attachedAt: t.attachedAt })),
           roster: deps.roster().units.map(u => ({ name: u.name, label: u.label, description: u.description, sandboxMode: u.sandboxMode, source: u.source })),
           rosterErrors: deps.roster().errors,
@@ -441,12 +462,12 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         sse.setHeader?.('cache-control', 'no-cache')
         sse.setHeader?.('connection', 'keep-alive')
         sse.setHeader?.('x-accel-buffering', 'no')
-        let last = boardRevision(deps.stateDir)
+        let last = boardRevision(deps.stateDir, deps.activity?.salt())
         sse.write('retry: 3000\n\n')
         sse.write(`data: ${JSON.stringify({ rev: last })}\n\n`)
         const watch = setInterval(() => {
           try {
-            const rev = boardRevision(deps.stateDir)
+            const rev = boardRevision(deps.stateDir, deps.activity?.salt())
             if (rev !== last) {
               last = rev
               sse.write(`data: ${JSON.stringify({ rev })}\n\n`)

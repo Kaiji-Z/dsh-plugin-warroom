@@ -397,6 +397,11 @@ h2.war-col-title{margin:0;font-size:13px}
 .war-forming.warn .war-forming-icon{color:color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 62%, #000)}
 .war-card.settled{opacity:.55}
 .war-card.settled:hover,.war-card.settled:focus-visible{opacity:.85}
+/* V9.11 R2 执行卡实时活动行：呼吸点 + 宿主侧单点动词 */
+.war-activity{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-text-secondary, inherit)}
+.war-activity-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--dsw-alias-state-business-primary);animation:war-act-pulse 1.6s ease-in-out infinite}
+.war-activity-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes war-act-pulse{0%,100%{opacity:.35}50%{opacity:1}}
 
 `
 
