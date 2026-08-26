@@ -148,3 +148,15 @@
 - **明细折叠（`war-fold` 原生 details/summary）**：证据收成一行摘要 `✓ 3/3 项验收通过 · 测试 8 过/0 败 · +120/-8`，点开才见完整收据（EvidenceBlock）；分诊理由、改档组同折叠。页脚主按钮只留语境动作（进入对话/查看任务），改档+聚焦收进「更多」区。
 - 坑：shoot 旧断言等「命令 cmd-」标题前缀——换新判据 `「` 开头；verify 针脚 war-plan-decide → war-cd-band/steps/fold。
 
+
+## V9.9 聚焦页：全生命周期导览 + 点击接线梳理（2026-08-26，元首定案）
+
+> 元首重定义：**主界面 = 所有卡片的全生命周期监控版；详情页 = 一条命令的全生命周期聚焦导览（聚焦页）**——把主界面的卡片拉进一个窗口。配套裁决：链任务全部按序展示；子详情（配置/计划/战报）卡片下方原地展开。
+
+- **CommandDetail → FocusPage 重写**：顶部标题（「原话」）与「等你发落」决策带沿用 V9.8；主体 = `.war-cd-body`（既有独立滚动容器）内四段 `war-cd-stage`，每段放**真实在场的主界面卡片**（复用组件工厂，`NO_TRACE` 中性 trace 不参与族系高亮）：①嵌入 CommandCard（tour 变体：点卡=展开配置、隐藏 ◎/进入对话、保留 LifeStrip+预检改直发）②链上全部 TaskCard 按序 ③仅 live attempt（`outcome===null`）的 SessionCard——点卡直跳 `sessions.open`；无 live 无卡、只给提示行（已执行完成/尚未开始）④战报卡（最新战报宿主环末次尝试）。空链但有计划（L2 待批/刚批准）给虚线 **ghost 卡**点开看计划原文；连计划都没有给灰提示行。
+- **卡下原地展开（`war-subdetail`）**：命令卡→下达配置（发布时机 cron/立即+已发/下次、自主度档位+协议标记+改档数、分诊理由、命令原文）；任务卡/ghost→最终计划原文（pending 给「正在计划中」+进任务会话钮——原生会话就是参谋写计划的地方）；战报卡→收官结论+最新战报+证据折叠。单一 open 状态：同卡再点收起、换卡即切换。
+- **底部双会话跳钮（`war-tour-jumps`，代替旧 footer 全部按钮）**：任务会话=staffSessionId（hq 兜底）、执行会话=live 优先/退最近一次尝试；未形成给同名禁用占位（title 说明何时出现）。◎聚焦/查看任务/去处理(footer)/改档折叠全退役；窗口关闭走右上 ✕（新增）+Esc+背板。改档恢复口保留在命令卡预检「改直发」一处。
+- **阶段导航反映真实阶段**：lifecycleOf 修正 approved+空链 `reached.task=false`（now 仍指 task 作前沿呼吸位）；battle/report 段头在只有提示行时不再重复提示文案。
+- **点击接线全面梳理（详情面收敛为「聚焦页+原生会话」两类）**：**TaskDetail/SessionDetail 两模态整体删除**（死 helper depLock/cronBadge/wsChip 同清）；任务卡有溯源→聚焦页、孤儿（真实流程不会出现）直跳末次会话；会话卡 live 列→聚焦页执行段、战报列→战报段、孤儿直跳原生会话；inbox review/retry 孤儿回退→staff 会话直跳。保留（动作类非详情）：进入对话 chip、任务卡去处理、改直发、外部线程卡、岛/收件箱/设置/起草器全部接线。
+- **词典瘦身**：`detail.*` 只剩 reportPrefix/lineageLabel；commandDetail 清 8 死键；session 清 loot/goHandle/enterReview；新增 `focusPage` 双皮肤词典（26 键）。协议 token（!!直接做/??先看方案）以 `GRADE_MARKER` 常量进配置行（与 preflight.applyGradeMarker 同源，不进皮肤词典）。
+- 针脚：war-tour-cards/subdetail/jumps/ghost + 任务会话/执行会话；负断言 查看任务/进入会话复盘 不再入包。坑：views.tsx 顶部模块注释里的旧按钮文案会被负断言连坐——注释也是 bundle 内容，改行为要同步改注释。

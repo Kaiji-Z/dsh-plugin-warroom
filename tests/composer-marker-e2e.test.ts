@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { appendDirectiveEvent, loadDirectives, readDirectiveEvents, type DirectiveEvent } from '../src/directives.ts'
+import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, readDirectiveEvents, type DirectiveEvent } from '../src/directives.ts'
 import { directiveProjection, registerDashboard, type RouteRegistry } from '../src/dashboard.ts'
 import { readFeatureFlags, type FeatureFlags } from '../src/flags.ts'
 import { warTools, type SubagentsServiceFace } from '../src/tools.ts'
@@ -15,8 +15,8 @@ import { applyGradeMarker } from '../src/client/preflight.ts'
  * 是否真的拼进发往 /warroom/api/commands 的命令文本，并一路生效到分诊档位。
  *
  * 证据链（全部确定性，node:test 可重跑）：
- *   客户端 pure 层 applyGradeMarker（src/client/preflight.ts:21-32）
- *   → 接线点 CommandComposer submit（src/client/views.tsx:311，bundle needle
+ *   客户端 pure 层 applyGradeMarker（src/client/preflight.ts:24-29）
+ *   → 接线点 CommandComposer submit（src/client/views.tsx:411，bundle needle
  *     'applyGradeMarker' + 'createCommand' 由 scripts/verify.mjs 锚定）
  *   → POST /warroom/api/commands（src/dashboard.ts:261，trim + directive_created 原文落账）
  *   → war_triage 标记强制改档（src/tools.ts:1152，overrideMarkerOf host 侧强制）
@@ -90,7 +90,7 @@ test('取证①：L0 档 → POST 文本以「!!直接做 」开头，原文落�
   const dir = tmpDir()
   const srv = fakeServer(dir)
   try {
-    // 起草器 pure 层产出即客户端实际发送体（views.tsx:311 createCommand(applyGradeMarker(text, grade))）。
+    // 起草器 pure 层产出即客户端实际发送体（views.tsx:411 createCommand(applyGradeMarker(text, grade))）。
     const sent = applyGradeMarker('给工具箱加每日格言', 'L0')
     assert.ok(sent.startsWith('!!直接做 '), `sent=${sent}`)
     // 经服务端 POST 通道。
@@ -204,6 +204,32 @@ test('取证⑤：空文本防线——纯函数产空串、服务端 POST 400�
     assert.match(resp.error, /命令内容为空/)
     // 账本未落任何事件。
     assert.equal(existsSync(join(dir, 'directives.jsonl')) ? readFileSync(join(dir, 'directives.jsonl'), 'utf8').trim() : '', '')
+  } finally {
+    srv.dispose()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('取证⑥（任务 218b 验收②态）：同一草稿切档 ??→!!——前缀替换不叠加，各自 verbatim 落账', async () => {
+  const dir = tmpDir()
+  const srv = fakeServer(dir)
+  try {
+    // 起草器状态模型：text 持原文，切档只 setGrade（views.tsx:446-448），
+    // 标记每次提交时从当前档位一次性施加（views.tsx:411）。选「??」档提交一版：
+    const draft = '给面板加导出按钮'
+    const first = JSON.parse(await srv.post('/warroom/api/commands', { text: applyGradeMarker(draft, 'L2') })) as { ok: boolean; commandId: string }
+    assert.equal(first.ok, true)
+    const created1 = rawEvent(dir, first.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>
+    assert.equal(created1.text, '??先看方案 给面板加导出按钮')
+    // 元首改主意切「!!直接做」再交：正文仍是同一原文，前缀应替换为 !!、无 ?? 残留。
+    const second = JSON.parse(await srv.post('/warroom/api/commands', { text: applyGradeMarker(draft, 'L0') })) as { ok: boolean; commandId: string }
+    assert.equal(second.ok, true)
+    const created2 = rawEvent(dir, second.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>
+    assert.equal(created2.text, '!!直接做 给面板加导出按钮')
+    assert.ok(!created2.text.includes('??先看方案'), `created2.text=${created2.text}`)
+    // 双方 overrideMarkerOf 判档互不串扰：?? 版强制 L2、!! 版强制 L0（directives.ts:24-28）。
+    assert.deepEqual(overrideMarkerOf(created1.text), { grade: 'L2', marker: '??' })
+    assert.deepEqual(overrideMarkerOf(created2.text), { grade: 'L0', marker: '!!' })
   } finally {
     srv.dispose()
     rmSync(dir, { recursive: true, force: true })

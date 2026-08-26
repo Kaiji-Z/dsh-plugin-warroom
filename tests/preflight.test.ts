@@ -46,6 +46,21 @@ test('applyGradeMarker：幂等——正文已手打同标记不再重复拼（�
   assert.equal(applyGradeMarker('??先看方案 X', 'L0'), '!!直接做 ??先看方案 X')
 })
 
+test('applyGradeMarker：切档序列——同一草稿前缀随当前档位替换，不叠加（取证 218b 验收②态）', () => {
+  // 起草器状态模型：text 持原文，标记仅提交时从当前档位一次性施加
+  // （views.tsx:411 createCommand(applyGradeMarker(text, grade))），切档只
+  // setGrade（views.tsx:446-448）不改 text——前缀是提交时的投影，不随切档累积。
+  const draft = '给面板加导出按钮'
+  // 态①：选「??先看方案」→ 命令文本以 ?? 前缀。
+  assert.equal(applyGradeMarker(draft, 'L2'), '??先看方案 给面板加导出按钮')
+  // 态②：同一草稿（text 未变）切「!!直接做」→ 前缀替换为 !!，无 ?? 残留。
+  const switched = applyGradeMarker(draft, 'L0')
+  assert.equal(switched, '!!直接做 给面板加导出按钮')
+  assert.ok(!switched.includes('??先看方案'), `switched=${switched}`)
+  // 态③：切回直发档 → 不加前缀。
+  assert.equal(applyGradeMarker(draft, 'auto'), '给面板加导出按钮')
+})
+
 test('applyGradeMarker：纯空白正文返回空串——不产只有标记没有命令的文本（缺陷②硬化）', () => {
   assert.equal(applyGradeMarker('   ', 'L0'), '')
   assert.equal(applyGradeMarker('\t\n', 'L2'), '')

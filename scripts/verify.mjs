@@ -97,7 +97,7 @@ gate('bundle', () => {
     [client, 'war-life', 'command lifecycle strip on every command card'],
     [client, 'commandTasks', 'command→chain deps closure (lifecycle tracing core)'],
     [client, 'war-lineage', 'task/session lineage chip back to source command'],
-    [client, 'chainSection', 'command detail chain progress section'],
+    [client, 'war-tour-cards', 'focus tour: per-stage card stack (main-UI cards pulled in)'],
     // V7-① 等你发落收件箱（到访式工作流）。
     [client, 'collectInbox', 'inbox four-kind aggregation (pure)'],
     [client, 'war-inbox', 'inbox strip styles + container'],
@@ -125,7 +125,7 @@ gate('bundle', () => {
     [client, 'failToast', 'decision-action failure toast copy (silent-failure fix)'],
     [client, 'war-actionerr', 'decision-action failure strip'],
     [client, 'war-legend-rows', 'legend rows (now inside settings drawer)'],
-    [client, 'taskGone', 'dead view-task link degrades to disabled'],
+    [client, 'war-subdetail', 'focus tour: inline sub-detail panel beneath clicked card'],
     [client, 'focus-visible', 'keyboard focus outline'],
     [client, 'keyActivate', 'card keyboard activation (Enter/Space)'],
     [client, "tabIndex: 0", 'cards are focusable buttons'],
@@ -183,7 +183,7 @@ gate('bundle', () => {
     [client, 'can-scroll', 'dynamic right-edge fade only while more to scroll'],
     [client, 'war-tasks', 'tasks zone container (open tasks)'],
     [client, 'war-field', 'battlefield zone container'],
-    [client, 'war-cd-sessions', 'command detail: related thread entries'],
+    [client, 'war-tour-jumps', 'focus tour: bottom dual session-jump buttons'],
     // V9.2：岛只留 ⚙（设置抽屉收编图例/皮肤/行为开关）；聚焦不弹岛；调度坞左端
     // 常驻 ＋ 下达；起草器选项卡化 + cron 定时（后端 directive cron 一次性发令）。
     [client, 'war-island-gear', 'island settings gear button'],
@@ -207,7 +207,9 @@ gate('bundle', () => {
     // styles.ts 双模板串坑（连踩两次）：CSS 误插 querySelector 模板会炸宿主入口。
     // 断言该模板在 bundle 里保持「开-闭完整」形态。
     [client, 'style[${STYLE_ID}]`) !== null) return', 'ensureWarStyles querySelector template intact (CSS not leaked into it)'],
-    [client, '进入会话复盘', 'session detail jump button'],
+    [client, '任务会话', 'focus tour: staff-session jump button (both skins)'],
+    [client, '执行会话', 'focus tour: commander-session jump button (both skins)'],
+    [client, 'war-tour-ghost', 'planning ghost card (plan formed, task not yet published)'],
     [client, '去处理', 'reported/failed staff-jump button'],
     [client, 'warroom-open-request', 'dock pill home event'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
@@ -315,6 +317,9 @@ gate('bundle', () => {
     // V9.2 negative face: retired island buttons/modals must stay gone.
     { ok: !client.includes('AttachThreadModal') && !client.includes('war-attach-input'), label: 'V9.2: attach modal stays retired (no re-entry)' },
     { ok: !client.includes('LegendModal') && !client.includes('war-focusbar'), label: 'V9.2: legend modal + focus bar stay retired (drawer/island-chip own them)' },
+    // V9.9 negative face：任务/会话详情模态裁撤——详情面只剩聚焦页。
+    { ok: !client.includes('查看任务'), label: 'V9.9: view-task footer button stays retired (jumps own navigation)' },
+    { ok: !client.includes('进入会话复盘'), label: 'V9.9: session-detail modal stays retired (focus page owns details)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

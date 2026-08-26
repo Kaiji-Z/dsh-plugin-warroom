@@ -368,6 +368,26 @@ h2.war-col-title{margin:0;font-size:13px}
 .war-cd-more{display:inline-flex;gap:6px;align-items:center;flex:1 1 auto;min-width:0}
 .war-cd-regrade{display:inline-flex}
 .war-cd-regrade summary{border:0;background:transparent;padding:2px 8px}
+/* --- V9.9 聚焦页：右上 ✕ + 四段卡片区/灰提示行/ghost 卡 + 卡下原地展开子详情 + 底部双会话跳钮 --- */
+.war-modal.war-cd-modal{position:relative}
+.war-cd-x{position:absolute;top:10px;right:10px;z-index:5;width:26px;height:26px;border-radius:13px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer;font-family:var(--dsw-font-family);line-height:1}
+.war-cd-x:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-state-business-primary)}
+.war-cd-x:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
+.war-tour-cards{display:flex;flex-direction:column;gap:8px}
+.war-tour-hint{border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 60%, transparent)}
+.war-tour-ghost{display:flex;align-items:center;gap:8px;border:1px dashed color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, var(--dsw-alias-border-l2));border-radius:12px;padding:10px 12px;font-size:12px;color:var(--dsw-alias-label-secondary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, transparent);cursor:pointer}
+.war-tour-ghost:hover{border-style:solid;color:var(--dsw-alias-label-primary)}
+.war-tour-ghost:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
+.war-tour-ghost-icon{flex:0 0 auto;font-size:14px;color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 70%, #000)}
+.war-subdetail{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, var(--dsw-alias-border-l2));border-radius:10px;background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 4%, var(--dsw-alias-bg-layer-1));padding:8px 12px;display:flex;flex-direction:column;gap:8px;margin:-2px 2px 0}
+.war-subdetail-title{font-size:12px;font-weight:600;color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000)}
+.war-sub-row{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.war-sub-label{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);padding-top:1px}
+.war-sub-value{flex:1 1 auto;min-width:0;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-primary);white-space:pre-wrap;word-break:break-word}
+.war-subdetail .war-modal-actions{border-top:0;padding-top:0;justify-content:flex-start}
+.war-tour-jumps{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1)}
+.war-jump-btn{flex:1 1 0;justify-content:center;display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
+.war-jump-btn:disabled{cursor:not-allowed;opacity:.55}
 
 `
 

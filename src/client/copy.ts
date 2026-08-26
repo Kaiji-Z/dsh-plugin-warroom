@@ -166,19 +166,41 @@ export interface WarCopy {
     regradesNote: (n: number) => string
     planTitle: Record<'pending' | 'approved' | 'rejected', string>
     approvePlan: string
-    approveHint: string
     rejectPlan: string
-    regradeHint: string
     regradeTo: (label: string) => string
-    viewTask: (taskId: string) => string
     close: string
     cancelledReason: (r: string) => string
-    chainSection: string
     chainDone: (done: number, total: number) => string
-    noTasks: string
-    latestReport: string
-    /** 「查看任务」指向的任务已不在板上时的禁用说明（V7.1 死链降级）。 */
-    taskGone: string
+  }
+  /** V9.9 聚焦页：一条命令的全生命周期导览——四段卡片的提示语、卡下原地展开
+   *  的子详情（命令下达配置/最终计划/战报结论）文案、底部两颗会话跳钮。 */
+  focusPage: {
+    configTitle: string
+    configTiming: string
+    configTimingNow: (t: string) => string
+    configTimingNext: (cron: string, next: string) => string
+    configTimingFired: (cron: string, at: string) => string
+    configAutonomy: string
+    configAutonomyAuto: string
+    configText: string
+    planTitle: string
+    planPending: string
+    planNone: string
+    planEnterSession: string
+    taskGhostPlanning: string
+    taskGhostApproved: string
+    taskAwaitingPublish: string
+    taskPlanning: string
+    battleLive: (n: number) => string
+    battleDone: string
+    battleNone: string
+    reportVerdict: string
+    reportLatest: string
+    reportNone: string
+    taskSessionBtn: string
+    execSessionBtn: string
+    taskSessionHint: string
+    execSessionHint: string
   }
   /** V9.2 重设计起草器：一句话能做什么（lead）+ 档位三卡 + 定时两卡（cron）。
    *  档位词条由「标签」升级为「名 + 一句语义」——选项要明确，语义要清晰。 */
@@ -225,29 +247,14 @@ export interface WarCopy {
     attemptNTitle: string
     failReason: (e: string) => string
     attemptFailedNeutral: string
-    lootPrefix: string
-    lootSummary: (loot: string, clipped: string, more: boolean) => string
     waitingReport: string
     cardTitle: (sessionId: string) => string
-    goHandle: string
-    enterReview: string
   }
+  /** V9.9 瘦身：任务/会话详情模态已裁撤（详情面只剩聚焦页），detail 词典只剩
+   *  会话卡与聚焦页战报面板仍在用的两个词条。 */
   detail: {
-    briefSection: string
-    briefMissing: string
-    acceptanceSection: string
-    acceptanceMissing: string
-    reportsSection: string
-    commentsSection: string
-    reportPrefixPlain: string
     reportPrefix: (ts: string) => string
-    commentPrefix: (ts: string) => string
-    verdictPrefix: string
     lineageLabel: string
-    sessionsSection: string
-    staffSession: string
-    close: string
-    cancel: string
   }
   /** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要与全部操作件
    * 收进顶部一颗胶囊（hover 展开 + 点击钉住；聚焦模式即岛的常驻形态）。 */
@@ -458,18 +465,39 @@ export const warCopy: WarCopy = {
     regradesNote: n => `（元首改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
-    approveHint: '批准即放权：参谋按此计划自动推进，夜间无人值守也照常执行。',
     rejectPlan: '驳回重呈',
-    regradeHint: '升降档（元首覆写参谋分诊，改后需通知参谋按新档执行）：',
     regradeTo: label => `改为 ${label}`,
-    viewTask: taskId => `查看任务 ${taskId}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
-    chainSection: '任务链进展',
     chainDone: (done, total) => `${done}/${total} 已收官`,
-    noTasks: '（尚未发布任务）',
-    latestReport: '最新战报',
-    taskGone: '该任务已不在板上（可能已被清理），看板上无法打开',
+  },
+  focusPage: {
+    configTitle: '命令下达配置',
+    configTiming: '发布时机',
+    configTimingNow: t => `立即下达 · ${t}`,
+    configTimingNext: (cron, next) => `定时 · cron「${cron}」· 下次 ${next}（到点自动出发，一次有效）`,
+    configTimingFired: (cron, at) => `定时 · cron「${cron}」· 已于 ${at} 自动下达`,
+    configAutonomy: '自主度',
+    configAutonomyAuto: '参谋分诊（未覆写）',
+    configText: '命令原文',
+    planTitle: '最终计划',
+    planPending: '正在计划中——参谋还在写这份计划，进任务会话可以追问或补充。',
+    planNone: '直接执行——参谋未呈计划，任务书即行动依据。',
+    planEnterSession: '进入任务会话',
+    taskGhostPlanning: '正在计划中——点开看呈批中的计划原文',
+    taskGhostApproved: '计划已批准，任务即将发布——点开看计划原文',
+    taskAwaitingPublish: '任务待发布——已批准，等参谋挂出任务卡',
+    taskPlanning: '参谋正在起草计划与任务书',
+    battleLive: n => `${n} 场作战进行中`,
+    battleDone: '已执行完成——没有正在进行的会话',
+    battleNone: '尚未开始执行——等指挥官领取任务',
+    reportVerdict: '收官结论',
+    reportLatest: '最新战报',
+    reportNone: '尚无战报——收官后这里给结论原文',
+    taskSessionBtn: '任务会话',
+    execSessionBtn: '执行会话',
+    taskSessionHint: '参谋会话未形成——命令转达参谋后出现',
+    execSessionHint: '执行会话未形成——指挥官领取任务后出现',
   },
   composer: {
     title: '下达命令',
@@ -518,29 +546,12 @@ export const warCopy: WarCopy = {
     attemptNTitle: '重试尝试',
     failReason: e => `败因：${e}`,
     attemptFailedNeutral: '该次尝试失败——进复盘看全程',
-    lootPrefix: '战利品：',
-    lootSummary: (loot, clipped, more) => `战利品：${clipped}${more ? '…' : ''}`,
     waitingReport: '证据已核验，等元首翻阅收官',
     cardTitle: sessionId => `指挥官会话 ${sessionId}——点击查看作战详情`,
-    goHandle: '去处理 · 参谋会话',
-    enterReview: '进入会话复盘',
   },
   detail: {
-    briefSection: '任务书',
-    briefMissing: '（参谋未附任务书正文）',
-    acceptanceSection: '验收标准',
-    acceptanceMissing: '（未声明）',
-    reportsSection: '战报',
-    commentsSection: '批注',
-    reportPrefixPlain: '【汇报】',
     reportPrefix: ts => `【汇报 · ${ts}】`,
-    commentPrefix: ts => `【批注 · ${ts}】`,
-    verdictPrefix: '【判定】',
     lineageLabel: '源自命令',
-    sessionsSection: '相关会话',
-    staffSession: '参谋 · 讨论与计划',
-    close: '关闭',
-    cancel: '取消',
   },
   island: {
     counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 作战中 ${c.active}${c.failed > 0 ? ` · 折戟 ${c.failed}` : ''}`,
@@ -753,18 +764,39 @@ export const plainCopy: WarCopy = {
     regradesNote: n => `（改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
-    approveHint: '点头即开工：参谋按这个方案自动做下去，夜里也不停。',
     rejectPlan: '驳回重呈',
-    regradeHint: '升降档（覆写参谋分诊，改后需通知参谋按新档执行）：',
     regradeTo: label => `改为 ${label}`,
-    viewTask: taskId => `查看任务 ${taskId}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
-    chainSection: '任务组进展',
     chainDone: (done, total) => `${done}/${total} 已完成`,
-    noTasks: '（尚未发布任务）',
-    latestReport: '最新战报',
-    taskGone: '该任务已不在看板上（可能已被清理），无法打开',
+  },
+  focusPage: {
+    configTitle: '命令下达配置',
+    configTiming: '开始时间',
+    configTimingNow: t => `立即下达 · ${t}`,
+    configTimingNext: (cron, next) => `定时 · cron「${cron}」· 下次 ${next}（到点自动开始，一次有效）`,
+    configTimingFired: (cron, at) => `定时 · cron「${cron}」· 已于 ${at} 自动下达`,
+    configAutonomy: '自主度',
+    configAutonomyAuto: '让参谋定（未覆写）',
+    configText: '命令原文',
+    planTitle: '最终计划',
+    planPending: '正在计划中——参谋还在写这份计划，进任务会话可以追问或补充。',
+    planNone: '直接执行——参谋没呈计划，任务说明就是行动依据。',
+    planEnterSession: '进入任务会话',
+    taskGhostPlanning: '正在计划中——点开看待批的计划原文',
+    taskGhostApproved: '计划已批准，任务马上发布——点开看计划原文',
+    taskAwaitingPublish: '任务待发布——已批准，等参谋挂出任务卡',
+    taskPlanning: '参谋正在起草计划与任务说明',
+    battleLive: n => `${n} 个执行进行中`,
+    battleDone: '已执行完成——没有正在进行的会话',
+    battleNone: '还没开始执行——等指挥官领取任务',
+    reportVerdict: '收官结论',
+    reportLatest: '最新汇报',
+    reportNone: '还没有汇报——收官后这里给结论原文',
+    taskSessionBtn: '任务会话',
+    execSessionBtn: '执行会话',
+    taskSessionHint: '参谋会话还没建立——命令转给参谋后出现',
+    execSessionHint: '执行会话还没建立——指挥官领取任务后出现',
   },
   composer: {
     title: '下命令',
@@ -813,29 +845,12 @@ export const plainCopy: WarCopy = {
     attemptNTitle: '重试尝试',
     failReason: e => `失败原因：${e}`,
     attemptFailedNeutral: '该次没成——进复盘看全程',
-    lootPrefix: '交付：',
-    lootSummary: (loot, clipped, more) => `交付：${clipped}${more ? '…' : ''}`,
     waitingReport: '证据已核验，等你验收',
     cardTitle: sessionId => `执行会话 ${sessionId}——点击查看详情`,
-    goHandle: '去处理 · 参谋会话',
-    enterReview: '查看会话',
   },
   detail: {
-    briefSection: '任务说明',
-    briefMissing: '（参谋未附任务说明）',
-    acceptanceSection: '验收标准',
-    acceptanceMissing: '（未声明）',
-    reportsSection: '汇报',
-    commentsSection: '批注',
-    reportPrefixPlain: '【汇报】',
     reportPrefix: ts => `【汇报 · ${ts}】`,
-    commentPrefix: ts => `【批注 · ${ts}】`,
-    verdictPrefix: '【判定】',
     lineageLabel: '源自命令',
-    sessionsSection: '相关会话',
-    staffSession: '参谋 · 讨论与计划',
-    close: '关闭',
-    cancel: '取消',
   },
   island: {
     counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 失败 ${c.failed}` : ''}`,

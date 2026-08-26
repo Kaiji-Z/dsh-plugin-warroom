@@ -178,31 +178,32 @@ with sync_playwright() as p:
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
 
-    # V9 导航断言：点上方任务卡 = 打开源命令的全生命周期详情（含相关会话入口）。
+    # V9.9 导航断言：点上方任务卡 = 打开源命令的聚焦页（四段导览 + 底部双跳钮）。
     leave_island()  # 面板收起，别让它盖住任务卡
     page.wait_for_timeout(350)
-    # 选带 ↩ 溯源 chip 的卡（孤儿任务无源命令，走 TaskDetail 降级——另一条路径）。
+    # 选带 ↩ 溯源 chip 的卡（孤儿任务无源命令，直跳末次会话——另一条路径）。
     page.locator(".war-col.zone-tasks .war-card", has_text="↩").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-modal-title").inner_text().startswith("「"), f"task card should open COMMAND detail titled by its text, got {page.locator('.war-modal-title').inner_text()!r}"
-    assert page.locator(".war-modal .war-cd-chain").count() == 1, "command detail lacks chain section"
-    assert page.locator(".war-modal .war-cd-session").count() >= 1, "command detail lacks related-session entries"
-    assert page.locator(".war-modal .war-cd-session", has_text="参谋").count() >= 1, "staff discussion session entry missing"
+    assert page.locator(".war-modal-title").inner_text().startswith("「"), f"task card should open the FOCUS page titled by command text, got {page.locator('.war-modal-title').inner_text()!r}"
+    assert page.locator(".war-modal .war-cd-stage").count() == 4, "focus tour must carry four stages"
+    assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must carry main-UI task cards"
+    assert page.locator(".war-modal .war-tour-jumps .war-jump-btn").count() == 2, "bottom dual session-jump buttons missing"
+    assert "任务会话" in page.locator(".war-modal .war-tour-jumps .war-jump-btn").nth(0).inner_text(), "first jump button must be 任务会话"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
 
-    # V9 收件箱直达段：批计划条目 → 命令详情且计划段在视口内。
+    # V9.9 收件箱直达段：批计划条目 → 聚焦页任务段在视口内（计划 ghost 卡在场）。
     page.locator(".war-island-pill").hover()
     page.wait_for_timeout(300)
     page.locator(".war-inbox-item", has_text="批计划").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-modal .war-cd-plan").count() == 1, "inbox plan routing should open command detail with plan card"
-    plan_box = page.locator(".war-modal .war-cd-plan").bounding_box()
+    assert page.locator(".war-modal [data-stage='task'] .war-tour-ghost").count() == 1, "plan-pending command must show the planning ghost card"
+    ghost_box = page.locator(".war-modal .war-tour-ghost").bounding_box()
     body_box = page.locator(".war-modal .war-detail-body").bounding_box()
-    assert plan_box["y"] >= body_box["y"] - 2 and plan_box["y"] <= body_box["y"] + body_box["height"], "plan segment should be scrolled into view"
+    assert ghost_box["y"] >= body_box["y"] - 2 and ghost_box["y"] <= body_box["y"] + body_box["height"], "task stage should be scrolled into view (plan segment)"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
-    print("V9 navigation: task card → command detail (chain + sessions); inbox plan → plan segment")
+    print("V9 navigation: task card → focus tour (4 stages + dual jumps); inbox plan → task-stage ghost")
 
     # 钉住/取消钉住：鼠标离开岛仍展开；再点收起。
     page.locator(".war-island-pill").click()
@@ -442,18 +443,57 @@ with sync_playwright() as p:
     assert page.locator(".war-cd-steps .war-cd-step").count() == 4, "four-stage journey nav missing"
     assert page.locator(".war-modal-title").inner_text().startswith("「"), "detail title must lead with the command text, not cmd-id"
     assert page.locator(".war-cd-stage").count() == 4, "four journey stages missing"
-    page.keyboard.press("Escape")
-    page.wait_for_timeout(300)
-    print("command detail V9.8: decision band + journey nav + titled-by-text ok")
+    # V9.9 聚焦页机检：ghost 卡点开看计划原文 + 进任务会话钮；底部双跳钮一启用一占位；
+    # 命令卡点开下达配置再点收起；右上 ✕ 关窗（footer 已收编为双跳钮）。
+    page.locator(".war-modal .war-tour-ghost").click()
+    page.wait_for_timeout(250)
+    assert page.locator(".war-modal .war-subdetail").count() == 1, "ghost click should expand the plan panel beneath it"
+    sub_text = page.locator(".war-modal .war-subdetail").inner_text()
+    assert "最终计划" in sub_text and "正在计划中" in sub_text, "plan panel must carry the final-plan title + planning note"
+    assert page.locator(".war-modal .war-subdetail .war-btn.primary", has_text="进入任务会话").count() == 1, "enter-task-session button missing on pending plan"
+    jumps = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
+    assert jumps.count() == 2 and "任务会话" in jumps.nth(0).inner_text() and "执行会话" in jumps.nth(1).inner_text(), "jump buttons must be 任务会话 + 执行会话"
+    assert jumps.nth(0).is_enabled() and jumps.nth(1).is_disabled(), "plan-pending command: staff jump enabled, exec jump placeholder"
+    page.locator(".war-modal [data-stage='command'] .war-command-card").click()
+    page.wait_for_timeout(250)
+    cfg = page.locator(".war-modal [data-stage='command'] .war-subdetail")
+    assert cfg.count() == 1, "command card click should expand the dispatch-config panel"
+    cfg_text = cfg.inner_text()
+    assert "发布时机" in cfg_text and "自主度" in cfg_text and "命令原文" in cfg_text, "config panel must list timing/autonomy/text"
+    page.screenshot(path=f"{OUT}/v9-focus-config.png")
+    page.locator(".war-modal [data-stage='command'] .war-command-card").click()
+    page.wait_for_timeout(250)
+    assert page.locator(".war-modal [data-stage='command'] .war-subdetail").count() == 0, "second click should collapse the config panel"
+    assert page.locator(".war-modal .war-cd-x").count() == 1, "top-right close missing (footer retired)"
+    page.locator(".war-modal .war-cd-x").click()
+    page.wait_for_timeout(250)
+    assert page.locator(".war-modal").count() == 0, "✕ should close the focus page"
+    print("focus page V9.9: ghost→plan panel + dual jumps + inline config expand/collapse + ✕ ok")
 
     # --- Phase G5: V9.5 整改机检（统一卡点击 + n 快捷键 + 草稿续写 + 对话 chip）。 ---
     # received/talking 命令卡：点击开详情（不再瞬移出板），对话走视觉独立的 chip。
     received_card = page.locator(".war-command-card.clickable.pulse", has_text="等下帮我把 projA 的依赖全部升到最新").first
     received_card.click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-modal .war-cd-sessions").count() >= 1, "received card click must open detail (V9.5 unified)"
+    assert page.locator(".war-modal .war-tour-jumps .war-jump-btn").count() == 2, "received card click must open the focus page (V9.5 unified, V9.9 tour)"
     page.keyboard.press("Escape")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(250)
+    # V9.9 全生命周期导览（approved→t1 已呈报）：任务卡在场、执行段无进行中会话
+    # 只给提示行、战报卡点开给最新战报、双跳钮都可点。
+    page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must show the chain task card"
+    assert page.locator(".war-modal [data-stage='battle'] .war-card").count() == 0, "no live attempt → no battle card"
+    assert page.locator(".war-modal [data-stage='battle'] .war-tour-hint").count() == 1, "battle stage must carry the done hint instead"
+    page.locator(".war-modal [data-stage='report'] .war-card").first.click()
+    page.wait_for_timeout(250)
+    rep = page.locator(".war-modal [data-stage='report'] .war-subdetail")
+    assert rep.count() == 1 and "最新战报" in rep.inner_text(), "report card click must expand the report panel"
+    jumps2 = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
+    assert jumps2.nth(0).is_enabled() and jumps2.nth(1).is_enabled(), "reported command: both jumps must target real sessions"
+    page.screenshot(path=f"{OUT}/v9-focus-report.png")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
     assert page.locator(".war-dispatch .war-enter-chip").count() >= 1, "enter-session chip missing on conversational card"
     # n = 新建命令（无弹窗层、非输入焦点）；草稿 Esc 不焚、重开续写。
     page.keyboard.press("n")
