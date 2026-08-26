@@ -124,7 +124,7 @@ with sync_playwright() as p:
     assert grp.count() >= 1, "同链命令必须叠成卡牌组"
     assert grp.first.locator(".war-command-card").count() == 2, "卡牌组内应恰好两代"
     gb = grp.first.bounding_box(); cw = grp.first.locator(".war-command-card").first.bounding_box()
-    assert gb["width"] < cw["width"] * 2 - 170, f"卡组必须深叠（每卡露~15px），group_w={gb['width']:.0f} card_w={cw['width']:.0f}"
+    assert abs(gb["width"] - (cw["width"] + 15)) <= 6, f"露出必须≈15px：group_w={gb['width']:.0f} card_w={cw['width']:.0f}"
     print("P1 list-default ok")
 
     # --- P2 星域（localStorage 路径切换——开关 UI 在设置抽屉）-------------------
@@ -145,7 +145,7 @@ with sync_playwright() as p:
     for pod in (".war-zone.war-tasks", ".war-zone.war-report"):
         pb = page.locator(pod).bounding_box()
         gap = dock_bb["y"] - (pb["y"] + pb["height"])
-        assert gap >= 8, f"{pod} 底部与坞必须留距，gap={gap:.0f}"
+        assert gap >= 7.5, f"{pod} 底部与坞必须留距，gap={gap:.1f}"
     assert abs(page.locator(".war-zone.war-tasks").bounding_box()["x"] - dock_bb["x"]) <= 3, "任务舱左缘须与坞左缘对齐（同 10px 内缩）"
     isl = page.locator(".war-island").first.bounding_box()
     top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")

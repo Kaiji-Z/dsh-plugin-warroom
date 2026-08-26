@@ -519,7 +519,7 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
 .war-board{position:relative}
 .war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（元首定）：调度/任务/战报全部浮于其上 */
 .war-board.war-mapmode .war-ops{position:absolute;inset:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
-.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:200px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
+.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:210px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
 body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
 @supports (backdrop-filter: blur(10px)){
   .war-board.war-mapmode .war-zone{backdrop-filter:blur(10px)}
@@ -534,7 +534,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 /* --- V10.1 调度坞卡牌组（元首二改）：纯横向深叠，每卡只露 60px 标签缘，
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
 .war-cmd-group{display:flex}
-.war-cmd-group .war-command-card{min-width:200px;transition:transform .16s ease,box-shadow .16s ease}
+.war-cmd-group .war-command-card{width:200px;min-width:200px;max-width:200px;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease} /* 锁宽 200——露出=200-185=15px 精确，不被长文本撑飘 */
 .war-cmd-group .war-command-card + .war-command-card{margin-left:-185px} /* 露 15px 标签缘（元首定） */
 .war-cmd-group .war-command-card:hover{transform:translateY(-4px);z-index:10;box-shadow:0 12px 30px color-mix(in srgb,#000 32%,transparent)}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
