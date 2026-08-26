@@ -41,18 +41,41 @@ export interface PlanetSpec {
  * 恒星系布局（纯）：第 k 个 workspace 占第 k 圈椭圆（rx 由圈序线性外扩、ry 压扁
  * 适配宽中庭），圈上方位按黄金角步进。坐标百分比化——容器任意尺寸等比缩放。
  */
-export function galaxyLayout(wsPathsInCreationOrder: readonly string[], xLo = 24, xHi = 76): PlanetSpec[] {
+/** 布局禁区（百分比空间，critique P0 根修）：调用方按浮舱/坞实际占位推。
+ *  行星落位必须让「本体+近地轨道光点+动词标签」整组避开所有禁区。 */
+export interface GalaxyBounds {
+  readonly xLo: number
+  readonly xHi: number
+  readonly yLo: number
+  readonly yHi: number
+}
+
+export function galaxyLayout(wsPathsInCreationOrder: readonly string[], bounds?: GalaxyBounds): PlanetSpec[] {
+  const b = bounds ?? { xLo: 24, xHi: 76, yLo: 8, yHi: 90 }
+  // 光点轨道 4.6% + 动词标签半宽 ≈ 7% 横向、纵向 ≈5%（含标签悬出）的随从外扩。
+  const PAD_X = 7, PAD_Y = 5
+  // 窄板（如 1280 窗口/板宽 1000）下环半径外扩会超过可用带宽——环径自适应收缩
+  // 到带内，行星靠黄金角+间距检查在同一「近圆」上散开（critique P0 二段根修）。
+  const rxMax = Math.max(8, ((b.xHi - b.xLo) / 2 - PAD_X) / 0.55)
+  const placed: Array<{ x: number; y: number }> = []
+  const free = (x: number, y: number): boolean =>
+    x - PAD_X >= b.xLo && x + PAD_X <= b.xHi && y - PAD_Y >= b.yLo && y + PAD_Y <= b.yHi
+    && !(Math.abs(x - 50) < 9 && Math.abs(y - 42) < 10) // HQ 恒星区
+    && placed.every(p => Math.abs(p.x - x) >= 8 || Math.abs(p.y - y) >= 7) // 行星互避
   return wsPathsInCreationOrder.map((wsPath, k) => {
-    const rx = 14 + k * 12
-    const ang = (planetAngleDeg(k) * Math.PI) / 180
-    return {
-      wsPath,
-      ring: k + 1,
-      // X 压中央安全带：边界由调用方按浮舱实际宽度推（critique P2：固定 24/76 在
-      // 中等视口被舱遮星——1720 擦边过、1280 重叠 114px）。
-      xPct: +(clamp(50 + rx * 0.55 * Math.cos(ang), xLo, xHi)).toFixed(2),
-      yPct: +(clamp(42 + rx * 0.62 * Math.sin(ang), 8, 90)).toFixed(2),
+    const rx = Math.min(14 + k * 12, rxMax)
+    // 黄金角起锚、10° 步进扫相位——首个无碰撞方位落位（确定性：同输入恒同序）。
+    let ang = (planetAngleDeg(k) * Math.PI) / 180
+    for (let j = 0; j < 36; j++) {
+      const x = 50 + rx * 0.55 * Math.cos(ang)
+      const y = 42 + rx * 0.62 * Math.sin(ang)
+      if (free(x, y)) break
+      ang += Math.PI / 18
     }
+    const fx = clamp(50 + rx * 0.55 * Math.cos(ang), b.xLo, b.xHi)
+    const fy = clamp(42 + rx * 0.62 * Math.sin(ang), b.yLo, b.yHi)
+    placed.push({ x: fx, y: fy })
+    return { wsPath, ring: k + 1, xPct: +fx.toFixed(2), yPct: +fy.toFixed(2) }
   })
 }
 
@@ -172,9 +195,6 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
   return createElement('div', { className: 'war-starfield', role: 'group', 'aria-label': ariaLabel, 'data-war-view': 'map' },
     createElement('div', { className: 'war-stars', 'aria-hidden': 'true' }),
     ...orbits,
-    mapLegend !== undefined
-      ? createElement('div', { className: 'war-map-legend', 'aria-hidden': 'true' }, mapLegend)
-      : null,
     createElement('div', {
       className: `war-hq${active ? ' lit' : ''}`,
       'data-active': String(active),
@@ -218,16 +238,20 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       createElement('span', { className: 'war-orb-body', 'aria-hidden': 'true' }),
       t.verbLabel !== null && t.verbLabel !== '' ? createElement('span', { className: 'war-orb-verb' }, t.verbLabel) : null,
       )),
-    troops.length > 0
-      ? createElement('div', { className: 'war-live-bar', role: 'status', 'aria-live': 'polite', 'data-war-live': String(troops.length) },
-          ...troops.slice(0, 3).map(t =>
-            createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
-              createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
-              createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? t.sessionId.slice(0, 8)))))
-      : null,
-    troops.length > 3
-      ? createElement('span', { key: 'lb-more', className: 'war-live-item' }, `+${troops.length - 3}`)
-      : null,
+    // V10.1 critique P1 根修：速报条+微图例同一栈容器悬于坞上方（各自独立定位
+    // 时条陷坞底、图例沉坞后——全幅星域的底边属于坞）。
+    createElement('div', { className: 'war-live-stack' },
+      troops.length > 0
+        ? createElement('div', { className: 'war-live-bar', role: 'status', 'aria-live': 'polite', 'data-war-live': String(troops.length) },
+            ...troops.slice(0, 3).map(t =>
+              createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
+                createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
+                createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? t.sessionId.slice(0, 8)))),
+            ...(troops.length > 3 ? [createElement('span', { key: 'lb-more', className: 'war-live-item' }, `+${troops.length - 3}`)] : []))
+        : null,
+      mapLegend !== undefined
+        ? createElement('div', { className: 'war-map-legend', 'aria-hidden': 'true' }, mapLegend)
+        : null),
     ...ghosts.map(g =>
       createElement('div', {
         key: `ghost-${g.sessionId}`,

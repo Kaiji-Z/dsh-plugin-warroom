@@ -415,6 +415,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   return createElement('div', {
     key: cmd.commandId,
     className: `war-card war-command-card clickable${cmd.status === 'received' ? ' pulse' : ''}${relClass(trace)}`,
+    'data-war-gen': String(cmd.chain.generation),
     title: undefined,
     role: 'button',
     tabIndex: 0,
@@ -1762,11 +1763,23 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
     // 坐标全确定性推导——SSE revision 翻新零抖动。
     const wsOrder = workspaceCreationOrder(tasks)
-    // critique P2：安全带边界按浮舱实际占宽推（min(320,26vw)+内缩 10×2），与视口联动。
-    const sidePct = ((Math.min(320, winW * 0.26) + 20) / Math.max(winW, 1)) * 100
-    const beltLo = Math.min(24, sidePct + 3)
-    const beltHi = Math.max(76, 100 - sidePct - 3)
-    const planetSpecs = galaxyLayout(wsOrder, beltLo, beltHi)
+    // critique P0 根修：禁区百分比以【板宽】为分母（winW 是窗口宽——宿主侧栏吃掉
+    // ~280px，1720 窗口板宽仅 1440，按窗口算低估舱占位 3%，行星照样被盖）。
+    // 板宽/坞高改实测（resize 随动），星域布局随真实禁区落位。
+    const [boardBox, setBoardBox] = useState({ w: 1100, h: 880, dockH: 230 })
+    useEffect(() => {
+      const measure = (): void => {
+        const bd = document.querySelector('.war-board')
+        const dk = document.querySelector('.war-dispatch')
+        if (bd !== null) setBoardBox({ w: bd.clientWidth, h: bd.clientHeight, dockH: dk?.clientHeight ?? 230 })
+      }
+      measure()
+      const t = setInterval(measure, 4000) // 坞高随卡内容漂移——低频轮询足矣（坐标仍确定性：只随几何变）
+      return () => clearInterval(t)
+    }, [])
+    const sidePct = (330 / Math.max(boardBox.w, 1)) * 100
+    const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
+    const planetSpecs = galaxyLayout(wsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
     const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
     const commandTextOf = new Map(commands.map(c => [c.commandId, c.text.slice(0, 14)] as const))
     const moonSlot = new Map<string, number>()
@@ -1962,8 +1975,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 })]
                 : [createElement('div', {
                     key: `grp-${g.rootId}`, className: 'war-cmd-group clickable', 'data-war-group': g.rootId,
-                    // critique P0：被盖卡 pointer-events:none 后，露缘点击落组容器——兜底开最新代。
-                    onClick: () => { openCommand(g.cards[g.cards.length - 1]!.commandId) },
+                    // critique P0/P2：露缘点击按 50px 带路由到「露出这条缘的那一代」
+                    // ——键鼠语义统一（键盘 Enter 走卡自身 onClick，同一张卡）。
+                    onClick: e => {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      const idx = Math.min(Math.max(Math.floor((e.clientX - r.left) / 50), 0), g.cards.length - 1)
+                      openCommand(g.cards[idx]!.commandId)
+                    },
                   },
                   ...g.cards.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
                     actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))

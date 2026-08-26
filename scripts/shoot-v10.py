@@ -168,6 +168,21 @@ with sync_playwright() as p:
     same = page.locator(".war-dispatch .war-command-card.war-rel-same").count()
     assert same == 1, f"hover 光点应点亮唯一源命令卡，got {same}"
     page.mouse.move(8, 300)
+    # V10.1 critique P0 机检：星域对象（光点/行星/图例/速报条）中心必须避开舱/坞矩形。
+    occluded = page.evaluate("""() => {
+      const pods = ['.war-zone.war-tasks', '.war-zone.war-report', '.war-dispatch'].map(s => document.querySelector(s)).filter(Boolean).map(el => el.getBoundingClientRect())
+      const bad = []
+      for (const sel of ['.war-orb', '.war-planet', '.war-map-legend', '.war-live-bar']) {
+        for (const el of document.querySelectorAll(sel)) {
+          const r = el.getBoundingClientRect()
+          if (r.width === 0) continue
+          const cx = r.x + r.width/2, cy = r.y + r.height/2
+          if (pods.some(p => cx >= p.x && cx <= p.x + p.width && cy >= p.y && cy <= p.y + p.height)) bad.push(sel)
+        }
+      }
+      return bad
+    }""")
+    assert occluded == [], f"星域对象被舱/坞遮挡（critique P0 红线）：{occluded}"
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 
