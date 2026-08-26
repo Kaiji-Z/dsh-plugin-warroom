@@ -199,7 +199,9 @@ gate('bundle', () => {
     // warn 文本对比度 + 批准视觉隔离 + 非零收件箱胶囊染警示。
     [client, 'useModalLayer', 'modal dialog semantics + focus trap + Esc coordination'],
     [client, 'has-inbox', 'island pill warn tint when inbox non-empty'],
-    [client, 'war-plan-decide', 'plan approval decision block (one-click kept, visually isolated)'],
+    [client, 'war-cd-band', 'command detail decision band (top-pinned, inbox-aligned)'],
+    [client, 'war-cd-steps', 'four-stage journey nav (lifecycle strip enlarged)'],
+    [client, 'war-fold', 'collapsed receipts (evidence/loot/grade-reason details)'],
     [client, 'approvedAwaitingPublish', 'approved-empty-chain lifecycle status (no contradiction)'],
     [client, 'attemptFailedNeutral', 'older failed attempts get neutral copy, not latest error'],
     // styles.ts 双模板串坑（连踩两次）：CSS 误插 querySelector 模板会炸宿主入口。

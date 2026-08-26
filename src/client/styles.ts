@@ -330,9 +330,6 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-island-pill.has-inbox .war-head-dot{background:var(--dsw-alias-state-warn-primary);opacity:1}
 
 /* --- V9.3：批准计划视觉隔离（一键保留，后果先讲清——决策区独立成块）--------- */
-.war-plan-decide{margin-top:8px;padding:8px 10px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 5%, transparent)}
-.war-plan-decide-hint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);margin-bottom:6px}
-.war-plan-decide .war-modal-actions{margin:0}
 .war-modal:focus-visible{outline:none}
 /* --- V9.5：进入对话 chip（视觉独立于卡身——对话入口不再借整卡点击）+ kbd 提示 --- */
 .war-chip.war-enter-chip{cursor:pointer;color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);border-style:dashed;background:transparent;font-family:var(--dsw-font-family);padding:0 8px}
@@ -343,6 +340,35 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 h2.war-col-title{margin:0;font-size:13px}
 
 /* == WAR_CSS 追加锚点：新 CSS 插在本行之后 == */
+/* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
+.war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 5%, transparent);padding:8px 12px}
+.war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
+.war-cd-band-in{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.war-cd-band-tag{flex:0 0 auto;font-size:13px;font-weight:600;color:color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 58%, #000)}
+.war-cd-band.quiet .war-cd-band-tag{color:var(--dsw-alias-state-success-primary)}
+.war-cd-band-hint{flex:1 1 200px;min-width:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.war-cd-band-actions{display:flex;gap:8px;flex:0 0 auto}
+.war-cd-steps{position:sticky;top:0;z-index:3;display:flex;gap:6px;padding:6px 0;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l1)}
+.war-cd-step{flex:1 1 0;font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 45%, var(--dsw-alias-label-secondary));background:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--dsw-font-family)}
+.war-cd-step.on{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-base));box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
+.war-cd-step:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
+.war-cd-stage{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.war-cd-stage-head{display:flex;align-items:center;gap:8px;min-width:0}
+.war-cd-stage-no{flex:0 0 auto;width:20px;height:20px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--dsw-alias-bg-base);background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 45%, var(--dsw-alias-label-secondary))}
+.war-cd-stage-name{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.war-cd-stage-conc{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.war-fold{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:0}
+.war-fold summary{list-style:none;cursor:pointer;padding:6px 10px;font-size:12px;color:var(--dsw-alias-label-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.war-fold summary::-webkit-details-marker{display:none}
+.war-fold summary::before{content:'▸';font-size:10px;transition:transform .12s ease;flex:0 0 auto}
+.war-fold[open] summary::before{transform:rotate(90deg)}
+.war-fold summary:hover{color:var(--dsw-alias-label-primary)}
+.war-fold > *:not(summary){margin:0 10px 8px}
+.war-fold .war-modal-actions{margin:0 10px 8px}
+.war-cd-more{display:inline-flex;gap:6px;align-items:center;flex:1 1 auto;min-width:0}
+.war-cd-regrade{display:inline-flex}
+.war-cd-regrade summary{border:0;background:transparent;padding:2px 8px}
+
 `
 
 const STYLE_ID = 'data-dsh-plugin-warroom'

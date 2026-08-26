@@ -184,7 +184,7 @@ with sync_playwright() as p:
     # 选带 ↩ 溯源 chip 的卡（孤儿任务无源命令，走 TaskDetail 降级——另一条路径）。
     page.locator(".war-col.zone-tasks .war-card", has_text="↩").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-modal-title").inner_text().startswith("命令 "), f"task card should open COMMAND detail, got {page.locator('.war-modal-title').inner_text()!r}"
+    assert page.locator(".war-modal-title").inner_text().startswith("「"), f"task card should open COMMAND detail titled by its text, got {page.locator('.war-modal-title').inner_text()!r}"
     assert page.locator(".war-modal .war-cd-chain").count() == 1, "command detail lacks chain section"
     assert page.locator(".war-modal .war-cd-session").count() >= 1, "command detail lacks related-session entries"
     assert page.locator(".war-modal .war-cd-session", has_text="参谋").count() >= 1, "staff discussion session entry missing"
@@ -429,17 +429,22 @@ with sync_playwright() as p:
     # 非零收件箱 = 岛的主导信号（胶囊染警示）。
     assert page.locator(".war-island-pill.has-inbox").count() == 1, "island pill must wear has-inbox tint when inbox non-empty"
 
-    # 批准决策块：计划待批的详情里，后果一句话 + 独立按钮区（一键保留）。
+    # V9.8 决策带 + 阶段导航：计划待批的详情顶部即是「等你发落」带（后果一句话
+    # + 批准/驳回），下方四段导航在位；标题=命令原话（不再是 cmd- 机码开头）。
     leave_island()
     page.wait_for_timeout(300)
     page.locator(".war-island-pill").hover()
     page.wait_for_timeout(300)
     page.locator(".war-inbox-item", has_text="批计划").click()
-    page.wait_for_selector(".war-plan-decide", timeout=3000)
-    assert page.locator(".war-plan-decide-hint").inner_text() != "", "approve consequence hint missing"
+    page.wait_for_selector(".war-cd-band", timeout=3000)
+    assert page.locator(".war-cd-band .war-btn.primary", has_text="批准计划").count() == 1, "approve button missing in decision band"
+    assert "放权" in page.locator(".war-cd-band-hint").inner_text(), "consequence hint missing in band"
+    assert page.locator(".war-cd-steps .war-cd-step").count() == 4, "four-stage journey nav missing"
+    assert page.locator(".war-modal-title").inner_text().startswith("「"), "detail title must lead with the command text, not cmd-id"
+    assert page.locator(".war-cd-stage").count() == 4, "four journey stages missing"
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
-    print("plan decide block: consequence hint + isolated actions ok")
+    print("command detail V9.8: decision band + journey nav + titled-by-text ok")
 
     # --- Phase G5: V9.5 整改机检（统一卡点击 + n 快捷键 + 草稿续写 + 对话 chip）。 ---
     # received/talking 命令卡：点击开详情（不再瞬移出板），对话走视觉独立的 chip。

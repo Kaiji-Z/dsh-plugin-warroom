@@ -525,121 +525,248 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   )
 }
 
-/** 命令全生命周期详情（追踪中枢）：原文 → 分诊/计划 → 任务链逐环 → 最新战报 →
- * 相关会话入口（V9：参谋讨论会话 + 各次执行会话——命令是唯一详情叙事中心）。
- * V7.1 组件化（createElement 挂载）：补 Escape 关闭；「查看任务」对已不在板上
- * 的任务降级为禁用态（死链不静默）。V9 focusSegment：收件箱/上方卡片跳入时
- * 直滚到需要发落的环节（计划卡/任务链/战报段）。 */
+/** 命令全生命周期详情（V9.8 重构·元首定案：单列+阶段导航/决策带置顶/明细默认
+ * 折叠）：详情页不是档案袋，是决策现场——顶部「等你发落」决策带（与收件箱同源
+ * 四类：批计划/答澄清/翻战报/决重试；无事给安神行），下面 ①命令→②任务→③执行
+ * →④战报 四段竖排故事线（段头写结论不写状态；阶段导航=卡片生命条放大，点击
+ * 滚动+滚动高亮），证据/战利品/分诊理由折叠为摘要行。标题=命令原话，ID 缩成
+ * 副行小字。focusSegment 分段直达沿用（war-cd-plan/chain/report 锚点类保留）。 */
 function CommandDetail(props: { cmd: BoardCommand; chain: BoardTask[]; taskOnBoard: boolean; focusSegment: 'plan' | 'chain' | 'report' | null; onOpenSession: (sessionId: string) => void; onOpenTask: (taskId: string) => void; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onFocus: (commandId: string) => void }): ReactNode {
   const { cmd, chain, taskOnBoard, focusSegment, onOpenSession, onOpenTask, onClose, onRegrade, onDecidePlan, onFocus } = props
-  const layer = useModalLayer(onClose, `命令 ${cmd.commandId}`)
+  const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
+  const [activeStage, setActiveStage] = useState<'command' | 'task' | 'battle' | 'report'>('command')
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   // 分段直达：打开即滚到需要元首发落的环节（收件箱路由目标）。
   useEffect(() => {
     if (focusSegment === null) return
+    const el = document.querySelector('.war-modal .war-cd-plan, .war-modal .war-cd-chain, .war-modal .war-cd-report')
     document.querySelector(`.war-modal .war-cd-${focusSegment}`)?.scrollIntoView({ block: 'center' })
+    void el
   }, [focusSegment])
+  // 滚动高亮：故事线滚到哪段，阶段导航亮哪段。
+  useEffect(() => {
+    const body = bodyRef.current
+    if (body === null) return
+    const onScroll = (): void => {
+      const stages = [...body.querySelectorAll<HTMLElement>('.war-cd-stage')]
+      const mid = body.scrollTop + body.clientHeight * 0.35
+      let cur: 'command' | 'task' | 'battle' | 'report' = 'command'
+      for (const st of stages) {
+        if (st.offsetTop <= mid) cur = st.dataset.stage as typeof cur
+      }
+      setActiveStage(cur)
+    }
+    body.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => { body.removeEventListener('scroll', onScroll) }
+  }, [])
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
   const detailCopy = activeCopy().detail
+  const band = activeCopy().commandBand
+  const life = lifecycleOf(cmd, chain)
   const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   const closed = chain.filter(t => t.status === 'closed').length
+  const conversational = cmd.status === 'received' || cmd.status === 'talking'
   // 最新战报：链上任一环的最新一条汇报（各环取末条，再按时间取最新）。
   const lastReport = chain
     .flatMap(t => (t.reports.length > 0 ? [{ r: t.reports[t.reports.length - 1]!, t }] : []))
     .sort((a, b) => (a.r.ts < b.r.ts ? 1 : -1))[0]
   const verdictTask = chain.find(t => t.closedVerdict !== null)
-  // V9 相关会话：参谋讨论会话（每命令一个）+ 指挥官执行会话（每次尝试一个）。
   const execSessions = chain
     .flatMap(t => (t.attemptLog ?? []).map(a => ({ t, a })))
     .sort((x, y) => (x.a.startedAt < y.a.startedAt ? 1 : -1))
+  const failedChain = chain.some(t => t.status === 'failed')
+  const scheduled = cmd.schedule !== null && cmd.schedule.dispatchedAt === null
+  // 决策带动作判定（与收件箱四类同源，plan 优先级最高）。
+  const actionKind = cmd.plan?.status === 'pending'
+    ? 'plan'
+    : cmd.status === 'talking'
+      ? 'clarify'
+      : lastReport !== undefined && chain.some(t => t.status === 'reported')
+        ? 'review'
+        : failedChain
+          ? 'retry'
+          : null
+  // 证据摘要行（收起态的一行结论）。
+  const evSummary = (lastReport?.r.evidence !== undefined && lastReport?.r.evidence !== null)
+    ? (() => {
+        const ev = lastReport.r.evidence!
+        const ok = ev.checks.filter(c => c.passed).length
+        const t = ev.tests
+        return `✓ ${ok}/${ev.checks.length} ${band.evChecks}${t !== undefined ? ` · ${band.evTests(t.passed, t.failed)}` : ''}${ev.diffstat !== undefined ? ` · ${ev.diffstat}` : ''}`
+      })()
+    : null
+  const stages = activeCopy().lifecycle.stages
+  const scrollToStage = (key: string): void => {
+    bodyRef.current?.querySelector(`.war-cd-stage[data-stage='${key}']`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const Fold = (summary: string, children: ReactNode[]): ReactNode =>
+    createElement('details', { className: 'war-fold' },
+      createElement('summary', null, summary),
+      ...children,
+    )
+  const stageHead = (n: number, key: string, conclusion: string): ReactNode =>
+    createElement('div', { className: 'war-cd-stage-head' },
+      createElement('span', { className: 'war-cd-stage-no' }, `${n}`),
+      createElement('span', { className: 'war-cd-stage-name' }, stages[key as keyof typeof stages]),
+      createElement('span', { className: 'war-cd-stage-conc' }, conclusion),
+    )
+  const stepBtn = (key: 'command' | 'task' | 'battle' | 'report', n: number): ReactNode =>
+    createElement('button', {
+      key, type: 'button',
+      className: `war-cd-step${activeStage === key ? ' on' : ''}${life.reached[key] ? ' reached' : ''}`,
+      onClick: () => { scrollToStage(key) },
+      'aria-current': activeStage === key,
+    }, `${n} ${stages[key]}`)
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
-    createElement('div', { className: 'war-modal wide', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
-      createElement('div', { className: 'war-modal-title' }, `命令 ${cmd.commandId}`),
-      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}`),
-      createElement('div', { className: 'war-detail-body' },
-        createElement('div', { className: 'war-detail-text' }, cmd.text),
-        cmd.gradeReason !== null ? createElement('div', { className: 'war-note' }, `${copy.gradeReasonPrefix}${cmd.gradeReason}`) : null,
-        cmd.plan !== null
-          ? createElement('div', { className: 'war-plan war-cd-plan' },
-            createElement('div', { className: 'war-plan-head' }, `作战计划（${copy.planTitle[cmd.plan.status]}）`),
-            createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
-            cmd.plan.status === 'pending'
-              ? createElement('div', { className: 'war-plan-decide' },
-                createElement('div', { className: 'war-plan-decide-hint' }, copy.approveHint),
-                createElement('div', { className: 'war-modal-actions' },
-                  createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, copy.approvePlan),
-                  createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
+    createElement('div', { className: 'war-modal wide war-cd-modal', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
+      createElement('div', { className: 'war-modal-title war-cd-title', title: cmd.text }, `「${cmd.text.slice(0, 42)}${cmd.text.length > 42 ? '…' : ''}」`),
+      createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${cmd.commandId} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}`),
+      cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
+      // 决策带（置顶常驻）：有事给动作，无事给安神行。
+      createElement('div', { className: `war-cd-band${actionKind === null ? ' quiet' : ''}`, role: actionKind === null ? undefined : 'region', 'aria-label': actionKind === null ? undefined : band.title },
+        actionKind === 'plan'
+          ? createElement('div', { className: 'war-cd-band-in' },
+            createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
+            createElement('span', { className: 'war-cd-band-hint' }, band.planHint),
+            createElement('span', { className: 'war-cd-band-actions' },
+              createElement('button', { className: 'war-btn primary', onClick: () => onDecidePlan('approve') }, copy.approvePlan),
+              createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
+            ),
+          )
+          : actionKind === 'clarify'
+            ? createElement('div', { className: 'war-cd-band-in' },
+              createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
+              createElement('span', { className: 'war-cd-band-hint' }, band.clarifyHint),
+              createElement('span', { className: 'war-cd-band-actions' },
+                createElement('button', { className: 'war-btn primary', onClick: () => { if (cmd.staffSessionId !== null) { void markTalking(cmd.commandId); onOpenSession(cmd.staffSessionId) } } }, band.clarifyBtn),
+              ),
+            )
+            : actionKind === 'review'
+              ? createElement('div', { className: 'war-cd-band-in' },
+                createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
+                createElement('span', { className: 'war-cd-band-hint' }, band.reviewHint),
+                createElement('span', { className: 'war-cd-band-actions' },
+                  createElement('button', { className: 'war-btn primary', onClick: () => { scrollToStage('report') } }, band.reviewBtn),
                 ),
               )
-              : null,
-          )
-          : null,
-        // 任务链：一环一行（状态/标题/元信息），点行进任务卡——追踪即跳转。
-        createElement('div', { className: 'war-detail-section war-cd-chain' }, copy.chainSection),
-        chain.length === 0
-          ? createElement('div', { className: 'war-detail-text' }, copy.noTasks)
-          : createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
-            chain.length > 1 ? createElement('div', { className: 'war-life-status' }, copy.chainDone(closed, chain.length)) : null,
-            chain.map(t => createElement('div', {
-              key: t.taskId,
-              className: 'war-chain-row',
-              role: 'button',
-              tabIndex: 0,
-              onClick: () => { onOpenTask(t.taskId); onClose() },
-              onKeyDown: keyActivate(() => { onOpenTask(t.taskId); onClose() }),
-            },
-            createElement('span', { className: `war-chip st-${t.status}` }, activeCopy().taskStatus[t.status]),
-            createElement('span', { className: 'war-title' }, t.title),
-            createElement('span', { className: 'war-chain-meta' }, `${t.taskId}${t.attempts > 1 ? ` · ${activeCopy().lifecycle.attemptN(t.attempts)}` : ''}`),
-            )),
-          ),
-        lastReport !== undefined
-          ? createElement('div', { className: 'war-detail-section war-cd-report' }, copy.latestReport)
-          : null,
-        lastReport !== undefined
-          ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
-          : null,
-        lastReport !== undefined && lastReport.r.evidence !== null ? EvidenceBlock(lastReport.r.evidence) : null,
-        verdictTask !== undefined && verdictTask.closedVerdict !== null
-          ? createElement('div', { className: 'war-report-body' }, `${activeCopy().detail.verdictPrefix}${verdictTask.closedVerdict}`)
-          : null,
-        // V9 相关会话：讨论（参谋）与执行（指挥官，按次）两类 thread 的入口。
-        cmd.staffSessionId !== null || execSessions.length > 0
-          ? createElement('div', { className: 'war-detail-section war-cd-sessions' }, detailCopy.sessionsSection)
-          : null,
-        cmd.staffSessionId !== null || execSessions.length > 0
-          ? createElement('div', { className: 'war-cd-sessions' },
-            cmd.staffSessionId !== null
-              ? createElement('button', { className: 'war-cd-session', type: 'button', onClick: () => { onOpenSession(cmd.staffSessionId as string) } },
-                  createElement('span', { className: 'war-chip' }, detailCopy.staffSession),
-                  createElement('span', { className: 'war-taskid', title: cmd.staffSessionId }, `⌁ ${cmd.staffSessionId.slice(0, 10)}…`),
+              : actionKind === 'retry'
+                ? createElement('div', { className: 'war-cd-band-in' },
+                  createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
+                  createElement('span', { className: 'war-cd-band-hint' }, band.retryHint),
+                  createElement('span', { className: 'war-cd-band-actions' },
+                    createElement('button', { className: 'war-btn primary', onClick: () => { scrollToStage('report') } }, band.retryBtn),
+                  ),
                 )
-              : null,
-            execSessions.map(({ t, a }) => createElement('button', { key: a.id, className: 'war-cd-session', type: 'button', title: a.sessionId, onClick: () => { onOpenSession(a.sessionId) } },
-              createElement('span', { className: `war-chip ${(a.outcome ?? 'live') === 'live' ? 'st-in_progress' : a.outcome === 'failed' ? 'oc-fail' : a.outcome === 'reported' ? 'oc-reported' : 'oc-done'}` }, outcomeLabel(a.outcome ?? 'live').label),
-              createElement('span', { className: 'war-taskid' }, `⌁ ${a.sessionId.slice(0, 10)}… · ${t.taskId}`),
-              createElement('span', { className: 'war-time' }, relTime(a.startedAt)),
-            )),
-          )
-          : null,
-        cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
-        regradable ? createElement('div', { className: 'war-modal-sub' }, copy.regradeHint) : null,
-        regradable
-          ? createElement('div', { className: 'war-modal-actions' },
-            (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
-              createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, copy.regradeTo(GRADE_LABEL[g]))))
-          : null,
+                : scheduled
+                  ? createElement('div', { className: 'war-cd-band-in' },
+                    createElement('span', { className: 'war-cd-band-tag' }, '⏰'),
+                    createElement('span', { className: 'war-cd-band-hint' }, band.scheduledHint(fmtSchedule(cmd.schedule.nextRunAt))),
+                  )
+                  : createElement('div', { className: 'war-cd-band-in' },
+                    createElement('span', { className: 'war-cd-band-tag' }, '✓'),
+                    createElement('span', { className: 'war-cd-band-hint' }, band.quiet),
+                  ),
+      ),
+      createElement('div', { className: 'war-detail-body war-cd-body', ref: bodyRef },
+        // 阶段导航（sticky）：卡片生命条放大——点哪段滚到哪段，滚到哪段亮哪段。
+        createElement('div', { className: 'war-cd-steps', role: 'tablist', 'aria-label': band.journey },
+          stepBtn('command', 1), stepBtn('task', 2), stepBtn('battle', 3), stepBtn('report', 4),
+        ),
+        // ① 命令 · 你说了什么。
+        createElement('section', { className: 'war-cd-stage', 'data-stage': 'command' },
+          stageHead(1, 'command', cmd.grade !== null ? `${GRADE_LABEL[cmd.grade]}${cmd.gradeConfidence !== null ? ` · 置信 ${Math.round(cmd.gradeConfidence * 100)}%` : ''}` : band.noGrade),
+          createElement('div', { className: 'war-detail-text' }, cmd.text),
+          cmd.gradeReason !== null
+            ? Fold(`${copy.gradeReasonPrefix}${cmd.gradeReason.slice(0, 36)}${cmd.gradeReason.length > 36 ? '…' : ''}`,
+              [createElement('div', { className: 'war-note' }, `${copy.gradeReasonPrefix}${cmd.gradeReason}`)])
+            : null,
+        ),
+        // ② 任务 · 变成了什么（计划 + 任务链；批计划按钮在顶部决策带）。
+        createElement('section', { className: 'war-cd-stage', 'data-stage': 'task' },
+          stageHead(2, 'task', life.status),
+          cmd.plan !== null
+            ? createElement('div', { className: 'war-plan war-cd-plan' },
+              createElement('div', { className: 'war-plan-head' }, `计划（${copy.planTitle[cmd.plan.status]}）`),
+              createElement('div', { className: 'war-plan-body' }, cmd.plan.text),
+            )
+            : null,
+          createElement('div', { className: 'war-detail-section war-cd-chain' }, copy.chainSection),
+          chain.length === 0
+            ? createElement('div', { className: 'war-detail-text' }, copy.noTasks)
+            : createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+              chain.length > 1 ? createElement('div', { className: 'war-life-status' }, copy.chainDone(closed, chain.length)) : null,
+              chain.map(t => createElement('div', {
+                key: t.taskId,
+                className: 'war-chain-row',
+                role: 'button',
+                tabIndex: 0,
+                onClick: () => { onOpenTask(t.taskId); onClose() },
+                onKeyDown: keyActivate(() => { onOpenTask(t.taskId); onClose() }),
+              },
+              createElement('span', { className: `war-chip st-${t.status}` }, activeCopy().taskStatus[t.status]),
+              createElement('span', { className: 'war-title' }, t.title),
+              createElement('span', { className: 'war-chain-meta' }, `${t.taskId}${t.attempts > 1 ? ` · ${activeCopy().lifecycle.attemptN(t.attempts)}` : ''}`),
+              )),
+            ),
+        ),
+        // ③ 执行 · 谁在干（参谋讨论 + 各次作战会话，最新在前）。
+        createElement('section', { className: 'war-cd-stage', 'data-stage': 'battle' },
+          stageHead(3, 'battle', execSessions.length > 0 ? band.battleLine(execSessions.length) : band.noBattle),
+          cmd.staffSessionId !== null || execSessions.length > 0
+            ? createElement('div', { className: 'war-cd-sessions' },
+              cmd.staffSessionId !== null
+                ? createElement('button', { className: 'war-cd-session', type: 'button', onClick: () => { onOpenSession(cmd.staffSessionId as string) } },
+                    createElement('span', { className: 'war-chip' }, detailCopy.staffSession),
+                    createElement('span', { className: 'war-taskid', title: cmd.staffSessionId }, `⌁ ${cmd.staffSessionId.slice(0, 10)}…`),
+                  )
+                : null,
+              execSessions.map(({ t, a }) => createElement('button', { key: a.id, className: 'war-cd-session', type: 'button', title: a.sessionId, onClick: () => { onOpenSession(a.sessionId) } },
+                createElement('span', { className: `war-chip ${(a.outcome ?? 'live') === 'live' ? 'st-in_progress' : a.outcome === 'failed' ? 'oc-fail' : a.outcome === 'reported' ? 'oc-reported' : 'oc-done'}` }, outcomeLabel(a.outcome ?? 'live').label),
+                createElement('span', { className: 'war-taskid' }, `⌁ ${a.sessionId.slice(0, 10)}… · ${t.taskId}`),
+                createElement('span', { className: 'war-time' }, relTime(a.startedAt)),
+              )),
+            )
+            : createElement('div', { className: 'war-detail-text' }, band.noBattle),
+        ),
+        // ④ 战报 · 结果如何（摘要行 + 折叠收据 + 判定）。
+        createElement('section', { className: 'war-cd-stage war-cd-report', 'data-stage': 'report' },
+          stageHead(4, 'report', verdictTask?.closedVerdict !== null && verdictTask !== undefined ? verdictTask.closedVerdict : lastReport !== undefined ? relTime(lastReport.r.ts) : band.noReport),
+          lastReport !== undefined
+            ? createElement('div', { className: 'war-report-body' }, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`)
+            : createElement('div', { className: 'war-detail-text' }, band.noReport),
+          evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined
+            ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)])
+            : null,
+          verdictTask !== undefined && verdictTask.closedVerdict !== null
+            ? createElement('div', { className: 'war-report-body' }, `${detailCopy.verdictPrefix}${verdictTask.closedVerdict}`)
+            : null,
+        ),
       ),
       createElement('div', { className: 'war-modal-actions' },
-        cmd.status === 'approved' && cmd.taskId !== null
-          ? createElement('button', {
-              className: 'war-btn primary',
-              disabled: !taskOnBoard,
-              title: taskOnBoard ? undefined : copy.taskGone,
-              onClick: () => { if (taskOnBoard) { onOpenTask(cmd.taskId as string); onClose() } },
-            }, copy.viewTask(cmd.taskId))
-          : null,
-        createElement('button', { className: 'war-btn', title: activeCopy().trace.focusBtnTitle, onClick: () => { onFocus(cmd.commandId); onClose() } }, `◎ ${activeCopy().trace.focus}`),
+        conversational && cmd.staffSessionId !== null
+          ? createElement('button', { className: 'war-btn primary', onClick: () => { void markTalking(cmd.commandId); onOpenSession(cmd.staffSessionId as string) } }, detailCopy.goHandle)
+          : cmd.status === 'approved' && cmd.taskId !== null
+            ? createElement('button', {
+                className: 'war-btn primary',
+                disabled: !taskOnBoard,
+                title: taskOnBoard ? undefined : copy.taskGone,
+                onClick: () => { if (taskOnBoard) { onOpenTask(cmd.taskId as string); onClose() } },
+              }, copy.viewTask(cmd.taskId))
+            : null,
+        createElement('span', { className: 'war-cd-more' },
+          createElement('button', { className: 'war-btn', title: activeCopy().trace.focusBtnTitle, onClick: () => { onFocus(cmd.commandId); onClose() } }, `◎ ${activeCopy().trace.focus}`),
+          regradable
+            ? createElement('details', { className: 'war-fold war-cd-regrade' },
+              createElement('summary', null, copy.regradeHint),
+              createElement('div', { className: 'war-modal-actions' },
+                (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
+                  createElement('button', { key: g, className: 'war-btn', onClick: () => onRegrade(g) }, copy.regradeTo(GRADE_LABEL[g]))),
+              ),
+            )
+            : null,
+        ),
         createElement('button', { className: 'war-btn', onClick: onClose }, copy.close),
       ),
     ),

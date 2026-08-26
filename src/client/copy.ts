@@ -44,6 +44,26 @@ export interface WarCopy {
     refresh: string
     close: string
   }
+  /** V9.8 命令详情决策带（置顶常驻）：有事给动作，无事给安神行。 */
+  commandBand: {
+    title: string
+    quiet: string
+    planHint: string
+    clarifyHint: string
+    clarifyBtn: string
+    reviewHint: string
+    reviewBtn: string
+    retryHint: string
+    retryBtn: string
+    scheduledHint: (time: string) => string
+    noGrade: string
+    noBattle: string
+    battleLine: (n: number) => string
+    noReport: string
+    journey: string
+    evChecks: string
+    evTests: (passed: number, failed: number) => string
+  }
   /** V9.2 定时命令卡角标（调度条里的 ⏰ 待发卡）。 */
   scheduleChip: { chip: (time: string) => string; cardTitle: (time: string) => string }
   columns: {
@@ -263,6 +283,26 @@ export const warCopy: WarCopy = {
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
   dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）' },
+  commandBand: {
+    title: '等你发落',
+    quiet: '无需发落——此命令在自动推进中',
+    planHint: '参谋呈了计划，批准即放权（夜间无人值守照常执行）',
+    clarifyHint: '参谋在等你的回答',
+    clarifyBtn: '进入参谋对话',
+    reviewHint: '战报已核验，等你翻阅收官',
+    reviewBtn: '去看战报',
+    retryHint: '有折戟，等你定夺',
+    retryBtn: '去看败因',
+    scheduledHint: time => `定时下达 · ${time} 到点自动出发（此前不转达参谋）`,
+    noGrade: '尚未分诊',
+    noBattle: '等执行者领取',
+    battleLine: n => `${n} 次作战`,
+    noReport: '尚无战报',
+    journey: '作战经过（命令→任务→执行→战报）',
+    evChecks: '项验收通过',
+    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
+  },
+
   settings: {
     title: '设置',
     skinSection: '皮肤（措辞词典）',
@@ -539,6 +579,26 @@ export const plainCopy: WarCopy = {
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
   dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）' },
+  commandBand: {
+    title: '等你处理',
+    quiet: '不用管——这条命令在自己推进',
+    planHint: '参谋给了方案，点头就照做（夜里也不停）',
+    clarifyHint: '参谋在等你回话',
+    clarifyBtn: '去对话',
+    reviewHint: '结果已核好，等你过目',
+    reviewBtn: '去看结果',
+    retryHint: '有失败的，等你定',
+    retryBtn: '去看失败',
+    scheduledHint: time => `定时 · ${time} 自动开始（到点前不转给参谋）`,
+    noGrade: '还没分诊',
+    noBattle: '等人接手',
+    battleLine: n => `执行 ${n} 次`,
+    noReport: '还没有结果',
+    journey: '经过（命令→任务→执行→结果）',
+    evChecks: '项验收通过',
+    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
+  },
+
   settings: {
     title: '设置',
     skinSection: '皮肤（用词风格）',
