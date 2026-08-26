@@ -24,7 +24,9 @@ export interface WarCopy {
     report: { title: string; note: string }
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
-  dispatch: { label: string; addTitle: string }
+  /** V10 星域战场。 */
+  starfield: { aria: string; hqOn: string; hqOff: string }
+  dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
     title: string
@@ -321,7 +323,7 @@ export const warCopy: WarCopy = {
     tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）' },
   commandBand: {
     title: '等你发落',
     quiet: '无需发落——此命令在自动推进中',
@@ -501,6 +503,11 @@ export const warCopy: WarCopy = {
     continueBtn: '下续战令',
     continueBtnTitle: '以这条命令为母本下达续作——新令接过战线继续打',
   },
+  starfield: {
+    aria: '星域战场：每片战区一颗星，执行中的部队绕星而行',
+    hqOn: '司令部在线——战时状态，全局开关亮着',
+    hqOff: '停战状态——司令部熄灯',
+  },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（元首改档 ${n} 次）`,
@@ -648,7 +655,7 @@ export const plainCopy: WarCopy = {
     tasks: { title: '任务', note: '未完成的任务' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图' },
   commandBand: {
     title: '等你处理',
     quiet: '不用管——这条命令在自己推进',
@@ -826,6 +833,11 @@ export const plainCopy: WarCopy = {
     tags: { deepen: '跟进·接着做', retry: '跟进·重试', pivot: '跟进·改方向' },
     continueBtn: '继续这件事',
     continueBtnTitle: '以这条命令为基础下发跟进——新的跟进接在原事后面',
+  },
+  starfield: {
+    aria: '项目全景：每个项目一颗星球，正在干活的任务绕圈转',
+    hqOn: '作战状态中——总部亮着',
+    hqOff: '当前没有激活的战线',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',

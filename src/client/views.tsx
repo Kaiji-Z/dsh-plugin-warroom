@@ -17,6 +17,7 @@ import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
+import { galaxyLayout, garrisonOf, moonPos, planetLabel, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
 import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
@@ -1430,8 +1431,8 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
  * 退役（元首：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
-function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
-  const { onCompose, children } = props
+function DispatchStrip(props: { onCompose: () => void; children: ReactNode[]; viewMode?: 'list' | 'map'; onToggleView?: () => void }): ReactNode {
+  const { onCompose, children, viewMode = 'list', onToggleView } = props
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = ref.current
@@ -1464,6 +1465,16 @@ function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }):
     }
   }, [children.length])
   return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label },
+    onToggleView !== undefined
+      ? createElement('button', {
+        className: `war-dispatch-view${viewMode === 'map' ? ' on' : ''}`,
+        type: 'button',
+        'data-war-view-toggle': '1',
+        'aria-pressed': viewMode === 'map',
+        title: viewMode === 'map' ? activeCopy().dispatch.viewBackHint : activeCopy().dispatch.viewMapHint,
+        onClick: onToggleView,
+      }, viewMode === 'map' ? '☰ 列表' : '🪐 星域')
+      : null,
     createElement('button', {
       className: 'war-dispatch-add',
       type: 'button',
@@ -1552,6 +1563,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
     // V10 续接播种：战报卡「下续战令」→ 预填起草器接续目标。
     const [continueSeed, setContinueSeed] = useState<string | null>(null)
+    // V10-R3a 星域/列表视图偏好（窄屏强制列表——中庭放不下恒星系）。
+    const [viewPref, setViewPref] = useState<'list' | 'map'>(() => {
+      try { return localStorage.getItem('warroom-cfg-view') === 'map' ? 'map' : 'list' } catch { return 'list' }
+    })
     // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/战报）。
     const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
@@ -1687,6 +1702,27 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         hueSlot: c.chain.hueSlot,
         live: chainOf(c).some(t => t.attemptLog.some(a => a.endedAt === null)),
       }))
+    // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
+    // 坐标全确定性推导——SSE revision 翻新零抖动。
+    const wsOrder = workspaceCreationOrder(tasks)
+    const planetSpecs = galaxyLayout(wsOrder)
+    const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
+    const starTroops = live.flatMap(({ t, a }) => {
+      const idx = wsOrder.indexOf(t.workspacePath ?? '')
+      if (idx < 0) return []
+      const spec = planetSpecs[idx]!
+      const pos = moonPos(spec, a.sessionId)
+      return [{
+        sessionId: a.sessionId,
+        planet: spec,
+        xPct: pos.xPct,
+        yPct: pos.yPct,
+        verbLabel: a.activity?.label ?? null,
+        paused: t.quotaPaused === true,
+        sourceCommandId: lineageOf(t.taskId)?.commandId ?? null,
+      }]
+    })
+    const mapView = viewPref === 'map' && typeof window !== 'undefined' && window.innerWidth >= 900
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
@@ -1771,7 +1807,19 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
-          createElement('div', { className: 'war-ops' },
+          // V10-R3a 星域底版：地图视图下取代三列局势墙（列表视图原样保留——
+          // .war-ops 兄弟插入，不重排既有网格；窄屏 mapView=false 自动回列表）。
+          ...(mapView ? [createElement(StarfieldMap, {
+            key: 'starfield',
+            active: data.active,
+            planets: starPlanets,
+            troops: starTroops,
+            ariaLabel: activeCopy().starfield.aria,
+            hqTitleLit: activeCopy().starfield.hqOn,
+            hqTitleDark: activeCopy().starfield.hqOff,
+            onOpenCommand: id => { openCommand(id) },
+          })] : []),
+          createElement('div', { className: 'war-ops', style: mapView ? { display: 'none' } : undefined },
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,
@@ -1805,7 +1853,18 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           ),
           // V9 底部命令调度条：所有命令卡横向一排（活跃优先 + 新→旧），每张带
           // 四段生命条显示所处阶段——命令是唯一可点入口，点开=全生命周期详情。
-          createElement(DispatchStrip, { key: 'dispatch', onCompose: () => { setComposerOpen(true) } },
+          createElement(DispatchStrip, {
+            key: 'dispatch',
+            onCompose: () => { setComposerOpen(true) },
+            viewMode: mapView ? 'map' : 'list',
+            onToggleView: () => {
+              setViewPref(p => {
+                const next = p === 'map' ? 'list' : 'map'
+                try { localStorage.setItem('warroom-cfg-view', next) } catch { /* 隐私模式 */ }
+                return next
+              })
+            },
+          },
             ...dispatchCommands.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
               actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
             })),

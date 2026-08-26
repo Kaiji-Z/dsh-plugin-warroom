@@ -458,6 +458,51 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
 /* 起草器续接排：复用 recent-chip 底版，选中态走焦点环内嵌 */
 .war-continue-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .war-continue-chip.on{border-style:solid;border-color:var(--war-focus);color:var(--dsw-alias-label-primary);font-weight:600;background:var(--war-run-tint)}
+/* --- V10-R3a 星域战场（同心椭圆恒星系）--------------------------------------
+ * 全 DOM/CSS；浅色=米白海图纸风（细网格+淡染），深色=夜航星图（点状星幕）。
+ * 容器与轨道全用 --war-* 令牌系衍生色。 */
+.war-starfield{position:relative;flex:1;min-height:420px;border-radius:14px;overflow:hidden;border:1px solid var(--dsw-alias-border-l1);
+  background:
+    radial-gradient(1100px 460px at 72% -12%, color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent), transparent 62%),
+    radial-gradient(820px 400px at 12% 112%, color-mix(in srgb, var(--chain-hue, #a83d84) 6%, transparent), transparent 55%),
+    linear-gradient(color-mix(in srgb, var(--dsw-alias-border-l1) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--dsw-alias-border-l1) 28%, transparent) 1px, transparent 1px),
+    var(--war-canvas);
+  background-size:auto,auto,56px 56px,56px 56px,auto}
+body[data-ds-dark-theme] .war-root .war-starfield{
+  background:
+    radial-gradient(1100px 460px at 72% -12%, color-mix(in srgb, var(--dsw-alias-state-business-primary) 9%, transparent), transparent 60%),
+    radial-gradient(820px 400px at 12% 112%, color-mix(in srgb, #a83d84 7%, transparent), transparent 55%),
+    var(--war-canvas)}
+/* 夜间星幕：box-shadow 级联太贵，固定 radial 点阵两层足够氛围 */
+body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
+  background-image:
+    radial-gradient(1.2px 1.2px at 18% 26%, rgba(255,255,255,.75), transparent 100%),
+    radial-gradient(1px 1px at 64% 14%, rgba(255,255,255,.5), transparent 100%),
+    radial-gradient(1.4px 1.4px at 82% 58%, rgba(255,255,255,.65), transparent 100%),
+    radial-gradient(1px 1px at 34% 78%, rgba(255,255,255,.45), transparent 100%),
+    radial-gradient(1.2px 1.2px at 50% 44%, rgba(255,255,255,.35), transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, rgba(255,255,255,.5), transparent 100%),
+    radial-gradient(1px 1px at 8% 60%, rgba(255,255,255,.4), transparent 100%),
+    radial-gradient(1.3px 1.3px at 42% 8%, rgba(255,255,255,.6), transparent 100%);
+  pointer-events:none}
+.war-orbit{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);border:1px dashed color-mix(in srgb, var(--dsw-alias-border-l2) 70%, transparent);border-radius:50%;pointer-events:none}
+.war-hq{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:20px;line-height:1;color:var(--dsw-alias-label-tertiary);filter:saturate(.2);pointer-events:none;font-family:var(--dsw-font-family)}
+.war-hq.lit{color:#f6c453;filter:none;text-shadow:0 0 14px color-mix(in srgb,#f6c453 65%,transparent),0 0 40px color-mix(in srgb,#f6c453 25%,transparent)}
+.war-planet{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto}
+.war-planet-ball{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 32% 30%, color-mix(in srgb,#fff 28%,transparent), transparent 46%), var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2)}
+.war-planet.busy .war-planet-ball{width:20px;height:20px;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, transparent)}
+.war-planet-label{font-size:12px;color:var(--dsw-alias-label-secondary);max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-orb{position:absolute;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px;cursor:default;font-family:var(--dsw-font-family)}
+.war-orb-body{display:block;width:11px;height:11px;border-radius:50%;background:var(--war-run-strong);box-shadow:0 0 0 3px var(--war-run-tint), 0 0 12px color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);animation:war-orb-pulse 2.2s ease-in-out infinite}
+.war-orb.wait .war-orb-body{background:color-mix(in srgb,var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 58%, #000);box-shadow:0 0 0 3px var(--war-wait-tint)}
+@keyframes war-orb-pulse{50%{box-shadow:0 0 0 6px var(--war-run-tint), 0 0 18px color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent)}}
+.war-orb.clickable{cursor:pointer}
+.war-orb:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px;border-radius:8px}
+.war-orb-verb{position:absolute;top:-4px;left:50%;transform:translate(-50%,-100%);font-size:12px;color:var(--dsw-alias-label-primary);white-space:nowrap;background:color-mix(in srgb, var(--war-card-bg) 88%, transparent);padding:1px 6px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);pointer-events:none}
+.war-dispatch-view{cursor:pointer;align-self:center;font-size:12px;line-height:18px;padding:2px 10px;margin-right:4px;border-radius:999px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:transparent;font-family:var(--dsw-font-family);white-space:nowrap}
+.war-dispatch-view.on{border-style:solid;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);color:var(--war-run-strong);background:var(--war-run-tint)}
+.war-dispatch-view:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}
