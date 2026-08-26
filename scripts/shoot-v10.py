@@ -138,6 +138,12 @@ with sync_playwright() as p:
         fb = page.locator(floater).bounding_box()
         inside = fb["x"] >= sf_bb["x"] - 2 and fb["y"] >= sf_bb["y"] - 2 and fb["x"]+fb["width"] <= sf_bb["x"]+sf_bb["width"]+2 and fb["y"]+fb["height"] <= sf_bb["y"]+sf_bb["height"]+2
         assert inside, f"{floater} 必须完整浮于全幅星域之上：{fb} vs {sf_bb}"
+    dock_bb = page.locator(".war-dispatch").bounding_box()
+    for pod in (".war-zone.war-tasks", ".war-zone.war-report"):
+        pb = page.locator(pod).bounding_box()
+        gap = dock_bb["y"] - (pb["y"] + pb["height"])
+        assert gap >= 8, f"{pod} 底部与坞必须留距，gap={gap:.0f}"
+    assert abs(page.locator(".war-zone.war-tasks").bounding_box()["x"] - dock_bb["x"]) <= 3, "任务舱左缘须与坞左缘对齐（同 10px 内缩）"
     isl = page.locator(".war-island").first.bounding_box()
     top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")
     assert top_el, "灵动岛必须浮于星域之上（岛中心命中岛自身）"

@@ -519,13 +519,13 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
 .war-board{position:relative}
 .war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（元首定）：调度/任务/战报全部浮于其上 */
 .war-board.war-mapmode .war-ops{position:absolute;inset:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
-.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:0;bottom:0;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
+.war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:200px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
 body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
 @supports (backdrop-filter: blur(10px)){
   .war-board.war-mapmode .war-zone{backdrop-filter:blur(10px)}
 }
-.war-board.war-mapmode .war-zone.war-tasks{left:0}
-.war-board.war-mapmode .war-zone.war-report{right:0}
+.war-board.war-mapmode .war-zone.war-tasks{left:10px} /* 左右 10px=坞内缩同款（元首目检 2026-08-27） */
+.war-board.war-mapmode .war-zone.war-report{right:10px}
 .war-board.war-mapmode .war-zone.war-field{display:none}
 .war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
 /* --- V10.1 调度坞卡牌组：同链命令错位叠成一副手牌，hover 抬起 ---------------- */
