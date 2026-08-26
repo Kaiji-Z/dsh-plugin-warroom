@@ -1809,7 +1809,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
           // V10-R3a 星域底版：中列「战场」换恒星系画布——任务列左、星域中、
           // 战报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
-          createElement('div', { className: 'war-ops' },
+          // V10-R3b 星域态=悬浮舱：左右两列收窄半透明浮于星域之上，中列让位恒星系。
+          createElement('div', { className: `war-ops${mapView ? ' war-map' : ''}` },
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,
@@ -1840,6 +1841,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                   hqTitleLit: activeCopy().starfield.hqOn,
                   hqTitleDark: activeCopy().starfield.hqOff,
                   onOpenCommand: id => { openCommand(id) },
+                  // V10-R4 族链联动：光点悬停点亮源命令全族（与卡片 CardTrace 同状态机同门槛）。
+                  onOrbHover: id => {
+                    if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
+                  },
                 })
                 : Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
                   [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),

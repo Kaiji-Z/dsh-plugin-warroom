@@ -132,12 +132,14 @@ export interface StarfieldProps {
   readonly hqTitleLit: string
   readonly hqTitleDark: string
   readonly onOpenCommand?: (commandId: string) => void
+  /** V10-R4 族链联动：光点悬停→点亮其源命令全族（CardTrace 同一状态机）。 */
+  readonly onOrbHover?: (sourceCommandId: string | null) => void
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover } = props
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -176,6 +178,10 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-session': t.sessionId,
         style: { left: `${t.xPct}%`, top: `${t.yPct}%` },
         title: t.verbLabel !== null && t.verbLabel !== '' ? t.verbLabel : undefined,
+        onMouseEnter: () => { onOrbHover?.(t.sourceCommandId) },
+        onMouseLeave: () => { onOrbHover?.(null) },
+        onFocus: () => { onOrbHover?.(t.sourceCommandId) },
+        onBlur: () => { onOrbHover?.(null) },
         onClick: () => { if (t.sourceCommandId !== null) onOpenCommand?.(t.sourceCommandId) },
       },
       createElement('span', { className: 'war-orb-body', 'aria-hidden': 'true' }),

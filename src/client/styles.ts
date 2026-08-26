@@ -503,6 +503,13 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-dispatch-view{cursor:pointer;align-self:center;font-size:12px;line-height:18px;padding:2px 10px;margin-right:4px;border-radius:999px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:transparent;font-family:var(--dsw-font-family);white-space:nowrap}
 .war-dispatch-view.on{border-style:solid;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);color:var(--war-run-strong);background:var(--war-run-tint)}
 .war-dispatch-view:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
+/* --- V10-R3b 星域态悬浮舱：中列让位恒星系后，左右两列窄幅半透明浮起 ---------- */
+.war-ops.war-map{grid-template-columns:minmax(230px,19%) minmax(0,1fr) minmax(230px,21%)}
+.war-ops.war-map .war-zone{background:color-mix(in srgb, var(--war-card-bg) 78%, transparent);border-color:transparent;box-shadow:0 8px 28px color-mix(in srgb,#000 18%,transparent)}
+body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 30px color-mix(in srgb,#000 55%,transparent)}
+@supports (backdrop-filter: blur(8px)){
+  .war-ops.war-map .war-zone{backdrop-filter:blur(9px)}
+}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}
