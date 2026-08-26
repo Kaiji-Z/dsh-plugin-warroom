@@ -521,11 +521,12 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-done{background:var(--dsw
 body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary))}
 .war-detach,.war-cd-session{min-height:24px}
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
-.war-live-bar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:6px 14px;border-radius:999px;background:color-mix(in srgb, var(--war-card-bg) 82%, transparent);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 22px color-mix(in srgb,#000 18%,transparent);max-width:72%;overflow:hidden}
+.war-live-bar{position:absolute;left:50%;bottom:230px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:6px 14px;border-radius:999px;background:color-mix(in srgb, var(--war-card-bg) 82%, transparent);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 22px color-mix(in srgb,#000 18%,transparent);max-width:72%;overflow:hidden}
 @supports (backdrop-filter: blur(8px)){.war-live-bar{backdrop-filter:blur(8px)}}
 .war-live-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .war-live-verb{font-weight:700;color:var(--war-run-strong)}
 .war-live-cmd{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.war-map-legend{position:absolute;left:14px;bottom:12px;font-size:12px;color:var(--dsw-alias-label-tertiary);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1);pointer-events:none;white-space:nowrap}
 /* V10.1 星域指路 toast（一次性） */
 .war-map-hint{position:fixed;right:18px;bottom:18px;z-index:40;max-width:340px;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);background:var(--war-card-bg);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;cursor:pointer;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--dsw-font-family);text-align:left}
 .war-map-hint:hover{background:var(--war-run-tint)}
@@ -576,6 +577,8 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-cmd-group{display:flex}
 .war-cmd-group .war-command-card{width:200px;min-width:200px;max-width:200px;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease} /* 锁宽 200——露出=200-150=50px 精确，不被长文本撑飘 */
 .war-cmd-group .war-command-card + .war-command-card{margin-left:-150px} /* 露 50px 标签缘（元首定） */
+/* critique P0 根修：被盖卡不可点——组内点击面统一归最新代（顶卡），否则点中部=静默开错命令 */
+.war-cmd-group .war-command-card:not(:last-child){pointer-events:none}
 .war-cmd-group .war-command-card:hover{transform:translateY(-4px);z-index:10;box-shadow:0 12px 30px color-mix(in srgb,#000 32%,transparent)}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}

@@ -41,14 +41,16 @@ export interface PlanetSpec {
  * 恒星系布局（纯）：第 k 个 workspace 占第 k 圈椭圆（rx 由圈序线性外扩、ry 压扁
  * 适配宽中庭），圈上方位按黄金角步进。坐标百分比化——容器任意尺寸等比缩放。
  */
-export function galaxyLayout(wsPathsInCreationOrder: readonly string[]): PlanetSpec[] {
+export function galaxyLayout(wsPathsInCreationOrder: readonly string[], xLo = 24, xHi = 76): PlanetSpec[] {
   return wsPathsInCreationOrder.map((wsPath, k) => {
     const rx = 14 + k * 12
     const ang = (planetAngleDeg(k) * Math.PI) / 180
     return {
       wsPath,
       ring: k + 1,
-      xPct: +(clamp(50 + rx * 0.55 * Math.cos(ang), 24, 76)).toFixed(2), // X 压中央安全带——左右浮舱永不遮星（V10.1 TITP）
+      // X 压中央安全带：边界由调用方按浮舱实际宽度推（critique P2：固定 24/76 在
+      // 中等视口被舱遮星——1720 擦边过、1280 重叠 114px）。
+      xPct: +(clamp(50 + rx * 0.55 * Math.cos(ang), xLo, xHi)).toFixed(2),
       yPct: +(clamp(42 + rx * 0.62 * Math.sin(ang), 8, 90)).toFixed(2),
     }
   })
@@ -149,12 +151,14 @@ export interface StarfieldProps {
   readonly orbIdleLabel?: string
   /** V10.1 critique P1-1：行星可达——点击/回车跳该战区最近的源命令聚焦页。 */
   readonly onPlanetOpen?: (wsPath: string) => void
+  /** V10.1 critique P3：地图就地微图例（正式图例仍在设置抽屉）。 */
+  readonly mapLegend?: string
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend } = props
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -168,6 +172,9 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
   return createElement('div', { className: 'war-starfield', role: 'group', 'aria-label': ariaLabel, 'data-war-view': 'map' },
     createElement('div', { className: 'war-stars', 'aria-hidden': 'true' }),
     ...orbits,
+    mapLegend !== undefined
+      ? createElement('div', { className: 'war-map-legend', 'aria-hidden': 'true' }, mapLegend)
+      : null,
     createElement('div', {
       className: `war-hq${active ? ' lit' : ''}`,
       'data-active': String(active),
@@ -217,6 +224,9 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
             createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
               createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
               createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? t.sessionId.slice(0, 8)))))
+      : null,
+    troops.length > 3
+      ? createElement('span', { key: 'lb-more', className: 'war-live-item' }, `+${troops.length - 3}`)
       : null,
     ...ghosts.map(g =>
       createElement('div', {

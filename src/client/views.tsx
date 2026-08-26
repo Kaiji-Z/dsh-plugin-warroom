@@ -1127,11 +1127,11 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
       lineageCmd !== null
         ? createElement('span', {
             className: 'war-chip war-lineage',
+            // critique P2：让出 Tab 序（三列 40+ 停靠的隧道主源）——卡本身可点开同一聚焦页。
             role: 'button',
-            tabIndex: 0,
+            tabIndex: -1,
             title: `${activeCopy().detail.lineageLabel} ${lineageCmd.commandId}——点击追踪全生命周期`,
             onClick: e => { e.stopPropagation(); onOpenCommand(lineageCmd.commandId) },
-            onKeyDown: keyActivate(() => onOpenCommand(lineageCmd.commandId)),
           }, `↩ ${lineageCmd.commandId}`)
         : null,
       createElement('span', { className: 'war-title' }, task.title),
@@ -1762,7 +1762,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
     // 坐标全确定性推导——SSE revision 翻新零抖动。
     const wsOrder = workspaceCreationOrder(tasks)
-    const planetSpecs = galaxyLayout(wsOrder)
+    // critique P2：安全带边界按浮舱实际占宽推（min(320,26vw)+内缩 10×2），与视口联动。
+    const sidePct = ((Math.min(320, winW * 0.26) + 20) / Math.max(winW, 1)) * 100
+    const beltLo = Math.min(24, sidePct + 3)
+    const beltHi = Math.max(76, 100 - sidePct - 3)
+    const planetSpecs = galaxyLayout(wsOrder, beltLo, beltHi)
     const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
     const commandTextOf = new Map(commands.map(c => [c.commandId, c.text.slice(0, 14)] as const))
     const moonSlot = new Map<string, number>()
@@ -1900,6 +1904,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             },
             ghosts: starGhosts,
             orbIdleLabel: activeCopy().starfield.orbIdle,
+            mapLegend: activeCopy().starfield.mapLegend,
             onPlanetOpen: (wsPath: string) => {
               // critique P1-1：行星可达后的落点——该战区最新有仗的源命令聚焦页。
               const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
@@ -1955,7 +1960,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 ? [CommandCard(g.cards[0]!, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(g.cards[0]!), traceFor(g.cards[0]!.commandId), grade => {
                   actNote(regradeCommand(g.cards[0]!.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
                 })]
-                : [createElement('div', { key: `grp-${g.rootId}`, className: 'war-cmd-group', 'data-war-group': g.rootId },
+                : [createElement('div', {
+                    key: `grp-${g.rootId}`, className: 'war-cmd-group clickable', 'data-war-group': g.rootId,
+                    // critique P0：被盖卡 pointer-events:none 后，露缘点击落组容器——兜底开最新代。
+                    onClick: () => { openCommand(g.cards[g.cards.length - 1]!.commandId) },
+                  },
                   ...g.cards.map(c => CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), traceFor(c.commandId), grade => {
                     actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
                   })))],
@@ -1966,7 +1975,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         ? createElement('button', {
             key: 'map-hint', type: 'button', className: 'war-map-hint', 'data-war-map-hint': '1',
             onClick: () => { setMapHint(false); setViewPref('map'); try { localStorage.setItem('warroom-cfg-view', 'map') } catch { /* noop */ } },
-          }, '🪐 战区不止一个——试试星域战场视图（点此开启，⚙ 里随时可关）')
+          }, activeCopy().starfield.mapHintToast)
         : null,
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
