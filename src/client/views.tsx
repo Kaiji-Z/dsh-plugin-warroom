@@ -524,9 +524,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
 function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void }): ReactNode {
   const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
-  const [activeStage, setActiveStage] = useState<'command' | 'task' | 'battle' | 'report'>('command')
-  // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下
-  // 的计划原文（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
+  // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
+  // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
   const [open, setOpen] = useState<{ kind: 'config' } | { kind: 'plan'; taskId: string } | { kind: 'report' } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   // 分段直达：打开即滚到需要元首发落的环节（plan/chain→任务段，report→战报段）。
@@ -535,23 +534,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     const stage = focusSegment === 'report' ? 'report' : 'task'
     document.querySelector(`.war-modal .war-cd-stage[data-stage='${stage}']`)?.scrollIntoView({ block: 'center' })
   }, [focusSegment])
-  // 滚动高亮：故事线滚到哪段，阶段导航亮哪段。
-  useEffect(() => {
-    const body = bodyRef.current
-    if (body === null) return
-    const onScroll = (): void => {
-      const stages = [...body.querySelectorAll<HTMLElement>('.war-cd-stage')]
-      const mid = body.scrollTop + body.clientHeight * 0.35
-      let cur: 'command' | 'task' | 'battle' | 'report' = 'command'
-      for (const st of stages) {
-        if (st.offsetTop <= mid) cur = st.dataset.stage as typeof cur
-      }
-      setActiveStage(cur)
-    }
-    body.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
-    return () => { body.removeEventListener('scroll', onScroll) }
-  }, [])
+  // 滚动高亮随 V9.10 导航钮一起退役：四段本身不长，滚动即读，无需段落指示。
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
   const fp = activeCopy().focusPage
@@ -580,6 +563,23 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   const execTarget = liveAttempts[0]?.a.sessionId ?? execSessions[0]?.a.sessionId ?? null
   const failedChain = chain.some(t => t.status === 'failed')
   const scheduled = cmd.schedule !== null && cmd.schedule.dispatchedAt === null
+  // V9.10 任务段状态机（空链时的卡片/提示分岔，元首定案）：计划优先 > 等你答问
+  // > 已接令起草 > 转达中；定时待发与已取消给非交互灰提示——所见即真实状态，
+  // 不再一律「参谋正在起草」。ghost 卡 = 任务成形车间（参谋会话）的就地入口。
+  const talking = cmd.status === 'talking'
+  const ghostVariant = chain.length === 0 && cmd.status !== 'cancelled'
+    ? cmd.plan !== null ? 'plan' as const
+      : talking ? 'talking' as const
+      : cmd.staffSessionId !== null ? 'drafting' as const
+      : null
+    : null
+  const taskHint = chain.length > 0 || ghostVariant !== null ? null
+    : cmd.status === 'cancelled' ? fp.taskCancelled
+    : scheduled ? fp.taskScheduledHint(fmtSchedule(cmd.schedule !== null ? cmd.schedule.nextRunAt : null))
+    : cmd.status === 'approved' ? fp.taskAwaitingPublish
+    : fp.taskRelaying
+  // 配置展开里的改档出口（旧 footer 折叠的语义新家）：已分诊且未批准未取消。
+  const regradable = cmd.grade !== null && cmd.status !== 'approved' && cmd.status !== 'cancelled'
   // 决策带动作判定（与收件箱四类同源，plan 优先级最高）。
   const actionKind = cmd.plan?.status === 'pending'
     ? 'plan'
@@ -608,41 +608,79 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       createElement('summary', null, summary),
       ...children,
     )
-  const stageHead = (n: number, key: string, conclusion: string): ReactNode =>
+  // V9.10 段头去编号（①②③④随导航钮退役）：静态「阶段名+结论」，不跳转。
+  const stageHead = (key: 'command' | 'task' | 'battle' | 'report', conclusion: string): ReactNode =>
     createElement('div', { className: 'war-cd-stage-head' },
-      createElement('span', { className: 'war-cd-stage-no' }, `${n}`),
-      createElement('span', { className: 'war-cd-stage-name' }, stages[key as keyof typeof stages]),
+      createElement('span', { className: 'war-cd-stage-name' }, stages[key]),
       createElement('span', { className: 'war-cd-stage-conc' }, conclusion),
     )
-  const stepBtn = (key: 'command' | 'task' | 'battle' | 'report', n: number): ReactNode =>
-    createElement('button', {
-      key, type: 'button',
-      className: `war-cd-step${activeStage === key ? ' on' : ''}${life.reached[key] ? ' reached' : ''}`,
-      onClick: () => { scrollToStage(key) },
-      'aria-current': activeStage === key,
-    }, `${n} ${stages[key]}`)
   // 子详情行（配置/计划/战报共用的「标签: 值」行，值可长文换行）。
   const subRow = (label: string, value: ReactNode): ReactNode =>
     createElement('div', { className: 'war-sub-row' },
       createElement('span', { className: 'war-sub-label' }, label),
       createElement('div', { className: 'war-sub-value' }, value),
     )
-  // 任务段卡下展开的「最终计划原文」面板（链上各卡共享命令级计划；计划待批时
-  // 给「正在计划中」+ 进任务会话按钮——任务原生会话就是参谋写计划的地方）。
-  const planPanel = (key?: string): ReactNode => {
-    const pending = cmd.plan?.status === 'pending'
+  const subActions = (children: ReactNode[]): ReactNode =>
+    createElement('div', { className: 'war-modal-actions' }, ...children)
+  // 空链 ghost 卡的展开（V9.10 按命令状态分岔）：计划（待批=原文+顺手批驳+进
+  // 任务会话）/ 等你答问（进入对话回答=markTalking+跳）/ 已接令（分诊结果+进
+  // 任务会话）——任务成形的车间就是参谋会话，操作落在读到的位置。
+  const ghostPanel = (key?: string): ReactNode => {
+    if (ghostVariant === 'plan') {
+      const pending = cmd.plan?.status === 'pending'
+      return createElement('div', { key, className: 'war-subdetail' },
+        createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[(cmd.plan as { status: 'pending' | 'approved' | 'rejected' }).status]}）`),
+        pending ? createElement('div', { className: 'war-sub-value' }, fp.planPending) : null,
+        createElement('div', { className: 'war-sub-value war-plan-body' }, (cmd.plan as { text: string }).text),
+        pending
+          ? subActions([
+            createElement('button', { key: 'ap', className: 'war-btn primary', onClick: () => { onDecidePlan('approve') } }, copy.approvePlan),
+            createElement('button', { key: 'rj', className: 'war-btn', onClick: () => { onDecidePlan('reject') } }, copy.rejectPlan),
+            staffTarget !== null
+              ? createElement('button', { key: 'in', className: 'war-btn', onClick: () => { services.sessions?.open(staffTarget) } }, fp.planEnterSession)
+              : null,
+          ])
+          : null,
+      )
+    }
+    if (ghostVariant === 'talking') {
+      return createElement('div', { key, className: 'war-subdetail' },
+        createElement('div', { className: 'war-subdetail-title' }, fp.talkingGhostTitle),
+        createElement('div', { className: 'war-sub-value' }, fp.talkingGhostNote),
+        staffTarget !== null
+          ? subActions([createElement('button', {
+              className: 'war-btn primary war-btn-warn',
+              onClick: () => { void markTalking(cmd.commandId); services.sessions?.open(staffTarget) },
+            }, fp.talkingEnterBtn)])
+          : null,
+      )
+    }
     return createElement('div', { key, className: 'war-subdetail' },
-      createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}${cmd.plan !== null ? `（${copy.planTitle[cmd.plan.status]}）` : ''}`),
-      pending ? createElement('div', { className: 'war-sub-value' }, fp.planPending) : null,
-      cmd.plan !== null
-        ? createElement('div', { className: 'war-sub-value war-plan-body' }, cmd.plan.text)
-        : createElement('div', { className: 'war-sub-value' }, fp.planNone),
-      pending && staffTarget !== null
-        ? createElement('div', { className: 'war-modal-actions' },
-          createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, fp.planEnterSession))
+      createElement('div', { className: 'war-subdetail-title' }, fp.draftingGhostTitle),
+      subRow(fp.triageLabel, cmd.grade !== null
+        ? `${GRADE_LABEL[cmd.grade]}${GRADE_MARKER[cmd.grade]}${cmd.gradeConfidence !== null ? ` · 置信 ${Math.round(cmd.gradeConfidence * 100)}%` : ''}`
+        : fp.triagePending),
+      cmd.gradeReason !== null ? subRow(copy.gradeReasonPrefix, cmd.gradeReason) : null,
+      staffTarget !== null
+        ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, fp.planEnterSession)])
         : null,
     )
   }
+  // 链上任务卡的展开（V9.10 补全）：命令级最终计划（若有）+ 该环任务书 + 验收
+  // 标准；reported/failed 环给「去处理」直达参谋会话（与主界面任务卡同动作）。
+  const taskPanel = (t: BoardTask, key?: string): ReactNode => createElement('div', { key, className: 'war-subdetail' },
+    cmd.plan !== null
+      ? createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[cmd.plan.status]}）`)
+      : null,
+    cmd.plan !== null
+      ? createElement('div', { className: 'war-sub-value war-plan-body' }, cmd.plan.text)
+      : null,
+    subRow(fp.taskBrief, t.brief !== '' ? t.brief : fp.briefMissing),
+    subRow(fp.taskAcceptance, t.acceptance !== '' ? t.acceptance : fp.acceptanceMissing),
+    (t.status === 'reported' || t.status === 'failed') && staffTarget !== null
+      ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, activeCopy().taskCard.handle)])
+      : null,
+  )
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal wide war-cd-modal', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       // V9.9：footer 收编为两颗会话跳钮，窗口关闭走右上 ✕（+Esc+点背板）。
@@ -696,13 +734,10 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                   ),
       ),
       createElement('div', { className: 'war-detail-body war-cd-body', ref: bodyRef },
-        // 阶段导航（sticky）：卡片生命条放大——点哪段滚到哪段，滚到哪段亮哪段。
-        createElement('div', { className: 'war-cd-steps', role: 'tablist', 'aria-label': band.journey },
-          stepBtn('command', 1), stepBtn('task', 2), stepBtn('battle', 3), stepBtn('report', 4),
-        ),
-        // ① 命令 · 你说了什么：主界面命令卡原样拉进来，点卡展开「下达配置」。
+        // ① 命令 · 你说了什么：主界面命令卡原样拉进来，点卡展开「下达配置」
+        // （V9.10 配置即改档之家——看当时怎么配的，顺手改档）。
         createElement('section', { className: 'war-cd-stage', 'data-stage': 'command' },
-          stageHead(1, 'command', cmd.grade !== null ? `${GRADE_LABEL[cmd.grade]}${cmd.gradeConfidence !== null ? ` · 置信 ${Math.round(cmd.gradeConfidence * 100)}%` : ''}` : band.noGrade),
+          stageHead('command', cmd.grade !== null ? `${GRADE_LABEL[cmd.grade]}${cmd.gradeConfidence !== null ? ` · 置信 ${Math.round(cmd.gradeConfidence * 100)}%` : ''}` : band.noGrade),
           CommandCard(cmd, hqSessionId, services, () => { setOpen(o => o !== null && o.kind === 'config' ? null : { kind: 'config' }) }, chain, NO_TRACE, onRegrade, true),
           open !== null && open.kind === 'config'
             ? createElement('div', { className: 'war-subdetail' },
@@ -718,40 +753,51 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                 : fp.configAutonomyAuto),
               cmd.gradeReason !== null ? subRow(copy.gradeReasonPrefix, cmd.gradeReason) : null,
               subRow(fp.configText, cmd.text),
+              regradable
+                ? subRow(fp.configRegrade, createElement('span', { className: 'war-sub-btns' },
+                  (['L0', 'L1', 'L2'] as const).filter(g => g !== cmd.grade).map(g =>
+                    createElement('button', { key: g, className: 'war-btn', onClick: () => { onRegrade(g) } }, copy.regradeTo(GRADE_LABEL[g])))))
+                : null,
             )
             : null,
         ),
-        // ② 任务 · 变成了什么：链上全部任务卡按序拉进来（链共享一份命令级计划），
-        // 点任一张卡下展开「最终计划原文」；计划已成形但任务未发布的窗口期给
-        // ghost 卡（点开同样看计划），连计划都没有给灰提示行。
+        // ② 任务 · 变成了什么：链上全部任务卡按序拉进来，点任一张卡下展开
+        // 「最终计划+该环任务书+验收标准」（reported/failed 环带去处理）；空链
+        // 按状态机给 ghost 卡（计划/等你答问/起草中——任务成形的车间入口）或
+        // 分岔后的灰提示（定时待发/转达中/已批准待发布/已取消）。
         createElement('section', { className: 'war-cd-stage', 'data-stage': 'task' },
-          stageHead(2, 'task', chain.length > 1 ? copy.chainDone(closed, chain.length) : life.status),
+          stageHead('task', chain.length > 1 ? copy.chainDone(closed, chain.length) : life.status),
           createElement('div', { className: 'war-tour-cards' },
             ...chain.map(t => [
               TaskCard(t, statuses,
                 () => { setOpen(o => o !== null && o.kind === 'plan' && o.taskId === t.taskId ? null : { kind: 'plan', taskId: t.taskId }) },
                 null, null, () => {}, NO_TRACE),
-              open !== null && open.kind === 'plan' && open.taskId === t.taskId ? planPanel(`plan-${t.taskId}`) : null,
+              open !== null && open.kind === 'plan' && open.taskId === t.taskId ? taskPanel(t, `panel-${t.taskId}`) : null,
             ]),
-            chain.length === 0 && cmd.plan !== null
-              ? [createElement('div', {
-                  key: 'ghost', className: 'war-tour-ghost clickable', role: 'button', tabIndex: 0,
-                  onClick: () => { setOpen(o => o !== null && o.kind === 'plan' ? null : { kind: 'plan', taskId: '' }) },
-                  onKeyDown: keyActivate(() => { setOpen(o => o !== null && o.kind === 'plan' ? null : { kind: 'plan', taskId: '' }) }),
-                },
-                createElement('span', { className: 'war-tour-ghost-icon' }, '◷'),
-                createElement('span', null, cmd.plan.status === 'pending' ? fp.taskGhostPlanning : fp.taskGhostApproved)),
-                open !== null && open.kind === 'plan' && open.taskId === '' ? planPanel('plan-ghost') : null]
+            ghostVariant !== null
+              ? [(() => {
+                  const toggleGhost = (): void => { setOpen(o => o !== null && o.kind === 'plan' ? null : { kind: 'plan', taskId: '' }) }
+                  return createElement('div', {
+                    key: 'ghost', className: `war-tour-ghost clickable${ghostVariant === 'talking' ? ' warn' : ''}`, role: 'button', tabIndex: 0,
+                    'aria-label': ghostVariant === 'talking' ? fp.talkingGhostTitle : ghostVariant === 'drafting' ? fp.draftingGhostTitle : fp.planTitle,
+                    onClick: toggleGhost,
+                    onKeyDown: keyActivate(toggleGhost),
+                  },
+                  createElement('span', { className: 'war-tour-ghost-icon' }, ghostVariant === 'talking' ? '⚠' : '◷'),
+                  createElement('span', null,
+                    ghostVariant === 'plan'
+                      ? ((cmd.plan as { status: 'pending' | 'approved' | 'rejected' }).status === 'pending' ? fp.taskGhostPlanning : fp.taskGhostApproved)
+                      : ghostVariant === 'talking' ? fp.talkingGhostCard : fp.draftingGhostCard))
+                })(),
+                open !== null && open.kind === 'plan' && open.taskId === '' ? ghostPanel('panel-ghost') : null]
               : null,
-            chain.length === 0 && cmd.plan === null
-              ? createElement('div', { key: 'hint', className: 'war-tour-hint' }, cmd.status === 'approved' ? fp.taskAwaitingPublish : fp.taskPlanning)
-              : null,
+            taskHint !== null ? createElement('div', { key: 'hint', className: 'war-tour-hint' }, taskHint) : null,
           ),
         ),
         // ③ 执行 · 谁在干：只有正在进行的会话才有卡（点卡直跳原生会话窗口）；
         // 执行完了就没有可点卡片，只给提示行（段头不重复同一句话）。
         createElement('section', { className: 'war-cd-stage', 'data-stage': 'battle' },
-          stageHead(3, 'battle', liveAttempts.length > 0 ? fp.battleLive(liveAttempts.length) : ''),
+          stageHead('battle', liveAttempts.length > 0 ? fp.battleLive(liveAttempts.length) : ''),
           liveAttempts.length > 0
             ? createElement('div', { className: 'war-tour-cards' },
               ...liveAttempts.map(({ t, a }) => SessionCard(t, a, (_t, a2) => { services.sessions?.open(a2.sessionId) }, NO_TRACE)))
@@ -761,10 +807,10 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
         // 结论原文 + 最新战报 + 证据折叠；无战报只给提示行（段头不重复）。
         createElement('section', { className: 'war-cd-stage war-cd-report', 'data-stage': 'report' },
           reportEntry !== null
-            ? stageHead(4, 'report', verdictTask !== undefined && verdictTask.closedVerdict !== null
+            ? stageHead('report', verdictTask !== undefined && verdictTask.closedVerdict !== null
               ? `${verdictTask.closedVerdict.slice(0, 24)}${verdictTask.closedVerdict.length > 24 ? '…' : ''}`
               : lastReport !== undefined ? relTime(lastReport.r.ts) : '')
-            : stageHead(4, 'report', ''),
+            : stageHead('report', ''),
           reportEntry !== null
             ? createElement('div', { className: 'war-tour-cards' },
               SessionCard(reportEntry.t, reportEntry.a, () => { setOpen(o => o !== null && o.kind === 'report' ? null : { kind: 'report' }) }, NO_TRACE),
@@ -773,6 +819,25 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                   verdictTask !== undefined && verdictTask.closedVerdict !== null ? subRow(fp.reportVerdict, verdictTask.closedVerdict) : null,
                   lastReport !== undefined ? subRow(fp.reportLatest, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`) : null,
                   evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)]) : null,
+                  // V9.10 收菜三件：战利品/交付物 + 历次作战会话（逐次可跳）+ 待发落时的去处理。
+                  reportHost !== undefined && reportHost.deliverables.length > 0
+                    ? subRow(fp.lootLabel, createElement('span', { className: 'war-loot' },
+                      reportHost.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary))))
+                    : null,
+                  execSessions.length > 0
+                    ? subRow(fp.attemptsSection, createElement('span', { className: 'war-sub-attempts' },
+                      execSessions.map(({ t, a }) => createElement('button', {
+                        key: a.id, className: 'war-cd-session', type: 'button', title: a.sessionId,
+                        onClick: () => { services.sessions?.open(a.sessionId) },
+                      },
+                      createElement('span', { className: `war-chip ${(a.outcome ?? 'live') === 'live' ? 'st-in_progress' : a.outcome === 'failed' ? 'oc-fail' : a.outcome === 'reported' ? 'oc-reported' : 'oc-done'}` }, outcomeLabel(a.outcome ?? 'live').label),
+                      createElement('span', { className: 'war-taskid' }, `⌁ ${a.sessionId.slice(0, 10)}… · ${t.taskId}`),
+                      createElement('span', { className: 'war-time' }, relTime(a.startedAt)),
+                      ))))
+                    : null,
+                  (lastReport !== undefined && chain.some(t => t.status === 'reported') || failedChain) && staffTarget !== null
+                    ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { services.sessions?.open(staffTarget) } }, activeCopy().taskCard.handle)])
+                    : null,
                 )
                 : null)
             : createElement('div', { className: 'war-tour-hint' }, fp.reportNone),

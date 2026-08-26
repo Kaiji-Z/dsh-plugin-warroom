@@ -440,17 +440,19 @@ with sync_playwright() as p:
     page.wait_for_selector(".war-cd-band", timeout=3000)
     assert page.locator(".war-cd-band .war-btn.primary", has_text="批准计划").count() == 1, "approve button missing in decision band"
     assert "放权" in page.locator(".war-cd-band-hint").inner_text(), "consequence hint missing in band"
-    assert page.locator(".war-cd-steps .war-cd-step").count() == 4, "four-stage journey nav missing"
+    assert page.locator(".war-modal .war-cd-step").count() == 0, "V9.10: stage jump-nav buttons must be retired"
     assert page.locator(".war-modal-title").inner_text().startswith("「"), "detail title must lead with the command text, not cmd-id"
     assert page.locator(".war-cd-stage").count() == 4, "four journey stages missing"
-    # V9.9 聚焦页机检：ghost 卡点开看计划原文 + 进任务会话钮；底部双跳钮一启用一占位；
-    # 命令卡点开下达配置再点收起；右上 ✕ 关窗（footer 已收编为双跳钮）。
+    # V9.9/V9.10 聚焦页机检：ghost 卡点开=计划原文+批准/驳回+进任务会话（读到哪批到哪）；
+    # 命令卡点开=下达配置+改档钮组；底部双跳钮一启用一占位；✕ 关窗。
     page.locator(".war-modal .war-tour-ghost").click()
     page.wait_for_timeout(250)
     assert page.locator(".war-modal .war-subdetail").count() == 1, "ghost click should expand the plan panel beneath it"
     sub_text = page.locator(".war-modal .war-subdetail").inner_text()
     assert "最终计划" in sub_text and "正在计划中" in sub_text, "plan panel must carry the final-plan title + planning note"
-    assert page.locator(".war-modal .war-subdetail .war-btn.primary", has_text="进入任务会话").count() == 1, "enter-task-session button missing on pending plan"
+    assert page.locator(".war-modal .war-subdetail .war-btn", has_text="进入任务会话").count() == 1, "enter-task-session button missing on pending plan"
+    assert page.locator(".war-modal .war-subdetail .war-btn", has_text="批准计划").count() == 1, "approve must also live in the plan panel (read-where-you-decide)"
+    assert page.locator(".war-modal .war-subdetail .war-btn", has_text="驳回重呈").count() == 1, "reject must also live in the plan panel"
     jumps = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
     assert jumps.count() == 2 and "任务会话" in jumps.nth(0).inner_text() and "执行会话" in jumps.nth(1).inner_text(), "jump buttons must be 任务会话 + 执行会话"
     assert jumps.nth(0).is_enabled() and jumps.nth(1).is_disabled(), "plan-pending command: staff jump enabled, exec jump placeholder"
@@ -460,6 +462,8 @@ with sync_playwright() as p:
     assert cfg.count() == 1, "command card click should expand the dispatch-config panel"
     cfg_text = cfg.inner_text()
     assert "发布时机" in cfg_text and "自主度" in cfg_text and "命令原文" in cfg_text, "config panel must list timing/autonomy/text"
+    assert "改档" in cfg_text, "V9.10: config panel must carry the regrade row"
+    assert page.locator(".war-modal [data-stage='command'] .war-sub-btns .war-btn").count() == 2, "L1 command should offer L0/L2 regrade buttons"
     page.screenshot(path=f"{OUT}/v9-focus-config.png")
     page.locator(".war-modal [data-stage='command'] .war-command-card").click()
     page.wait_for_timeout(250)
@@ -478,17 +482,30 @@ with sync_playwright() as p:
     assert page.locator(".war-modal .war-tour-jumps .war-jump-btn").count() == 2, "received card click must open the focus page (V9.5 unified, V9.9 tour)"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
-    # V9.9 全生命周期导览（approved→t1 已呈报）：任务卡在场、执行段无进行中会话
-    # 只给提示行、战报卡点开给最新战报、双跳钮都可点。
+    # V9.9/V9.10 全生命周期导览（approved→t1 已呈报）：任务卡展开=计划+任务书+验收
+    # +去处理；执行段无 live 只给提示行；战报卡展开=最新战报+战利品+历次作战；双跳钮可点。
     page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must show the chain task card"
     assert page.locator(".war-modal [data-stage='battle'] .war-card").count() == 0, "no live attempt → no battle card"
     assert page.locator(".war-modal [data-stage='battle'] .war-tour-hint").count() == 1, "battle stage must carry the done hint instead"
+    page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").first.click()
+    page.wait_for_timeout(250)
+    tp = page.locator(".war-modal [data-stage='task'] .war-subdetail")
+    assert tp.count() == 1, "task card click should expand brief/acceptance panel"
+    tp_text = tp.inner_text()
+    assert "任务书" in tp_text and "Node 单包小工具" in tp_text, "task panel must carry the ring's brief"
+    assert "验收标准" in tp_text and "今日晴" in tp_text, "task panel must carry the ring's acceptance"
+    assert page.locator(".war-modal [data-stage='task'] .war-subdetail .war-btn", has_text="去处理").count() == 1, "reported ring must offer the staff-session handle action"
     page.locator(".war-modal [data-stage='report'] .war-card").first.click()
     page.wait_for_timeout(250)
     rep = page.locator(".war-modal [data-stage='report'] .war-subdetail")
     assert rep.count() == 1 and "最新战报" in rep.inner_text(), "report card click must expand the report panel"
+    rep_text = rep.inner_text()
+    assert "战利品" in rep_text and "npm test 8/8 全绿" in rep_text, "report panel must carry the deliverables row"
+    assert "历次作战" in rep_text, "report panel must carry the attempts section"
+    assert page.locator(".war-modal .war-sub-attempts .war-cd-session").count() == 1, "t1 has exactly one attempt session row"
+    assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去处理").count() == 1, "reported command report panel must offer the handle action"
     jumps2 = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
     assert jumps2.nth(0).is_enabled() and jumps2.nth(1).is_enabled(), "reported command: both jumps must target real sessions"
     page.screenshot(path=f"{OUT}/v9-focus-report.png")
@@ -509,6 +526,46 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(200)
     print("V9.5: unified card click + n shortcut + draft persistence ok")
+
+    # --- Phase G6: V9.10 任务段状态机机检（talking ghost / 已取消分岔 / 定时待发分岔）。 ---
+    # talking 命令（d2）：任务段 = warn ghost 卡，点开给「进入对话回答」——任务成形
+    # 车间（参谋会话）的就地入口，不再只有命令卡可点。
+    page.locator(".war-dispatch .war-command-card", has_text="顺便给小工具加个导出 csv").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    ghost = page.locator(".war-modal [data-stage='task'] .war-tour-ghost.warn")
+    assert ghost.count() == 1, "talking command must show the warn ghost card in task stage"
+    assert "等你回答" in ghost.inner_text(), "talking ghost label must name the answer-wait"
+    assert "起草" not in page.locator(".war-modal [data-stage='task']").inner_text(), "talking state must not show the drafting copy"
+    ghost.click()
+    page.wait_for_timeout(250)
+    tg = page.locator(".war-modal [data-stage='task'] .war-subdetail")
+    assert tg.count() == 1 and "参谋在等你回答" in tg.inner_text(), "talking ghost panel must explain the wait"
+    assert page.locator(".war-modal .war-subdetail .war-btn", has_text="进入对话回答").count() == 1, "talking panel must offer the answer-in-dialog action"
+    page.screenshot(path=f"{OUT}/v9-focus-talking.png")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    # 已取消命令（d4）：任务段灰提示分岔——「已取消」，不再出现「起草」。
+    page.locator(".war-dispatch .war-command-card", has_text="算了，先不要动 CI").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    ctask = page.locator(".war-modal [data-stage='task']").inner_text()
+    assert "已取消" in ctask and "起草" not in ctask, f"cancelled command task hint must split: {ctask!r}"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    # 定时待发分岔：起草器下达一条 cron 命令 → 聚焦页任务段给 ⏰ 提示（非「起草」）。
+    page.keyboard.press("n")
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.locator(".war-composer").fill("定时取证：每周一早看看依赖有没有新版本")
+    page.locator(".war-sched-card", has_text="定时").click()
+    page.locator(".war-cron-preset", has_text="每周一 9 点").click()
+    page.locator(".war-modal-actions .war-btn.primary", has_text="定时下达").click()
+    page.wait_for_selector(".war-command-card:has-text('定时取证')", timeout=8000)
+    page.locator(".war-command-card", has_text="定时取证").first.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    stask = page.locator(".war-modal [data-stage='task']").inner_text()
+    assert "定时待发" in stask and "起草" not in stask, f"scheduled command task hint must split: {stask!r}"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    print("V9.10 state machine: talking ghost→answer action + cancelled/scheduled hint splits ok")
 
     # --- Phase H: 收尾。 ---
     pre.screenshot(path=f"{OUT}/v7-preflight.png")

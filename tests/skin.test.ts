@@ -11,7 +11,8 @@ test('皮肤基础：plainCopy 与 warCopy 在关键字段上确实换词（角�
   assert.equal(plainCopy.outcome.reported.label, '待验收')
   assert.equal(plainCopy.taskStatus.reported, '待验收')
   assert.equal(plainCopy.taskStatus.closed, '已完成')
-  assert.equal(plainCopy.taskCard.lootPrefix, '交付：')
+  assert.equal(warCopy.focusPage.lootLabel, '战利品')
+  assert.equal(plainCopy.focusPage.lootLabel, '交付')
   // 品牌词与机制词保留：作战室仍在，工具名/协议词汇不换。
   assert.equal(plainCopy.head.title, '作战室')
 })

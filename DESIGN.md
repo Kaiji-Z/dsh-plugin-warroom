@@ -160,3 +160,20 @@
 - **点击接线全面梳理（详情面收敛为「聚焦页+原生会话」两类）**：**TaskDetail/SessionDetail 两模态整体删除**（死 helper depLock/cronBadge/wsChip 同清）；任务卡有溯源→聚焦页、孤儿（真实流程不会出现）直跳末次会话；会话卡 live 列→聚焦页执行段、战报列→战报段、孤儿直跳原生会话；inbox review/retry 孤儿回退→staff 会话直跳。保留（动作类非详情）：进入对话 chip、任务卡去处理、改直发、外部线程卡、岛/收件箱/设置/起草器全部接线。
 - **词典瘦身**：`detail.*` 只剩 reportPrefix/lineageLabel；commandDetail 清 8 死键；session 清 loot/goHandle/enterReview；新增 `focusPage` 双皮肤词典（26 键）。协议 token（!!直接做/??先看方案）以 `GRADE_MARKER` 常量进配置行（与 preflight.applyGradeMarker 同源，不进皮肤词典）。
 - 针脚：war-tour-cards/subdetail/jumps/ghost + 任务会话/执行会话；负断言 查看任务/进入会话复盘 不再入包。坑：views.tsx 顶部模块注释里的旧按钮文案会被负断言连坐——注释也是 bundle 内容，改行为要同步改注释。
+
+## V9.10 聚焦页状态机补全：删段导航 + 12 态×4 段全梳理（2026-08-26，元首 goal）
+
+> 起点 = 元首审计诉求：①②③④跳转滚动导航不需要；「顺便给小工具加个导出 csv」(talking) 详情里只有命令卡可点，但参谋会话已起、该在任务卡上操作——「类似问题还有很多，全面梳理」。审计产出 12 状态×4 段矩阵（P1 无可操作卡/P2 提示文案说谎/P3 内容缺口/P4 操作缺口/P5 导航钮去留），元首「按照你的推荐」全采。
+
+- **段导航退役**：删 `.war-cd-steps` 跳转钮与滚动高亮、段头去 ①②③④ 编号（静态标签+结论行）。保留 `focusSegment` 路由直滚（inbox/列卡入口）与决策带滚动语义；verify 负断言 `war-cd-step` 不入包。
+- **任务段状态机（12 态分岔，替换 V9.9 单一 ghost）**——优先级 plan > talking > drafting > 链卡 > 灰提示：
+  - **已接令无计划（drafting ghost）**：ghost 卡「参谋正在起草任务书」→ 展开 = 分诊结论行（triageLabel+gradeReason）+ [进任务会话]。
+  - **等你答问（talking ghost，warn 色描边）**：ghost 卡「等你回答」→ 展开 = 「参谋在等你回答」说明 + [进入对话回答]（warn 主按钮，markTalking + open 会话）——补 P1 缺口：此时用户有了可操作卡。
+  - **计划待批（plan ghost）**：ghost 卡 → 展开 = 计划状态标题 + 计划原文 + [批准计划]/[驳回重呈]/[进任务会话]（与决策带同源 decidePlan，两处都有）。
+  - **灰提示分岔（无卡态不说谎）**：定时待发 =「⏰ 出发后才转达参谋」+下次出发时间；转达中 = 转达提示；已批准空链 =「任务待发布」；已取消 = 已取消提示。
+  - **链已成形**：任务卡 → 展开 = 计划原文 + 任务书（brief）+ 验收标准（acceptance）+ reported/failed 环节加 [去处理]——补 P3/P4。
+- **配置展开加改档**：`configRegrade` 行，`war-sub-btns` 内给非当前档的 L0/L1/L2 按钮（regradeCommand 写路由，板仍是读投影）；仅在已分诊且未 approved/cancelled 时出现。
+- **战报展开补全**：战利品行（deliverables 逐条 `war-loot` 项）+ 「历次作战」`war-sub-attempts` 列表（每次尝试一行：结果 chip + 会话号前缀 + 任务号 + 相对时间，点行直跳原生会话）+ reported/failed 存在时 [去处理]。
+- **词典**：focusPage 增 taskScheduledHint/taskRelaying/taskCancelled/drafting 系/talking 系/triageLabel/triagePending/taskBrief/taskAcceptance/briefMissing/acceptanceMissing/lootLabel(war 战利品/plain 交付)/attemptsSection/configRegrade；清死键 planNone/taskPlanning/taskCard.lootPrefix/commandBand.journey。
+- **针脚**：新 needles 进入对话回答/war-btn-warn/taskScheduledHint/taskBrief/war-sub-btns/war-sub-attempts + 负断言 war-cd-step；shoot 增 Phase G6（talking ghost 断言+截图 v9-focus-talking / d3 展开 loots/attempts 计数 / d4 cancelled / composer 定时下达全程）。
+- 目检：v9-focus-talking.png（warn ghost 展开态）+ v9-focus-report.png（战报全量展开态）人工核查通过，落 `.goal/evidence/v7/`。

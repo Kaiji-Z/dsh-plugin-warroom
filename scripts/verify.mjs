@@ -199,8 +199,8 @@ gate('bundle', () => {
     // warn 文本对比度 + 批准视觉隔离 + 非零收件箱胶囊染警示。
     [client, 'useModalLayer', 'modal dialog semantics + focus trap + Esc coordination'],
     [client, 'has-inbox', 'island pill warn tint when inbox non-empty'],
-    [client, 'war-cd-band', 'command detail decision band (top-pinned, inbox-aligned)'],
-    [client, 'war-cd-steps', 'four-stage journey nav (lifecycle strip enlarged)'],
+    [client, 'war-cd-band', 'focus page decision band (top-pinned, inbox-aligned)'],
+    [client, 'war-tour-hint', 'state-split gray hints (scheduled/relaying/cancelled/battle)'],
     [client, 'war-fold', 'collapsed receipts (evidence/loot/grade-reason details)'],
     [client, 'approvedAwaitingPublish', 'approved-empty-chain lifecycle status (no contradiction)'],
     [client, 'attemptFailedNeutral', 'older failed attempts get neutral copy, not latest error'],
@@ -209,8 +209,15 @@ gate('bundle', () => {
     [client, 'style[${STYLE_ID}]`) !== null) return', 'ensureWarStyles querySelector template intact (CSS not leaked into it)'],
     [client, '任务会话', 'focus tour: staff-session jump button (both skins)'],
     [client, '执行会话', 'focus tour: commander-session jump button (both skins)'],
-    [client, 'war-tour-ghost', 'planning ghost card (plan formed, task not yet published)'],
+    [client, 'war-tour-ghost', 'planning ghost card (task-forming workshop entry)'],
     [client, '去处理', 'reported/failed staff-jump button'],
+    // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、战利品/历次作战。
+    [client, '进入对话回答', 'talking ghost: answer-in-dialog action (both skins)'],
+    [client, 'war-btn-warn', 'warn-styled primary for the talking answer action'],
+    [client, 'taskScheduledHint', 'scheduled-not-dispatched task hint (state-split copy key)'],
+    [client, 'taskBrief', 'task panel: per-ring brief row copy key'],
+    [client, 'war-sub-btns', 'config expansion: regrade button row'],
+    [client, 'war-sub-attempts', 'report expansion: per-attempt session list (click to jump)'],
     [client, 'warroom-open-request', 'dock pill home event'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
@@ -320,6 +327,8 @@ gate('bundle', () => {
     // V9.9 negative face：任务/会话详情模态裁撤——详情面只剩聚焦页。
     { ok: !client.includes('查看任务'), label: 'V9.9: view-task footer button stays retired (jumps own navigation)' },
     { ok: !client.includes('进入会话复盘'), label: 'V9.9: session-detail modal stays retired (focus page owns details)' },
+    // V9.10 negative face：1234 阶段跳转导航钮退役（段头只剩静态标签）。
+    { ok: !client.includes('war-cd-step'), label: 'V9.10: stage jump-nav buttons stay retired (no war-cd-step anywhere)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

@@ -60,7 +60,6 @@ export interface WarCopy {
     noBattle: string
     battleLine: (n: number) => string
     noReport: string
-    journey: string
     evChecks: string
     evTests: (passed: number, failed: number) => string
   }
@@ -157,7 +156,6 @@ export interface WarCopy {
     attemptNTitle: string
     failReason: (e: string) => string
     failTitle: string
-    lootPrefix: string
     handle: string
   }
   grade: Record<'L0' | 'L1' | 'L2', string>
@@ -185,12 +183,33 @@ export interface WarCopy {
     configText: string
     planTitle: string
     planPending: string
-    planNone: string
     planEnterSession: string
     taskGhostPlanning: string
     taskGhostApproved: string
     taskAwaitingPublish: string
-    taskPlanning: string
+    /** V9.10 任务段状态机分岔：定时待发/转达中/已取消的非交互灰提示。 */
+    taskScheduledHint: (time: string) => string
+    taskRelaying: string
+    taskCancelled: string
+    /** V9.10 ghost 卡提前：已接令=起草中（分诊结果+进会话）、等你答问=进对话。 */
+    draftingGhostTitle: string
+    draftingGhostCard: string
+    triageLabel: string
+    triagePending: string
+    talkingGhostTitle: string
+    talkingGhostCard: string
+    talkingGhostNote: string
+    talkingEnterBtn: string
+    /** V9.10 任务卡展开补全：该环任务书+验收标准。 */
+    taskBrief: string
+    taskAcceptance: string
+    briefMissing: string
+    acceptanceMissing: string
+    /** V9.10 战报展开收菜三件：战利品+历次作战+去处理（去处理复用 taskCard.handle）。 */
+    lootLabel: string
+    attemptsSection: string
+    /** V9.10 配置展开的改档出口标签。 */
+    configRegrade: string
     battleLive: (n: number) => string
     battleDone: string
     battleNone: string
@@ -305,7 +324,6 @@ export const warCopy: WarCopy = {
     noBattle: '等执行者领取',
     battleLine: n => `${n} 次作战`,
     noReport: '尚无战报',
-    journey: '作战经过（命令→任务→执行→战报）',
     evChecks: '项验收通过',
     evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
   },
@@ -456,7 +474,6 @@ export const warCopy: WarCopy = {
     attemptNTitle: '含自动重派的尝试次数',
     failReason: e => `败因：${e}`,
     failTitle: '重试已用尽，等元首让参谋重新立案',
-    lootPrefix: '战利品：',
     handle: '去处理 · 参谋会话',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
@@ -480,14 +497,30 @@ export const warCopy: WarCopy = {
     configAutonomy: '自主度',
     configAutonomyAuto: '参谋分诊（未覆写）',
     configText: '命令原文',
+    configRegrade: '改档',
     planTitle: '最终计划',
     planPending: '正在计划中——参谋还在写这份计划，进任务会话可以追问或补充。',
-    planNone: '直接执行——参谋未呈计划，任务书即行动依据。',
     planEnterSession: '进入任务会话',
     taskGhostPlanning: '正在计划中——点开看呈批中的计划原文',
     taskGhostApproved: '计划已批准，任务即将发布——点开看计划原文',
     taskAwaitingPublish: '任务待发布——已批准，等参谋挂出任务卡',
-    taskPlanning: '参谋正在起草计划与任务书',
+    taskScheduledHint: time => `⏰ 定时待发——${time} 出发后才转达参谋`,
+    taskRelaying: '转达参谋中——接令后这里变成起草卡',
+    taskCancelled: '命令已取消——无后续',
+    draftingGhostTitle: '参谋正在起草任务书',
+    draftingGhostCard: '参谋正在起草任务书——点开看分诊结果',
+    triageLabel: '分诊',
+    triagePending: '参谋尚未分诊',
+    talkingGhostTitle: '参谋在等你回答',
+    talkingGhostCard: '参谋在等你回答——点开进对话',
+    talkingGhostNote: '任务卡在等你的回答成形——进对话答一句，参谋就能继续。',
+    talkingEnterBtn: '进入对话回答',
+    taskBrief: '任务书',
+    taskAcceptance: '验收标准',
+    briefMissing: '（参谋未附任务书正文）',
+    acceptanceMissing: '（未声明）',
+    lootLabel: '战利品',
+    attemptsSection: '历次作战',
     battleLive: n => `${n} 场作战进行中`,
     battleDone: '已执行完成——没有正在进行的会话',
     battleNone: '尚未开始执行——等指挥官领取任务',
@@ -605,7 +638,6 @@ export const plainCopy: WarCopy = {
     noBattle: '等人接手',
     battleLine: n => `执行 ${n} 次`,
     noReport: '还没有结果',
-    journey: '经过（命令→任务→执行→结果）',
     evChecks: '项验收通过',
     evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
   },
@@ -755,7 +787,6 @@ export const plainCopy: WarCopy = {
     attemptNTitle: '含自动重派的尝试次数',
     failReason: e => `失败原因：${e}`,
     failTitle: '重试已用尽，等参谋重新立案',
-    lootPrefix: '交付：',
     handle: '去处理 · 参谋会话',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
@@ -779,14 +810,30 @@ export const plainCopy: WarCopy = {
     configAutonomy: '自主度',
     configAutonomyAuto: '让参谋定（未覆写）',
     configText: '命令原文',
+    configRegrade: '改档',
     planTitle: '最终计划',
     planPending: '正在计划中——参谋还在写这份计划，进任务会话可以追问或补充。',
-    planNone: '直接执行——参谋没呈计划，任务说明就是行动依据。',
     planEnterSession: '进入任务会话',
     taskGhostPlanning: '正在计划中——点开看待批的计划原文',
     taskGhostApproved: '计划已批准，任务马上发布——点开看计划原文',
     taskAwaitingPublish: '任务待发布——已批准，等参谋挂出任务卡',
-    taskPlanning: '参谋正在起草计划与任务说明',
+    taskScheduledHint: time => `⏰ 定时待发——${time} 出发后才转给参谋`,
+    taskRelaying: '转给参谋中——接令后这里变成起草卡',
+    taskCancelled: '命令已取消——没有后续',
+    draftingGhostTitle: '参谋正在写任务说明',
+    draftingGhostCard: '参谋正在写任务说明——点开看分诊结果',
+    triageLabel: '分诊',
+    triagePending: '参谋还没分诊',
+    talkingGhostTitle: '参谋在等你回答',
+    talkingGhostCard: '参谋在等你回答——点开进对话',
+    talkingGhostNote: '任务卡要等你的回答才能成形——进对话说一句，参谋就能继续。',
+    talkingEnterBtn: '进入对话回答',
+    taskBrief: '任务说明',
+    taskAcceptance: '验收标准',
+    briefMissing: '（参谋没附任务说明）',
+    acceptanceMissing: '（未声明）',
+    lootLabel: '交付',
+    attemptsSection: '历次执行',
     battleLive: n => `${n} 个执行进行中`,
     battleDone: '已执行完成——没有正在进行的会话',
     battleNone: '还没开始执行——等指挥官领取任务',

@@ -348,13 +348,8 @@ h2.war-col-title{margin:0;font-size:13px}
 .war-cd-band.quiet .war-cd-band-tag{color:var(--dsw-alias-state-success-primary)}
 .war-cd-band-hint{flex:1 1 200px;min-width:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
 .war-cd-band-actions{display:flex;gap:8px;flex:0 0 auto}
-.war-cd-steps{position:sticky;top:0;z-index:3;display:flex;gap:6px;padding:6px 0;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l1)}
-.war-cd-step{flex:1 1 0;font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 45%, var(--dsw-alias-label-secondary));background:var(--dsw-alias-bg-base);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--dsw-font-family)}
-.war-cd-step.on{color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-base));box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
-.war-cd-step:focus-visible{outline:2px solid var(--dsw-alias-state-focus-ring);outline-offset:2px}
 .war-cd-stage{display:flex;flex-direction:column;gap:8px;padding-top:6px}
 .war-cd-stage-head{display:flex;align-items:center;gap:8px;min-width:0}
-.war-cd-stage-no{flex:0 0 auto;width:20px;height:20px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--dsw-alias-bg-base);background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 45%, var(--dsw-alias-label-secondary))}
 .war-cd-stage-name{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .war-cd-stage-conc{flex:1 1 auto;min-width:0;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .war-fold{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:0}
@@ -388,6 +383,13 @@ h2.war-col-title{margin:0;font-size:13px}
 .war-tour-jumps{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1)}
 .war-jump-btn{flex:1 1 0;justify-content:center;display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
 .war-jump-btn:disabled{cursor:not-allowed;opacity:.55}
+/* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 战利品+历次作战行 --- */
+.war-tour-ghost.warn{border-color:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 55%, var(--dsw-alias-border-l2));background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 6%, transparent)}
+.war-tour-ghost.warn .war-tour-ghost-icon{color:color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 62%, #000)}
+.war-btn.war-btn-warn{border-color:var(--dsw-alias-state-warn-primary);color:color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 72%, #000);background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, var(--dsw-alias-bg-base))}
+.war-sub-btns{display:inline-flex;gap:6px;flex-wrap:wrap}
+.war-sub-attempts{display:inline-flex;flex-direction:column;gap:6px;min-width:0}
+.war-sub-attempts .war-cd-session{width:100%}
 
 `
 
