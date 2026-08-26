@@ -133,9 +133,14 @@ with sync_playwright() as p:
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
-    for pod in (".war-zone.war-tasks", ".war-zone.war-report"):
-        bb = page.locator(pod).bounding_box()
-        assert bb["y"] + bb["height"] <= dock_y + 2, f"{pod} 底边压进坞区：pod_bottom={bb['y']+bb['height']:.0f} dock_top={dock_y:.0f}"
+    sf_bb = page.locator(".war-starfield").bounding_box()
+    for floater in (".war-zone.war-tasks", ".war-zone.war-report", ".war-dispatch"):
+        fb = page.locator(floater).bounding_box()
+        inside = fb["x"] >= sf_bb["x"] - 2 and fb["y"] >= sf_bb["y"] - 2 and fb["x"]+fb["width"] <= sf_bb["x"]+sf_bb["width"]+2 and fb["y"]+fb["height"] <= sf_bb["y"]+sf_bb["height"]+2
+        assert inside, f"{floater} 必须完整浮于全幅星域之上：{fb} vs {sf_bb}"
+    isl = page.locator(".war-island").first.bounding_box()
+    top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")
+    assert top_el, "灵动岛必须浮于星域之上（岛中心命中岛自身）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
     planets = page.locator(".war-planet[data-ws-index]")
     assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"

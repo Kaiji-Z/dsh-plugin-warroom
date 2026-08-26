@@ -511,12 +511,14 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
 @supports (backdrop-filter: blur(8px)){
   .war-ops.war-map .war-zone{backdrop-filter:blur(9px)}
 }
+/* V10.1 岛压图：hero 灵动岛浮于全幅星域之上（z 高于坞 3/舱 2/图 0） */
+.war-island{position:relative;z-index:5}
 /* --- V10.1 TITP 化布局（元首示意图定案）：地图=界面本体 ----------------------
  * 星域从三列网格的中列格子解放，board 级铺满为底；任务/战报列转贴边浮舱压图
  * （CALLS/MESSAGES 语言）；命令坞满宽压底不参战。列表态零改动（类不挂即原样）。 */
 .war-board{position:relative}
-.war-board.war-mapmode .war-starfield{position:absolute;left:10px;right:10px;top:8px;bottom:184px;min-height:0;flex:none;z-index:0;border-radius:16px}
-.war-board.war-mapmode .war-ops{position:absolute;left:10px;right:10px;top:8px;bottom:184px;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
+.war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（元首定）：调度/任务/战报全部浮于其上 */
+.war-board.war-mapmode .war-ops{position:absolute;inset:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible}
 .war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:0;bottom:0;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
 body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
 @supports (backdrop-filter: blur(10px)){
