@@ -535,7 +535,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
 .war-cmd-group{display:flex}
 .war-cmd-group .war-command-card{min-width:200px;transition:transform .16s ease,box-shadow .16s ease}
-.war-cmd-group .war-command-card + .war-command-card{margin-left:-140px}
+.war-cmd-group .war-command-card + .war-command-card{margin-left:-185px} /* 露 15px 标签缘（元首定） */
 .war-cmd-group .war-command-card:hover{transform:translateY(-4px);z-index:10;box-shadow:0 12px 30px color-mix(in srgb,#000 32%,transparent)}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
