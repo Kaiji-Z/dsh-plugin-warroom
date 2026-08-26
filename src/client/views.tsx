@@ -12,7 +12,7 @@
 
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread } from './data.ts'
+import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
@@ -471,8 +471,8 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
  * 选项卡——自主度（放权多少）与发布时机（立即 / cron 定时，到点 tick 自动
  * 下达、一次有效）。档位标记仍拼入命令文本（机制不变）；Ctrl+Enter 提交。
  * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
-function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void }): ReactNode {
-  const { recent, onClose, refresh } = props
+function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（战报卡「下续战令」播种）。 */ initialContinueId?: string | null }): ReactNode {
+  const { recent, onClose, refresh, continueCandidates = [], initialContinueId = null } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
   // V9.5（复评 P2-1）：草稿落 localStorage——误点背板/顺手 Esc 不再焚稿，
   // 重开起草器自动续写；提交成功才清。
@@ -480,6 +480,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   const [grade, setGrade] = useState<ComposerGrade>('auto')
   const [sched, setSched] = useState<'now' | 'cron'>('now')
   const [cronExpr, setCronExpr] = useState('')
+  // V10 战线续接：接到哪条旧令后面（null=开新战线）。
+  const [cont, setCont] = useState<string | null>(initialContinueId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cronErr: string | null = useMemo(() => {
@@ -506,7 +508,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     setBusy(true)
     setError(null)
     void (async () => {
-      const result = await createCommand(applyGradeMarker(text, grade), sched === 'cron' ? cronExpr.trim() : undefined)
+      const result = await createCommand(applyGradeMarker(text, grade), sched === 'cron' ? cronExpr.trim() : undefined, cont ?? undefined)
       setBusy(false)
       if (result.ok) {
         try { localStorage.removeItem('warroom-draft') } catch { /* noop */ }
@@ -578,6 +580,25 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
           nextPreview !== null ? createElement('div', { className: 'war-cron-next' }, copy.nextRun(nextPreview)) : null,
         )
         : null,
+      continueCandidates.length > 0
+        ? createElement('div', { className: 'war-cp-section' }, copy.continueSection)
+        : null,
+      continueCandidates.length > 0
+        ? createElement('div', { className: 'war-continue-row' },
+          createElement('button', {
+            key: 'cont-none', type: 'button',
+            className: `war-recent-item war-continue-chip${cont === null ? ' on' : ''}`,
+            onClick: () => { setCont(null) },
+          }, copy.continueNone),
+          ...continueCandidates.map(c => createElement('button', {
+            key: c.commandId, type: 'button',
+            className: `war-recent-item war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
+            title: `${c.text}（${c.live ? activeCopy().chain.tags.pivot : activeCopy().chain.tags.deepen}）`,
+            'data-war-cont': c.commandId,
+            onClick: () => { setCont(cont === c.commandId ? null : c.commandId) },
+          }, `${genLabel(c.generation) === '' ? 'Ⅰ' : genLabel(c.generation)}·${c.text.slice(0, 12)}${c.text.length > 12 ? '…' : ''}${c.live ? ' ⚡' : ''}`)),
+        )
+        : null,
       recent.length > 0
         ? createElement('div', { className: 'war-recent-row' },
           createElement('span', { className: 'war-recent-label' }, copy.recentLabel),
@@ -612,8 +633,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
@@ -1003,6 +1024,15 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                         title: failedChain ? activeCopy().taskCard.handleRetryTitle : activeCopy().taskCard.handleReviewTitle,
                         onClick: () => { jumpSession(staffTarget) },
                       }, failedChain ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview)])
+                    : null,
+                  // V10 续接入口：战报读完即续——关展开、开起草器并预选本命令为母本。
+                  onContinue !== undefined
+                    ? subActions([createElement('button', {
+                        className: 'war-btn',
+                        'data-war-continue': cmd.commandId,
+                        title: activeCopy().chain.continueBtnTitle,
+                        onClick: () => { setOpen(null); onContinue() },
+                      }, activeCopy().chain.continueBtn)])
                     : null,
                 )
                 : null)
@@ -1520,6 +1550,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [composerOpen, setComposerOpen] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
+    // V10 续接播种：战报卡「下续战令」→ 预填起草器接续目标。
+    const [continueSeed, setContinueSeed] = useState<string | null>(null)
     // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/战报）。
     const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
@@ -1644,6 +1676,17 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed'))
     }
     const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
+    // V10 起草器续接候选：已批准且任务已成形（新→旧 ≤5）；live=有未收束 attempt。
+    const continueCandidates: ContinueCandidate[] = commandsNewest
+      .filter(c => c.status === 'approved' && c.taskId !== null)
+      .slice(0, 5)
+      .map(c => ({
+        commandId: c.commandId,
+        text: c.text,
+        generation: c.chain.generation,
+        hueSlot: c.chain.hueSlot,
+        live: chainOf(c).some(t => t.attemptLog.some(a => a.endedAt === null)),
+      }))
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
@@ -1768,7 +1811,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             })),
           ),
         ),
-      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), onClose: () => { setComposerOpen(false) }, refresh }) : null,
+      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
@@ -1776,6 +1819,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         // V10 战线族谱：同根全体按 createdAt 升序（Ⅰ→…）；跨代点击换窗。
         chainMembers: commandsNewest.filter(c => c.chain.rootId === detailCommand.chain.rootId).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)),
         onOpenCommand: id => { setDetailCommandId(id) },
+        onContinue: () => { setContinueSeed(detailCommand.commandId); setComposerOpen(true) },
         statuses,
         hqSessionId,
         services,

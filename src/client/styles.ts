@@ -455,6 +455,9 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
 .war-cd-chain-item{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid color-mix(in srgb,var(--chain-hue,#888) 35%,transparent);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px;padding:1px 8px;border-radius:999px;cursor:pointer;text-align:left;font-family:var(--dsw-font-family)}
 .war-cd-chain-item.now{font-weight:700;color:color-mix(in srgb,var(--chain-hue,#888) var(--war-chain-strength),var(--war-chain-mixto));border-color:color-mix(in srgb,var(--chain-hue,#888) 60%,transparent);cursor:default}
 .war-cd-chain-item:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
+/* 起草器续接排：复用 recent-chip 底版，选中态走焦点环内嵌 */
+.war-continue-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.war-continue-chip.on{border-style:solid;border-color:var(--war-focus);color:var(--dsw-alias-label-primary);font-weight:600;background:var(--war-run-tint)}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}

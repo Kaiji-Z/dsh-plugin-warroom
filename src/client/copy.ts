@@ -166,6 +166,8 @@ export interface WarCopy {
     genBadgeTitle: (generations: number) => string
     breadcrumbAria: string
     tags: Record<'deepen' | 'retry' | 'pivot', string>
+    continueBtn: string
+    continueBtnTitle: string
   }
   commandDetail: {
     gradeReasonPrefix: string
@@ -251,6 +253,9 @@ export interface WarCopy {
     cronError: (err: string) => string
     nextRun: (t: string) => string
     cronPresets: ReadonlyArray<{ label: string; cron: string }>
+    /** V10 战线续接排：接续目标候选区标题 / 「开新战线」chip。 */
+    continueSection: string
+    continueNone: string
     recentLabel: string
     kbdHint: string
   }
@@ -493,6 +498,8 @@ export const warCopy: WarCopy = {
     genBadgeTitle: n => `本命令是这条战线的第 ${n} 代续作`,
     breadcrumbAria: '战线族谱：历代替续，逐级可跳',
     tags: { deepen: '续战令·深化', retry: '续战令·再战', pivot: '续战令·转向' },
+    continueBtn: '下续战令',
+    continueBtnTitle: '以这条命令为母本下达续作——新令接过战线继续打',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
@@ -574,6 +581,8 @@ export const warCopy: WarCopy = {
       { label: '每周一 9 点', cron: '0 9 * * 1' },
     ],
     recentLabel: '最近命令（点击填入草稿）',
+    continueSection: '战线续接（可选）：这道令接到哪条旧令后面？',
+    continueNone: '新战线',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -815,6 +824,8 @@ export const plainCopy: WarCopy = {
     genBadgeTitle: n => `这条命令是同一件事的第 ${n} 次跟进`,
     breadcrumbAria: '跟进链路：历史各步，逐级可看',
     tags: { deepen: '跟进·接着做', retry: '跟进·重试', pivot: '跟进·改方向' },
+    continueBtn: '继续这件事',
+    continueBtnTitle: '以这条命令为基础下发跟进——新的跟进接在原事后面',
   },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
@@ -896,6 +907,8 @@ export const plainCopy: WarCopy = {
       { label: '每周一 9 点', cron: '0 9 * * 1' },
     ],
     recentLabel: '最近命令（点击填入）',
+    continueSection: '接着做（可选）：这次跟进接在哪件事后面？',
+    continueNone: '全新事项',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {

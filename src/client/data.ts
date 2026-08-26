@@ -118,15 +118,27 @@ export interface BoardData {
   rosterErrors: string[]
 }
 
+/** V10 起草器「战线续接」候选：已批准且挂了任务的命令（新→旧 ≤5，live=有未收束 attempt）。 */
+export interface ContinueCandidate {
+  commandId: string
+  text: string
+  generation: number
+  hueSlot: number
+  live: boolean
+}
+
 /** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交参谋）。 */
-export async function createCommand(text: string, cron?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; error?: string }> {
+export async function createCommand(text: string, cron?: string, continuesFrom?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; continuationMode?: 'deepen' | 'retry' | 'pivot'; error?: string }> {
   try {
+    const payload: Record<string, string> = { text }
+    if (cron !== undefined) payload.cron = cron
+    if (continuesFrom !== undefined) payload.continuesFrom = continuesFrom
     const res = await fetch('/warroom/api/commands', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(cron === undefined ? { text } : { text, cron }),
+      body: JSON.stringify(payload),
     })
-    const body = await res.json() as { ok: boolean; commandId?: string; scheduled?: boolean; error?: string }
+    const body = await res.json() as { ok: boolean; commandId?: string; scheduled?: boolean; continuationMode?: 'deepen' | 'retry' | 'pivot'; error?: string }
     return body
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
