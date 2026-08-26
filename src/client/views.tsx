@@ -588,12 +588,12 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         ? createElement('div', { className: 'war-continue-row' },
           createElement('button', {
             key: 'cont-none', type: 'button',
-            className: `war-recent-item war-continue-chip${cont === null ? ' on' : ''}`,
+            className: `war-continue-chip${cont === null ? ' on' : ''}`,
             onClick: () => { setCont(null) },
           }, copy.continueNone),
           ...continueCandidates.map(c => createElement('button', {
             key: c.commandId, type: 'button',
-            className: `war-recent-item war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
+            className: `war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
             title: `${c.text}（${c.live ? activeCopy().chain.tags.pivot : activeCopy().chain.tags.deepen}）`,
             'data-war-cont': c.commandId,
             onClick: () => { setCont(cont === c.commandId ? null : c.commandId) },

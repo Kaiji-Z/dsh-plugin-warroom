@@ -1,0 +1,13 @@
+# Forensic overlay: isolated statePath for evidence-gathering runs
+# (shoot-grade-marker.py et al.). Keeps .smoke-state (playground demo board
+# on :3080) and the real default state dir untouched — no cross-run flush
+# races (the v6 lesson: a running server's in-memory state overwrites a
+# shared state dir mid-run).
+# Run from the deepseek-harness checkout:
+#   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.forensic.yml --port 3099 --no-open
+- insert:
+    - id: warroom
+      name: dsh-plugin-warroom
+      config:
+        statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/state.json'
+        warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/war'

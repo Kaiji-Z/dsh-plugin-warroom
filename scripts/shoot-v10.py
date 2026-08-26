@@ -1,0 +1,187 @@
+"""v10 evidence shooter — 战线续接（世代徽标/族谱面包屑/pivot 转向）+ 星域战场底版.
+
+Usage: python scripts/shoot-v10.py [outDir] [baseUrl] [smokeStateDir]
+Assumes the smoke-overlay server is ALREADY running on BASE (isolated statePath,
+same convention as shoot-v7.py). Phases:
+  0 clear smoke state → board drains
+  S file-level seed: 3 workspaces / 2 凯旋 closed 仗 / 1 live 执行会话 /
+    Ⅱ 代链(deepen) / draft pivot 续战令（宿主 resume 对伪会话必败→留 draft）
+  P1 列表视图缺省（三列齐在、星域不在场）
+  P2 切星域：开关置 .war-map；星球数==workspace 数；凯旋印记显形；
+     hover 活体光点 → 调度条出现 war-rel-same 族链高亮
+  P3 切回列表：星域卸载
+  P4 世代徽标 + 聚焦页战线族谱（面包屑 length=2、续战令·深化副行）
+  P5 pivot 双证：API deriveMode=pivot + 已令聚焦页「续战令·转向」tag
+"""
+import json
+import shutil
+import sys
+import time
+import urllib.request
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+from playwright.sync_api import sync_playwright
+
+OUT = Path(sys.argv[1] if len(sys.argv) > 1 else ".goal/evidence/v10")
+BASE = sys.argv[2] if len(sys.argv) > 2 else "http://127.0.0.1:3080"
+STATE = Path(sys.argv[3] if len(sys.argv) > 3 else ".smoke-state")
+OUT.mkdir(parents=True, exist_ok=True)
+
+isoA = "2026-08-26T06:00:00Z"
+ISOS = {"a": isoA}
+
+
+def stamp(mins_ago: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(minutes=mins_ago)).isoformat(timespec="milliseconds")
+
+
+# --- Phase 0 -----------------------------------------------------------------
+shutil.rmtree(STATE / "campaigns", ignore_errors=True)
+(STATE / "directives.jsonl").unlink(missing_ok=True)
+(STATE / ".demo-woven.json").unlink(missing_ok=True)
+print(f"cleared smoke state: {STATE}")
+for _ in range(20):
+    try:
+        body = json.loads(urllib.request.urlopen(f"{BASE}/warroom/api/board", timeout=5).read())
+        if not body.get("commands") and not body.get("tasks"):
+            break
+    except Exception:
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit("board did not drain after clearing smoke state")
+print("board drained")
+
+# --- Phase S: 文件级播种（与 fold 层字段严格同形） -----------------------------
+CAM = STATE / "campaigns"
+CAM.mkdir(parents=True, exist_ok=True)
+
+def ev(campaign_id: str, payload: dict) -> None:
+    with open(CAM / f"{campaign_id}.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+def task_base(cid: str, title: str, ts: str) -> None:
+    ev(cid, {"type": "task_created", "ts": ts, "campaignId": cid, "title": title, "brief": "b", "acceptance": "a", "priority": "normal"})
+
+def close(cid: str, verdict: str, ws: str, t0: float) -> None:
+    task_base(cid, title=verdict[:12], ts=stamp(t0))
+    ev(cid, {"type": "task_published", "ts": stamp(t0 - 1), "campaignId": cid, "workspacePath": ws})
+    ev(cid, {"type": "task_closed", "ts": stamp(t0 - 2), "campaignId": cid, "verdict": verdict})
+
+DIR_PATH = STATE / "directives.jsonl"
+
+def dcmd(payload: dict) -> None:
+    with open(DIR_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+def approve(did: str, tid: str, m: int) -> None:
+    dcmd({"type": "directive_approved", "ts": stamp(m), "directiveId": did, "taskId": tid})
+
+close("T-A1", "临时目录清空并回归全绿", r"C:\repo\alpha", 90)
+close("T-A2", "README 补齐三章", r"C:\repo\alpha", 60)
+close("T-G1", "gamma 案情归档完毕", r"C:\repo\gamma", 45)
+task_base("T-B1", "beta 前线增援", stamp(30))
+ev("T-B1", {"type": "task_published", "ts": stamp(29), "campaignId": "T-B1", "workspacePath": r"C:\repo\beta"})
+ev("T-B1", {"type": "task_claimed", "ts": stamp(28), "campaignId": "T-B1", "claimedBy": "sess-demo-live"})
+
+dcmd({"type": "directive_created", "ts": stamp(91), "directiveId": "cmd-seed-a1", "text": "清理 alpha 的临时目录并跑通回归"})
+approve("cmd-seed-a1", "T-A1", 88)
+dcmd({"type": "directive_created", "ts": stamp(61), "directiveId": "cmd-seed-a2", "text": "顺势补一份 README 章节导航",
+      "continuesFrom": "cmd-seed-a1", "continuationMode": "deepen"})
+approve("cmd-seed-a2", "T-A2", 59)
+dcmd({"type": "directive_created", "ts": stamp(31), "directiveId": "cmd-seed-b1", "text": "盯紧 beta 前线保持推进"})
+approve("cmd-seed-b1", "T-B1", 27)
+dcmd({"type": "directive_created", "ts": stamp(3), "directiveId": "cmd-seed-b2", "text": "火线加测一键回滚脚本",
+      "continuesFrom": "cmd-seed-b1", "continuationMode": "pivot"})
+time.sleep(2)
+print("seeded")
+
+pageerrors: list[str] = []
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page(viewport={"width": 1720, "height": 940})
+    page.on("pageerror", lambda e: pageerrors.append(str(e)))
+
+    def open_board() -> None:
+        page.goto(BASE)
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_selector("[data-dsh-warroom-entry]", timeout=20000).click()
+        page.wait_for_timeout(1200)
+
+    open_board()
+
+    # --- P1 列表缺省 -----------------------------------------------------------
+    assert page.locator(".war-ops:not(.war-map)").count() == 1, "列表视图应为缺省且无 war-map 类"
+    assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "三列布局必须原样在场"
+    assert page.locator(".war-starfield").count() == 0, "列表态不应渲染星域"
+    n_badge = page.locator('.war-dispatch .war-gen-badge[data-war-gen="2"]').count()
+    assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
+    print("P1 list-default ok")
+
+    # --- P2 星域 ---------------------------------------------------------------
+    page.locator("[data-war-view-toggle]").click()
+    page.wait_for_timeout(600)
+    ops_class = page.evaluate("() => document.querySelector('.war-ops').className")
+    assert "war-map" in ops_class, f"切换后 war-map 未置上：{ops_class}"
+    sf = page.locator(".war-starfield")
+    assert sf.count() == 1 and sf.is_visible(), "星域画布未现身"
+    planets = page.locator(".war-planet[data-ws-index]")
+    assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"
+    assert page.locator('[data-triumphs]:not([data-triumphs="0"])').count() == 2, "两颗凯旋星（alpha/gamma）应各带印记计数"
+    alpha_t = page.locator(".war-planet").filter(has_text="alpha").first
+    assert alpha_t.get_attribute("data-triumphs") == "2", f"alpha 两代皆胜应记 2 功：{alpha_t.get_attribute('title')}"
+    orb = page.locator(".war-orb[data-session='sess-demo-live']")
+    assert orb.count() == 1, "活体执行会话光点未挂上 beta 星轨道"
+    # 光点悬停 → 族链高亮（war-rel-same 唯一落在其源命令卡上）。
+    orb.hover()
+    page.wait_for_timeout(400)
+    same = page.locator(".war-dispatch .war-command-card.war-rel-same").count()
+    assert same == 1, f"hover 光点应点亮唯一源命令卡，got {same}"
+    page.mouse.move(8, 900)
+    page.screenshot(path=str(OUT / "v10-map.png"))
+    print("P2 map ok")
+
+    # --- P3 回列表 ---------------------------------------------------------------
+    page.locator("[data-war-view-toggle]").click()
+    page.wait_for_timeout(400)
+    assert "war-map" not in page.evaluate("() => document.querySelector('.war-ops').className"), "切回列表失败"
+    assert page.locator(".war-starfield").count() == 0, "回列表后星域应卸载"
+    print("P3 back-to-list ok")
+
+    # --- P4 聚焦页族谱 -----------------------------------------------------------
+    page.locator(".war-dispatch .war-command-card").filter(has_text="顺势补一份 README").first.click()
+    page.wait_for_selector(".war-cd-modal", timeout=5000)
+    crumb = page.locator(".war-cd-chain[data-war-chain-length='2']")
+    assert crumb.count() == 1, "战线族谱面包屑未显形或代数不对"
+    subline = page.locator(".war-modal-sub").inner_text()
+    assert "续战令·深化" in subline, f"副行缺续接正名：{subline}"
+    page.screenshot(path=str(OUT / "v10-focus-chain.png"))
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    print("P4 focus chain ok")
+
+    # --- P5 pivot 双证 ------------------------------------------------------------
+    resp = page.evaluate(
+        """async () => {
+          const r = await fetch('/warroom/api/commands', { method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ text: '再补一条回滚演练', continuesFrom: 'cmd-seed-b1' }) });
+          return { code: r.status, body: await r.json() };
+        }"""
+    )
+    assert resp["code"] == 200 and resp["body"].get("continuationMode") == "pivot", f"API pivot 推导失守：{resp}"
+    card = page.locator(".war-dispatch .war-command-card").filter(has_text="火线加测一键回滚").first
+    card.click()
+    page.wait_for_selector(".war-cd-modal", timeout=5000)
+    sub2 = page.locator(".war-modal-sub").inner_text()
+    assert "续战令·转向" in sub2, f"pivot 排队提示行缺失：{sub2}"
+    page.screenshot(path=str(OUT / "v10-pivot.png"))
+    print("P5 pivot ok")
+
+    browser.close()
+
+assert not pageerrors, f"页面异常：{pageerrors[:3]}"
+print(f"SHOOT-V10 PASS — evidence at {OUT}")

@@ -249,3 +249,23 @@
 **元首报修二·输入框溢出（同日补丁二）**：根因=**宿主不给插件子树提供 border-box 复位**——content-box 下一切 `width:100%`+padding 的件横向戳出父容器（composer 输入框恒溢出弹窗右缘 8px、`.war-modal` 实宽 678 超 max-width 640、cron 输入/侧栏行同病）。修法=一条全局复位 `.war-root *,::before,::after{box-sizing:border-box}`（治本，整棵子树不再可能横向溢出；固定尺寸小件统一缩 2px，开关旋钮几何自洽已核）。复测：textarea 距弹窗右缘余 18px、横向滚动面归零（638=638）、弹窗回 640 实宽、极端拖大被 flex 列吸收不外溢；三视口（1600x900/1280x700/1024x620）全过。
 
 **门禁**：verify 199 测（新针脚 --war-canvas / body[data-ds-dark-theme] .war-root / dark 层梯两条 / 焦点环令牌）；shoot-v7 全绿（浅色侧既有断言 6.65-6.96:1 不回退）；shoot-theme 20/20 + 层梯两主题成立。
+
+---
+
+## V10 · 战线续接 + 星域战场（2026-08-26，元首 goal 全程）
+
+**定案三柱**：①链是隐形语义（continuesFrom 嫁接，旧命令永远定格终态）；②星域是空间容器（同心椭圆恒星系，workspace=战区内老外新，☀HQ=WarGlobalState.active 化身）；③hover 是揭示手段（CardTrace 扩域到轨道光点，族链四段联动）。
+
+**数据层**：`directive_created` 可选 `continuesFrom`/`continuationMode(deepen|retry|pivot)` 创建时按父态冻结（deriveContinuation 纯函数服务端推导，400 带可读理由）；`foldChains` 祖先闭包（rootByCommand/generationOf/membersOfRoot，环/悬挂/深度 32 护栏——手改日志自封段不炸）；投影 BoardCommand.chain{generation,rootId,length,hueSlot}，hueSlot=服务端 FNV-1a 单点算好喂前端。旧 JSONL 零迁移。
+
+**pivot 分路（R1c 定案落地）**：真命令一穿五态——引信见 pivot 不开参谋会话，文本直插父任务活体 attempt 执行会话队列（sessions.prompt queue），received 记执行会话号→approved 挂父任务号即刻归档；无活体（排队中/已收官）落回常轨走参谋且带兜底档案；push 失败留 draft 重投。deepen/retry 征召词尾拼【战线档案】各代战况+败因明文。
+
+**R2 spike 结论（evidence/v10/spike-midrun.md，宿主源码考古）**：queue=持久 next-turn 队列回合末自动消费（重启重放），busy 不拒不断——「将于本回合结束后送达」文案与宿主机制逐字吻合；busyEnter 设置纯手势级解析只作用于人手输入，插件推送固定 queue 即寄生其默认口径；冷会话 prompt=agents.resume 官方续接通道——deepen 会话级接线挂账 V10.1（v1 由战线档案保上下文）。
+
+**星域实现红线兑现**：全 DOM/CSS 禁 WebGL；坐标全确定性（galaxyLayout 椭圆 rx=14+k*12 压扁 0.62、黄金角方位、moon 相位 hash01(sessionId)），SSE revision 翻新零抖动（6 测钉死）；凯旋印记=行星 data-triumphs 计数+标签 ✓N 只记 closed 仗；视图开关 war-dispatch-view 按钮双向、<900px 强制列表回退（列表态=原三列不动，回归安全网实测 shoot-v7 全绿共存）。
+
+**悬浮舱（R3b）**：war-map 态左右列收窄(19%/21%)+78% 卡底色+blur 浮起+投影加深，中列整幅让位恒星系——任务左/星域中/战报右即 Dispatch 终态构图。
+
+**坑录增补**：①起草器续接 chip 曾混用 `war-recent-item` 类把 shoot-v7 的 recent 选择器毒化（9 个假最近项、recent 回填断言失效）——取证脚本选择器就是针脚，组件类名必须独立命名空间；②shoot-theme/shoot-v7 各吃特定种子板面，互相串场前必须先跑对应 shooter 重建板面；③smoke 服 host 半边启动时装载代码，重建 lib 后必须重启进程（client 可热、host 不可热）——本机重启惯例 `CI=true nohup pnpm dsh --profile web --patch <repo>/cordis.smoke.yml --port 3080 --no-open`（无 TTY 下 CI=true 免依赖清空交互确认）。
+
+**验证**：verify 209 测 PASS（+6 净增：directives+4、relay+4、starfield 新档 6，另并入既有计数口径）+ shoot-v10.py 五相位全绿×2 遍 + shoot-theme 双主题 20 对全绿 + 双主题地图截图入库。
