@@ -390,6 +390,13 @@ h2.war-col-title{margin:0;font-size:13px}
 .war-sub-btns{display:inline-flex;gap:6px;flex-wrap:wrap}
 .war-sub-attempts{display:inline-flex;flex-direction:column;gap:6px;min-width:0}
 .war-sub-attempts .war-cd-session{width:100%}
+/* V9.11 任务列=参谋侧台账：成形卡（任务书挂出前的占位）+ 终局任务书卡调暗 */
+.war-forming{border-style:dashed}
+.war-forming .war-forming-icon{color:var(--dsw-alias-text-secondary, inherit);font-size:14px;line-height:1}
+.war-forming.warn{border-color:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 55%, var(--dsw-alias-border-l2));background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 6%, transparent)}
+.war-forming.warn .war-forming-icon{color:color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 62%, #000)}
+.war-card.settled{opacity:.55}
+.war-card.settled:hover,.war-card.settled:focus-visible{opacity:.85}
 
 `
 

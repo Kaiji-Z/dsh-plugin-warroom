@@ -178,6 +178,40 @@ with sync_playwright() as p:
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
 
+    # V9.11 R1 卡位模型机检：任务列=参谋侧台账（成形卡置顶 + 终局任务书卡常驻调暗）
+    # + 生命条上报即进战报段（修「卡已到战报列、条停在执行段」的打架）。
+    ledger = page.locator(".war-col.zone-tasks")
+    forming = ledger.locator(".war-forming")
+    assert forming.count() == 3, f"ledger must carry 3 forming cards (drafting/talking/plan), got {forming.count()}"
+    warn_f = ledger.locator(".war-forming.warn")
+    assert warn_f.count() == 1, "talking command must surface exactly one warn forming card"
+    warn_txt = warn_f.inner_text()
+    assert "等你答问" in warn_txt and "顺便给小工具加个导出 csv" in warn_txt, f"talking forming card must name command + wait-answer chip: {warn_txt!r}"
+    plan_f = forming.filter(has_text="把 projB 的小工具改成支持多本账本")
+    assert plan_f.count() == 1 and "计划待你批" in plan_f.first.inner_text(), "plan-pending command must surface its forming card"
+    draft_f = forming.filter(has_text="能翻回去看以前记的吗")
+    assert draft_f.count() == 1 and "成形中" in draft_f.first.inner_text(), "received(+staff session) command must carry the drafting forming card"
+    assert forming.filter(has_text="算了").count() == 0, "cancelled command must not surface a forming card"
+    settled = ledger.locator(".war-card.settled")
+    assert settled.count() == 2, f"ledger must keep BOTH terminal task cards (failed t3 + closed t6), got {settled.count()}"
+    settled_txt = settled.all_inner_texts()
+    assert any("20260823-delta" in t for t in settled_txt) and any("20260823-golf" in t for t in settled_txt), f"terminal cards must be t3(failed)+t6(closed): {settled_txt}"
+    t1_card = ledger.locator(".war-card", has_text="20260823-bravo").first
+    assert "settled" not in (t1_card.get_attribute("class") or ""), "reported task must stay fully lit (review action pending)"
+    d3_cmd = page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
+    assert d3_cmd.count() == 1, "d3 command card must sit in the dispatch strip"
+    now_stage = d3_cmd.locator(".war-life-label.now").all_inner_texts()
+    assert now_stage == ["战报"], f"reported command life strip must sit on the REPORT stage, got {now_stage}"
+    page.screenshot(path=f"{OUT}/v9-ledger.png")
+    # 成形卡点击 → 源命令聚焦页任务段（与聚焦页 ghost 同一变体判定，不分叉）。
+    warn_f.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    assert "顺便给小工具加个导出 csv" in page.locator(".war-modal-title").inner_text(), "forming card must open the source command's focus page"
+    assert page.locator(".war-modal .war-tour-ghost.warn").count() == 1, "focus task stage must show the same talking ghost (shared variant derivation)"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    print("V9.11 R1 ledger: 3 forming cards (talking-warn/plan/drafting) + terminal cards dimmed-in-place + life strip reported→report")
+
     # V9.9 导航断言：点上方任务卡 = 打开源命令的聚焦页（四段导览 + 底部双跳钮）。
     leave_island()  # 面板收起，别让它盖住任务卡
     page.wait_for_timeout(350)

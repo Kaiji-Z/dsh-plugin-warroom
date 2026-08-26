@@ -218,6 +218,11 @@ gate('bundle', () => {
     [client, 'taskBrief', 'task panel: per-ring brief row copy key'],
     [client, 'war-sub-btns', 'config expansion: regrade button row'],
     [client, 'war-sub-attempts', 'report expansion: per-attempt session list (click to jump)'],
+    // V9.11 R1 卡位模型：任务列=参谋侧台账（成形卡 + 任务书卡全量常驻）+ 生命条上报即进战报段。
+    [client, 'formingVariantOf', 'forming-variant derivation shared by focus ghost & ledger card'],
+    [client, 'war-forming', 'ledger forming card class'],
+    [client, '成形中', 'forming drafting chip copy (both skins)'],
+    [client, 'war-card.settled', 'settled task cards stay in ledger, dimmed'],
     [client, 'warroom-open-request', 'dock pill home event'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
@@ -331,6 +336,8 @@ gate('bundle', () => {
     { ok: !client.includes('war-cd-step'), label: 'V9.10: stage jump-nav buttons stay retired (no war-cd-step anywhere)' },
     // 生命条状态行只描述状态；进对话动作归卡上 chip/聚焦页 ghost，点卡指示不许回流。
     { ok: !client.includes('点卡进对话'), label: 'V9.10: lifecycle status stays instruction-free (no 点卡进对话)' },
+    // V9.11 R1 negative face：任务列不再按终局过滤（台账全量在列）。
+    { ok: !client.includes('openTasks'), label: 'V9.11: task ledger is no longer filtered to open tasks' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

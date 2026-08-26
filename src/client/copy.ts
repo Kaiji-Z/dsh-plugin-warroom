@@ -79,6 +79,8 @@ export interface WarCopy {
     approvedAwaitingPublish: string
     waitingClarify: string
     planPending: string
+    /** V9.11 成形卡 drafting 变体的 chip（talking/plan 复用 waitingClarify/planPending）。 */
+    formingDrafting: string
     waitingClaim: string
     attemptN: (n: number) => string
     chain: (done: number, total: number) => string
@@ -363,6 +365,7 @@ export const warCopy: WarCopy = {
     approvedAwaitingPublish: '任务待发布',
     waitingClarify: '等你答问',
     planPending: '计划待你批',
+    formingDrafting: '成形中',
     waitingClaim: '待指挥官领取',
     attemptN: n => `第 ${n} 次尝试`,
     chain: (done, total) => `任务链 ${done}/${total}`,
@@ -677,6 +680,7 @@ export const plainCopy: WarCopy = {
     waitingStaff: '参谋接收中',
     approvedAwaitingPublish: '任务待发布',
     planPending: '方案待你批',
+    formingDrafting: '成形中',
     waitingClaim: '等执行者领取',
     attemptN: n => `第 ${n} 次尝试`,
     chain: (done, total) => `任务组 ${done}/${total}`,

@@ -181,10 +181,12 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[]): { reached: Record<L
   }
   const closed = chain.filter(t => t.status === 'closed').length
   const battleLive = chain.some(t => t.status === 'in_progress' || t.status === 'reported' || t.attemptLog.length > 0)
-  const reportDone = chain.some(t => t.status === 'closed' || t.status === 'failed')
+  // V9.11：上报（reported）即进战报段——执行卡已平移到战报列，生命条不许停在执行段
+  // 打架；状态标签优先级 定论(closed/failed) > 待验收(reported)。
+  const reportDone = chain.some(t => t.status === 'closed' || t.status === 'failed' || t.status === 'reported')
   const chainPrefix = chain.length > 1 ? `${copy.chain(closed, chain.length)} · ` : ''
   if (reportDone) {
-    const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed')
+    const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed') ?? chain.find(t => t.status === 'reported')
     const label = terminal !== undefined ? activeCopy().taskStatus[terminal.status] : ''
     return { reached: { command: true, task: true, battle: true, report: true }, now: 'report', status: `${chainPrefix}${label}`, tone: '' }
   }
@@ -194,6 +196,13 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[]): { reached: Record<L
     return { reached: { command: true, task: true, battle: true, report: false }, now: 'battle', status: `${chainPrefix}${activeCopy().taskStatus[current.status]}${attemptSuffix}`, tone: '' }
   }
   return { reached: { command: true, task: true, battle: false, report: false }, now: 'task', status: copy.waitingClaim, tone: '' }
+}
+
+/** V9.11 成形态判定（聚焦页 ghost 与主界面任务列成形卡同源，保持分岔一致）：
+ *  空链未取消时 计划 > 等你答问 > 已接令起草；转达中/定时/已取消/已挂任务书无卡。 */
+function formingVariantOf(cmd: BoardCommand, chain: BoardTask[]): 'plan' | 'talking' | 'drafting' | null {
+  if (chain.length > 0 || cmd.status === 'cancelled') return null
+  return cmd.plan !== null ? 'plan' : cmd.status === 'talking' ? 'talking' : cmd.staffSessionId !== null ? 'drafting' : null
 }
 
 /** 阶段条（4 段分段进度：done 绿 / now 蓝呼吸 / 其余灰）。 */
@@ -563,16 +572,10 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   const execTarget = liveAttempts[0]?.a.sessionId ?? execSessions[0]?.a.sessionId ?? null
   const failedChain = chain.some(t => t.status === 'failed')
   const scheduled = cmd.schedule !== null && cmd.schedule.dispatchedAt === null
-  // V9.10 任务段状态机（空链时的卡片/提示分岔，元首定案）：计划优先 > 等你答问
-  // > 已接令起草 > 转达中；定时待发与已取消给非交互灰提示——所见即真实状态，
-  // 不再一律「参谋正在起草」。ghost 卡 = 任务成形车间（参谋会话）的就地入口。
+  // V9.10 任务段状态机（空链时的卡片/提示分岔，元首定案）——变体判定与主界面
+  // 任务列成形卡同源（formingVariantOf），分岔口径永不分叉。
   const talking = cmd.status === 'talking'
-  const ghostVariant = chain.length === 0 && cmd.status !== 'cancelled'
-    ? cmd.plan !== null ? 'plan' as const
-      : talking ? 'talking' as const
-      : cmd.staffSessionId !== null ? 'drafting' as const
-      : null
-    : null
+  const ghostVariant = formingVariantOf(cmd, chain)
   const taskHint = chain.length > 0 || ghostVariant !== null ? null
     : cmd.status === 'cancelled' ? fp.taskCancelled
     : scheduled ? fp.taskScheduledHint(fmtSchedule(cmd.schedule !== null ? cmd.schedule.nextRunAt : null))
@@ -865,10 +868,48 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
 
 // --- 任务区 ------------------------------------------------------------------
 
+// --- 成形卡（V9.11 任务列=参谋侧台账：任务书挂出前的占位形态，变体同聚焦页 ghost）---
+
+function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting', onOpen: () => void, trace: CardTrace): ReactNode {
+  const lc = activeCopy().lifecycle
+  const fp = activeCopy().focusPage
+  const planPending = cmd.plan?.status === 'pending'
+  const chip = variant === 'talking' ? lc.waitingClarify
+    : variant === 'plan' ? (planPending ? lc.planPending : lc.approvedAwaitingPublish)
+    : lc.formingDrafting
+  const note = variant === 'talking' ? fp.talkingGhostCard
+    : variant === 'plan' ? (planPending ? fp.taskGhostPlanning : fp.taskGhostApproved)
+    : fp.draftingGhostCard
+  return createElement('div', {
+    key: `forming-${cmd.commandId}`,
+    className: `war-card war-forming clickable${variant === 'talking' ? ' warn' : ''}${relClass(trace)}`,
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `${chip}：${cmd.text}`,
+    onClick: onOpen,
+    onKeyDown: keyActivate(onOpen),
+    ...traceMouse(trace),
+  },
+    createElement('div', { className: 'war-card-top' },
+      createElement('span', { className: 'war-forming-icon', 'aria-hidden': 'true' }, variant === 'talking' ? '⚠' : '◷'),
+      createElement('span', { className: `war-chip ${variant === 'talking' ? 'st-talking' : 'st-received'}` }, chip),
+      createElement('span', { className: 'war-title' }, cmd.text),
+    ),
+    createElement('div', { className: 'war-card-top' },
+      createElement('span', { className: 'war-taskid' }, cmd.commandId),
+      relTime(cmd.createdAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)) : null,
+    ),
+    createElement('div', { className: 'war-waithint' }, note),
+  )
+}
+
 function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace): ReactNode {
+  // V9.11 台账终局态：closed/failed 任务书卡常驻任务列但调暗；reported 是待验收
+  // 动作态（收件箱有「去处理」），保持全亮不许被埋。
+  const settled = task.status === 'closed' || task.status === 'failed'
   return createElement('div', {
     key: task.taskId,
-    className: `war-card clickable${relClass(trace)}`,
+    className: `war-card clickable${settled ? ' settled' : ''}${relClass(trace)}`,
     role: 'button',
     tabIndex: 0,
     'aria-label': `${activeCopy().taskStatus[task.status]}：${task.title}`,
@@ -1403,8 +1444,6 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const now = Date.now()
     // V9 战报列：成功+失败合并、纯时间倒序（无按天分组——组头是单组时的噪音）。
     const report = [...done, ...failed].sort((x, y) => byStart(x.a, y.a))
-    // V9 任务列：未终局任务（待领/进行/待翻阅）——终局走战报。
-    const openTasks = tasks.filter(t => t.status !== 'closed' && t.status !== 'failed')
     // V9 底部调度条：全部命令，活跃优先（未取消且链未全终局）+ 新→旧——Dispatch 调度中心的一排英雄位。
     const cmdActive = (c: BoardCommand): boolean => {
       const ch = chainOf(c)
@@ -1414,6 +1453,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = hoverFamily ?? focusCommandId
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
+    // V9.11 任务列=参谋侧台账：成形卡（接令起、任务书未挂出的命令）置顶——参谋
+    // 产线全览；任务书卡（tasks 全量，终局调暗）随后。成形中列首正是「参谋在做什么」。
+    const formingCards = commandsNewest.flatMap(c => {
+      const v = formingVariantOf(c, chainOf(c))
+      return v === null ? [] : [FormingCard(c, v, () => { openCommand(c.commandId, 'plan') }, traceFor(c.commandId))]
+    })
     const focusCmd = focusCommandId !== null ? commands.find(c => c.commandId === focusCommandId) : undefined
     // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
     const inbox = collectInbox(commands, tasks, now)
@@ -1491,12 +1536,14 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
           createElement('div', { className: 'war-ops' },
             createElement('div', { className: 'war-zone war-tasks' },
-              Zone('tasks', activeCopy().columns.tasks.title, openTasks.length, activeCopy().columns.tasks.empty,
-                openTasks.map(t => TaskCard(t, statuses, openTaskVia,
-                  (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
-                    ? () => { openStaff(t.taskId) }
-                    : null,
-                  lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+              Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
+                [...formingCards,
+                  ...tasks.map(t => TaskCard(t, statuses, openTaskVia,
+                    (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
+                      ? () => { openStaff(t.taskId) }
+                      : null,
+                    lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
+                ],
               ),
             ),
             createElement('div', { className: 'war-zone war-field' },
