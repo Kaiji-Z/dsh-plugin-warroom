@@ -11,7 +11,7 @@
  */
 
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
@@ -475,6 +475,9 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
 function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（战报卡「下续战令」播种）。 */ initialContinueId?: string | null }): ReactNode {
   const { recent, onClose, refresh, continueCandidates = [], initialContinueId = null } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
+  // V10.1 critique P1-3：焦点直落 textarea（此前停在弹窗容器 DIV，多按一次 Tab）。
+  const taRef = useRef<HTMLTextAreaElement | null>(null)
+  useEffect(() => { taRef.current?.focus() }, [])
   // V9.5（复评 P2-1）：草稿落 localStorage——误点背板/顺手 Esc 不再焚稿，
   // 重开起草器自动续写；提交成功才清。
   const [text, setText] = useState(() => { try { return localStorage.getItem('warroom-draft') ?? '' } catch { return '' } })
@@ -544,7 +547,9 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         value: text,
         placeholder: copy.placeholder,
         'aria-label': copy.title,
+        rows: 3,
         autoFocus: true,
+        ref: taRef,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit() },
       }),
@@ -1037,7 +1042,12 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                     : null,
                 )
                 : null)
-            : createElement('div', { className: 'war-tour-hint' }, fp.reportNone),
+            : createElement('div', { className: 'war-tour-hint' },
+              liveAttempts.length > 0
+                ? (() => { const la = liveAttempts[0]!.a; return fp.reportLive(la.activity?.label ?? activeCopy().starfield.orbIdle, la.n, relTime(la.startedAt)) })()
+                : chain.some(t => t.status === 'published') ? fp.reportQueued
+                : execSessions.length > 0 ? fp.reportSettledSoon
+                : fp.reportNone),
         ),
       ),
       // 底部两颗会话跳钮（V9.9 元首定案，代替旧 footer 全部按钮）：直跳原生会话
@@ -1464,6 +1474,25 @@ function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }):
       ro.disconnect()
     }
   }, [children.length])
+  // V10.1 critique P1-3：roving tabindex——Tab 一次进坞第一张卡，左右键在卡间移动
+  // （此前 14 张卡各占一个 Tab 位，命令卡全板键盘可达性最差）。
+  useEffect(() => {
+    const el = ref.current
+    if (el === null) return
+    ;[...el.querySelectorAll<HTMLElement>('.war-command-card')].forEach((c, i) => { c.tabIndex = i === 0 ? 0 : -1 })
+  }, [children.length])
+  const onTrackKey = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+    const el = ref.current
+    if (el === null) return
+    const cards = [...el.querySelectorAll<HTMLElement>('.war-command-card')]
+    const idx = cards.findIndex(c => c === document.activeElement)
+    if (idx < 0) return
+    e.preventDefault()
+    const next = e.key === 'ArrowRight' ? Math.min(idx + 1, cards.length - 1) : Math.max(idx - 1, 0)
+    cards.forEach((c, i) => { c.tabIndex = i === next ? 0 : -1 })
+    cards[next]!.focus()
+  }
   return createElement('div', { className: 'war-dispatch', role: 'region', 'aria-label': activeCopy().dispatch.label },
     createElement('button', {
       className: 'war-dispatch-add',
@@ -1472,7 +1501,7 @@ function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }):
       'aria-label': activeCopy().dispatch.addTitle,
       onClick: onCompose,
     }, '＋'),
-    createElement('div', { className: 'war-dispatch-track', ref }, ...children),
+    createElement('div', { className: 'war-dispatch-track', ref, onKeyDown: onTrackKey }, ...children),
   )
 }
 
@@ -1490,8 +1519,10 @@ function SettingsDrawer(props: {
   /** V10.1 战场视图开关（从调度坞退役迁此——坞只管卡，设置管模式）。 */
   viewMap: boolean
   onToggleViewMap: (v: boolean) => void
+  /** 偏好为地图但窗口过窄被强制回列表——开关旁给诚实说明（critique P2-5）。 */
+  narrowActive: boolean
 }): ReactNode {
-  const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh, viewMap, onToggleViewMap } = props
+  const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh, viewMap, onToggleViewMap, narrowActive } = props
   const copy = activeCopy().settings
   const [skin, setSkinState] = useState(skinId())
   const layer = useModalLayer(onClose, copy.title)
@@ -1529,13 +1560,19 @@ function SettingsDrawer(props: {
         createElement('div', { className: 'war-settings-note' }, copy.skinHint),
         createElement('div', { className: 'war-settings-section' }, copy.legendSection),
         createElement('div', { className: 'war-legend-rows' },
-          activeCopy().legend.rows.flatMap(([sym, text]) => [
-            createElement('span', { key: `${sym}-sym`, className: 'war-legend-sym' }, sym),
-            createElement('span', { key: `${sym}-text`, className: 'war-legend-text' }, text),
-          ])),
+          activeCopy().legend.rows.flatMap(row => {
+            const [sym, text] = row
+            const cls = row.length > 2 ? row[2]! : ''
+            return [
+              createElement('span', { key: `${sym}-sym`, className: cls !== '' ? `war-legend-sym war-legend-dot ${cls}` : 'war-legend-sym' }, sym),
+              createElement('span', { key: `${sym}-text`, className: 'war-legend-text' }, text),
+            ]
+          })),
+        createElement('div', { className: 'war-settings-section' }, copy.viewSection),
+        toggle(copy.viewMap, copy.viewMapHint, viewMap, onToggleViewMap),
+        narrowActive ? createElement('div', { className: 'war-settings-note' }, copy.narrowNote) : null,
         createElement('div', { className: 'war-settings-section' }, copy.behaviorSection),
         toggle(copy.hoverFamily, copy.hoverFamilyHint, hoverFamily, onToggleHoverFamily),
-        toggle(copy.viewMap, copy.viewMapHint, viewMap, onToggleViewMap),
         toggle(copy.autoScroll, copy.autoScrollHint, autoScroll, onToggleAutoScroll),
         createElement('div', { className: 'war-settings-section' }, copy.connSection),
         createElement('div', { className: 'war-set-conn' },
@@ -1716,6 +1753,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const wsOrder = workspaceCreationOrder(tasks)
     const planetSpecs = galaxyLayout(wsOrder)
     const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
+    const commandTextOf = new Map(commands.map(c => [c.commandId, c.text.slice(0, 14)] as const))
     const moonSlot = new Map<string, number>()
     const starTroops = live.flatMap(({ t, a }) => {
       const idx = wsOrder.indexOf(t.workspacePath ?? '')
@@ -1725,14 +1763,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const k = moonSlot.get(spec.wsPath) ?? 0
       moonSlot.set(spec.wsPath, k + 1)
       const pos = moonPos(spec, a.sessionId, k * Math.PI / 3)
+      const src = lineageOf(t.taskId)?.commandId ?? null
       return [{
         sessionId: a.sessionId,
         planet: spec,
         xPct: pos.xPct,
         yPct: pos.yPct,
-        verbLabel: a.activity?.label ?? null,
+        verbLabel: a.activity?.label ?? activeCopy().starfield.orbIdle,
         paused: t.quotaPaused === true,
-        sourceCommandId: lineageOf(t.taskId)?.commandId ?? null,
+        sourceCommandId: src,
+        sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null,
       }]
     })
     const mapView = viewPref === 'map' && winW >= 900
@@ -1935,6 +1975,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         connected: error === null,
         onRefresh: refresh,
         viewMap: viewPref === 'map',
+        narrowActive: viewPref === 'map' && !mapView,
         onToggleViewMap: v => {
           const next = v ? 'map' : 'list'
           setViewPref(next)

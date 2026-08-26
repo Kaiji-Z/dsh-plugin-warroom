@@ -86,21 +86,28 @@ export function workspaceCreationOrder(tasks: ReadonlyArray<Pick<BoardTask, 'wor
 export interface PlanetGarrison {
   readonly orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>
   readonly triumphs: number
+  /** V10.1 critique P1-2：行星升格战区仪表——待领令数（琥珀信号）与败数（红信号）。 */
+  readonly awaiting: number
+  readonly failing: number
 }
 
 export function garrisonOf(tasks: ReadonlyArray<BoardTask>, wsPath: string): PlanetGarrison {
   let triumphs = 0
+  let awaiting = 0
+  let failing = 0
   const orbs: Array<{ sessionId: string; verbLabel: string | null; paused: boolean }> = []
   for (const t of tasks) {
     if (t.workspacePath !== wsPath) continue
     if (t.status === 'closed') triumphs += 1
+    if (t.status === 'published') awaiting += 1
+    if (t.status === 'failed') failing += 1
     for (const a of t.attemptLog ?? []) {
       if (isLiveAttempt(a)) {
         orbs.push({ sessionId: a.sessionId, verbLabel: a.activity?.label ?? null, paused: t.quotaPaused === true })
       }
     }
   }
-  return { orbs, triumphs }
+  return { orbs, triumphs, awaiting, failing }
 }
 
 function isLiveAttempt(a: BoardAttempt): boolean {
@@ -122,6 +129,8 @@ export interface StarfieldTroop {
   readonly paused: boolean
   /** 点击直跳源命令聚焦页（孤儿防御性置空则不可点）。 */
   readonly sourceCommandId: string | null
+  /** aria 用命令摘要——读屏用户不该听会话号（critique A）。 */
+  readonly sourceLabel: string | null
 }
 
 export interface StarfieldProps {
@@ -169,10 +178,14 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-ws-index': String(spec.ring),
         'data-triumphs': String(garrison.triumphs),
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
-        title: `${planetLabel(spec.wsPath)}${garrison.triumphs > 0 ? ` · 凯旋 ${garrison.triumphs}` : ''}`,
+        title: `${planetLabel(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
       createElement('span', { className: 'war-planet-label' }, `${planetLabel(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
+      garrison.orbs.length + garrison.awaiting + garrison.failing > 0
+        ? createElement('span', { className: `war-planet-stats${garrison.awaiting > 0 ? ' wait' : ''}${garrison.failing > 0 ? ' fail' : ''}` },
+            `${garrison.orbs.length > 0 ? `活跃${garrison.orbs.length}` : ''}${garrison.awaiting > 0 ? ` 待发${garrison.awaiting}` : ''}${garrison.failing > 0 ? ` 败${garrison.failing}` : ''}`.trim())
+        : null,
       )),
     ...troops.map(t =>
       createElement('button', {
@@ -182,7 +195,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-session': t.sessionId,
         style: { left: `${t.xPct}%`, top: `${t.yPct}%` },
         title: t.verbLabel !== null && t.verbLabel !== '' ? t.verbLabel : undefined,
-        'aria-label': `${t.verbLabel ?? orbIdleLabel} · ${t.sessionId.slice(0, 8)}`,
+        'aria-label': `${t.verbLabel ?? orbIdleLabel} · ${t.sourceLabel ?? t.sessionId.slice(0, 8)}`,
         onMouseEnter: () => { onOrbHover?.(t.sourceCommandId) },
         onMouseLeave: () => { onOrbHover?.(null) },
         onFocus: () => { onOrbHover?.(t.sourceCommandId) },

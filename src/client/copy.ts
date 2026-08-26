@@ -41,6 +41,9 @@ export interface WarCopy {
     /** V10.1 战场视图开关（星域地图 ⇄ 三列局势墙）。 */
     viewMap: string
     viewMapHint: string
+    /** V10.1 critique：视图独立分组 + 窄屏降级的诚实说明。 */
+    viewSection: string
+    narrowNote: string
     autoScroll: string
     autoScrollHint: string
     connSection: string
@@ -144,7 +147,7 @@ export interface WarCopy {
   /** V7.1 审查整改：决策写操作失败的就地反馈（静默失败击穿信任）。 */
   actions: { failToast: (what: string) => string; jumpMissHint: string }
   /** V7.1 审查整改：板面图例——符号文法不再靠悬停自学（双皮肤各说各话）。 */
-  legend: { btn: string; title: string; rows: Array<[string, string]> }
+  legend: { btn: string; title: string; rows: Array<[string, string] | [string, string, string]> }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
   taskStatus: Record<BoardTask['status'], string>
   /** 分区信号灯（地图角标「！/？」与提示语）。 */
@@ -231,6 +234,10 @@ export interface WarCopy {
     reportVerdict: string
     reportLatest: string
     reportNone: string
+    /** V10.1 critique P1-1：战报段在途回退——不再是死区灰条。 */
+    reportLive: (verb: string, n: number, when: string) => string
+    reportQueued: string
+    reportSettledSoon: string
     taskSessionBtn: string
     execSessionBtn: string
     taskSessionHint: string
@@ -326,7 +333,7 @@ export const warCopy: WarCopy = {
     tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）' },
   commandBand: {
     title: '等你发落',
     quiet: '无需发落——此命令在自动推进中',
@@ -357,7 +364,9 @@ export const warCopy: WarCopy = {
     hoverFamily: '悬停族系高亮',
     hoverFamilyHint: '悬停任一张卡，同命令的卡高亮、其余压暗',
     viewMap: '星域战场视图',
-    viewMapHint: '开=星域为底、任务/战报浮舱压图；关=三列局势墙',
+    viewMapHint: '开=星域为底、任务/战报浮舱压图；关=三列局势墙（窄于 900px 自动回列表）',
+    viewSection: '视图',
+    narrowNote: '窗口窄于 900px，星域暂回列表——放宽窗口自动恢复',
     autoScroll: '悬停自动滚动',
     autoScrollHint: '高亮的卡不在视野内时，自动滚到眼前',
     connSection: '连接',
@@ -442,6 +451,10 @@ export const warCopy: WarCopy = {
     btn: 'ⓘ 图例',
     title: '板面图例——符号与标记',
     rows: [
+      ['●', '状态四档：蓝 = 机器在动', 'dot-run'],
+      ['●', '琥珀 = 等你发落', 'dot-wait'],
+      ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
+      ['●', '红 = 败（终败/熔断）', 'dot-fail'],
       ['！', '新悬赏挂出，等待指挥官领取'],
       ['？', '战报已呈递，等你翻阅收菜'],
       ['◎', '聚焦：只亮这条命令的族系（任务+会话），Esc 退出'],
@@ -564,6 +577,9 @@ export const warCopy: WarCopy = {
     reportVerdict: '收官结论',
     reportLatest: '最新战报',
     reportNone: '尚无战报——收官后这里给结论原文',
+    reportLive: (verb, n, when) => `作战进行中 · ${verb} · 第 ${n} 次作战 · 始于${when}`,
+    reportQueued: '部队待领令——领令开战后这里实时播报',
+    reportSettledSoon: '上一仗已收束，战报由参谋呈递后在此',
     taskSessionBtn: '任务会话',
     execSessionBtn: '执行会话',
     taskSessionHint: '参谋会话未形成——命令转达参谋后出现',
@@ -661,7 +677,7 @@ export const plainCopy: WarCopy = {
     tasks: { title: '任务', note: '未完成的任务' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）· 快捷键 n', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图' },
   commandBand: {
     title: '等你处理',
     quiet: '不用管——这条命令在自己推进',
@@ -692,7 +708,9 @@ export const plainCopy: WarCopy = {
     hoverFamily: '悬停看同源',
     hoverFamilyHint: '悬停卡片时，同一命令的卡片亮、其他变暗',
     viewMap: '项目全景图',
-    viewMapHint: '开=星球地图为底；关=三列列表',
+    viewMapHint: '开=星球地图为底；关=三列列表（窗口太窄自动回列表）',
+    viewSection: '视图',
+    narrowNote: '窗口太小，全景图暂回列表；窗口放大后自动恢复',
     autoScroll: '自动滚到眼前',
     autoScrollHint: '高亮的卡片不在画面里时，自动滚动过去',
     connSection: '连接',
@@ -776,6 +794,10 @@ export const plainCopy: WarCopy = {
     btn: 'ⓘ 图例',
     title: '看板图例——符号与标记',
     rows: [
+      ['●', '状态四档：蓝 = 机器在动', 'dot-run'],
+      ['●', '琥珀 = 等你发落', 'dot-wait'],
+      ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
+      ['●', '红 = 败（终败/熔断）', 'dot-fail'],
       ['！', '新任务，等待执行者领取'],
       ['？', '结果已提交，等待你验收'],
       ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
@@ -898,6 +920,9 @@ export const plainCopy: WarCopy = {
     reportVerdict: '收官结论',
     reportLatest: '最新汇报',
     reportNone: '还没有汇报——收官后这里给结论原文',
+    reportLive: (verb, n, when) => `进行中 · ${verb} · 第 ${n} 次 · 从${when}开始`,
+    reportQueued: '等执行者接手，接手后这里播报进展',
+    reportSettledSoon: '上一轮已结束，结果整理后会放在这里',
     taskSessionBtn: '任务会话',
     execSessionBtn: '执行会话',
     taskSessionHint: '参谋会话还没建立——命令转给参谋后出现',

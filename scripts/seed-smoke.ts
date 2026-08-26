@@ -134,6 +134,10 @@ appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(37), directiveId: 
 appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d12, staffSessionId: 'sec-d12' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(36), directiveId: d12, grade: 'L0', reason: '明确 bug，直接修', confidence: 0.92 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(35), directiveId: d12, taskId: t6 })
+const d14 = 'cmd-20260823-0755-f914'
+appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(2.5), directiveId: d14, text: '顺手把翻页修复写进 README 变更记录', continuesFrom: d12, continuationMode: 'deepen' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(2), directiveId: d14, staffSessionId: 'sec-d14' })
+appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(1.5), directiveId: d14, taskId: t6 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(4), directiveId: d13, text: '每天早上跑一遍依赖安全巡检，有高危就报' })
 appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(3.5), directiveId: d13, staffSessionId: 'sec-d13' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(3), directiveId: d13, grade: 'L1', reason: '例行巡检，先出方案', confidence: 0.85 })

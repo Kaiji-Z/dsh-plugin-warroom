@@ -308,7 +308,7 @@ body[data-ds-dark-theme] .war-root{
 .war-detail-text{font-size:13px;white-space:pre-wrap;color:var(--dsw-alias-label-primary)}
 .war-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1)}
 .war-modal.wide{max-width:720px}
-.war-composer{width:100%;min-height:120px;resize:vertical;font-family:var(--dsw-font-family);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:10px 12px;outline:none}
+.war-composer{width:100%;min-height:88px;resize:vertical;font-family:var(--dsw-font-family);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:10px 12px;outline:none}
 .war-composer:focus{border-color:var(--dsw-alias-state-business-primary)}
 
 /* --- external thread cards + dock home pill (v3) ---------------------------- */
@@ -468,7 +468,7 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
     radial-gradient(820px 400px at 12% 112%, color-mix(in srgb, var(--chain-hue, #a83d84) 6%, transparent), transparent 55%),
     linear-gradient(color-mix(in srgb, var(--dsw-alias-border-l1) 28%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in srgb, var(--dsw-alias-border-l1) 28%, transparent) 1px, transparent 1px),
-    var(--war-canvas);
+    color-mix(in srgb, #efe6d2 40%, var(--war-canvas)); /* V10.1 海图纸沙盘底 */
   background-size:auto,auto,56px 56px,56px 56px,auto}
 body[data-ds-dark-theme] .war-root .war-starfield{
   background:
@@ -490,6 +490,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-orbit{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);border:1px dashed color-mix(in srgb, var(--dsw-alias-border-l2) 70%, transparent);border-radius:50%;pointer-events:none}
 .war-hq{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:20px;line-height:1;color:var(--dsw-alias-label-tertiary);filter:saturate(.2);pointer-events:none;font-family:var(--dsw-font-family)}
 .war-hq.lit{color:#f6c453;filter:none;text-shadow:0 0 14px color-mix(in srgb,#f6c453 65%,transparent),0 0 40px color-mix(in srgb,#f6c453 25%,transparent)}
+body:not([data-ds-dark-theme]) .war-root .war-hq.lit{color:color-mix(in srgb,#f6c453 45%,#2b1d00);text-shadow:0 0 10px color-mix(in srgb,#f6c453 38%,transparent)}
 .war-planet{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto}
 .war-planet-ball{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 32% 30%, color-mix(in srgb,#fff 28%,transparent), transparent 46%), var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2)}
 .war-planet.busy .war-planet-ball{width:20px;height:20px;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, transparent)}
@@ -504,6 +505,31 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-dispatch-view{cursor:pointer;align-self:center;font-size:12px;line-height:18px;padding:2px 10px;margin-right:4px;border-radius:999px;border:1px dashed var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:transparent;font-family:var(--dsw-font-family);white-space:nowrap}
 .war-dispatch-view.on{border-style:solid;border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, transparent);color:var(--war-run-strong);background:var(--war-run-tint)}
 .war-dispatch-view:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
+.war-planet-stats{font-size:12px;line-height:14px;color:var(--dsw-alias-label-tertiary);letter-spacing:.02em}
+.war-planet-stats.wait{color:color-mix(in srgb,var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warn-primary)) 58%,#000)}
+.war-planet-stats.fail{color:color-mix(in srgb,var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary)) 58%,#000)}
+body[data-ds-dark-theme] .war-root .war-planet-stats.wait{color:var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warn-primary))}
+body[data-ds-dark-theme] .war-root .war-planet-stats.fail{color:var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary))}
+.war-legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.war-legend-dot.dot-run{background:var(--war-run-strong)}
+.war-legend-dot.dot-wait{background:color-mix(in srgb,var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warn-primary)) 58%,#000)}
+.war-legend-dot.dot-done{background:color-mix(in srgb,var(--dsw-alias-state-success-label,var(--dsw-alias-state-success-primary)) 58%,#000)}
+.war-legend-dot.dot-fail{background:color-mix(in srgb,var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary)) 58%,#000)}
+body[data-ds-dark-theme] .war-root .war-legend-dot.dot-wait{background:var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warn-primary))}
+body[data-ds-dark-theme] .war-root .war-legend-dot.dot-done{background:var(--dsw-alias-state-success-label,var(--dsw-alias-state-success-primary))}
+body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary))}
+.war-detach,.war-cd-session{min-height:24px}
+.war-settings-body{padding-bottom:32px}
+@media (max-width:899px){
+  .war-ops{grid-template-columns:1fr 1fr}
+  .war-ops .war-zone.war-tasks{grid-column:1 / -1;max-height:30vh}
+}
+@media (prefers-reduced-motion: reduce){
+  .war-orb-body{animation:none}
+  .war-planet.busy .war-planet-ball{box-shadow:none}
+  .war-cmd-group .war-command-card{transition:none}
+  .war-cmd-group .war-command-card:hover{transform:none}
+}
 /* V10.1 昔日阵地 ghost：hover 族链时显形的已结算 attempt——空心静止，绿=善终/红=败 */
 .war-orb-ghost{position:absolute;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;border:2px solid var(--war-done);background:transparent;opacity:.6;pointer-events:none}
 .war-orb-ghost.fail{border-color:var(--war-fail)}

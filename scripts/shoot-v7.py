@@ -441,7 +441,7 @@ with sync_playwright() as p:
     assert page.locator(".war-switch").count() == 3, "behavior toggles missing in settings drawer (V10.1 adds view switch)"
     assert page.locator(".war-set-conn-dot").count() == 1, "connection status missing in settings drawer"
     # 开关翻转要落 localStorage（刷新后仍生效）。
-    page.locator(".war-switch").first.click()
+    page.locator(".war-set-toggle", has_text="悬停").locator(".war-switch").first.click()  # V10.1：视图开关插队后按标签定位（悬停+自动滚动两行都含「悬停」，取首行）
     page.wait_for_timeout(200)
     assert page.evaluate("() => localStorage.getItem('warroom-cfg-hover-family')") == "0", "hover-family toggle did not persist"
     page.screenshot(path=f"{OUT}/v7-settings.png")
