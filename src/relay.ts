@@ -11,10 +11,12 @@
  * @module dsh-plugin-warroom/relay
  */
 
-import { appendDirectiveEvent, loadDirectives, pendingDirectives, type Directive } from './directives.ts'
+import { appendDirectiveEvent, foldChains, loadDirectives, pendingDirectives, type Directive } from './directives.ts'
 import { featureEnabled, type FeatureFlags } from './flags.ts'
 import { bountyDraftingSkillContent } from './skill.ts'
 import { boardDigest } from './wake.ts'
+import { loadCampaign } from './events.ts'
+import type { TaskStatus } from './types.ts'
 import type { WarStore } from './state.ts'
 
 /** Structural slice of the harness apiProxy's sessions + workspace domains. */
@@ -97,6 +99,53 @@ ${planDiscipline}${decomposeDiscipline}
 ${craft}`
 }
 
+/** 罗马代际标签（服务端侧小实现——客户端视图层的 GEN_ROMAN 不跨端复用）。 */
+function romanGen(n: number): string {
+  const numerals = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ', 'Ⅺ', 'Ⅻ']
+  return numerals[n] ?? `第${n}代`
+}
+
+function brief(text: string, w: number): string {
+  return text.length > w ? `${text.slice(0, w)}…` : text
+}
+
+/** V10 战线档案条目（纯）：一代旧令的一行战况，深挖兜底写「战况不详」。 */
+export interface ChainStepFace {
+  readonly generation: number
+  readonly text: string
+  readonly outcome?: string
+}
+
+export function chainDigest(steps: ReadonlyArray<ChainStepFace>): string {
+  return steps
+    .map(s => `- ${romanGen(s.generation)} 代「${brief(s.text, 18)}」→ ${s.outcome ?? '战况不详（任务账本缺失）'}`)
+    .join('\n')
+}
+
+/** 从挂链任务折出一行战况（纯；结构性切片，deepen/retry 的征召注入用）。 */
+export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; closedVerdict?: string }): string {
+  if (task === undefined) return '未成形（尚未发布成任务）'
+  if (task.status === 'closed') return `已收官：${task.closedVerdict ?? '验收通过'}`
+  if (task.status === 'failed') return `败退${task.lastError !== undefined && task.lastError !== '' ? `——败因：${task.lastError}` : ''}`
+  switch (task.status) {
+    case 'reported': return '已交稿，待元首验收'
+    case 'in_progress': return '作战进行中'
+    case 'published': return '已发布，待指挥官领令'
+    default: return '草稿中'
+  }
+}
+
+/** V10 pivot 转达文本（纯）：不进参谋对话——指令直插执行会话队列。 */
+export function pivotPromptFor(parentText: string, directiveId: string, text: string): string {
+  return `【续战令·转向】${directiveId}（续自「${brief(parentText, 16)}」）
+
+指挥官：元首在作战进行中插播指令——
+
+${text}
+
+按队列在本回合结束后送达；与本任务既定路线冲突时，以本条为准修订方向。确实无法转向就照常收束，由参谋另案处理。`
+}
+
 /**
  * Run one fuse pass: relay every pending directive into ITS OWN staff
  * conversation (v3 每命令一会话 — one staff thread per command, topic-clean).
@@ -109,14 +158,69 @@ ${craft}`
  * relayed command is `received` and never picked up twice.
  */
 export async function relayPendingCommands(deps: CommandFuseDeps, sessions: SessionsApiFace | undefined): Promise<{ relayed: number; staffSessionId?: string }> {
-  const pending = pendingDirectives(loadDirectives(deps.stateDir))
+  const all = loadDirectives(deps.stateDir)
+  const pending = pendingDirectives(all)
   if (pending.length === 0) return { relayed: 0 }
   if (sessions === undefined) return { relayed: 0 }
   // The war surface (persona + war_* tools) must exist before any relay text
   // reaches the model — code-side activation, never a queued '/war' string.
   if (!deps.store.get().active) deps.activate()
+  // V10 战线链一次折齐：pivot 目标解析 + 战线档案注入共用（命令量级=百级，
+  // 任务账本按需 lazy 加载并缓存——同 parent 多次查不重读盘）。
+  const byId = new Map(all.map(d => [d.id, d] as const))
+  const chains = foldChains(all)
+  const campaignCache = new Map<string, ReturnType<typeof loadCampaign> | undefined>()
+  const campaignOf = (taskId?: string): ReturnType<typeof loadCampaign> | undefined => {
+    if (taskId === undefined) return undefined
+    if (campaignCache.has(taskId)) return campaignCache.get(taskId)
+    let c: ReturnType<typeof loadCampaign> | undefined
+    try {
+      const loaded = loadCampaign(deps.stateDir, taskId)
+      c = loaded.startedAt === '' ? undefined : loaded
+    } catch { c = undefined }
+    campaignCache.set(taskId, c)
+    return c
+  }
+  const chainNoteFor = (directive: Directive, includePivotFallback = false): string => {
+    const cont = directive.continuation
+    if (cont === undefined || (cont.mode === 'pivot' && !includePivotFallback)) return ''
+    const gen = chains.generationOf.get(directive.id) ?? 1
+    const rootId = chains.rootByCommand.get(directive.id) ?? directive.id
+    const members = chains.membersOfRoot.get(rootId) ?? []
+    const steps = []
+    for (let g = 1; g < gen && g <= members.length; g++) {
+      const anc = byId.get(members[g - 1]!)
+      if (anc === undefined) continue
+      const camp = campaignOf(anc.taskId)
+      steps.push({
+        generation: g,
+        text: anc.text,
+        outcome: chainOutcomeOf(camp === undefined ? undefined : { status: camp.status, lastError: camp.lastError, closedVerdict: camp.closedVerdict }),
+      })
+    }
+    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${chainDigest(steps)}`
+  }
   let relayed = 0
   for (const directive of pending) {
+    // V10 pivot 分路：指令直插父任务的执行会话队列，一穿五态即归档
+    // （received 记执行会话号 → approved 挂父任务号）；不开新参谋会话。
+    // 无活体 attempt（还在排队/已收官）落回常轨走参谋且带战线档案兜底。
+    const cont = directive.continuation
+    if (cont !== undefined && cont.mode === 'pivot') {
+      const parent = byId.get(cont.parentId)
+      const camp = campaignOf(parent?.taskId)
+      const live = camp?.attemptLog.filter(a => a.endedAt === undefined).at(-1)
+      if (parent !== undefined && camp !== undefined && live !== undefined) {
+        const pushed = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId: live.sessionId, mode: 'queue', content: [{ type: 'text', text: pivotPromptFor(parent.text, directive.id, directive.text) }] } })
+        if (!pushed.result.ok) continue // busy/shape drift：保持 draft，下一 tick 重投同一会话
+        const now = new Date().toISOString()
+        appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: now, directiveId: directive.id, staffSessionId: live.sessionId })
+        appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: now, directiveId: directive.id, taskId: camp.campaignId })
+        console.log(`[warroom] pivot 续战令 ${directive.id} 已插入执行会话 ${live.sessionId}（挂任务 ${camp.campaignId}）`)
+        relayed += 1
+        continue
+      }
+    }
     let sessionId = directive.staffSessionId
     if (sessionId === undefined) {
       const created = await sessions.create({ rpcId: rpcId(), payload: { cwd: deps.warRoot } })
@@ -131,9 +235,11 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
         deps.store.save()
       }
     }
-    // V5-R4（flag staff-wake）上下文注入：板摘要随令附上（防重复立案）。
-    const suffix = deps.flags !== undefined && featureEnabled(deps.flags, 'staff-wake') ? `\n\n${boardDigest(deps.stateDir)}` : ''
-    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: `${relayPromptFor(directive, deps.flags)}${suffix}` }] } })
+    // V5-R4（flag staff-wake）上下文注入：板摘要随令附上（防重复立案）；
+    // V10 续战令附战线档案（祖先各代战况；pivot 落回常轨时也带，作兜底档案）。
+    const suffixWake = deps.flags !== undefined && featureEnabled(deps.flags, 'staff-wake') ? `\n\n${boardDigest(deps.stateDir)}` : ''
+    const suffixChain = chainNoteFor(directive, cont?.mode === 'pivot')
+    const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: `${relayPromptFor(directive, deps.flags)}${suffixChain}${suffixWake}` }] } })
     if (!prompted.result.ok) continue // busy/shape drift: leave it draft, the next tick retries the same session
     appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: new Date().toISOString(), directiveId: directive.id, staffSessionId: sessionId })
     relayed += 1
