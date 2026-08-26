@@ -207,3 +207,27 @@
 - **种子全状态**：14 命令覆盖 draft 定时（d8 cron）/received×2/talking/approved 五态（链成形 d3 双环、待发布 d6、失败重试 d7、各 lineage d9-d13）/cancelled；8 任务覆盖 epic 待领/deps 锁/cron 悬赏/进行中/已报（战利品+证据）/收官/失败两跳/链第二环。三列 **18/18 卡点击全开聚焦页**（探针机检）。
 - **顺带真修**：commandTasks 输出改依赖序（投影状态序把 published 后继排到 reported 前驱前——读链倒置）；悬停自动滚动按列聚合（同列多张同族卡逐卡 nearest 互相挤出，最后一张赢）；聚焦页 jumpSession 跳会话同时收弹窗；收件箱条目 scroll-margin-top。
 - verify 186 测（针脚 warroom-report-seen/latestSettleMs/weaveDemoSessions/.demo-sessions.json）；shoot 全绿（指示器跟随断言组 + 战报呼吸→点开转绿闭环 + 新状态成形卡断言）。
+
+## V9.12 审查整改（2026-08-26，元首 goal：第一性原理对抗审查三轮）
+
+**R1 事件流复活**（对抗审查 P1-1/P2-6）：
+- **parseUnitReportEvent 纯函数**（`src/report-capture.ts`）：registerReportCapture 的战报解析抽出——宿主 SessionEvent 载荷在 `.data` 下（与 activity.ts 同源结论，2026-08-26 实测），旧顶层读法在嵌套形状下**静默失效**（部队战报/结算自动记账一度全灭）。新解法「嵌套 `event.data` 优先、扁平退回、坏形状返 null」，三形单测（嵌套/扁平/畸形 13 例）锁定；registerReportCapture 只留记账半边。
+- **ActivityTracker 驱逐改「最旧 ts 先」**：插入序 FIFO 会把「最早出现但仍在打」的会话挤掉（256 上限下 live attempt 也会被逐）；ts 驱逐下持续活跃会话永不成为最旧。单测与旧实现分野：live 首插 + 持续刷新，FIFO 第一次溢出即驱逐 live，新策略只清 stale。
+
+**R2 演示精修**（P1-2/P1-3/P2-4/P2-5/P2-8 + 元首 bug 报）：
+- ① **去处理正名**：reported 链「去验收 · 参谋会话」（title：翻阅战报在本页；收官/驳回结论到参谋会话说）/ 败链「去下重试令 · 参谋会话」——三接线点（主界面任务卡 onHandle 按任务状态选词 / 聚焦页任务环面板 / 战报收菜面板按 failedChain 选词），负针脚 `去处理 · 参谋会话` 退役。
+- ② **seen 三通道收紧**：段直达（focusSegment='report' 即时）｜战报卡点开展开（即时）｜自行滚到战报段 ≥60% 可见且持续 ≥800ms（IntersectionObserver threshold [0,.6,1] + 进出视野重置计时）。旧 0.35 阈值一闪即绿的宽判定退役。
+- ③ **weave 会话复用（三级）**：持久真号映射 `.demo-real-map.json`（播种器重播只清 woven 标记不清这档——确定性主力）→ SessionsApiFace 可选 `list` 按「演示·X」名匹配（尽力而为）→ 全新建；织换后合并落盘映射。实测冷列表在注入时机拿不到重命名标题（宿主边界），映射档是唯一可靠通道——marker 被清的二次重建零新建（泄漏实测 2.5h 36 个）。
+- ④ **种子每命令独立参谋会话**：sec-d0…sec-d13（12 条 received 命令各一）+ playground 追加 sec-d5；manifest 全条目化——板 JSON staffSessionId 互异可机检。
+- ⑤ **d8 cron 远期**：`0 9 1 12 *`（12 月 1 日）+ 命令原文同步改写——演示期永不到点，不再是一颗「下周一 9 点自动出发」的定时炸弹。
+- ⑥ **跳转无操作反馈**：jumpSession 记 open 前 current，300ms 后 current 未变且不等于目标 → onJumpMiss 冒泡到板级 actionError 通道（聚焦页 onClose 即卸载，提示必须活在 WarView）——冷会话/道具会话 open 静默落空从「无反馈假死」变「一句警示」。
+- ⑦ **织换真实目录守卫**：stateDir 解析为默认真实数据目录（resolveStateDir('')）时拒绝织换并日志 REFUSED——演示只许进隔离 .smoke-state。
+- ⑧ **任务列排序统一**：任务书卡按源命令 createdAt 倒序（与成形卡同一心智：新命令的台账在前），孤儿任务（防御位）殿后保序。
+- ⑨ 杂项：.gitignore 收 .zcode/.playwright-mcp；scripts/shoot-composer.py + triage-probe.ts 入库（取证工具不该裸奔）。
+
+**P3 已知取舍（挂账不改，对抗审查认定低危）**：
+- **并行调用 callId 有损**：活动行对并行工具调用只跟踪最近一次（乱序 result 有 callId 配对保护，但第二并行调用的进行态会被第一行的 result 翻完成）——单指挥官单线程任务流里罕见。
+- **时钟偏差**：seen/latestSettleMs 用客户端钟对事件 ts（宿主 ISO）——跨机钟偏 >数秒才可能误判，本机部署无感。
+- **板全量重读**：SSE revision-only 触发 GET /board 全量投影（无增量）——14 命令/8 任务量级 <10ms，等真实规模再议增量协议。
+
+**门禁**：verify 194 测（新针脚 parseUnitReportEvent/去验收/去下重试令/jumpMissHint/REFUSED + 负针脚旧去处理）；shoot 新增 seen 三通道断言组（钉顶 1.1s 不许转绿的收紧回归位 + 展开即绿 + 滚底停留即绿）与正名分野（d3 去验收在/d7 去下重试令在/交叉不在）；探针：二次重建 weave 日志 `N reused, 0 created`、board staffSessionId 互异、18/18 卡点击覆盖。

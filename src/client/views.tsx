@@ -595,8 +595,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
@@ -608,9 +608,10 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     const stage = focusSegment === 'report' ? 'report' : 'task'
     document.querySelector(`.war-modal .war-cd-stage[data-stage='${stage}']`)?.scrollIntoView({ block: 'center' })
   }, [focusSegment])
-  // V9.11 战报已阅（元首定）：分段直达战报段＝看过；自行滚到战报段进视野（决策
-  // 带「去看战报」或手动滚动）也算看过——生命条战报段由此从呼吸转绿收官。标记
-  // 走 localStorage（seen 晚于最近定论才作数），onReportSeen 让调度条立即重渲染。
+  // V9.11 战报已阅（元首定）→ V9.12 收紧为三条正经通道：①分段直达战报段＝看过
+  // ②战报卡点开展开详情＝看过 ③自行滚到战报段 ≥60% 可见且停留 ≥800ms＝看过
+  // ——生命条战报段由呼吸转绿。标记走 localStorage（seen 晚于最近定论才作数），
+  // onReportSeen 让调度条立即重渲染。
   useEffect(() => {
     if (focusSegment === 'report') {
       markReportSeen(cmd.commandId)
@@ -620,15 +621,27 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   useEffect(() => {
     const stage = document.querySelector(`.war-modal .war-cd-stage[data-stage='report']`)
     if (stage === null || typeof IntersectionObserver === 'undefined') return
+    let timer: ReturnType<typeof setTimeout> | null = null
     const io = new IntersectionObserver(entries => {
-      if (entries.some(en => en.isIntersecting)) {
-        markReportSeen(cmd.commandId)
-        onReportSeen()
-        io.disconnect()
+      const visible = entries.some(en => en.isIntersecting && en.intersectionRatio >= 0.6)
+      if (visible) {
+        if (timer === null) {
+          timer = setTimeout(() => {
+            markReportSeen(cmd.commandId)
+            onReportSeen()
+            io.disconnect()
+          }, 800)
+        }
+      } else if (timer !== null) {
+        clearTimeout(timer)
+        timer = null
       }
-    }, { threshold: 0.35 })
+    }, { threshold: [0, 0.6, 1] })
     io.observe(stage)
-    return () => io.disconnect()
+    return () => {
+      if (timer !== null) clearTimeout(timer)
+      io.disconnect()
+    }
   }, [cmd.commandId])
   // 滚动高亮随 V9.10 导航钮一起退役：四段本身不长，滚动即读，无需段落指示。
   const GRADE_LABEL = activeCopy().grade
@@ -659,8 +672,19 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   // 跳原生会话 = 离开聚焦页：宿主切走会话，弹窗同时收起（不留在头顶挡路）。
   const jumpSession = (sessionId: string | null): void => {
     if (sessionId === null) return
+    // V9.12 ⑥ 跳转无操作反馈：宿主目录只收「成为过当前」的会话——冷/道具会话
+    // open 后 current 不切（静默落空）。300ms 后 current 未变且不是目标 → 冒泡
+    // 警示（onJumpMiss 走 WarView 的 actionError 通道——本页 onClose 即卸载，
+    // 提示必须活在板级）。
+    const before = services.sessions?.list?.getSnapshot().current
     services.sessions?.open(sessionId)
     onClose()
+    if (services.sessions?.list !== undefined) {
+      setTimeout(() => {
+        const cur = services.sessions?.list?.getSnapshot().current
+        if (cur !== sessionId && cur === before) onJumpMiss()
+      }, 300)
+    }
   }
   const execTarget = liveAttempts[0]?.a.sessionId ?? execSessions[0]?.a.sessionId ?? null
   const failedChain = chain.some(t => t.status === 'failed')
@@ -774,7 +798,11 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     subRow(fp.taskBrief, t.brief !== '' ? t.brief : fp.briefMissing),
     subRow(fp.taskAcceptance, t.acceptance !== '' ? t.acceptance : fp.acceptanceMissing),
     (t.status === 'reported' || t.status === 'failed') && staffTarget !== null
-      ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { jumpSession(staffTarget) } }, activeCopy().taskCard.handle)])
+      ? subActions([createElement('button', {
+          className: 'war-btn primary',
+          title: t.status === 'failed' ? activeCopy().taskCard.handleRetryTitle : activeCopy().taskCard.handleReviewTitle,
+          onClick: () => { jumpSession(staffTarget) },
+        }, t.status === 'failed' ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview)])
       : null,
   )
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
@@ -909,13 +937,21 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             : stageHead('report', ''),
           reportEntry !== null
             ? createElement('div', { className: 'war-tour-cards' },
-              SessionCard(reportEntry.t, reportEntry.a, () => { setOpen(o => o !== null && o.kind === 'report' ? null : { kind: 'report' }) }, NO_TRACE),
+              SessionCard(reportEntry.t, reportEntry.a, () => {
+                // 点开展开＝正经看过战报（V9.12 seen 三通道之二）；再点收起不清标记。
+                if (open === null || open.kind !== 'report') {
+                  markReportSeen(cmd.commandId)
+                  onReportSeen()
+                }
+                setOpen(o => o !== null && o.kind === 'report' ? null : { kind: 'report' })
+              }, NO_TRACE),
               open !== null && open.kind === 'report'
                 ? createElement('div', { className: 'war-subdetail' },
                   verdictTask !== undefined && verdictTask.closedVerdict !== null ? subRow(fp.reportVerdict, verdictTask.closedVerdict) : null,
                   lastReport !== undefined ? subRow(fp.reportLatest, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`) : null,
                   evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)]) : null,
-                  // V9.10 收菜三件：战利品/交付物 + 历次作战会话（逐次可跳）+ 待发落时的去处理。
+                  // V9.10 收菜三件：战利品/交付物 + 历次作战会话（逐次可跳）+ 待发落动作
+                  // （V9.12 正名：reported 链→去验收 / 败链→去下重试令，都落参谋会话）。
                   reportHost !== undefined && reportHost.deliverables.length > 0
                     ? subRow(fp.lootLabel, createElement('span', { className: 'war-loot' },
                       reportHost.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary))))
@@ -932,7 +968,11 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                       ))))
                     : null,
                   (lastReport !== undefined && chain.some(t => t.status === 'reported') || failedChain) && staffTarget !== null
-                    ? subActions([createElement('button', { className: 'war-btn primary', onClick: () => { jumpSession(staffTarget) } }, activeCopy().taskCard.handle)])
+                    ? subActions([createElement('button', {
+                        className: 'war-btn primary',
+                        title: failedChain ? activeCopy().taskCard.handleRetryTitle : activeCopy().taskCard.handleReviewTitle,
+                        onClick: () => { jumpSession(staffTarget) },
+                      }, failedChain ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview)])
                     : null,
                 )
                 : null)
@@ -1044,7 +1084,11 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
     task.status === 'failed' && task.lastError !== null ? createElement('div', { className: 'war-fail', title: activeCopy().taskCard.failTitle }, activeCopy().taskCard.failReason(task.lastError)) : null,
     onHandle !== null
       ? createElement('div', { className: 'war-card-top' },
-        createElement('button', { className: 'war-btn primary', onClick: e => { e.stopPropagation(); onHandle() } }, activeCopy().taskCard.handle),
+        createElement('button', {
+          className: 'war-btn primary',
+          title: task.status === 'failed' ? activeCopy().taskCard.handleRetryTitle : activeCopy().taskCard.handleReviewTitle,
+          onClick: e => { e.stopPropagation(); onHandle() },
+        }, task.status === 'failed' ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview),
       )
       : null,
   )
@@ -1658,7 +1702,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             createElement('div', { className: 'war-zone war-tasks' },
               Zone('tasks', activeCopy().columns.tasks.title, formingCards.length + tasks.length, activeCopy().columns.tasks.empty,
                 [...formingCards,
-                  ...tasks.map(t => TaskCard(t, statuses, openTaskVia,
+                  // V9.12 ⑧ 任务书卡与成形卡同一套排序心智：按源命令 createdAt 倒序
+                  // （新命令的台账在前）；孤儿任务（真实流程不出，防御）殿后保序。
+                  ...[...tasks].sort((a, b) => {
+                    const la = lineageOf(a.taskId), lb = lineageOf(b.taskId)
+                    if (la === null && lb === null) return 0
+                    if (la === null) return 1
+                    if (lb === null) return -1
+                    return la.createdAt < lb.createdAt ? 1 : la.createdAt === lb.createdAt ? 0 : -1
+                  }).map(t => TaskCard(t, statuses, openTaskVia,
                     (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
                       ? () => { openStaff(t.taskId) }
                       : null,
@@ -1699,6 +1751,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         onRegrade: grade => { actNote(regradeCommand(detailCommand.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade])) },
         onDecidePlan: decision => { actNote(decidePlan(detailCommand.commandId, decision), decision === 'approve' ? activeCopy().commandDetail.approvePlan : activeCopy().commandDetail.rejectPlan) },
         onReportSeen: () => { setReportSeenRev(x => x + 1) },
+        onJumpMiss: () => { setActionError(activeCopy().actions.jumpMissHint) },
       }) : null,
       settingsOpen ? createElement(SettingsDrawer, {
         key: 'settings',

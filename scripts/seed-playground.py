@@ -37,11 +37,17 @@ subprocess.run(
 with open(STATE / "directives.jsonl", "a", encoding="utf-8") as f:
     for ev in [
         {"type": "directive_created", "ts": ts(46), "directiveId": D5, "text": "把 projB 的小工具改成支持多本账本"},
-        {"type": "directive_received", "ts": ts(45.5), "directiveId": D5, "staffSessionId": "sec-smoke-session"},
+        {"type": "directive_received", "ts": ts(45.5), "directiveId": D5, "staffSessionId": "sec-d5"},
         {"type": "directive_triaged", "ts": ts(45), "directiveId": D5, "grade": "L1", "reason": "涉及旧数据迁移，先看方案再动", "confidence": 0.82},
         {"type": "directive_plan_opened", "ts": ts(44), "directiveId": D5, "plan": "1) 设计账本数据结构\n2) 写迁移脚本\n3) 兼容旧数据并补测试"},
     ]:
         f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+
+# D5 的演示会话号也要进 manifest（V9.12 ④ 每命令独立参谋会话）。
+manifest_path = STATE / ".demo-sessions.json"
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+manifest["sec-d5"] = "参谋·多本账本"
+manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 n = sum(1 for _ in open(STATE / "directives.jsonl", encoding="utf-8"))
 print(f"playground seeded: {n} directive events (smoke board + L1 plan-pending)")

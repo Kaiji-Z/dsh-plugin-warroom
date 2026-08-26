@@ -22,6 +22,8 @@ export interface SessionsApiFace {
   create(request: { rpcId: string; payload: { workspaceId?: string; cwd?: string } }): Promise<{ result: { ok: true; value: { sessionId: string } } | { ok: false; error: { code: string; message: string } } }>
   rename(request: { rpcId: string; payload: { sessionId: string; title: string } }): Promise<{ result: { ok: true; value: unknown } | { ok: false; error: { code: string; message: string } } }>
   prompt(request: { rpcId: string; payload: { sessionId: string; mode: 'queue'; content: Array<{ type: 'text'; text: string }> } }): Promise<{ result: { ok: true; value: unknown } | { ok: false; error: { code: string; message: string } } }>
+  /** V9.12：演示织换复用既有「演示·」会话用（可选——缺面时退回每次新建）。 */
+  list?(request: { rpcId: string; payload: { cursor?: string } }): Promise<{ result: { ok: true; value: { items: ReadonlyArray<{ id: string; title?: string; displayTitle: string }> } } | { ok: false; error: { code: string; message: string } } }>
 }
 
 /** Structural slice of the apiProxy workspace domain (registry create is

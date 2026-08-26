@@ -234,6 +234,16 @@ gate('bundle', () => {
     [host, 'weaveDemoSessions', 'boot-time demo session weave (config demoWeave)'],
     [host, '.demo-sessions.json', 'seed manifest consumed by the weaver'],
     [client, 'warroom-open-request', 'dock pill home event'],
+    // V9.12 R1 事件流复活：战报自动记账解析抽纯函数 + 活动表最旧 ts 驱逐。
+    [host, 'parseUnitReportEvent', 'report-capture parsing extracted (nested .data first)'],
+    [host, 'Background subagent', 'unit-report child-id regex survives in the parser'],
+    // V9.12 R2 ① 待发落动作正名：reported 链去验收 / 败链去下重试令。
+    [client, '去验收 · 参谋会话', 'review action copy (reported chains)'],
+    [client, '去下重试令 · 参谋会话', 'retry-order action copy (failed chains)'],
+    // V9.12 R2 ⑥ 跳转无操作反馈。
+    [client, 'jumpMissHint', 'cold-session jump no-op surfaces a warning'],
+    // V9.12 R2 ⑦ 织换真实目录守卫。
+    [host, 'REFUSED', 'weave refuses the default real data dir'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],
@@ -348,6 +358,8 @@ gate('bundle', () => {
     { ok: !client.includes('点卡进对话'), label: 'V9.10: lifecycle status stays instruction-free (no 点卡进对话)' },
     // V9.11 R1 negative face：任务列不再按终局过滤（台账全量在列）。
     { ok: !client.includes('openTasks'), label: 'V9.11: task ledger is no longer filtered to open tasks' },
+    // V9.12 R2 ① negative face：旧「去处理」一刀切文案退役——语义分野成正名后的两词。
+    { ok: !client.includes('去处理 · 参谋会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

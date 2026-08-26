@@ -17,3 +17,10 @@ lib/
 .idea/
 .DS_Store
 Thumbs.db
+
+# ---- agent 工作痕迹（会话计划/浏览器取证缓存，非项目产物）----
+.zcode/
+.playwright-mcp/
+
+# ---- python bytecode ----
+__pycache__/

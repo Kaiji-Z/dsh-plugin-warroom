@@ -137,7 +137,7 @@ export interface WarCopy {
     quotaPaused: string
   }
   /** V7.1 审查整改：决策写操作失败的就地反馈（静默失败击穿信任）。 */
-  actions: { failToast: (what: string) => string }
+  actions: { failToast: (what: string) => string; jumpMissHint: string }
   /** V7.1 审查整改：板面图例——符号文法不再靠悬停自学（双皮肤各说各话）。 */
   legend: { btn: string; title: string; rows: Array<[string, string]> }
   colActions: { attachLabel: string; attachTitle: string; newTitle: string }
@@ -207,7 +207,7 @@ export interface WarCopy {
     taskAcceptance: string
     briefMissing: string
     acceptanceMissing: string
-    /** V9.10 战报展开收菜三件：战利品+历次作战+去处理（去处理复用 taskCard.handle）。 */
+    /** V9.10 战报展开收菜三件：战利品+历次作战+待发落动作（V9.12 正名复用 taskCard.handleReview/handleRetry）。 */
     lootLabel: string
     attemptsSection: string
     /** V9.10 配置展开的改档出口标签。 */
@@ -419,7 +419,7 @@ export const warCopy: WarCopy = {
     awaitingClaim: '征召令可发，等待指挥官领取',
     quotaPaused: '配额恢复中——已暂停，恢复后原会话续作（不重派）',
   },
-  actions: { failToast: what => `${what}没生效——服务端没接住（可能状态已变或旗关），稍候刷新再试` },
+  actions: { failToast: what => `${what}没生效——服务端没接住（可能状态已变或旗关），稍候刷新再试`, jumpMissHint: '会话未跳转——该会话不在宿主目录里，请到工作区会话列表打开一次后再跳' },
   legend: {
     btn: 'ⓘ 图例',
     title: '板面图例——符号与标记',
@@ -477,7 +477,10 @@ export const warCopy: WarCopy = {
     attemptNTitle: '含自动重派的尝试次数',
     failReason: e => `败因：${e}`,
     failTitle: '重试已用尽，等元首让参谋重新立案',
-    handle: '去处理 · 参谋会话',
+    handleReview: '去验收 · 参谋会话',
+    handleReviewTitle: '翻阅战报在本页；验收通过或驳回，结论到参谋会话说',
+    handleRetry: '去下重试令 · 参谋会话',
+    handleRetryTitle: '重试授权在参谋会话说——板是读投影，发令走参谋',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
   commandDetail: {
@@ -733,7 +736,7 @@ export const plainCopy: WarCopy = {
     awaitingClaim: '等待执行者领取',
     quotaPaused: '额度恢复中——已暂停，恢复后原任务继续（不重新开始）',
   },
-  actions: { failToast: what => `${what}没有生效——服务器拒绝了（可能状态已变），稍后刷新重试` },
+  actions: { failToast: what => `${what}没有生效——服务器拒绝了（可能状态已变），稍后刷新重试`, jumpMissHint: '会话未跳转——该会话不在宿主目录里，请到工作区会话列表打开一次后再跳' },
   legend: {
     btn: 'ⓘ 图例',
     title: '看板图例——符号与标记',
@@ -791,7 +794,10 @@ export const plainCopy: WarCopy = {
     attemptNTitle: '含自动重派的尝试次数',
     failReason: e => `失败原因：${e}`,
     failTitle: '重试已用尽，等参谋重新立案',
-    handle: '去处理 · 参谋会话',
+    handleReview: '去验收 · 参谋会话',
+    handleReviewTitle: '翻阅战报在本页；验收通过或驳回，结论到参谋会话说',
+    handleRetry: '去下重试令 · 参谋会话',
+    handleRetryTitle: '重试授权在参谋会话说——板是只读的，发令走参谋',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
   commandDetail: {

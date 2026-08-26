@@ -84,11 +84,16 @@ with sync_playwright() as p:
     with open(STATE / "directives.jsonl", "a", encoding="utf-8") as f:
         for ev in [
             {"type": "directive_created", "ts": ts(46), "directiveId": D5, "text": "把 projB 的小工具改成支持多本账本"},
-            {"type": "directive_received", "ts": ts(45.5), "directiveId": D5, "staffSessionId": "sec-smoke-session"},
+            {"type": "directive_received", "ts": ts(45.5), "directiveId": D5, "staffSessionId": "sec-d5"},
             {"type": "directive_triaged", "ts": ts(45), "directiveId": D5, "grade": "L1", "reason": "涉及旧数据迁移，先看方案再动", "confidence": 0.82},
             {"type": "directive_plan_opened", "ts": ts(44), "directiveId": D5, "plan": "1) 设计账本数据结构\n2) 写迁移脚本\n3) 兼容旧数据并补测试"},
         ]:
             f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    # D5 会话号进 manifest（V9.12 ④ 每命令独立参谋会话）。
+    mp = STATE / ".demo-sessions.json"
+    m = json.loads(mp.read_text(encoding="utf-8"))
+    m["sec-d5"] = "参谋·多本账本"
+    mp.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
     print("seeded smoke board + L1 plan-pending command")
 
     # --- Phase D: 重开板 → 灵动岛（收起仪表 → hover 展开 → 收件箱/摘要在岛内）。 ---
@@ -197,7 +202,7 @@ with sync_playwright() as p:
     approved_f = forming.filter(has_text="README 补一页英文版")
     assert approved_f.count() == 1 and "任务待发布" in approved_f.first.inner_text(), "approved-awaiting-publish command must surface its forming card"
     assert forming.filter(has_text="算了").count() == 0, "cancelled command must not surface a forming card"
-    assert forming.filter(has_text="每周一早上 9 点").count() == 0, "scheduled command must not surface a forming card (not yet relayed)"
+    assert forming.filter(has_text="12 月 1 日早上 9 点").count() == 0, "scheduled command must not surface a forming card (not yet relayed)"
     settled = ledger.locator(".war-card.settled")
     assert settled.count() == 2, f"ledger must keep BOTH terminal task cards (failed t3 + closed t6), got {settled.count()}"
     settled_txt = settled.all_inner_texts()
@@ -216,7 +221,7 @@ with sync_playwright() as p:
     assert strip_now("顺便给小工具加个导出 csv") == ["任务"], "talking (forming card live) strip must sit on TASK stage"
     assert strip_now("能翻回去看以前记的吗") == ["任务"], "received+staff (drafting forming card) strip must sit on TASK stage"
     assert strip_now("等下帮我把 projA 的依赖全部升到最新") == ["任务"], "drafting forming card (seeded received) must sit on TASK stage"
-    assert strip_now("每周一早上 9 点把上周战报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
+    assert strip_now("12 月 1 日早上 9 点把上月战报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
     rep_label = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
     assert "now" in (rep_label.get_attribute("class") or ""), "unseen report must breathe (now), not turn green"
     # 战报已阅转绿：点 d3 的战报列卡（t1 尝试会话卡，经 lineage 开聚焦页战报段）
@@ -230,6 +235,56 @@ with sync_playwright() as p:
     rep_label2 = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
     assert "done" in (rep_label2.get_attribute("class") or ""), "viewed report stage must turn green (done)"
     page.screenshot(path=f"{OUT}/v9-ledger.png")
+
+    # --- V9.12 R2: seen 收紧三通道 + 待发落动作正名（去验收/去下重试令分野）。 ---
+    # 时序断言（视口无关——战报段是否初始可见不影响判定）：
+    #   扫一眼（<800ms）不许转绿（旧 0.35 即绿判定的回归位）；
+    #   点战报卡展开 → <800ms 内即绿（通道②）；
+    #   纯停留 → ≥800ms 才绿（通道③）。
+    def d3_strip():
+        return page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
+    def report_label(cmd_loc):
+        return cmd_loc.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+    # 通道②（点开展开）：清 seen → 开聚焦页（modal 挂载即全量重渲染，生命条重读
+    # localStorage）→ 250ms 仍呼吸 → 点战报卡展开 → 800ms 停留窗未到就已转绿。
+    page.evaluate("() => localStorage.removeItem('warroom-report-seen')")
+    d3_strip().click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.wait_for_timeout(250)
+    assert "now" in (report_label(d3_strip()).get_attribute("class") or ""), "a <800ms glance must NOT mark seen (tightened channel)"
+    page.locator(".war-modal [data-stage='report'] .war-session-card").first.click()
+    page.wait_for_timeout(300)
+    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 参谋会话").count() == 1, "reported chain review action must carry the renamed copy (去验收)"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "expand-click channel must mark seen before the dwell window"
+    # 通道③（停留）：再清 seen → 开聚焦页什么都不点 → 250ms 仍呼吸（上面已证）→
+    # 满过 800ms 停留窗 → 转绿。
+    page.evaluate("() => localStorage.removeItem('warroom-report-seen')")
+    d3_strip().click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.wait_for_timeout(250)
+    assert "now" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell window not elapsed yet — must still breathe"
+    page.wait_for_timeout(1000)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell channel: sustained view past 800ms must mark seen"
+    # 正名分野：d7 败链的重试 CTA 在主界面任务卡（败因卡按钮）与聚焦页任务环
+    # 展开面板（战报段对无战报败链诚实给「尚无战报」，不硬造卡）。
+    t3_card = page.locator(".war-col.zone-tasks .war-card", has_text="20260823-delta").first
+    assert "去下重试令 · 参谋会话" in t3_card.inner_text(), "main-board failed task card must carry the retry-order copy"
+    assert "去验收" not in t3_card.inner_text(), "failed task card must NOT offer the review copy"
+    d7_cmd = page.locator(".war-dispatch .war-command-card", has_text="查清楚登录重定向测试为什么老挂")
+    d7_cmd.click()
+    page.wait_for_selector(".war-modal", timeout=3000)
+    page.locator(".war-modal [data-stage='task'] .war-card", has_text="20260823-delta").first.click()
+    page.wait_for_timeout(300)
+    assert page.locator(".war-modal .war-subdetail", has_text="去下重试令 · 参谋会话").count() == 1, "failed chain task panel must carry the renamed copy (去下重试令)"
+    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 参谋会话").count() == 0, "failed chain must NOT offer the review copy"
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+    page.screenshot(path=f"{OUT}/v912-review-retry.png")
+    print("V9.12 R2: seen three channels (segment-direct / expand-click / 60%+800ms dwell) + review/retry copy split verified")
     # 成形卡点击 → 源命令聚焦页任务段（与聚焦页 ghost 同一变体判定，不分叉）。
     warn_f.click()
     page.wait_for_selector(".war-modal", timeout=3000)
@@ -544,7 +599,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
     # V9.9/V9.10 全生命周期导览（approved→t1 已呈报）：任务卡展开=计划+任务书+验收
-    # +去处理；执行段无 live 只给提示行；战报卡展开=最新战报+战利品+历次作战；双跳钮可点。
+    # +去验收（V9.12 正名）；执行段无 live 只给提示行；战报卡展开=最新战报+战利品+历次作战；双跳钮可点。
     page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must show the chain task card"
@@ -557,7 +612,7 @@ with sync_playwright() as p:
     tp_text = tp.inner_text()
     assert "任务书" in tp_text and "Node 单包小工具" in tp_text, "task panel must carry the ring's brief"
     assert "验收标准" in tp_text and "今日晴" in tp_text, "task panel must carry the ring's acceptance"
-    assert page.locator(".war-modal [data-stage='task'] .war-subdetail .war-btn", has_text="去处理").count() == 1, "reported ring must offer the staff-session handle action"
+    assert page.locator(".war-modal [data-stage='task'] .war-subdetail .war-btn", has_text="去验收 · 参谋会话").count() == 1, "reported ring must offer the review action"
     page.locator(".war-modal [data-stage='report'] .war-card").first.click()
     page.wait_for_timeout(250)
     rep = page.locator(".war-modal [data-stage='report'] .war-subdetail")
@@ -566,7 +621,7 @@ with sync_playwright() as p:
     assert "战利品" in rep_text and "npm test 8/8 全绿" in rep_text, "report panel must carry the deliverables row"
     assert "历次作战" in rep_text, "report panel must carry the attempts section"
     assert page.locator(".war-modal .war-sub-attempts .war-cd-session").count() == 1, "t1 has exactly one attempt session row"
-    assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去处理").count() == 1, "reported command report panel must offer the handle action"
+    assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去验收 · 参谋会话").count() == 1, "reported command report panel must offer the review action"
     jumps2 = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
     assert jumps2.nth(0).is_enabled() and jumps2.nth(1).is_enabled(), "reported command: both jumps must target real sessions"
     page.screenshot(path=f"{OUT}/v9-focus-report.png")

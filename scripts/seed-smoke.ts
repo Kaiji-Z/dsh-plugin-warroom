@@ -87,55 +87,55 @@ const d0 = 'cmd-20260823-0900-aa01', d1 = 'cmd-20260823-0910-bb02', d2 = 'cmd-20
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(58), directiveId: d0, text: '等下帮我把 projA 的依赖全部升到最新' })
 // d0 直接种 received（带假会话号→织换成真）：停在「成形中」稳定态。不种的话
 // 引信 15s 内会真转达它（状态翻页+真 LLM 分诊），演示板和 shoot 都会竞态。
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(57.5), directiveId: d0, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(57.5), directiveId: d0, staffSessionId: 'sec-d0' })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(52), directiveId: d1, text: 'projB 的那个小工具，能翻回去看以前记的吗？我想每天记一句' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(51), directiveId: d1, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(51), directiveId: d1, staffSessionId: 'sec-d1' })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(48), directiveId: d2, text: '顺便给小工具加个导出 csv' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(47), directiveId: d2, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(47), directiveId: d2, staffSessionId: 'sec-d2' })
 appendDirectiveEvent(dir, { type: 'directive_talking', ts: ts(45), directiveId: d2 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(41), directiveId: d3, text: '要一个能记每日一句的命令行小工具' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(40.5), directiveId: d3, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(40.5), directiveId: d3, staffSessionId: 'sec-d3' })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(40), directiveId: d3, taskId: t1 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(59), directiveId: d4, text: '算了，先不要动 CI' })
 appendDirectiveEvent(dir, { type: 'directive_cancelled', ts: ts(57), directiveId: d4, reason: '元首改主意，CI 保持现状' })
 
 // V9.11 demo 全状态补全（元首定案「所有状态都覆盖」）：批准待发布（任务书
 // 未挂出——juliet 只在命令上挂账）/ 命令级失败重试（t3 归属 d7，决策带+收件箱
-// 有「决重试」）/ 定时待发（cron 周一 9 点）/ 多任务链第二环（india deps t1）。
+// 有「决重试」）/ 定时待发（cron 12 月 1 日——远期不到点）/ 多任务链第二环（india deps t1）。
 const d6 = 'cmd-20260823-0940-ab06', d7 = 'cmd-20260823-0945-cd07', d8 = 'cmd-20260823-0950-ef08'
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(43), directiveId: d6, text: '给 projB 小工具的 README 补一页英文版' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(42.5), directiveId: d6, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(42.5), directiveId: d6, staffSessionId: 'sec-d6' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(42), directiveId: d6, grade: 'L2', reason: '对外文案，先看方案再动', confidence: 0.75 })
 appendDirectiveEvent(dir, { type: 'directive_plan_opened', ts: ts(41), directiveId: d6, plan: '1) 通读现有 README\n2) 英文版保持结构一致\n3) 术语与代码示例对齐' })
 appendDirectiveEvent(dir, { type: 'directive_plan_approved', ts: ts(40), directiveId: d6 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(39.5), directiveId: d6, taskId: '20260823-juliet' })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(37), directiveId: d7, text: '查清楚登录重定向测试为什么老挂' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d7, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d7, staffSessionId: 'sec-d7' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(36), directiveId: d7, grade: 'L0', reason: '排查类，直接做', confidence: 0.9 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(35.5), directiveId: d7, taskId: t3 })
-appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(33), directiveId: d8, text: '每周一早上 9 点把上周战报整理成一段摘要发我', cron: '0 9 * * 1' })
+appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(33), directiveId: d8, text: '12 月 1 日早上 9 点把上月战报整理成一段摘要发我', cron: '0 9 1 12 *' })
 // V9.11 demo 全点击可达：孤儿任务卡（无源命令）的点击走「直跳会话」，而宿主
 // 会话目录只收打开过的会话——道具会话首跳不切。给 t0/t2/t4/t5/t6 各补一条源命令
 // （生产语义：任务书都来自某道命令），全部卡点击统一走聚焦页。
 const d9 = 'cmd-20260823-0955-a909', d10 = 'cmd-20260823-1000-b910', d11 = 'cmd-20260823-0830-c911', d12 = 'cmd-20260823-0820-d912', d13 = 'cmd-20260823-0810-e913'
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(56), directiveId: d9, text: '把认证模块重构成插件化架构，对外行为不变' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(55.5), directiveId: d9, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(55.5), directiveId: d9, staffSessionId: 'sec-d9' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(55), directiveId: d9, grade: 'L1', reason: '架构级改动，先出方案', confidence: 0.88 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(54), directiveId: d9, taskId: t0 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(24), directiveId: d10, text: '认证重构完成后写一份迁移指南' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(23.5), directiveId: d10, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(23.5), directiveId: d10, staffSessionId: 'sec-d10' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(23), directiveId: d10, grade: 'L0', reason: '文档任务，直接做', confidence: 0.9 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(22), directiveId: d10, taskId: t2 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(56.5), directiveId: d11, text: '给 projA 加一个健康检查端点' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(56), directiveId: d11, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(56), directiveId: d11, staffSessionId: 'sec-d11' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(55.5), directiveId: d11, grade: 'L0', reason: '小改动，直接做', confidence: 0.95 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(55), directiveId: d11, taskId: t5 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(37), directiveId: d12, text: '修一下列表第二页重复第一条的问题' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d12, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d12, staffSessionId: 'sec-d12' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(36), directiveId: d12, grade: 'L0', reason: '明确 bug，直接修', confidence: 0.92 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(35), directiveId: d12, taskId: t6 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(4), directiveId: d13, text: '每天早上跑一遍依赖安全巡检，有高危就报' })
-appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(3.5), directiveId: d13, staffSessionId: 'sec-smoke-session' })
+appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(3.5), directiveId: d13, staffSessionId: 'sec-d13' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(3), directiveId: d13, grade: 'L1', reason: '例行巡检，先出方案', confidence: 0.85 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(3), directiveId: d13, taskId: t4 })
 appendEvent(dir, { type: 'task_created', ts: ts(28), campaignId: '20260823-india', title: '给每日一句加 export 命令', brief: 't1 的后续：把记下的句子导出为 csv。', acceptance: 'export 输出含全部已记句子', priority: 'normal', deps: [t1], publishedBy: 'sec-smoke' })
@@ -144,7 +144,17 @@ appendEvent(dir, { type: 'task_published', ts: ts(28), campaignId: '20260823-ind
 // 演示会话 manifest（demo-weave 开机按此把假会话号换成宿主真会话——演示板
 // 所有「直跳原生会话」的点击才有真实落点；smoke overlay demoWeave=true）。
 writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({
-  'sec-smoke-session': '参谋·演示',
+  'sec-d0': '参谋·依赖升级',
+  'sec-d1': '参谋·每日一句查询',
+  'sec-d2': '参谋·csv 导出',
+  'sec-d3': '参谋·每日一句工具',
+  'sec-d6': '参谋·英文 README',
+  'sec-d7': '参谋·登录重定向排查',
+  'sec-d9': '参谋·认证重构',
+  'sec-d10': '参谋·迁移指南',
+  'sec-d11': '参谋·健康检查',
+  'sec-d12': '参谋·分页 bug',
+  'sec-d13': '参谋·依赖巡检',
   'cmd-bravo-session': '指挥官·每日一句',
   'cmd-foxtrot-session': '指挥官·健康检查',
   'cmd-delta-1-session': '指挥官·flaky 一次',
