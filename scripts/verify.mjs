@@ -250,6 +250,10 @@ gate('bundle', () => {
     [client, '--war-zone-bg: var(--dsw-alias-bg-layer-1)', 'dark ladder: zone on layer-1 (zones distinguishable from canvas)'],
     [client, '--war-well-bg: var(--dsw-alias-bg-layer-3)', 'dark ladder: well on layer-3 (one step above card)'],
     [client, 'outline:2px solid var(--war-focus)', 'focus rings ride the war-focus token (host has no focus-ring alias)'],
+    // V9.13 补丁：选项卡选中态三通道（底染令牌 + 名字色令牌 + 圆点标记）——旧 7% 底染两主题实测 1.09-1.12:1 等于没有。
+    [client, '--war-select-tint', 'selected option-card tint token (measurable wash, both themes)'],
+    [client, '--war-select-name', 'selected option-card name color token (light=deep blue, dark=white)'],
+    [client, '.war-grade-card.on .war-grade-card-name::before', 'selected card dot marker (non-color channel)'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],

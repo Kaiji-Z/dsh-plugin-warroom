@@ -40,6 +40,10 @@ const WAR_CSS = `
   --war-wait-tint: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent);
   --war-done-tint: color-mix(in srgb, var(--dsw-alias-state-success-primary) 8%, transparent);
   --war-fail-tint: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);
+  /* 选项卡选中态（档位/时机/cron 预设/皮肤）：底染要量得出（旧 7% 两主题实测
+   * 仅 1.09-1.12:1，等于没有）——三通道=底染+名字色+圆点标记。 */
+  --war-select-tint: color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, var(--war-card-bg));
+  --war-select-name: var(--war-run-strong);
   --war-dock-bg: color-mix(in srgb, var(--dsw-alias-state-business-primary) 5%, var(--dsw-alias-bg-base));
   --war-dock-inset: inset 0 2px 8px rgba(15, 23, 42, .07);
   /* 投影三档 + 遮罩：浅色蓝黑低强度，深色纯黑高强度 */
@@ -67,6 +71,8 @@ body[data-ds-dark-theme] .war-root{
   --war-wait-tint: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
   --war-done-tint: color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent);
   --war-fail-tint: color-mix(in srgb, var(--dsw-alias-state-error-primary) 14%, transparent);
+  --war-select-tint: color-mix(in srgb, var(--dsw-alias-state-business-primary) 20%, var(--war-card-bg));
+  --war-select-name: #fff;
   --war-dock-bg: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, var(--dsw-alias-bg-base));
   --war-dock-inset: inset 0 2px 8px rgba(0, 0, 0, .32);
   --war-shadow-1: 0 2px 8px rgba(0, 0, 0, .35);
@@ -359,15 +365,16 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-grade-cards.war-sched-cards{grid-template-columns:repeat(2,1fr)}
 .war-grade-card,.war-sched-card{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2);background:var(--war-card-bg);cursor:pointer;font-family:var(--dsw-font-family);transition:border-color .12s ease,background .12s ease}
 .war-grade-card:hover,.war-sched-card:hover{border-color:var(--dsw-alias-label-secondary)}
-.war-grade-card.on,.war-sched-card.on{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--war-card-bg));box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
+.war-grade-card.on,.war-sched-card.on{border-color:var(--dsw-alias-state-business-primary);background:var(--war-select-tint);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
 .war-grade-card-name{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
-.war-grade-card.on .war-grade-card-name{color:var(--war-run-strong)}
+.war-grade-card.on .war-grade-card-name{color:var(--war-select-name)}
+.war-grade-card.on .war-grade-card-name::before,.war-sched-card.on .war-grade-card-name::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px}
 .war-grade-card-hint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
 .war-cron-block{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .war-cron-presets{display:flex;gap:6px;flex-wrap:wrap}
 .war-cron-preset{font-size:12px;line-height:20px;padding:2px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--war-card-bg);cursor:pointer;font-family:var(--dsw-font-family)}
 .war-cron-preset:hover{border-color:var(--dsw-alias-label-secondary)}
-.war-cron-preset.on{color:var(--war-run-strong);border-color:var(--dsw-alias-state-business-primary);font-weight:600}
+.war-cron-preset.on{color:var(--war-select-name);border-color:var(--dsw-alias-state-business-primary);background:var(--war-select-tint);font-weight:600}
 .war-cron-input{width:100%;font-family:var(--dsw-font-markdown-code);font-size:13px;color:var(--dsw-alias-label-primary);background:var(--war-well-bg);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;outline:none}
 .war-cron-input:focus{border-color:var(--dsw-alias-state-business-primary)}
 .war-cron-next{font-size:12px;color:var(--dsw-alias-label-secondary)}
@@ -384,7 +391,7 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-skin-row{display:flex;gap:8px}
 .war-skin-opt{flex:1 1 auto;font-size:13px;font-weight:600;padding:8px 0;border-radius:10px;border:1px solid var(--dsw-alias-border-l2);background:var(--war-card-bg);color:var(--dsw-alias-label-primary);cursor:pointer;font-family:var(--dsw-font-family)}
 .war-skin-opt:hover{border-color:var(--dsw-alias-label-secondary)}
-.war-skin-opt.on{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--war-card-bg));color:var(--war-run-strong);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
+.war-skin-opt.on{border-color:var(--dsw-alias-state-business-primary);background:var(--war-select-tint);color:var(--war-select-name);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary)}
 .war-settings-note{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);margin-top:8px}
 .war-set-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .war-set-toggle-text{display:flex;flex-direction:column;gap:2px;min-width:0}
