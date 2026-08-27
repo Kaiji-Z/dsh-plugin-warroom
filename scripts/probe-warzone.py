@@ -32,6 +32,10 @@ with sync_playwright() as p:
         return ctx, page
 
     ctx, page = open_map({'width': 1720, 'height': 900})
+    # V12.1：开机即正确范式（构造器 applyTheme 必须在 HQ/星球工厂之后——曾因
+    # 早于 buildHq 调用导致浅色宿主开机仍是母舰，探针先强制深色的流程把它漏掉了）
+    boot = page.evaluate("() => ({ v: window.__wz.scene.hqVariant, dark: document.body.hasAttribute('data-ds-dark-theme') })")
+    ok('开机即正确范式（随宿主主题）', boot['v'] == ('ship' if boot['dark'] else 'fortress'), str(boot))
     # V12：探针开局强制深空范式（宿主浅色设置下挂载为天空态——先翻深色跑深空套件）
     page.evaluate("() => document.body.setAttribute('data-ds-dark-theme', '')")
     page.wait_for_timeout(1500)
