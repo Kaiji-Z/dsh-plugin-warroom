@@ -526,49 +526,83 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw
 .war-detach,.war-cd-session{min-height:24px}
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
 /* --- V11 P2 3D 星域（元首定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
-.war-starfield3d{cursor:grab;touch-action:none;user-select:none}
+.war-starfield3d{cursor:grab;touch-action:none;user-select:none;background:radial-gradient(circle at 68% 16%, rgba(255,243,214,.9), rgba(255,243,214,0) 36%), linear-gradient(180deg, #c9e5f8 0%, #e6f3fd 52%, #f5fafF 100%)} /* V12 浅色=天穹（暖阳光斑+浅蓝天幕）；画布 alpha:true 透出 */
 body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(ellipse at 50% 44%, #0a1122 0%, #070b16 55%, var(--war-canvas-bg) 100%)} /* 深色=蓝黑太空芯（纸色宇宙不动 V9.13 令） */
 .war-starfield3d:active{cursor:grabbing}
 /* --- V11.4 warzone demo 全要素进驻（3D 现实视图 + 2D 指挥室） --- */
 .war-wz-3d{position:absolute;inset:0;width:100%;height:100%;display:block}
-.war-wz-tac{position:absolute;inset:0;width:100%;height:100%;display:none;background:#010409}
+.war-wz-tac{position:absolute;inset:0;width:100%;height:100%;display:none} /* 盘面颜色由 draw 双调色板自绘（深色雷达/浅色蓝图） */
 .war-wz.war-wz-cmd .war-wz-tac{display:block}
 .war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-foot{display:none}
-.war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 55%,rgba(2,4,12,.6) 100%)}
+.war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 62%,rgba(255,255,255,.55) 100%)} /* V12 浅色=天光晕染 */
+body[data-ds-dark-theme] .war-root .war-wz-vig{background:radial-gradient(ellipse at center,transparent 55%,rgba(2,4,12,.6) 100%)}
 /* V11.5f 执行卡覆盖层：SVG 连线（星球→卡）+ 活体卡 + 高亮名签（frame 循环摆位）。
- * V11.5g（元首令）：卡索引线=实线琥珀——与 HQ↔星球高亮轨迹（虚线青 0x6fe3ff）双通道区分。 */
+ * V11.5g（元首令）：卡索引线=实线琥珀——与 HQ↔星球高亮轨迹（虚线青）双通道区分。
+ * V12（元首令·浅色范式）：覆盖层全 token 化——浅色=纸面证件风（浅底深字）为缺省，
+ * 深空玻璃风移入 body[data-ds-dark-theme] 覆写（V9.13 双主题纪律）。 */
 .war-wz-lines{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
-.war-wz-xline{stroke:rgba(255,179,92,.78);stroke-width:1.3}
+.war-wz-xline{stroke:rgba(176,120,0,.72);stroke-width:1.3}
 .war-wz-cards{position:absolute;inset:0;z-index:8;pointer-events:none}
-.war-wz-xcard{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 11px 4px 8px;border-radius:999px;background:rgba(8,14,28,.84);border:1px solid rgba(255,179,92,.4);color:#cfe6ff;font:11px/1.4 'Segoe UI','Microsoft YaHei';white-space:nowrap;cursor:grab;backdrop-filter:blur(6px);box-shadow:0 0 14px rgba(0,140,255,.14);transition:border-color .15s,box-shadow .15s;touch-action:none}
+.war-wz-xcard{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 11px 4px 8px;border-radius:999px;background:rgba(252,253,255,.92);border:1px solid rgba(176,120,0,.5);color:#23405e;font:11px/1.4 'Segoe UI','Microsoft YaHei';white-space:nowrap;cursor:grab;backdrop-filter:blur(6px);box-shadow:0 1px 8px rgba(30,60,100,.18);transition:border-color .15s,box-shadow .15s;touch-action:none}
 .war-wz-xcard:active{cursor:grabbing}
-.war-wz-xcard:hover,.war-wz-xcard:focus-visible{border-color:rgba(255,179,92,.9);box-shadow:0 0 18px rgba(0,140,255,.3);color:#eef8ff;outline:none}
-.war-wz-xdot{flex:none;width:7px;height:7px;border-radius:50%;background:#6fe3ff;box-shadow:0 0 7px #6fe3ff;animation:war-wz-breathe 1.6s ease-in-out infinite}
+.war-wz-xcard:hover,.war-wz-xcard:focus-visible{border-color:#b07800;box-shadow:0 2px 12px rgba(30,60,100,.28);color:#0b2b4a;outline:none}
+.war-wz-xdot{flex:none;width:7px;height:7px;border-radius:50%;background:#d9480f;box-shadow:0 0 5px rgba(217,72,15,.7);animation:war-wz-breathe 1.6s ease-in-out infinite}
 .war-wz-xverb{font-weight:600}
-.war-wz-xsrc{color:#7e9cc0;font-size:10px}
-.war-wz-pname{position:absolute;left:0;top:0;z-index:7;pointer-events:none;padding:2px 10px;border-radius:6px;background:rgba(8,14,28,.82);border:1px solid rgba(111,227,255,.5);color:#9fdcff;font:bold 12px/1.6 'Segoe UI','Microsoft YaHei';white-space:nowrap;box-shadow:0 0 12px rgba(0,140,255,.2)}
+.war-wz-xsrc{color:#5a7396;font-size:10px}
+.war-wz-pname{position:absolute;left:0;top:0;z-index:7;pointer-events:none;padding:2px 10px;border-radius:6px;background:rgba(252,253,255,.94);border:1px solid rgba(14,116,144,.55);color:#0b3a53;font:bold 12px/1.6 'Segoe UI','Microsoft YaHei';white-space:nowrap;box-shadow:0 1px 8px rgba(30,60,100,.2)}
 @keyframes war-wz-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.82)}}
-.war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid rgba(111,227,255,.4);border-radius:8px;overflow:hidden;backdrop-filter:blur(6px);background:rgba(8,14,28,.6)} /* 顶中——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
-.war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px 'Segoe UI','Microsoft YaHei';letter-spacing:.1em;color:#8fb6dd;background:transparent}
-.war-wz-toggle button.on{background:linear-gradient(180deg,rgba(60,140,255,.3),rgba(60,140,255,.1));color:#eaf6ff;text-shadow:0 0 8px rgba(111,227,255,.8)}
-.war-wz-toggle button:hover{color:#dff2ff}
+.war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid rgba(28,78,128,.45);border-radius:8px;overflow:hidden;backdrop-filter:blur(6px);background:rgba(255,255,255,.78)} /* 顶中——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
+.war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px 'Segoe UI','Microsoft YaHei';letter-spacing:.1em;color:#33506e;background:transparent}
+.war-wz-toggle button.on{background:linear-gradient(180deg,rgba(25,113,194,.24),rgba(25,113,194,.08));color:#0b3a63;font-weight:700}
+.war-wz-toggle button:hover{color:#0b3a63}
 .war-wz-foot{position:absolute;left:50%;bottom:238px;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;user-select:none}
-.war-wz-legend{display:flex;gap:14px;font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#7e9cc0}
+.war-wz-legend{display:flex;gap:14px;font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#4a648a}
 .war-wz-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
-.war-wz-hint{font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#5b7396;letter-spacing:.08em}
-.war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:300px;display:none;background:rgba(8,14,28,.78);border:1px solid rgba(111,227,255,.35);border-radius:10px;padding:12px 14px;backdrop-filter:blur(8px);box-shadow:0 0 26px rgba(0,140,255,.16),inset 0 0 20px rgba(20,60,120,.22);color:#cfe6ff;font:12px/1.65 'Segoe UI','Microsoft YaHei',sans-serif;pointer-events:none}
+.war-wz-legend .lg-wait{background:#b07800}
+.war-wz-legend .lg-battle{background:#d9480f}
+.war-wz-legend .lg-held{background:#1971c2}
+.war-wz-hint{font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#6b82a0;letter-spacing:.08em}
+/* —— 深空覆写（玻璃霓虹风）—— */
+body[data-ds-dark-theme] .war-root .war-wz-xline{stroke:rgba(255,179,92,.78)}
+body[data-ds-dark-theme] .war-root .war-wz-xcard{background:rgba(8,14,28,.84);border-color:rgba(255,179,92,.4);color:#cfe6ff;box-shadow:0 0 14px rgba(0,140,255,.14)}
+body[data-ds-dark-theme] .war-root .war-wz-xcard:hover,body[data-ds-dark-theme] .war-root .war-wz-xcard:focus-visible{border-color:rgba(255,179,92,.9);box-shadow:0 0 18px rgba(0,140,255,.3);color:#eef8ff}
+body[data-ds-dark-theme] .war-root .war-wz-xdot{background:#6fe3ff;box-shadow:0 0 7px #6fe3ff}
+body[data-ds-dark-theme] .war-root .war-wz-xsrc{color:#7e9cc0}
+body[data-ds-dark-theme] .war-root .war-wz-pname{background:rgba(8,14,28,.82);border-color:rgba(111,227,255,.5);color:#9fdcff;box-shadow:0 0 12px rgba(0,140,255,.2)}
+body[data-ds-dark-theme] .war-root .war-wz-toggle{border-color:rgba(111,227,255,.4);background:rgba(8,14,28,.6)}
+body[data-ds-dark-theme] .war-root .war-wz-toggle button{color:#8fb6dd}
+body[data-ds-dark-theme] .war-root .war-wz-toggle button.on{background:linear-gradient(180deg,rgba(60,140,255,.3),rgba(60,140,255,.1));color:#eaf6ff;font-weight:400;text-shadow:0 0 8px rgba(111,227,255,.8)}
+body[data-ds-dark-theme] .war-root .war-wz-toggle button:hover{color:#dff2ff}
+body[data-ds-dark-theme] .war-root .war-wz-legend{color:#7e9cc0}
+body[data-ds-dark-theme] .war-root .war-wz-legend .lg-wait{background:#ffc24d}
+body[data-ds-dark-theme] .war-root .war-wz-legend .lg-battle{background:#ff6a55}
+body[data-ds-dark-theme] .war-root .war-wz-legend .lg-held{background:#66d4ff}
+body[data-ds-dark-theme] .war-root .war-wz-hint{color:#5b7396}
+.war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:300px;display:none;background:rgba(252,253,255,.95);border:1px solid rgba(28,78,128,.35);border-radius:10px;padding:12px 14px;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(30,60,100,.22);color:#23405e;font:12px/1.65 'Segoe UI','Microsoft YaHei',sans-serif;pointer-events:none}
 .war-wz-tip .tt-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.war-wz-tip .dot{width:9px;height:9px;border-radius:50%;background:#6fe3ff;box-shadow:0 0 8px #6fe3ff;flex:none}
-.war-wz-tip .tt-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:#eaf6ff;white-space:nowrap}
-.war-wz-tip .tt-tag{margin-left:auto;font-size:10px;color:#8fd8ff;border:1px solid rgba(111,227,255,.4);padding:1px 7px;border-radius:99px;white-space:nowrap}
-.war-wz-tip .tt-desc{color:#9db8d8;font-size:11px;margin-bottom:8px}
-.war-wz-tip .tt-row{display:flex;justify-content:space-between;gap:18px;padding:2.5px 0;border-top:1px dashed rgba(120,170,220,.14)}
-.war-wz-tip .tt-row span{color:#7e9cc0}
-.war-wz-tip .tt-row b{color:#e8f4ff;font-weight:600;font-family:Consolas,monospace;white-space:nowrap}
+.war-wz-tip .dot{width:9px;height:9px;border-radius:50%;background:#1971c2;box-shadow:0 0 5px rgba(25,113,194,.6);flex:none}
+.war-wz-tip .tt-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:#10365c;white-space:nowrap}
+.war-wz-tip .tt-tag{margin-left:auto;font-size:10px;color:#1c4e80;border:1px solid rgba(28,78,128,.45);padding:1px 7px;border-radius:99px;white-space:nowrap}
+.war-wz-tip .tt-desc{color:#4c6a8a;font-size:11px;margin-bottom:8px}
+.war-wz-tip .tt-row{display:flex;justify-content:space-between;gap:18px;padding:2.5px 0;border-top:1px dashed rgba(70,110,160,.25)}
+.war-wz-tip .tt-row span{color:#5a7396}
+.war-wz-tip .tt-row b{color:#132f4a;font-weight:600;font-family:Consolas,monospace;white-space:nowrap}
 .war-wz-chip{padding:1px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Microsoft YaHei'}
-.war-wz-chip.st-wait{color:#ffc24d;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.45)}
-.war-wz-chip.st-battle{color:#ff6a55;background:rgba(255,64,48,.12);border:1px solid rgba(255,80,64,.5)}
-.war-wz-chip.st-held{color:#66d4ff;background:rgba(77,163,255,.12);border:1px solid rgba(77,163,255,.5)}
+.war-wz-chip.st-wait{color:#8a5f00;background:rgba(176,120,0,.12);border:1px solid rgba(176,120,0,.5)}
+.war-wz-chip.st-battle{color:#c2410c;background:rgba(217,72,15,.1);border:1px solid rgba(217,72,15,.5)}
+.war-wz-chip.st-held{color:#1971c2;background:rgba(25,113,194,.1);border:1px solid rgba(25,113,194,.5)}
+/* —— 深空覆写 —— */
+body[data-ds-dark-theme] .war-root .war-wz-tip{background:rgba(8,14,28,.78);border-color:rgba(111,227,255,.35);box-shadow:0 0 26px rgba(0,140,255,.16),inset 0 0 20px rgba(20,60,120,.22);color:#cfe6ff}
+body[data-ds-dark-theme] .war-root .war-wz-tip .dot{background:#6fe3ff;box-shadow:0 0 8px #6fe3ff}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-name{color:#eaf6ff}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-tag{color:#8fd8ff;border-color:rgba(111,227,255,.4)}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-desc{color:#9db8d8}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-row{border-top-color:rgba(120,170,220,.14)}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-row span{color:#7e9cc0}
+body[data-ds-dark-theme] .war-root .war-wz-tip .tt-row b{color:#e8f4ff}
+body[data-ds-dark-theme] .war-root .war-wz-chip.st-wait{color:#ffc24d;background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.45)}
+body[data-ds-dark-theme] .war-root .war-wz-chip.st-battle{color:#ff6a55;background:rgba(255,64,48,.12);border-color:rgba(255,80,64,.5)}
+body[data-ds-dark-theme] .war-root .war-wz-chip.st-held{color:#66d4ff;background:rgba(77,163,255,.12);border-color:rgba(77,163,255,.5)}
 /* V11.5：雷达=值班默认态，浮舱/坞是操作面恒在场（原 wz-cmd 全屏让位退役） */
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}

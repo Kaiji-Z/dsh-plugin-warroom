@@ -106,6 +106,13 @@ export function Warzone(props: WarzoneProps): ReactNode {
       return
     }
     const tac = new WarzoneTactical(c2d)
+    // V12（元首令·浅色范式=天空）：主题热切换——body[data-ds-dark-theme] 由宿主
+    // theme-presenter 持有，MutationObserver 监听翻转（深空↔天空双皮即时生效）。
+    const themeOf = (): boolean => document.body.hasAttribute('data-ds-dark-theme')
+    const applyThemes = (): void => { const d = themeOf(); scene.setTheme(d); tac.setTheme(d) }
+    applyThemes()
+    const themeObs = new MutationObserver(applyThemes)
+    themeObs.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
     // V11.5 值班默认态=雷达（元首定：雷达值班+3D 战略）——V 键/按钮双向切换。
     let mode: '3d' | 'cmd' = 'cmd'
     const applyMode = (m: '3d' | 'cmd'): void => {
@@ -382,6 +389,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
     return () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
+      themeObs.disconnect()
       root.removeEventListener('mousemove', onMove)
       root.removeEventListener('mouseleave', onLeave)
       root.removeEventListener('contextmenu', onCtx)
@@ -450,9 +458,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, '2D 视图')),
     createElement('div', { className: 'war-wz-foot', 'aria-hidden': 'true' },
       createElement('div', { className: 'war-wz-legend' },
-        createElement('span', null, createElement('i', { style: { background: '#ffc24d' } }), '待进攻'),
-        createElement('span', null, createElement('i', { style: { background: '#ff6a55' } }), '作战中'),
-        createElement('span', null, createElement('i', { style: { background: '#66d4ff' } }), '已占领')),
+        createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
+        createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
+        createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领')),
       createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
   )

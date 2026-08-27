@@ -283,6 +283,9 @@ export interface WzPlanet {
   radius: number
   mesh: THREE.Group
   cloud: THREE.Mesh | null
+  /** V12 浅色态状态件：基座环+作战光柱（深色态为 null，halo 承担语义）。 */
+  ring: THREE.Mesh | null
+  pillar: THREE.Mesh | null
   halo: THREE.Sprite
   proxy: THREE.Mesh
   baseGlow: THREE.Color
@@ -714,6 +717,23 @@ export class WarzoneScene {
   private viewH = 800
   private readonly camCenter = new THREE.Vector3(0, 0, 0)
   private readonly PAN_LIMIT = 340
+  /** V12（元首令·浅色范式=天空）：主题态——null=未初始化（首贴必生效）；
+   * 深空件（星海/星云/bloom）与天空件（云层/暖阳）按主题切换可见性与配色。 */
+  private darkTheme: boolean | null = null
+  private readonly nebGroup = new THREE.Group()
+  private readonly cloudGroup = new THREE.Group()
+  private ambientLight: THREE.AmbientLight | null = null
+  private dirLight: THREE.DirectionalLight | null = null
+  private hemiLight: THREE.HemisphereLight | null = null
+  private sunMat: THREE.MeshBasicMaterial | null = null
+  private sunGlowMat: THREE.SpriteMaterial | null = null
+  private readonly shipHullMat = new THREE.MeshStandardMaterial({ color: 0x8d99b0, metalness: 0.85, roughness: 0.3, flatShading: true })
+  private readonly shipAccMat = new THREE.MeshStandardMaterial({ color: 0x51427e, metalness: 0.7, roughness: 0.35, flatShading: true })
+  private readonly shipEngMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.15, 0.45) })
+  private hqGroup: THREE.Group | null = null
+  private hqVariant: 'ship' | 'fortress' | null = null
+  private hqProxy: THREE.Mesh | null = null
+  private lastBridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> } | null = null
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     // alpha:true（元首定）：画布透明，容器 CSS 底透出。
@@ -734,7 +754,9 @@ export class WarzoneScene {
     this.bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 1.0, 0.65, 0.18)
     this.composer.addPass(this.bloom)
     this.composer.addPass(new OutputPass())
-    this.scene.add(new THREE.AmbientLight(0x334466, 0.7))
+    const ambient = new THREE.AmbientLight(0x334466, 0.7)
+    this.ambientLight = ambient
+    this.scene.add(ambient)
     // V11.5i（元首令）：可见太阳——主光方位同向、1200 单位外地平线上 16° 一颗
     // （自发光核+光晕 sprite，bloom 放大成耀斑；材质关雾防远距衰减；蓝白热星色
     // 与主光 0xaabbff 同谱，不重涂星球）+ 半球补光（天冷地暖，背光面 subtle tint）。
@@ -746,24 +768,34 @@ export class WarzoneScene {
     this.disposables.push(this.glowTex)
     const dirLight = new THREE.DirectionalLight(0xaabbff, 1.6)
     dirLight.position.set(220, 320, 120)
+    this.dirLight = dirLight
     this.scene.add(dirLight)
     const sunH = Math.hypot(220, 120), sunEl = 0.28
     const sunPos = new THREE.Vector3((220 / sunH) * Math.cos(sunEl), Math.sin(sunEl), (120 / sunH) * Math.cos(sunEl)).multiplyScalar(1200)
     const sunGeo = new THREE.SphereGeometry(18, 24, 16)
     const sunMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 2.1, 2.4), fog: false })
+    this.sunMat = sunMat
     const sun = new THREE.Mesh(sunGeo, sunMat)
     sun.name = 'sun'
     sun.position.copy(sunPos)
     this.scene.add(sun)
     this.disposables.push(sunGeo, sunMat)
     const sunGlow = this.glowSprite(new THREE.Color(0.72, 0.8, 1.0), 220, 0.5)
+    this.sunGlowMat = sunGlow.material as THREE.SpriteMaterial
     sunGlow.position.copy(sunPos)
     this.scene.add(sunGlow)
-    this.scene.add(new THREE.HemisphereLight(0x33415e, 0x241a12, 0.4))
+    const hemi = new THREE.HemisphereLight(0x33415e, 0x241a12, 0.4)
+    this.hemiLight = hemi
+    this.scene.add(hemi)
+    this.scene.add(this.nebGroup, this.cloudGroup)
+    this.buildClouds()
+    this.applyTheme(document.body.hasAttribute('data-ds-dark-theme'))
+    this.disposables.push(this.shipHullMat, this.shipAccMat, this.shipEngMat)
     this.buildStars()
     this.buildNebulae()
     this.belt = this.buildBelt()
     const hq = this.buildHq()
+    this.hqGroup = hq
     this.hqEngineMat = this.hqEngines[0]!.material as THREE.SpriteMaterial
     this.hqBeacon = hq.userData.beacon as THREE.Mesh
     this.scene.add(new THREE.PointLight(0xff8844, 1500, 220, 2).translateY(-26))
@@ -775,6 +807,11 @@ export class WarzoneScene {
    * 临边辉（非 gray）± 环（气巨 55%）+ halo 状态光晕 + pick 代理，全部本地坐标
    * （轨道推进只推 group）。贴图走模块缓存（arch:wsPath 键，SSE 重建零重画）。 */
   private addPlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
+    return this.isDarkTheme ? this.addSpacePlanet(spec, wsPath, status, garrison, failing, inbound) : this.addSkyIsland(spec, wsPath, status, garrison, failing, inbound)
+  }
+
+  /** 深空星球（V11.5h NASA 六原型）。 */
+  private addSpacePlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
     const arch = archetypeOf(wsPath)
     const post = PAINT_POST[arch]
     const { map, bump } = paintedMaps(`wz:${arch}:${wsPath}`, (img, bimg) => PAINTERS[arch](img, bimg, wsPath), post === undefined ? undefined : (ctx, bctx) => post(ctx, bctx, wsPath))
@@ -826,12 +863,148 @@ export class WarzoneScene {
       kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
       radius: spec.radius, mesh: group, cloud, halo, proxy, baseGlow, haloScale: spec.radius * 3.0,
       orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
-      seed: spec.seed, rot: spec.rotSpeed,
+      seed: spec.seed, rot: spec.rotSpeed, ring: null, pillar: null,
     }
     surface.userData.ref = p
     proxy.userData.ref = p
     this.planets.push(p)
     return p
+  }
+
+  /** 浅色浮空岛（V12 元首定案：王国之泪层岩为主+纳格兰垂坠石点缀）——workspace=岛。
+   * 语义物理化（选型红利）：LV2+长建筑=打过仗、层级/建筑密度=任务量、凯旋史=
+   * 发光凯旋碑、状态=基座环色+作战光柱（白天辉光失效的正解）。全 hash 确定性。 */
+  private addSkyIsland(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
+    const k = `isl:${wsPath}`
+    const R = spec.radius
+    const group = new THREE.Group()
+    group.position.set(spec.x, spec.y, spec.z)
+    group.rotation.z = det(`tilt:${wsPath}`, -0.12, 0.12)
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x9a8f80, flatShading: true, roughness: 0.95, metalness: 0.02 })
+    const rock2Mat = new THREE.MeshStandardMaterial({ color: 0x867a6c, flatShading: true, roughness: 0.96, metalness: 0.02 })
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x7fae6b, flatShading: true, roughness: 0.9 })
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xcbb9a0, flatShading: true, roughness: 0.85 })
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x8a5a44, flatShading: true, roughness: 0.8 })
+    const seg = 9
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, y: number): THREE.Mesh => {
+      const m = new THREE.Mesh(geo, mat)
+      m.position.y = y
+      group.add(m)
+      return m
+    }
+    // 顶层岩盘 + 草顶（俯视主读面）
+    add(new THREE.CylinderGeometry(R * 0.96, R * 0.8, R * 0.3, seg), rockMat, -R * 0.05)
+    add(new THREE.CylinderGeometry(R * 1.0, R * 0.97, R * 0.1, seg), grassMat, R * 0.15)
+    // 中层岩盘（LV3+ 双层、LV4 三层——层级即任务量）
+    const layers = spec.level >= 4 ? 3 : spec.level >= 3 ? 2 : 1
+    for (let l = 1; l < layers; l++) {
+      const sc = 1 - l * 0.24
+      add(new THREE.CylinderGeometry(R * 0.86 * sc, R * 0.66 * sc, R * 0.24, seg), rock2Mat, -R * (0.05 + l * 0.26))
+    }
+    // 底锥 + 纳格兰式垂坠碎石（悬浮感的两个动作）
+    add(new THREE.CylinderGeometry(R * 0.52, R * 0.1, R * 0.8, seg), rock2Mat, -R * (0.3 + layers * 0.22))
+    const pebN = 2 + Math.min(2, Math.floor(det(`pn:${k}`, 0, 3)))
+    for (let i = 0; i < pebN; i++) {
+      const pb = new THREE.Mesh(new THREE.DodecahedronGeometry(det(`pr:${k}:${i}`, R * 0.05, R * 0.13)), rock2Mat)
+      pb.position.set(det(`px:${k}:${i}`, -R * 0.5, R * 0.5), -R * (1.1 + det(`py:${k}:${i}`, 0.1, 0.6)), det(`pz:${k}:${i}`, -R * 0.5, R * 0.5))
+      pb.rotation.set(det(`pa:${k}:${i}`, 0, 3), det(`pb:${k}:${i}`, 0, 3), 0)
+      group.add(pb)
+    }
+    // 建筑：LV2+ 茅屋 / LV3+ 塔楼（建筑密度=任务量排名）
+    const bN = spec.level >= 4 ? 4 : spec.level >= 3 ? 2 : spec.level >= 2 ? 1 : 0
+    for (let i = 0; i < bN; i++) {
+      const a = det(`ba:${k}:${i}`, 0, PI2), dr = det(`bd:${k}:${i}`, R * 0.2, R * 0.62)
+      const tall = spec.level >= 3 && i === 0
+      const bw = det(`bw:${k}:${i}`, R * 0.1, R * 0.16)
+      const bh = tall ? R * 0.5 : R * 0.2
+      const hut = add(new THREE.BoxGeometry(bw, bh, bw), wallMat, R * 0.2 + bh / 2)
+      hut.position.x = Math.cos(a) * dr; hut.position.z = Math.sin(a) * dr
+      const roof = add(new THREE.ConeGeometry(bw * 1.35, bh * 0.6, 4), roofMat, R * 0.2 + bh + bh * 0.3)
+      roof.position.x = hut.position.x; roof.position.z = hut.position.z; roof.rotation.y = det(`br:${k}:${i}`, 0, 1.5)
+    }
+    // 凯旋碑（凯旋史物理表达；亮蓝发光石，白天无需 bloom 也醒目）
+    const monoN = Math.min(3, garrison)
+    for (let i = 0; i < monoN; i++) {
+      const a = det(`ma:${k}:${i}`, 0, PI2), dr = det(`md:${k}:${i}`, R * 0.35, R * 0.8)
+      const mo = add(new THREE.BoxGeometry(R * 0.06, R * 0.3, R * 0.06), new THREE.MeshBasicMaterial({ color: 0x35a8e8 }), R * 0.2 + R * 0.15)
+      mo.position.x = Math.cos(a) * dr; mo.position.z = Math.sin(a) * dr
+    }
+    // 状态件：基座环（水线位）+ 作战光柱（王国之泪光柱语言）
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 1.08, Math.max(0.5, R * 0.05), 6, 42), new THREE.MeshBasicMaterial({ color: 0xb07800, transparent: true, opacity: 0.3, depthWrite: false }))
+    ring.rotation.x = Math.PI / 2
+    ring.position.y = R * 0.08
+    group.add(ring)
+    const pillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(R * 0.14, R * 0.3, 62, 8, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, fog: false }),
+    )
+    pillar.position.y = R * 0.2 + 31
+    pillar.visible = false
+    group.add(pillar)
+    // halo 语义退役（浅色态隐藏，环+柱接班）；代理同太空版
+    const baseGlow = new THREE.Color(0x7fae6b)
+    const halo = this.glowSprite(baseGlow.clone(), R * 2.4, 0.001)
+    halo.visible = false
+    group.add(halo)
+    const proxy = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))
+    proxy.scale.setScalar(Math.max(R * 1.35, 4.5))
+    group.add(proxy)
+    this.pickables.push(proxy)
+    this.scene.add(group)
+    const p: WzPlanet = {
+      kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
+      radius: R, mesh: group, cloud: null, halo, proxy, baseGlow, haloScale: R * 2.4,
+      orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
+      seed: spec.seed, rot: spec.rotSpeed * 0.3, ring, pillar,
+    }
+    proxy.userData.ref = p
+    this.planets.push(p)
+    return p
+  }
+
+  /** 空中要塞（V12 浅色态 HQ）：八角石台+中央塔楼+角楼+停机坪环标+信标灯——
+   * 与母舰同契约（userData.beacon + hqEngines 脉动槽位），update 无需分支。 */
+  private buildFortress(): THREE.Group {
+    const hq = new THREE.Group()
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cc, flatShading: true, roughness: 0.85, metalness: 0.05 })
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xd8cfc0, flatShading: true, roughness: 0.85 })
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x3d5a80, flatShading: true, roughness: 0.7 })
+    const padMat = new THREE.MeshBasicMaterial({ color: 0xf2f6fa })
+    this.disposables.push(stoneMat, wallMat, roofMat, padMat)
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, y = 0): THREE.Mesh => {
+      const m = new THREE.Mesh(geo, mat)
+      m.position.y = y; hq.add(m); this.disposables.push(geo)
+      return m
+    }
+    add(new THREE.CylinderGeometry(15, 18, 5, 8), stoneMat)
+    add(new THREE.CylinderGeometry(5.5, 7.5, 13, 8), wallMat, 8.5)
+    add(new THREE.ConeGeometry(6, 6, 8), roofMat, 18)
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4 * PI2 + Math.PI / 4
+      const t = add(new THREE.CylinderGeometry(1.8, 2.2, 6, 6), wallMat, 4.5)
+      t.position.x = Math.cos(a) * 12; t.position.z = Math.sin(a) * 12
+      const tr = add(new THREE.ConeGeometry(2.3, 2.6, 6), roofMat, 8.7)
+      tr.position.x = t.position.x; tr.position.z = t.position.z
+    }
+    const pad = add(new THREE.TorusGeometry(9, 0.35, 6, 36), padMat, 2.6)
+    pad.rotation.x = Math.PI / 2
+    const beacon = add(new THREE.OctahedronGeometry(1.5), new THREE.MeshBasicMaterial({ color: 0x35a8e8, fog: false }), 22)
+    hq.userData.beacon = beacon
+    for (let i = 0; i < 4; i++) {
+      const sp = this.glowSprite(new THREE.Color(1.6, 1.2, 0.6), 3.2, 0.8)
+      const a = i / 4 * PI2
+      sp.position.set(Math.cos(a) * 12, 2.6, Math.sin(a) * 12)
+      hq.add(sp)
+      this.hqEngines.push(sp)
+    }
+    const fproxy = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))
+    fproxy.scale.setScalar(34)
+    fproxy.userData.ref = { kind: 'hq' as const }
+    hq.add(fproxy)
+    this.pickables.push(fproxy)
+    this.hqProxy = fproxy
+    this.scene.add(hq)
+    return hq
   }
 
   private buildStars(): void {
@@ -893,7 +1066,7 @@ export class WarzoneScene {
       const sp = new THREE.Sprite(mat)
       sp.position.set(...n[1])
       sp.scale.setScalar(n[2])
-      this.scene.add(sp)
+      this.nebGroup.add(sp)
       this.disposables.push(mat)
     })
   }
@@ -973,6 +1146,7 @@ export class WarzoneScene {
     hqProxy.userData.ref = { kind: 'hq' as const }
     this.scene.add(hqProxy)
     this.pickables.push(hqProxy)
+    this.hqProxy = hqProxy
     hq.userData.beacon = beacon
     return hq
   }
@@ -988,10 +1162,10 @@ export class WarzoneScene {
   }
 
   private makeShip(parent: THREE.Group, glowMat: THREE.SpriteMaterial): void {
-    const shipHullMat = new THREE.MeshStandardMaterial({ color: 0x8d99b0, metalness: 0.85, roughness: 0.3, flatShading: true })
-    const shipAccMat = new THREE.MeshStandardMaterial({ color: 0x51427e, metalness: 0.7, roughness: 0.35, flatShading: true })
-    const shipEngMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.15, 0.45) })
-    this.disposables.push(shipHullMat, shipAccMat, shipEngMat)
+    // V12：舰体材质共享场景级（applyTheme 整体换肤——深空战舰/白昼战机零重建）
+    const shipHullMat = this.shipHullMat
+    const shipAccMat = this.shipAccMat
+    const shipEngMat = this.shipEngMat
     const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.4, 4), shipHullMat)
     body.rotation.x = Math.PI / 2
     const wing = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.9), shipAccMat); wing.position.z = -0.3
@@ -1230,6 +1404,102 @@ export class WarzoneScene {
     this.camTar = clampCam(this.camTar, b.min, b.max)
   }
 
+  /** V12 主题热切换（壳 MutationObserver 驱动）：深空↔天空两套氛围件可见性/配色；
+   * R2 起还将触发星球（球体↔浮空岛）/HQ（母舰↔要塞）视觉工厂重建。 */
+  setTheme(dark: boolean): void {
+    if (this.darkTheme === dark) return
+    this.applyTheme(dark)
+  }
+
+  get isDarkTheme(): boolean { return this.darkTheme !== false }
+
+  private applyTheme(dark: boolean): void {
+    this.darkTheme = dark
+    this.starGroup.visible = dark
+    this.nebGroup.visible = dark
+    this.cloudGroup.visible = !dark
+    this.bloom.enabled = dark // 白天无辉光可放大——bloom 关（还省一块 GPU）
+    this.scene.fog = dark ? new THREE.FogExp2(0x06070f, 0.00075) : new THREE.FogExp2(0xcfe4f5, 0.0006)
+    // 加法辉光在白天底上失效——星球 halo 浅色态隐藏（R2 由基座环/光柱接班语义）
+    for (const p of this.planets) p.halo.visible = dark
+    if (this.sunMat !== null) {
+      if (dark) this.sunMat.color.setRGB(2.0, 2.1, 2.4)
+      else this.sunMat.color.setRGB(2.3, 1.95, 1.35) // 暖阳
+    }
+    if (this.sunGlowMat !== null) {
+      if (dark) this.sunGlowMat.color.setRGB(0.72, 0.8, 1.0)
+      else this.sunGlowMat.color.setRGB(1.0, 0.86, 0.6)
+    }
+    if (this.dirLight !== null) {
+      if (dark) { this.dirLight.color.set(0xaabbff); this.dirLight.intensity = 1.6 }
+      else { this.dirLight.color.set(0xfff2dc); this.dirLight.intensity = 2.1 }
+    }
+    if (this.ambientLight !== null) {
+      if (dark) { this.ambientLight.color.set(0x334466); this.ambientLight.intensity = 0.7 }
+      else { this.ambientLight.color.set(0xdfeaf5); this.ambientLight.intensity = 0.85 }
+    }
+    if (this.hemiLight !== null) this.hemiLight.intensity = dark ? 0.4 : 0.55
+    // 舰体共享材质换肤：深空战舰（蓝灰合金+橙引擎）↔ 白昼战机（浅机身+冷尾焰）
+    if (dark) {
+      this.shipHullMat.color.set(0x8d99b0); this.shipAccMat.color.set(0x51427e)
+      this.shipEngMat.color.setRGB(2.2, 1.15, 0.45)
+    } else {
+      this.shipHullMat.color.set(0xdfe6ee); this.shipAccMat.color.set(0x8fa5bd)
+      this.shipEngMat.color.setRGB(0.45, 0.55, 0.75)
+    }
+    for (const s of this.squads) {
+      if (dark) { s.glowMat.color.setRGB(2.2, 1.1, 0.45); s.glowMat.opacity = 0.85 }
+      else { s.glowMat.color.setRGB(1.95, 1.95, 2.05); s.glowMat.opacity = 0.55 }
+    }
+    // HQ 换皮：母舰 ↔ 空中要塞（同 beacon/engines/pick-proxy 契约；变体守卫防首贴空转）
+    const wantHq: 'ship' | 'fortress' = dark ? 'ship' : 'fortress'
+    if (this.hqGroup !== null && this.hqVariant !== wantHq) {
+      this.scene.remove(this.hqGroup)
+      const seen = new Set<THREE.Material | THREE.BufferGeometry>()
+      this.hqGroup.traverse(node => {
+        const m = (node as THREE.Mesh).material as THREE.Material | undefined
+        const g = (node as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
+        if (m !== undefined && !seen.has(m)) { seen.add(m); m.dispose() }
+        if (g !== undefined && !seen.has(g)) { seen.add(g); g.dispose() }
+      })
+      this.hqEngines.length = 0
+      if (this.hqProxy !== null) {
+        const pi = this.pickables.indexOf(this.hqProxy)
+        if (pi >= 0) this.pickables.splice(pi, 1)
+        this.hqProxy = null
+      }
+      const hq = dark ? this.buildHq() : this.buildFortress()
+      this.hqGroup = hq
+      this.hqVariant = wantHq
+      const eng = this.hqEngines[0]?.material as THREE.SpriteMaterial | undefined
+      if (eng !== undefined) this.hqEngineMat = eng
+      const bc = hq.userData.beacon as THREE.Mesh | undefined
+      if (bc !== undefined) this.hqBeacon = bc
+    }
+    // 星球换皮：整组重建（NASA 球体 ↔ 浮空岛）——重放最近板真值
+    if (this.lastBridge !== null && this.planetKey !== '') {
+      this.planetKey = ''
+      this.syncBoard(this.lastBridge)
+    }
+    this.rebuildHlLines()
+  }
+
+  /** 云层（浅色态氛围件）：确定性散布的宽软 sprite，极慢漂移（元首放行——
+   * 云非地形，类似星闪呼吸感）；|x|>700 环回。 */
+  private buildClouds(): void {
+    for (let i = 0; i < 10; i++) {
+      const mat = new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffffff, transparent: true, opacity: det(`cd:${i}`, 0.22, 0.42), depthWrite: false, fog: false })
+      const sp = new THREE.Sprite(mat)
+      const r = det(`cr:${i}`, 180, 520), a = det(`ca:${i}`, 0, PI2)
+      sp.position.set(Math.cos(a) * r, det(`cy:${i}`, 40, 170), Math.sin(a) * r)
+      const sc = det(`cs:${i}`, 90, 220)
+      sp.scale.set(sc * 1.9, sc, 1)
+      sp.userData.drift = det(`cv:${i}`, 1.2, 3.2) * (detBool(`vd:${i}`, 0.5) ? 1 : -1)
+      this.cloudGroup.add(sp)
+      this.disposables.push(mat)
+    }
+  }
+
   /** 高亮战区集合（板卡悬停/聚焦/执行卡悬停共入口）；星球静态，轨迹线重建即可。 */
   setHighlight(ws: ReadonlyArray<string>): void {
     this.hlWs.clear()
@@ -1243,7 +1513,7 @@ export class WarzoneScene {
     for (const p of this.planets) {
       if (!this.hlWs.has(p.wsPath)) continue
       const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -6, 0), p.mesh.position.clone()])
-      const mat = new THREE.LineDashedMaterial({ color: 0x6fe3ff, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.85 })
+      const mat = new THREE.LineDashedMaterial({ color: this.isDarkTheme ? 0x6fe3ff : 0x0e7490, dashSize: 6, gapSize: 4, transparent: true, opacity: this.isDarkTheme ? 0.85 : 0.95 })
       const line = new THREE.Line(geo, mat)
       line.computeLineDistances()
       this.scene.add(line)
@@ -1281,22 +1551,42 @@ export class WarzoneScene {
       p.mesh.position.set(Math.cos(o.angle) * rr, o.yBase + Math.sin(o.angle * 0.9 + o.phase * 2) * o.tiltA, Math.sin(o.angle) * rr)
       p.mesh.rotation.y += p.rot * dt
       if (p.cloud !== null) p.cloud.rotation.y += p.rot * dt * 1.16
-      _c1.copy(p.baseGlow)
-      let op = 0.3
-      if (p.status === '作战中') {
-        _c1.set(0xff5a33)
-        op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
-        p.ringT -= dt
-        if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, 0xff6a33); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
-      } else if (p.status === '已占领') {
-        _c1.lerp(_c2.set(0x66d4ff), 0.4)
-        op = 0.34
+      if (this.isDarkTheme) {
+        _c1.copy(p.baseGlow)
+        let op = 0.3
+        if (p.status === '作战中') {
+          _c1.set(0xff5a33)
+          op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
+          p.ringT -= dt
+          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, 0xff6a33); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
+        } else if (p.status === '已占领') {
+          _c1.lerp(_c2.set(0x66d4ff), 0.4)
+          op = 0.34
+        }
+        if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.set(0x6fe3ff), 0.35) }
+        p.halo.material.color.lerp(_c1, 0.08)
+        p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
+        const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
+        p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
+      } else if (p.ring !== null) {
+        // V12 浅色：辉光失效——基座环+作战光柱接班状态语义（光柱=王国之泪语言）
+        const rm = p.ring.material as THREE.MeshBasicMaterial
+        if (p.status === '作战中') {
+          rm.color.set(0xd9480f)
+          rm.opacity = 0.5 + 0.25 * Math.sin(t * 7 + p.seed * 6)
+          if (p.pillar !== null) {
+            p.pillar.visible = true
+            ;(p.pillar.material as THREE.MeshBasicMaterial).opacity = 0.26 + 0.1 * Math.sin(t * 3.2 + p.seed)
+          }
+          p.ringT -= dt
+          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, 0xd9480f); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
+        } else {
+          if (p.pillar !== null) p.pillar.visible = false
+          if (p.status === '已占领') { rm.color.set(0x1971c2); rm.opacity = 0.45 }
+          else { rm.color.set(0xb07800); rm.opacity = 0.26 }
+        }
+        if (this.hlWs.has(p.wsPath)) { rm.color.set(0x0e7490); rm.opacity = 0.85 }
       }
-      if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.set(0x6fe3ff), 0.35) }
-      p.halo.material.color.lerp(_c1, 0.08)
-      p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
-      const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
-      p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
       const s = this.squads[i]!
@@ -1334,6 +1624,13 @@ export class WarzoneScene {
     this.starMat.uniforms.uTime!.value = t
     this.starGroup.rotation.y += dt * 0.004
     this.belt.rotation.y += dt * 0.01
+    if (this.cloudGroup.visible) {
+      for (const c of this.cloudGroup.children) {
+        c.position.x += (c.userData.drift as number) * dt
+        if (c.position.x > 700) c.position.x = -700
+        else if (c.position.x < -700) c.position.x = 700
+      }
+    }
   }
 
   /** 板同步（V11.5 连线正门）：星球集（wsPath 变更时整组重建，否则原地刷状态）
@@ -1341,6 +1638,7 @@ export class WarzoneScene {
    * 替换 + HQ 战时开关。此后 demo 自驱永久旁路。 */
   syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> }): void {
     this.bridged = true
+    this.lastBridge = bridge
     this.hqActive = bridge.active
     const key = bridge.planets.map(p => p.wsPath).join('|')
     if (key !== this.planetKey) {
@@ -1450,6 +1748,8 @@ export class WarzoneTactical {
   private readonly g: CanvasRenderingContext2D
   private readonly canvas: HTMLCanvasElement
   private readonly scanPat: CanvasPattern | null
+  /** V12：2D 双皮——深色=战术雷达 / 浅色=蓝图纸面（白纸+青蓝制图线，元首定）。 */
+  private dark = true
   private w = 0
   private h = 0
   private cx = 0
@@ -1469,6 +1769,8 @@ export class WarzoneTactical {
     this.canvas.dataset.zoom = String(Math.min(1.5, Math.max(0.55, (Number(this.canvas.dataset.zoom ?? 1)) * (1 - deltaY * 0.001))))
   }
 
+  setTheme(dark: boolean): void { this.dark = dark }
+
   private get zoom(): number { return Number(this.canvas.dataset.zoom ?? 1) }
 
   resize(w: number, h: number): void {
@@ -1486,6 +1788,28 @@ export class WarzoneTactical {
     const g = this.g
     const w = this.w, h = this.h
     const S = safe ?? { x: 0, y: 0, w, h }
+    // V12 双皮调色板：深色=战术雷达 / 浅色=蓝图纸面（状态色浅色压深保对比度）
+    const P = this.dark ? {
+      bg0: '#04101f', bg1: '#020812', bg2: '#010409', grid: 'rgba(60,120,190,.07)',
+      ring: 'rgba(80,160,230,.2)', ringTxt: 'rgba(110,180,240,.4)', cross: 'rgba(80,160,230,.15)',
+      tick: 'rgba(90,170,240,.35)', bearing: 'rgba(120,190,250,.5)', hqPulse: '111,227,255',
+      hqFill: 'rgba(20,50,90,.92)', hq: '#9fdcff', hqCore: '#cfeeff', hqLabel: '#bfe6ff',
+      stWait: '#ffc24d', stBattle: '#ff6a55', stHeld: '#5fc4ff',
+      hl: '#8fe8ff', hlLine: 'rgba(111,227,255,.55)', battlePulse: '255,90,60',
+      garrison: 'rgba(95,196,255,.7)', name: 'rgba(200,225,250,.85)', nameHl: '#bfefff',
+      sqBattle: '#ff7755', sqRet: '#9a86ff', sqDep: '#5fc4ff', sqHold: '#ffc98a',
+      corner: 'rgba(111,227,255,.5)', scan: true,
+    } : {
+      bg0: '#f8fbfe', bg1: '#eef4fa', bg2: '#e3edf7', grid: 'rgba(70,110,160,.12)',
+      ring: 'rgba(90,130,180,.38)', ringTxt: 'rgba(80,120,170,.6)', cross: 'rgba(90,130,180,.22)',
+      tick: 'rgba(90,130,180,.45)', bearing: 'rgba(70,105,150,.65)', hqPulse: '28,78,128',
+      hqFill: 'rgba(214,232,248,.95)', hq: '#1c4e80', hqCore: '#2d6ca6', hqLabel: '#1c4e80',
+      stWait: '#b07800', stBattle: '#d9480f', stHeld: '#1971c2',
+      hl: '#0e7490', hlLine: 'rgba(14,116,144,.55)', battlePulse: '217,72,15',
+      garrison: 'rgba(25,113,194,.75)', name: 'rgba(40,70,110,.9)', nameHl: '#0b3a53',
+      sqBattle: '#d9480f', sqRet: '#6741d9', sqDep: '#1971c2', sqHold: '#b07800',
+      corner: 'rgba(28,78,128,.5)', scan: false,
+    }
     const cx = this.cx = S.x + S.w / 2
     const cy = this.cy = S.y + S.h / 2 + 10
     const baseR = Math.max(130, Math.min(S.h * 0.5 - 64, S.w * 0.5 - 24, 460))
@@ -1494,9 +1818,9 @@ export class WarzoneTactical {
     hits.length = 0
     const W2S = (x: number, z: number, out: { x: number; y: number }): void => { out.x = cx + x * ws; out.y = cy + z * ws }
     const bg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7)
-    bg.addColorStop(0, '#04101f'); bg.addColorStop(0.5, '#020812'); bg.addColorStop(1, '#010409')
+    bg.addColorStop(0, P.bg0); bg.addColorStop(0.5, P.bg1); bg.addColorStop(1, P.bg2)
     g.fillStyle = bg; g.fillRect(0, 0, w, h)
-    g.strokeStyle = 'rgba(60,120,190,.07)'; g.lineWidth = 1
+    g.strokeStyle = P.grid; g.lineWidth = 1
     g.beginPath()
     for (let x = cx % 46; x < w; x += 46) { g.moveTo(x, 0); g.lineTo(x, h) }
     for (let y = cy % 46; y < h; y += 46) { g.moveTo(0, y); g.lineTo(w, y) }
@@ -1507,21 +1831,21 @@ export class WarzoneTactical {
     for (let wr = 75; wr <= 300; wr += 75) {
       const r = wr * ws
       g.beginPath(); g.arc(0, 0, r, 0, PI2)
-      g.strokeStyle = 'rgba(80,160,230,.2)'; g.lineWidth = 1; g.stroke()
-      g.fillStyle = 'rgba(110,180,240,.4)'; g.font = '10px Consolas'
+      g.strokeStyle = P.ring; g.lineWidth = 1; g.stroke()
+      g.fillStyle = P.ringTxt; g.font = '10px Consolas'
       g.textAlign = 'left'; g.textBaseline = 'alphabetic'
       g.fillText(wr + 'k', 4, -r + 12)
     }
-    g.strokeStyle = 'rgba(80,160,230,.15)'
+    g.strokeStyle = P.cross
     g.beginPath(); g.moveTo(-R - 30, 0); g.lineTo(R + 30, 0); g.moveTo(0, -R - 30); g.lineTo(0, R + 30); g.stroke()
     for (let a = 0; a < 360; a += 15) {
       const rad = a * Math.PI / 180, len = a % 45 === 0 ? 10 : 5
       g.beginPath()
       g.moveTo(Math.cos(rad) * R, Math.sin(rad) * R)
       g.lineTo(Math.cos(rad) * (R + len), Math.sin(rad) * (R + len))
-      g.strokeStyle = 'rgba(90,170,240,.35)'; g.stroke()
+      g.strokeStyle = P.tick; g.stroke()
     }
-    g.fillStyle = 'rgba(120,190,250,.5)'; g.font = '10px Consolas'
+    g.fillStyle = P.bearing; g.font = '10px Consolas'
     g.textAlign = 'center'; g.textBaseline = 'middle'
     g.fillText('000', 0, -R - 22); g.fillText('090', R + 22, 0)
     g.fillText('180', 0, R + 22); g.fillText('270', -R - 22, 0)
@@ -1531,7 +1855,7 @@ export class WarzoneTactical {
     W2S(0, 0, s1)
     const pk = (t * 0.7) % 1
     g.beginPath(); g.arc(s1.x, s1.y, 16 + 12 * pk, 0, PI2)
-    g.strokeStyle = `rgba(111,227,255,${0.55 * (1 - pk)})`; g.lineWidth = 1.5; g.stroke()
+    g.strokeStyle = `rgba(${P.hqPulse},${0.55 * (1 - pk)})`; g.lineWidth = 1.5; g.stroke()
     g.save(); g.translate(s1.x, s1.y); g.rotate(t * 0.3)
     g.beginPath()
     for (let i = 0; i < 8; i++) {
@@ -1539,41 +1863,41 @@ export class WarzoneTactical {
       if (i) g.lineTo(px, py); else g.moveTo(px, py)
     }
     g.closePath()
-    g.fillStyle = 'rgba(20,50,90,.92)'; g.fill()
-    g.strokeStyle = '#9fdcff'; g.lineWidth = 1.6; g.stroke()
-    g.beginPath(); g.arc(0, 0, 4.5, 0, PI2); g.fillStyle = '#cfeeff'; g.fill()
+    g.fillStyle = P.hqFill; g.fill()
+    g.strokeStyle = P.hq; g.lineWidth = 1.6; g.stroke()
+    g.beginPath(); g.arc(0, 0, 4.5, 0, PI2); g.fillStyle = P.hqCore; g.fill()
     g.restore()
-    g.fillStyle = '#bfe6ff'; g.font = 'bold 11px Consolas,"Microsoft YaHei"'
+    g.fillStyle = P.hqLabel; g.font = 'bold 11px Consolas,"Microsoft YaHei"'
     g.textAlign = 'center'; g.textBaseline = 'alphabetic'
     g.fillText('HQ · HEADQUARTERS', s1.x, s1.y + 32)
     hits.push({ x: s1.x, y: s1.y, r: 26, ref: { kind: 'hq' } })
     // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹）
     planets.forEach(p => {
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
-      const col = p.status === '作战中' ? '#ff6a55' : p.status === '已占领' ? '#5fc4ff' : '#ffc24d'
+      const col = p.status === '作战中' ? P.stBattle : p.status === '已占领' ? P.stHeld : P.stWait
       const rr = Math.max(7, p.radius * 0.9)
       const isHl = hl !== undefined && hl.has(p.wsPath)
       if (isHl) {
         g.setLineDash([5, 6])
         g.beginPath(); g.moveTo(cx, cy); g.lineTo(s1.x, s1.y)
-        g.strokeStyle = 'rgba(111,227,255,.55)'; g.lineWidth = 1.4; g.stroke()
+        g.strokeStyle = P.hlLine; g.lineWidth = 1.4; g.stroke()
         g.setLineDash([])
       }
       if (p.status === '作战中') {
         const k = (t * 1.4 + p.seed) % 1
         g.beginPath(); g.arc(s1.x, s1.y, rr + 4 + k * 16, 0, PI2)
-        g.strokeStyle = `rgba(255,90,60,${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()
+        g.strokeStyle = `rgba(${P.battlePulse},${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()
       }
       g.beginPath(); g.arc(s1.x, s1.y, rr, 0, PI2)
       g.fillStyle = col + '2e'; g.fill()
-      g.strokeStyle = isHl ? '#8fe8ff' : col; g.lineWidth = isHl ? 2.6 : 1.6; g.stroke()
+      g.strokeStyle = isHl ? P.hl : col; g.lineWidth = isHl ? 2.6 : 1.6; g.stroke()
       g.beginPath(); g.arc(s1.x, s1.y, 2.2, 0, PI2); g.fillStyle = col; g.fill()
       if (p.garrison > 0) {
         g.beginPath(); g.arc(s1.x, s1.y, rr + 5, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
-        g.strokeStyle = 'rgba(95,196,255,.7)'; g.lineWidth = 2; g.stroke()
+        g.strokeStyle = P.garrison; g.lineWidth = 2; g.stroke()
       }
       g.font = '10px "Microsoft YaHei",Consolas'; g.textAlign = 'center'
-      g.fillStyle = isHl ? '#bfefff' : 'rgba(200,225,250,.85)'
+      g.fillStyle = isHl ? P.nameHl : P.name
       if (isHl) g.font = 'bold 12px "Microsoft YaHei",Consolas'
       g.fillText(p.name.split(' ·')[0]!, s1.x, s1.y - rr - 6)
       g.fillStyle = col; g.font = '9px Consolas'
@@ -1584,7 +1908,7 @@ export class WarzoneTactical {
     squads.forEach(s => {
       W2S(s.group.position.x, s.group.position.z, s1)
       const ph = s.phase
-      const col = ph === 'battle' ? '#ff7755' : ph === 'return' ? '#9a86ff' : ph === 'deployed' ? '#5fc4ff' : '#ffc98a'
+      const col = ph === 'battle' ? P.sqBattle : ph === 'return' ? P.sqRet : ph === 'deployed' ? P.sqDep : P.sqHold
       const endW = ph === 'return' ? { x: 0, z: 0 } : s.target.mesh.position
       if (ph === 'outbound' || ph === 'return') {
         W2S(endW.x, endW.z, s2)
@@ -1611,11 +1935,10 @@ export class WarzoneTactical {
     // V11.5f（元首令）：名册/态势/速报/顶底栏文字全部退役——只剩盘+符号+高亮。
     const B = 26, M = 14
     ;([[S.x + M, S.y + M, 1, 1], [S.x + S.w - M, S.y + M, -1, 1], [S.x + M, S.y + S.h - M, 1, -1], [S.x + S.w - M, S.y + S.h - M, -1, -1]] as const).forEach(c => {
-      g.strokeStyle = 'rgba(111,227,255,.5)'; g.lineWidth = 2
+      g.strokeStyle = P.corner; g.lineWidth = 2
       g.beginPath(); g.moveTo(c[0] + c[2] * B, c[1]); g.lineTo(c[0], c[1]); g.lineTo(c[0], c[1] + c[3] * B); g.stroke()
     })
-    // CRT 静态扫描线（动态闪线按令退役）
-    if (this.scanPat) g.fillStyle = this.scanPat
-    g.fillRect(0, 0, w, h)
+    // CRT 静态扫描线（动态闪线按令退役；纸面态无扫描纹理——白纸干净）
+    if (P.scan && this.scanPat) { g.fillStyle = this.scanPat; g.fillRect(0, 0, w, h) }
   }
 }

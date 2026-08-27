@@ -32,6 +32,9 @@ with sync_playwright() as p:
         return ctx, page
 
     ctx, page = open_map({'width': 1720, 'height': 900})
+    # V12：探针开局强制深空范式（宿主浅色设置下挂载为天空态——先翻深色跑深空套件）
+    page.evaluate("() => document.body.setAttribute('data-ds-dark-theme', '')")
+    page.wait_for_timeout(1500)
     board = page.evaluate("async () => await (await fetch('/warroom/api/board')).json()")
     ws_set = sorted({t['workspacePath'] for t in board['tasks'] if t.get('workspacePath')})
     live_n = sum(1 for t in board['tasks'] for a in (t.get('attemptLog') or []) if a.get('outcome') is None)
@@ -83,6 +86,30 @@ with sync_playwright() as p:
     # V11.5h：星球=NASA 自然色六原型材质（map+bumpMap+壳层组）
     nasa = page.evaluate("() => window.__wz.scene.planets.every(p => { const s = p.mesh.children.find(c => c.material && c.material.bumpMap); return s !== undefined })")
     ok('星球=NASA 材质（bumpMap 高度场在）', nasa)
+    # V12 浅色范式（元首令 星空→天空）：热切换——浮空岛/要塞/蓝图雷达/云层/bloom 关
+    page.evaluate("() => document.body.removeAttribute('data-ds-dark-theme')")
+    page.wait_for_timeout(2000)
+    lt = page.evaluate("""() => { const s = window.__wz.scene; return {
+      dark: s.isDarkTheme, bloom: s.bloom.enabled, variant: s.hqVariant,
+      islands: s.planets.length > 0 && s.planets.every(p => p.ring !== null && p.pillar !== null),
+      kids: s.planets[0].mesh.children.map(c => c.type), clouds: s.cloudGroup.visible } }""")
+    ok('浅色=浮空岛范式（层岩组+环+柱）', lt['dark'] is False and lt['islands'], str(lt['kids'][:6]))
+    ok('浅色=空中要塞+bloom 关+云在场', lt['variant'] == 'fortress' and lt['bloom'] is False and lt['clouds'])
+    px = page.evaluate("() => { const c = document.querySelector('.war-wz-tac'); return c.getContext('2d').getImageData(3, 3, 1, 1).data[0] }")
+    ok('浅色 2D=蓝图纸面（亮底）', px > 200, f'r={px}')
+    page.screenshot(path=str(OUT / 'v12-light-radar.png'))
+    page.keyboard.press('v'); page.wait_for_timeout(2500)
+    page.screenshot(path=str(OUT / 'v12-light-3d.png'))
+    page.keyboard.press('v'); page.wait_for_timeout(1500)
+    # 切回深色：NASA 球体+母舰+bloom 复活（无残留双建）
+    page.evaluate("() => document.body.setAttribute('data-ds-dark-theme', '')")
+    page.wait_for_timeout(2000)
+    dk = page.evaluate("""() => { const s = window.__wz.scene; return {
+      dark: s.isDarkTheme, bloom: s.bloom.enabled, variant: s.hqVariant,
+      spheres: s.planets.length > 0 && s.planets.every(p => p.ring === null && p.pillar === null),
+      n: s.planets.length, hqN: s.scene.children.filter(o => o.userData && o.userData.beacon).length } }""")
+    ok('切回深色=NASA 球体+母舰+bloom', dk['dark'] and dk['bloom'] and dk['variant'] == 'ship' and dk['spheres'])
+    ok('HQ 无双建残留', dk['hqN'] <= 1, f"beacon groups={dk['hqN']}")
     # V11.5i：可见太阳（主光同向远处，关雾自发光核+光晕）+ 半球补光在场
     rig = page.evaluate("() => { const s = window.__wz.scene; const sun = s.scene.getObjectByName('sun'); return { sun: sun !== null, hemi: s.scene.children.some(c => c.isHemisphereLight === true), fogged: sun !== null && sun.material.fog === false, d: sun !== null ? Math.round(sun.position.length()) : 0 } }")
     ok('可见太阳在场（关雾）', rig['sun'] and rig['fogged'] and rig['d'] > 1000, f"d={rig['d']}")
