@@ -527,9 +527,39 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
 /* --- V11 P2 3D 星域（元首定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
 .war-starfield3d{cursor:grab;touch-action:none;user-select:none}
-.war-starfield3d::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at 50% 44%, transparent 52%, color-mix(in srgb, var(--war-canvas-bg) 82%, transparent) 100%)} /* 深空渐晕（视觉冲刺） */
 body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(ellipse at 50% 44%, #0a1122 0%, #070b16 55%, var(--war-canvas-bg) 100%)} /* 深色=蓝黑太空芯（纸色宇宙不动 V9.13 令） */
 .war-starfield3d:active{cursor:grabbing}
+/* --- V11.4 warzone demo 全要素进驻（3D 现实视图 + 2D 指挥室） --- */
+.war-wz-3d{position:absolute;inset:0;width:100%;height:100%;display:block}
+.war-wz-tac{position:absolute;inset:0;width:100%;height:100%;display:none;background:#010409}
+.war-wz.war-wz-cmd .war-wz-tac{display:block}
+.war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-hud,.war-wz.war-wz-cmd .war-wz-foot{display:none}
+.war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 55%,rgba(2,4,12,.6) 100%)}
+.war-wz-hud{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:6;pointer-events:none;user-select:none;text-align:center}
+.war-wz-hud h1{margin:0;font:bold 17px/1.2 'Segoe UI',Consolas,monospace;letter-spacing:.28em;background:linear-gradient(90deg,#8fd8ff,#7f6cff 55%,#ff9a5c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.war-wz-hud p{margin:5px 0 0;font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#6e86ad;letter-spacing:.14em}
+.war-wz-toggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid rgba(111,227,255,.4);border-radius:8px;overflow:hidden;backdrop-filter:blur(6px);background:rgba(8,14,28,.6)} /* 顶中（HUD 下）——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
+.war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px 'Segoe UI','Microsoft YaHei';letter-spacing:.1em;color:#8fb6dd;background:transparent}
+.war-wz-toggle button.on{background:linear-gradient(180deg,rgba(60,140,255,.3),rgba(60,140,255,.1));color:#eaf6ff;text-shadow:0 0 8px rgba(111,227,255,.8)}
+.war-wz-toggle button:hover{color:#dff2ff}
+.war-wz-foot{position:absolute;left:50%;bottom:238px;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;user-select:none}
+.war-wz-legend{display:flex;gap:14px;font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#7e9cc0}
+.war-wz-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.war-wz-hint{font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#5b7396;letter-spacing:.08em}
+.war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:300px;display:none;background:rgba(8,14,28,.78);border:1px solid rgba(111,227,255,.35);border-radius:10px;padding:12px 14px;backdrop-filter:blur(8px);box-shadow:0 0 26px rgba(0,140,255,.16),inset 0 0 20px rgba(20,60,120,.22);color:#cfe6ff;font:12px/1.65 'Segoe UI','Microsoft YaHei',sans-serif;pointer-events:none}
+.war-wz-tip .tt-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.war-wz-tip .dot{width:9px;height:9px;border-radius:50%;background:#6fe3ff;box-shadow:0 0 8px #6fe3ff;flex:none}
+.war-wz-tip .tt-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:#eaf6ff;white-space:nowrap}
+.war-wz-tip .tt-tag{margin-left:auto;font-size:10px;color:#8fd8ff;border:1px solid rgba(111,227,255,.4);padding:1px 7px;border-radius:99px;white-space:nowrap}
+.war-wz-tip .tt-desc{color:#9db8d8;font-size:11px;margin-bottom:8px}
+.war-wz-tip .tt-row{display:flex;justify-content:space-between;gap:18px;padding:2.5px 0;border-top:1px dashed rgba(120,170,220,.14)}
+.war-wz-tip .tt-row span{color:#7e9cc0}
+.war-wz-tip .tt-row b{color:#e8f4ff;font-weight:600;font-family:Consolas,monospace;white-space:nowrap}
+.war-wz-chip{padding:1px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Microsoft YaHei'}
+.war-wz-chip.st-wait{color:#ffc24d;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.45)}
+.war-wz-chip.st-battle{color:#ff6a55;background:rgba(255,64,48,.12);border:1px solid rgba(255,80,64,.5)}
+.war-wz-chip.st-held{color:#66d4ff;background:rgba(77,163,255,.12);border:1px solid rgba(77,163,255,.5)}
+.war-board.wz-cmd .war-zone,.war-board.wz-cmd .war-dispatch{visibility:hidden} /* 指挥室全屏化：浮舱/坞让位 */
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}
 .war-s3d-overlay .war-planet,.war-s3d-overlay .war-orb{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform}

@@ -169,10 +169,15 @@ with sync_playwright() as p:
     open_board()
     sf = page.locator(".war-starfield")
     assert sf.count() == 1 and sf.is_visible(), "星域画布未现身（board 级铺满）"
-    # V11 P2：真 3D 星域——WebGL canvas 在场 + 覆盖层交互实体仍是 DOM
-    assert sf.locator(".war-s3d-canvas").count() == 1 and page.evaluate("() => document.querySelector('.war-s3d-canvas').width > 0"), "3D 星域 canvas 未渲染"
+    # V11.4 warzone demo 全要素进驻：3D 引擎 canvas + demo DOM 件 + __wz 句柄
+    assert sf.locator(".war-wz-3d").count() == 1 and page.evaluate("() => document.querySelector('.war-wz-3d').width > 0"), "warzone 3D canvas 未渲染"
     assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
+    for sel, name in [(".war-wz-hud", "HUD"), (".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
+        assert sf.locator(sel).count() == 1 and sf.locator(sel).is_visible(), f"warzone {name} 件缺席"
+    wz = page.evaluate("() => { const w = window.__wz; const ps = w.scene.planets; return { n: ps.length, cls: [ps.filter(p=>p.cls==='large').length, ps.filter(p=>p.cls==='medium').length, ps.filter(p=>p.cls==='small').length], squads: w.scene.squads.length, log: w.scene.log.length } }")
+    assert wz["n"] == 16 and wz["cls"] == [3, 6, 7], f"warzone 星球 16（大3中6小7）不符：{wz}"
+    assert wz["squads"] >= 1 and wz["log"] >= 1, f"编队/日志未跑起来：{wz}"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
     assert page.evaluate("() => { const t = document.querySelector('.war-dispatch-track'); return t.scrollHeight <= t.clientHeight + 1 }"), "调度坞轨道不得出现纵向滚动（高度须容下所有卡+富余）"
@@ -191,77 +196,48 @@ with sync_playwright() as p:
     top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")
     assert top_el, "灵动岛必须浮于星域之上（岛中心命中岛自身）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
-    planets = page.locator(".war-planet[data-ws-index]")
-    assert planets.count() == 3, f"星球数应==workspace 数 3，got {planets.count()}"
-    assert page.locator('[data-triumphs]:not([data-triumphs="0"])').count() == 2, "两颗凯旋星（alpha/gamma）应各带印记计数"
-    alpha_t = page.locator(".war-planet").filter(has_text="alpha").first
-    assert alpha_t.get_attribute("data-triumphs") == "2", f"alpha 两代皆胜应记 2 功：{alpha_t.get_attribute('title')}"
-    orb = page.locator(".war-orb[data-session='sess-demo-live']")
-    assert orb.count() == 1, "活体执行会话光点未挂上 beta 星轨道"
-    # V10.1 critique 收口：行星可达（button+aria）+ 今战速报条在场
-    planet_el = page.locator(".war-planet").first
-    assert planet_el.evaluate("e => e.tagName") == "BUTTON" and (planet_el.get_attribute("aria-label") or "").startswith("战区"), "行星必须键盘/读屏可达"
-    live_bar = page.locator(".war-live-bar")
-    assert live_bar.count() == 1 and live_bar.get_attribute("data-war-live") == "1", "今战速报条缺席（星域态活体主表面）"
-    orb.hover()
-    page.wait_for_timeout(400)
-    same = page.locator(".war-dispatch .war-command-card.war-rel-same").count()
-    assert same == 1, f"hover 光点应点亮唯一源命令卡，got {same}"
+    # V11.4：悬停信息卡（画面中心=HQ 拾取代理）+ 指挥室切换闭环
+    page.mouse.move(sf_bb["x"] + sf_bb["width"] / 2, sf_bb["y"] + sf_bb["height"] / 2)
+    page.wait_for_timeout(700)
+    assert page.locator(".war-wz-tip").is_visible(), "悬停信息卡未现身（画面中心应命中 HQ 代理）"
+    assert "HEADQUARTERS" in page.locator(".war-wz-tip").inner_text(), "HQ 卡内容不符"
     page.mouse.move(8, 300)
-    # V10.1 critique P0 机检：星域对象（光点/行星/图例/速报条）中心必须避开舱/坞矩形。
-    occluded = page.evaluate("""() => {
-      const pods = ['.war-zone.war-tasks', '.war-zone.war-report', '.war-dispatch'].map(s => document.querySelector(s)).filter(Boolean).map(el => el.getBoundingClientRect())
-      const bad = []
-      for (const sel of ['.war-orb', '.war-planet', '.war-map-legend', '.war-live-bar']) {
-        for (const el of document.querySelectorAll(sel)) {
-          const r = el.getBoundingClientRect()
-          if (r.width === 0) continue
-          const cx = r.x + r.width/2, cy = r.y + r.height/2
-          if (pods.some(p => cx >= p.x && cx <= p.x + p.width && cy >= p.y && cy <= p.y + p.height)) bad.push(sel)
-        }
-      }
-      return bad
-    }""")
-    assert occluded == [], f"星域对象被舱/坞遮挡（critique P0 红线）：{occluded}"
-    # V11 三键相机（元首定）：左键平移（即时跟手）/ 中键旋转（阻尼）/ 滚轮缩放
-    # （视深缩放：行星同比缩）；双击复位含平移归零。拖拽从空画布落点起步——
-    # 行星按钮是点击不是拖拽。
+    page.locator('.war-wz-toggle button[data-wz-mode="cmd"]').click()
+    page.wait_for_timeout(500)
+    assert page.locator(".war-wz-tac").is_visible(), "指挥室 2D 战术画布未现身"
+    assert page.evaluate("() => document.querySelector('.war-board').classList.contains('wz-cmd')"), "指挥室模式 board 缺 wz-cmd 类（浮舱未让位）"
+    page.screenshot(path=str(OUT / "v10-map-cmd.png"))
+    page.keyboard.press("v")
+    page.wait_for_timeout(500)
+    assert page.evaluate("() => window.__wz.mode()") == "3d", "V 键未切回现实视图"
+    assert not page.locator(".war-wz-tac").is_visible(), "切回后 2D 画布应隐退"
+    # V11.4 相机（demo OrbitControls 正案）：左键旋转/滚轮缩放（中键推拉）。
     spot = page.evaluate("""() => {
       const box = document.querySelector('.war-starfield3d').getBoundingClientRect();
-      for (let fy = 0.18; fy <= 0.75; fy += 0.07)
-        for (let fx = 0.42; fx <= 0.62; fx += 0.05) {
+      for (let fy = 0.25; fy <= 0.7; fy += 0.05)
+        for (let fx = 0.3; fx <= 0.65; fx += 0.05) {
           const x = box.x + box.width * fx, y = box.y + box.height * fy;
           const el = document.elementFromPoint(x, y);
-          if (el && (el.className === 'war-s3d-canvas' || String(el.className).includes('war-starfield3d'))) return {x, y};
+          if (el && el.tagName === 'CANVAS') return {x, y};
         }
       return null;
     }""")
     assert spot is not None, "找不到空画布落点（拖拽起点）"
-    p0 = page.locator(".war-planet").first.bounding_box()["x"]
-    # 中键旋转
-    page.mouse.move(spot["x"], spot["y"]); page.mouse.down(button="middle")
-    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up(button="middle")
-    page.wait_for_timeout(800)
-    p1 = page.locator(".war-planet").first.bounding_box()["x"]
-    assert abs(p1 - p0) > 30, f"中键拖拽应旋转星系：{p0:.0f}->{p1:.0f}"
-    # 左键平移（旋转复位后整列同向位移）
-    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(900)
-    q0 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().x)")
+    def cam():
+        return page.evaluate("() => { const p = window.__wz.scene.camera.position; return [p.x, p.y, p.z] }")
+    def dist(p):
+        return (p[0] ** 2 + p[1] ** 2 + p[2] ** 2) ** 0.5
+    c0 = cam()
     page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
-    page.mouse.move(spot["x"] - 260, spot["y"] - 120, steps=12); page.mouse.up()
-    page.wait_for_timeout(400)
-    q1 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().x)")
-    moved = sum(1 for a, b2 in zip(q0, q1) if abs(b2 - a) > 25)
-    assert moved >= 1, f"左键拖拽应平移星系：{q0}->{q1}"
-    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(900)
-    p2 = page.locator(".war-planet").first.bounding_box()["x"]
-    assert abs(p2 - p0) < 60, f"双击应复位（含平移归零）：{p0:.0f}->{p2:.0f}"
-    w0 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
-    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, 400); page.wait_for_timeout(700)
-    w1 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
-    shrunk = sum(1 for a, b2 in zip(w0, w1) if b2 < a - 3)
-    assert shrunk >= 1 and all(b2 <= a + 1 for a, b2 in zip(w0, w1)), f"滚轮后拉应同比缩小（近距卡 1.6 上限的不计）：{w0}->{w1}"
-    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(600)
+    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up()
+    page.wait_for_timeout(1000)
+    c1 = cam()
+    assert sum(abs(a - b) for a, b in zip(c0, c1)) > 10, f"左键拖拽应旋转相机：{c0}->{c1}"
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, 500); page.wait_for_timeout(1000)
+    d1 = dist(cam())
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, -800); page.wait_for_timeout(1000)
+    d2 = dist(cam())
+    assert abs(d2 - d1) > 5, f"滚轮应缩放（往复距离变化）：{d1:.0f}->{d2:.0f}"
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 

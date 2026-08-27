@@ -1,106 +1,58 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CAM_DIST_MAX, CAM_DIST_MIN, CAM_PITCH_MAX, CAM_PITCH_MIN, archetypeOf, camPosition, clampCam, dampCam, galaxyLayout3D, initialCam, layoutExtent, moonPos3D, planetNoise } from '../src/client/starfield3d.tsx'
+import { ease, pad2, qbez, warzonePlanets } from '../src/client/warzone-scene.ts'
 
-/** V11.2 3D 太空战区纯数学：相机夹持/阻尼、松散散布确定性（元首规格②——不再
- * 同心环）、光点近地轨道、初始机位按外沿自适应。红线①：同输入恒同输出——
- * SSE revision 翻新零抖动的数学根基。 */
+/** V11.4 warzone demo 移植的纯函数面：星球布局确定性（红线①——同种子恒同貌，
+ * SSE 零抖动、探针可断言的根基）+ 贝塞尔航迹几何。 */
 
-test('clampCam: yaw 环绕归一、pitch/dist 落夹持带', () => {
-  const c = clampCam({ yaw: -0.5, pitch: 99, dist: 1 })
-  assert.ok(c.yaw >= 0 && c.yaw < Math.PI * 2)
-  assert.equal(c.pitch, CAM_PITCH_MAX)
-  assert.equal(c.dist, CAM_DIST_MIN)
-  const c2 = clampCam({ yaw: 7, pitch: 0, dist: 9999 })
-  assert.ok(c2.yaw < Math.PI * 2)
-  assert.equal(c2.pitch, CAM_PITCH_MIN)
-  assert.equal(c2.dist, CAM_DIST_MAX)
+test('warzonePlanets: 16 星、大3 中6 小7、命名/编号齐全', () => {
+  const a = warzonePlanets()
+  assert.equal(a.length, 16)
+  assert.equal(a.filter(p => p.cls === 'large').length, 3)
+  assert.equal(a.filter(p => p.cls === 'medium').length, 6)
+  assert.equal(a.filter(p => p.cls === 'small').length, 7)
+  assert.equal(a[0]!.name, '克洛诺斯 · P-01')
+  assert.equal(a[15]!.name, '恩底弥翁 · P-16')
+  for (const p of a) {
+    if (p.cls === 'large') assert.ok(p.radius >= 9 && p.radius <= 13)
+    else if (p.cls === 'medium') assert.ok(p.radius >= 4.5 && p.radius <= 6.5)
+    else assert.ok(p.radius >= 1.8 && p.radius <= 3)
+    assert.ok(p.orbit.ecc >= 0.05 && p.orbit.ecc <= 0.22, '偏心率带距')
+    assert.ok(p.level >= 1 && p.level <= 4)
+  }
 })
 
-test('dampCam: 指数趋近——大步长时间近似直达，永不越界', () => {
-  const cur = { yaw: 0, pitch: 0.5, dist: 200 }
-  const target = { yaw: 1, pitch: 0.9, dist: 100 }
-  const one = dampCam(cur, target, 1 / 60)
-  assert.ok(one.yaw > 0 && one.yaw < target.yaw, '一步后应在两者之间')
-  const big = dampCam(cur, target, 10)
-  assert.ok(Math.abs(big.yaw - target.yaw) < 0.01, '大 dt 逼近目标')
-  const clamped = dampCam(cur, { yaw: 0, pitch: 99, dist: 1 }, 10)
-  assert.equal(clamped.pitch, CAM_PITCH_MAX, '阻尼结果仍受夹持')
+test('warzonePlanets: 同种子恒同布局（SSE 零抖动根基）、异种子异貌', () => {
+  assert.deepEqual(warzonePlanets('warzone'), warzonePlanets('warzone'))
+  assert.notDeepEqual(warzonePlanets('warzone'), warzonePlanets('other-seed'))
 })
 
-test('galaxyLayout3D: 确定性 + 大中小分级 + 母舰净空 + 松散散布互不叠', () => {
-  const ws = ['a/ws1', 'b/ws2', 'c/ws3', 'd/ws4', 'e/ws5', 'f/ws6', 'g/ws7', 'h/ws8', 'i/ws9']
-  const l1 = galaxyLayout3D(ws)
-  const l2 = galaxyLayout3D(ws)
-  assert.deepEqual(l1, l2, '同输入恒同输出（SSE 零抖动根基）')
-  assert.equal(l1.length, ws.length)
-  assert.deepEqual(l1.map(p => p.ring), ws.map((_, i) => i + 1))
-  // 元首规格②：大小强烈分异——先两颗大、再三颗中、其余小。
-  for (const p of l1.slice(0, 2)) assert.ok(p.size >= 9 && p.size <= 12, `大星半径带：${p.size}`)
-  for (const p of l1.slice(2, 5)) assert.ok(p.size >= 5.2 && p.size <= 7.2, `中星半径带：${p.size}`)
-  for (const p of l1.slice(5)) assert.ok(p.size >= 2.6 && p.size <= 3.8, `小星半径带：${p.size}`)
-  // 母舰净空：船体全长 ~34，一切星球离原点 ≥40。
-  for (const p of l1) assert.ok(Math.hypot(p.x, p.y, p.z) > 40, `母舰净空：${p.wsPath}`)
-  // 松散但不叠：任意两星间距 > 两星半径和（拒绝采样兜底也至少不重合）。
-  for (let i = 0; i < l1.length; i++) for (let j = i + 1; j < l1.length; j++) {
-    const a = l1[i]!, b = l1[j]!
+test('warzonePlanets: 24 次拒绝采样后任意两星间距 > 半径和（球面近似）', () => {
+  const ps = warzonePlanets()
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const a = ps[i]!, b = ps[j]!
     const d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-    assert.ok(d > a.size + b.size, `星球不叠：${a.wsPath}↔${b.wsPath} d=${d.toFixed(1)}`)
+    assert.ok(d > a.radius + b.radius + 4, `${a.name}↔${b.name} d=${d.toFixed(1)}`)
   }
-  // 「不需要规整同心圆」：星球距原点的距离集合不应全等（有松散随机带）。
-  const radii = new Set(l1.map(p => Math.round(Math.hypot(p.x, p.y, p.z))))
-  assert.ok(radii.size >= Math.min(ws.length, 6), `散布半径应多值：${[...radii].join(',')}`)
+  // 母舰净空：内圈轨道 r ≥60，初始位不进母舰 36 半径拾取域。
+  for (const p of ps) assert.ok(Math.hypot(p.x, p.y, p.z) > 40, `${p.name} 距原点 ${Math.hypot(p.x, p.y, p.z).toFixed(0)}`)
 })
 
-test('layoutExtent: 外沿=最远星球距', () => {
-  const l = galaxyLayout3D(['a/x', 'b/y', 'c/z'])
-  const ext = layoutExtent(l)
-  assert.ok(ext > 40 && ext <= 160)
-  assert.equal(ext, Math.max(...l.map(p => Math.hypot(p.x, p.y, p.z))))
+test('qbez: t=0/1 端点精确、t=.5 近控制点中点', () => {
+  const a = { x: 0, y: 0, z: 0 }, c = { x: 10, y: 20, z: 30 }, b = { x: 20, y: 0, z: 0 }
+  const out = { x: 0, y: 0, z: 0 }
+  qbez(a, c, b, 0, out)
+  assert.deepEqual([out.x, out.y, out.z], [0, 0, 0])
+  qbez(a, c, b, 1, out)
+  assert.deepEqual([out.x, out.y, out.z], [20, 0, 0])
+  qbez(a, c, b, 0.5, out)
+  assert.deepEqual([out.x, out.y, out.z], [10, 10, 15])
 })
 
-test('moonPos3D: 同会话恒同位、槽位偏移生效、绕行星有界且随星等缩放', () => {
-  const planets = galaxyLayout3D(['w/a', 'w/b', 'w/c', 'w/d', 'w/e', 'w/f'])
-  const big = planets[0]!, small = planets[5]! // 首星=大、第 6 星=小
-  const a1 = moonPos3D(big, 'sess-x')
-  const a2 = moonPos3D(big, 'sess-x')
-  assert.deepEqual(a1, a2)
-  const b = moonPos3D(big, 'sess-x', Math.PI / 3)
-  assert.notDeepEqual(a1, b)
-  const mp = moonPos3D(big, 'sess-x')
-  const dBig = Math.hypot(mp.x - big.x, mp.y - big.y, mp.z - big.z)
-  const sp = moonPos3D(small, 'sess-y')
-  const dSmall = Math.hypot(sp.x - small.x, sp.y - small.y, sp.z - small.z)
-  // 轨道面微倾（椭圆投影），3D 距离 ∈ [0.73r, r]——按椭圆下界断言。
-  assert.ok(dBig >= (big.size + 3.5) * 0.7, `大星轨道半径随星等放大：${dBig.toFixed(1)} vs ${big.size}`)
-  assert.ok(dSmall > 0 && dSmall < dBig, `小星轨道不越大星：${dSmall.toFixed(1)}`)
-})
-
-test('initialCam: 外沿越大机位越远、恒在夹持带内、中带收缩退远', () => {
-  const small = initialCam(80, 1.8)
-  const big = initialCam(160, 1.8)
-  assert.ok(big.dist > small.dist)
-  assert.ok(small.dist >= CAM_DIST_MIN && big.dist <= CAM_DIST_MAX)
-  const wide = initialCam(160, 2.6)
-  assert.ok(wide.dist <= big.dist, '宽画幅不需要退那么远')
-  // 窄板中带（safeWidthFrac）收缩——初始机位按可用带宽退远（1280 实抓）。
-  const pod = initialCam(160, 1.16, 0.36)
-  assert.ok(pod.dist > big.dist, '中带被浮舱吃掉时机位应更远')
-  const p = camPosition(initialCam(100, 1.8))
-  assert.ok(Math.hypot(p.x, p.y, p.z) > 0)
-})
-
-test('V11.3 planetNoise/archetypeOf: 同种子恒同值、异种子异值、值域 [0,1]、原型合法', () => {
-  assert.equal(planetNoise('te:w/a', 0.3, 0.6), planetNoise('te:w/a', 0.3, 0.6), '同 seed 恒同值（贴图确定性根基）')
-  assert.notEqual(planetNoise('te:w/a', 0.3, 0.6), planetNoise('te:w/b', 0.3, 0.6), '异 seed 异貌')
-  // 周期性：u 环绕（equirect 接缝两侧同值）。
-  assert.ok(Math.abs(planetNoise('k', 0.999, 0.5) - planetNoise('k', 0.001, 0.5)) < 0.35, 'u 环绕近似连续')
-  for (let i = 0; i < 60; i++) {
-    const v = planetNoise(`k${i}`, i * 0.017, i * 0.031)
-    assert.ok(v >= 0 && v <= 1.0001, `值域 [0,1]: ${v}`)
-  }
-  for (const ws of ['w/a', 'w/b', 'w/c', 'd/e']) {
-    assert.equal(archetypeOf(ws), archetypeOf(ws), '同 wsPath 恒同型')
-    assert.ok(['gas', 'icegas', 'rust', 'gray', 'ice', 'terra'].includes(archetypeOf(ws)), `原型合法: ${archetypeOf(ws)}`)
-  }
+test('ease/pad2: 缓动端点与补零（demo 逐字行为）', () => {
+  assert.equal(ease(0), 0)
+  assert.equal(ease(1), 1)
+  assert.ok(ease(0.25) < 0.25, '前半程慢启动')
+  assert.equal(pad2(3), '03')
+  assert.equal(pad2(17), '17')
 })

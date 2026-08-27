@@ -361,3 +361,15 @@
 **三轮目检排障（视觉检查工作流的价值证明）**：①首轮行星全炸白球——先疑大气 shader（uK 1→0.32 无效）再疑云层 Lambert 过曝（收覆盖无效），最终定位：**照片显示色直接当材质 albedo**（sRGB 238→线性 0.86）在 2.4 主光下必然白切——六套 ramp 全部压到真实反照率（气巨 0.35-0.5）+ 主光回 2.0 才治本；②headless fps=4 是 SwiftShader 软件光栅假象——**fps 门必须在有头真 GPU 实例测**（实测 60.1-60.3fps，probe 已内置 headful 实例）；③键盘缩放替代滚轮/双击捕拍（点空白聚焦 canvas 后 +/-/R——滚轮点会误开命令卡，中距截图拍成聚焦页）。DOM 球 3D 态弱化成细环（真实行星上压个黑球像黑月）。
 
 **验证**：verify PASS（新测试 planetNoise/archetypeOf 确定性+环绕连续性+原型合法）+ probe-v112 17/17（含 headful fps≥45）+ shoot 三件套全绿（v7 前又踩 ui-theme dark 回写——活宿主界面持久化，复位后背靠背跑批）。取证 `.goal/evidence/v11/v113-*.png`。
+
+## V11.4 warzone demo 全要素 1:1 整体进驻（2026-08-27，元首令「完全一比一替换当前星域」）
+
+**定位**：现役 starfield3d 整体退役，space-warzone.html 1126 行全要素原样搬入（`src/client/warzone-scene.ts` 引擎 + starfield3d.tsx 薄壳）。世界是 demo 自己的——**后端连线（workspace→星球 / attempt→编队 / HQ→母舰）是下一独立阶段**，本阶段零板数据消费。
+
+**全要素清单（常量逐字对齐）**：①3D 现实视图：ACES1.1+FogExp2(0x06070f,.00075)+Bloom(1.0/.65/.18)+MSAA×4、五灯制、2800 星闪烁海、4 星云、140 碎石带；②母舰 Headquarters（八棱柱舰体/上层甲板/指挥塔/信标呼吸/传感器球/Torus 桁架/六连接梁/四引擎舱光晕/8 舷窗灯带，自转 .06）；③16 星球（大3中6小7，松散随机轨道 ecc .05-.22+24 次间距采样，程序纹理，状态光晕：作战中橙红脉冲+战火环/已占领偏蓝，克洛诺斯…恩底弥翁命名）；④战争模拟：编队 3-4 机 V 阵（qbez 弧线）出征→接敌（6-14s）→攻占（冲击波环）→部署→返航；上限 9 支、4.5-8s 派兵、无目标随机失守反转——永不落幕；⑤悬停信息卡三型（HQ 战力/星球等级半径距离驻军/编队进度，raycast 拾取，0.5s 实时刷新）；⑥**2D 指挥室**（◉/▤+V 键）：雷达盘（距离环/度刻度/55 段扫描余辉）/HQ 八角符号/星球符号（状态色+驻军弧）/编队三角+虚线航迹/编队名册/态势统计/战况速报 WAR LOG/四角括号/CRT 扫描线+信号闪线/滚轮缩放；⑦HUD/图例/提示/暗角（loading 屏不搬——无 CDN 等待）。
+
+**集成决策**：①**确定性改写**：demo 全部 Math.random→hash01 种子 det()（固定种子 'warzone'，`warzonePlanets()` 纯函数导出单测钉死——同种子恒同布局，SSE 零抖动）；②相机用 demo 正案 **OrbitControls**（three/addons 已入包：左键旋转/中键推拉/滚轮缩放/禁平移，damping .06，距 50-620）——元首早前三键 spec 让位「1:1 demo」，连线阶段可再调；③布局适配：切换钮放**顶中 HUD 下**（右上角是战报浮舱列头的地盘——`.war-ops` mapmode 是 z-index:2 层叠上下文，落那儿 Playwright 实抓点不到）；图例/提示沉底中带（浮舱侧位让开）；指挥室模式 board 挂 `wz-cmd` 类让浮舱/坞整体让位（demo body.cmd 等价物）；④V 键带输入态守卫（composer 打字不触发）；⑤主题恒深空（星空语义属深色）；⑥reduced-motion 全模拟冻结（dt=0）；⑦WebGL 失败仍整棵回落 2D 星域；⑧调试句柄 `window.__wz`（planets/squads/log/mode/setMode）供探针断言。
+
+**移植抓虫三则**：①薄壳漏 `createElement` 导入——挂载 ReferenceError，整板 0 元素（React 壳件必查导入面）；②`pick()` 返回实体 ref 本身，帧循环误拆 `hit.ref`→undefined→`hovered.kind` 炸断 rAF 主循环（信息卡永不现身+引擎停摆一石二鸟，页错探针立功）；③排障通道=页内直接调 `__wz.scene.pick(0,0)` 二分定位（射线对/壳错）。
+
+**验证**：verify PASS（tests 换血：布局确定性/间距/分级/qbez/ease；针脚 warzonePlanets+FLEET ROSTER+HEADQUARTERS）+ **probe-warzone 21/21**（DOM 件/16 星分级/编队在途/日志演化/信息卡/指挥室按钮+V 键闭环/浮舱让位/1280 冒烟/有头 fps 60.1）+ shoot-v10 P2 改写全绿（星球 DOM 断言→warzone 断言+相机 OrbitControls 断言）+ v7/theme 回归绿（ui-theme dark 又回写一次——复位后背靠背跑批）。取证 `.goal/evidence/v11/v114-*.png` + `.goal/evidence/v10/`。
