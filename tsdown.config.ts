@@ -26,7 +26,7 @@ const client = defineConfig({
   external: ['react', '@deepseek-ai/dsh-client-runtime/client'],
   // V11 P2：three 必须打进 client——壳层 require 只认冻结模块表（react 等平台
   // 模块），运行时 require('three') 必失败（会静默回落 2D，P2 名存实亡）。
-  noExternal: ['three'],
+  noExternal: [/^three(\/.*)?$/],  // 裸名+addons 子路径都必须打进（子路径漏网会让壳层 require 整包炸掉）
   outputOptions: {
     entryFileNames: 'client.js',
     banner: `window.__ModuleLoader__.load({ id: "dsh-plugin-warroom", factory: (require) => {`,

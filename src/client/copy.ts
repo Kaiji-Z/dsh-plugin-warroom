@@ -544,7 +544,7 @@ export const warCopy: WarCopy = {
     orbIdle: '执行中',
     mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战区（内环=最老）· ✓凯旋 · 呼吸光点=作战中',
     mapHintToast: '🪐 战区不止一个——试试星域战场视图（点此开启，⚙ 设置里随时可关）',
-    controls: '拖拽旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
+    controls: '左键拖拽平移 · 中键旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
     untraced: '未溯源执行',
   },
   commandDetail: {
@@ -904,7 +904,7 @@ export const plainCopy: WarCopy = {
     orbIdle: '进行中',
     mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· ✓完成数 · 亮点=进行中',
     mapHintToast: '🪐 项目不止一个——试试全景图视图（点这里打开，⚙ 设置里可以关掉）',
-    controls: '拖动转视角 · 滚轮缩放 · 双击或 R 回正 · 悬停亮点查看关联',
+    controls: '左键拖动平移 · 中键转视角 · 滚轮缩放 · 双击或 R 回正 · 悬停亮点查看关联',
     untraced: '还没关联命令',
   },
   commandDetail: {

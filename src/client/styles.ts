@@ -527,6 +527,8 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
 /* --- V11 P2 3D 星域（元首定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
 .war-starfield3d{cursor:grab;touch-action:none;user-select:none}
+.war-starfield3d::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at 50% 44%, transparent 52%, color-mix(in srgb, var(--war-canvas-bg) 82%, transparent) 100%)} /* 深空渐晕（视觉冲刺） */
+body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(ellipse at 50% 44%, #0a1122 0%, #070b16 55%, var(--war-canvas-bg) 100%)} /* 深色=蓝黑太空芯（纸色宇宙不动 V9.13 令） */
 .war-starfield3d:active{cursor:grabbing}
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}

@@ -313,3 +313,13 @@
 **工程坑录（四连，全部 probe/shoot 实抓）**：①tsdown 默认把 dependencies 外置——client 包裹层的 require 只认宿主冻结模块表，运行时 require('three') 必静默回落 2D；解法 `noExternal:['three']`（bundle 240KB→1.56MB raw，gzip 72→~390KB，元首知情成本）。②覆盖层登记原走 CSS 属性选择器——**Windows 反斜杠路径（C:\repo\alpha）在 CSS 选择器里是转义符**，querySelector 永不命中（shoot 板全灭、playground 正斜杠侥幸全过的照妖镜）；解法 JS 侧 key 映射。③缩放基准距两路不同源：相机初值用 aspect 1.8、基准用挂载瞬时尺寸（布局未稳 aspect≈0→dist 夹到 420 上限）→ s 恒钉 1.6、滚轮「失灵」；解法 ResizeObserver 首次真实尺寸 + 数据落地双条件定标，复位/键盘全走同一 ref。④窄板（1280）初始机位按全宽 fit——行星投进任务/战报浮舱；解法 `initialCam(count, aspect, safeWidthFrac)` 横向按【可用带宽】收缩（views 按实测舱位推占比），CAM_DIST_MAX 升 800，与 2D 禁区收缩同语义（1720/1280/1000 三视口零遮挡机检全过）。
 
 **验证**：tests/starfield3d.test.ts 5 测（夹持/阻尼/布局确定性/月轨/机位自适应含中带收缩）；verify 针脚 galaxyLayout3D+WebGLRenderer；shoot-v10 P2 增 3D 断言（canvas 在场/拖拽旋转/双击复位/滚轮同比缩——近距卡 1.6 上限的不计/覆盖层零遮挡）；三件套 EXIT=0；双主题 3D 截图目检（九星环系+太阳+光点+速报条浮舱共存）。
+
+## V11.1 demo 视觉栈全量移植 + 三键相机（2026-08-27，元首「素材直接拿来用」）
+
+**视觉栈移植（space-warzone.html，程序化素材=代码，全确定性化）**：UnrealBloomPass 辉光（demo 参数 1.0/.65/.18，浅色降 0.55/阈值 0.32）+ ACES 色调映射曝光 1.1 + FogExp2 深空雾（浅色无雾）+ 太阳点光/冷补光/环境光三灯 + 三层彩色星海（2800 星调色板：白/蓝/暖/紫/青×亮度，远中亮 1600/700/180）+ 四片加法混合星云 + 小行星带（Icosahedron InstancedMesh 140 块，外环外圈确定性散布）+ planetTexture 全量移植（横带/大陆斑块/陨石坑/极冠 256×128 SRGB）+ 行星 MeshStandard 自发光贴图 + 大气光晕 sprite（加法混合吃 bloom）。行星色相按环序走 demo hues 八色板+hash 微抖（同行星恒同貌）。浅色=纸色宇宙同栈降饱和（emissive .18/星半暗/星云 .035）。
+
+**三键相机（元首定）**：左键拖拽=平移（即时跟手——位移不阻尼，手感=推着星系走；像素→世界按中心距换算，沿相机右/上轴推 center，PAN_LIMIT 300 防走丢）；中键=旋转（阻尼）；滚轮=缩放。中键 mousedown 必须 preventDefault（浏览器自动滚动圈，pointerdown 拦不住）。双击/R 复位含平移归零。相机位=center+球坐标偏移，lookAt(center)。
+
+**坑（本轮双坑）**：①noExternal:['three'] 精确匹配漏掉 'three/addons/...' 子路径——外置 require 一出，壳层模块表 miss 让**整个 client 加载炸掉**（插件入口都不见，console 才有真相）；改正则 `/^three(\/.*)?$/`。②宿主 ui-theme: dark 残留再犯（v7 st-published 2.01 同款）——shoot-theme 不写 settings.yaml，恢复是人工纪律；任何 dark 截图回合后必须核 light。
+
+**验证**：verify PASS（starfield3d 5 测含中带收缩）；shoot-v10 P2 三键断言（中键旋转/左键平移/双击复位含平移归零/滚轮同比缩）+ 三件套 EXIT=0 + 1720/1280/1000 三视口零遮挡复验。

@@ -14,6 +14,10 @@
  */
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { hash01, moonAngleRad, planetAngleDeg, planetLabel, type PlanetGarrison } from './starfield.tsx'
 
 /* ================================================================
@@ -93,31 +97,67 @@ export function camPosition(cam: CamState): { x: number; y: number; z: number } 
  * 2. three 场景（过程式贴图，零外部资源）
  * ================================================================ */
 
-interface SceneTheme { star: number; orbit: number; planet: number; hqOn: number; hqOff: number }
-const DARK: SceneTheme = { star: 0xcfe3ff, orbit: 0x32415c, planet: 0x8496b4, hqOn: 0xffd27a, hqOff: 0x8b93a5 }
-const LIGHT: SceneTheme = { star: 0x6b7280, orbit: 0xb9c3d4, planet: 0x9aa7bc, hqOn: 0xf0b64f, hqOff: 0x9aa3b2 }
+interface SceneTheme { star: number; orbit: number; planet: number; hqOn: number; hqOff: number; ambient: number }
+const DARK: SceneTheme = { star: 0xcfe3ff, orbit: 0x32415c, planet: 0x8496b4, hqOn: 0xffd27a, hqOff: 0x8b93a5, ambient: 0x334466 }
+const LIGHT: SceneTheme = { star: 0x6b7280, orbit: 0xb9c3d4, planet: 0x9aa7bc, hqOn: 0xf0b64f, hqOff: 0x9aa3b2, ambient: 0x8a94a8 }
+/** 行星色板（V11 视觉冲刺，取自 space-warzone demo 的 hues——每环一色，
+ *  hash 微抖；确定性同输入恒同貌）。 */
+const PLANET_HUES = [0.58, 0.66, 0.75, 0.55, 0.08, 0.03, 0.14, 0.47]
+
+/** 确定性 rand：[lo,hi) 同 key 恒同值（demo 的 Math.random 全部换成它——红线①）。 */
+const det = (k: string, lo: number, hi: number): number => lo + hash01(k) * (hi - lo)
 
 function radialTexture(stops: Array<[number, string]>): THREE.Texture {
   const c = document.createElement('canvas')
-  c.width = c.height = 64
+  c.width = c.height = 128
   const ctx = c.getContext('2d')!
-  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
   for (const [o, col] of stops) g.addColorStop(o, col)
   ctx.fillStyle = g
-  ctx.fillRect(0, 0, 64, 64)
+  ctx.fillRect(0, 0, 128, 128)
   const tex = new THREE.CanvasTexture(c)
   tex.needsUpdate = true
   return tex
 }
 
-function ringTexture(color: string): THREE.Texture {
+/** 行星球体贴图（demo planetTexture 全量移植 + 确定性化）：底色横带 + 大陆/
+ * 风暴斑块 + 陨石坑 + 极冠——256x128 一张画完，SRGB 色彩空间。 */
+function planetTexture(color: THREE.Color, key: string): THREE.Texture {
   const c = document.createElement('canvas')
-  c.width = c.height = 64
+  c.width = 256; c.height = 128
   const ctx = c.getContext('2d')!
-  ctx.strokeStyle = color
-  ctx.lineWidth = 5
-  ctx.beginPath(); ctx.arc(32, 32, 24, 0, Math.PI * 2); ctx.stroke()
+  const hsl = { h: 0, s: 0, l: 0 }
+  color.getHSL(hsl)
+  const col = (l: number, a = 1): string => `hsla(${(hsl.h * 360) | 0},${(hsl.s * 100) | 0}%,${(l * 100) | 0}%,${a})`
+  ctx.fillStyle = col(hsl.l)
+  ctx.fillRect(0, 0, 256, 128)
+  const bands = 5 + Math.floor(det(`pb:${key}`, 0, 7))
+  for (let i = 0; i < bands; i++) {
+    ctx.fillStyle = col(hsl.l + det(`pbl:${key}:${i}`, -0.11, 0.11), det(`pba:${key}:${i}`, 0.18, 0.48))
+    ctx.fillRect(0, det(`pby:${key}:${i}`, 0, 128), 256, 3 + det(`pbh:${key}:${i}`, 0, 16))
+  }
+  const blobs = 8 + Math.floor(det(`pn:${key}`, 0, 10))
+  for (let i = 0; i < blobs; i++) {
+    ctx.beginPath()
+    ctx.ellipse(det(`pnx:${key}:${i}`, 0, 256), 10 + det(`pny:${key}:${i}`, 0, 108), det(`pnr:${key}:${i}`, 6, 32), det(`pnr2:${key}:${i}`, 4, 16), det(`pna:${key}:${i}`, 0, Math.PI), 0, Math.PI * 2)
+    ctx.fillStyle = col(hsl.l + (det(`pns:${key}:${i}`, 0, 1) > 0.5 ? 0.14 : -0.14), det(`pno:${key}:${i}`, 0.12, 0.34))
+    ctx.fill()
+  }
+  for (let i = 0; i < 40; i++) {
+    ctx.beginPath()
+    ctx.arc(det(`pcx:${key}:${i}`, 0, 256), det(`pcy:${key}:${i}`, 0, 128), det(`pcr:${key}:${i}`, 0.5, 2.1), 0, Math.PI * 2)
+    ctx.fillStyle = col(hsl.l - 0.18, 0.35)
+    ctx.fill()
+  }
+  const pg = ctx.createLinearGradient(0, 0, 0, 128)
+  pg.addColorStop(0, 'rgba(255,255,255,.3)')
+  pg.addColorStop(0.16, 'rgba(255,255,255,0)')
+  pg.addColorStop(0.84, 'rgba(255,255,255,0)')
+  pg.addColorStop(1, 'rgba(255,255,255,.3)')
+  ctx.fillStyle = pg
+  ctx.fillRect(0, 0, 256, 128)
   const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
   tex.needsUpdate = true
   return tex
 }
@@ -126,74 +166,174 @@ export function isDarkTheme(): boolean {
   return document.body.dataset.dsDarkTheme !== undefined
 }
 
-/** three 场景封装：建/换主题/同步实体/渲染，dispose 全收。 */
+/** three 场景封装（demo 视觉栈全量移植：ACES 色调映射 + UnrealBloom 辉光 +
+ * 深空雾 + 双点光 + 三层彩色星海 + 星云 + 小行星带 + 自发光行星/光晕）。
+ * 确定性：一切随机量走 hash01 种子；一切运动为零（会动的只有相机）。 */
 class SpaceScene {
   readonly renderer: THREE.WebGLRenderer
   readonly scene = new THREE.Scene()
   readonly camera: THREE.PerspectiveCamera
-  private readonly ambient = new THREE.AmbientLight(0xffffff, 0.85)
-  private readonly dir = new THREE.DirectionalLight(0xffffff, 0.9)
+  private readonly composer: EffectComposer
+  private readonly bloom: UnrealBloomPass
+  private readonly ambient = new THREE.AmbientLight(0x334466, 0.7)
+  private readonly sunLight = new THREE.PointLight(0xffc27a, 1400, 520, 2)
+  private readonly coolFill = new THREE.PointLight(0x66ccff, 700, 420, 2)
   private readonly disposables: Array<{ dispose(): void }> = []
-  private readonly starMat: THREE.PointsMaterial
+  private readonly starMats: THREE.PointsMaterial[] = []
   private readonly hqSprite: THREE.Sprite
   private readonly hqMat: THREE.SpriteMaterial
+  private readonly hqHalo: THREE.Sprite
+  private readonly hqHaloMat: THREE.SpriteMaterial
+  private readonly nebulaMats: THREE.SpriteMaterial[] = []
   private readonly orbitMats: THREE.LineBasicMaterial[] = []
-  private readonly planetMats: THREE.MeshLambertMaterial[] = []
+  private readonly planetMats: THREE.MeshStandardMaterial[] = []
+  private readonly haloMats: THREE.SpriteMaterial[] = []
+  private readonly haloPool: THREE.Sprite[] = []
   private readonly moonPool: THREE.Sprite[] = []
   private readonly ghostPool: THREE.Sprite[] = []
+  private belt: THREE.InstancedMesh | null = null
   private theme: SceneTheme = DARK
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
     this.renderer.setSize(width, height, false)
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.1
     this.camera = new THREE.PerspectiveCamera(CAM_FOV_DEG, width / Math.max(height, 1), 0.1, 6000)
+    // 辉光后期（demo 参数）：strength 1.0 / radius .65 / threshold .18——太阳、
+    // 光点、行星光晕自发光全靠它放大成「深空感」。
+    this.composer = new EffectComposer(this.renderer)
+    this.composer.addPass(new RenderPass(this.scene, this.camera))
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 1.0, 0.65, 0.18)
+    this.composer.addPass(this.bloom)
+    this.composer.addPass(new OutputPass())
     this.scene.add(this.ambient)
-    this.dir.position.set(80, 160, 100)
-    this.scene.add(this.dir)
-    // 星粒：球壳两层、确定性种子（i→hash01），不闪不飘。
-    const N = 900
-    const pos = new Float32Array(N * 3)
-    for (let i = 0; i < N; i++) {
-      const r = 900 + hash01(`sr:${i}`) * 700
-      const t = hash01(`st:${i}`) * Math.PI * 2
-      const u = hash01(`su:${i}`) * 2 - 1
-      const s = Math.sqrt(1 - u * u)
-      pos[i * 3] = r * s * Math.cos(t); pos[i * 3 + 1] = r * u; pos[i * 3 + 2] = r * s * Math.sin(t)
+    this.sunLight.position.set(0, 0, 0)
+    this.scene.add(this.sunLight)
+    this.coolFill.position.set(0, 90, 0)
+    this.scene.add(this.coolFill)
+    // 三层星海（demo 2800 星调色板移植）：远小 1600 / 中 700 / 亮 180，色取
+    // 白/蓝/暖/紫/青五调乘随机亮度——确定性种子，不闪不飘。
+    const palette: ReadonlyArray<readonly [number, number, number]> = [[1, 1, 1], [0.72, 0.82, 1], [1, 0.85, 0.65], [0.82, 0.72, 1], [0.65, 0.9, 1]]
+    const mkStars = (n: number, rLo: number, rHi: number, size: number, baseOpacity: number, tag: string): void => {
+      const pos = new Float32Array(n * 3), colA = new Float32Array(n * 3)
+      const mat = new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: baseOpacity, depthWrite: false })
+      mat.userData = { baseOpacity }
+      for (let i = 0; i < n; i++) {
+        const u = det(`su:${tag}:${i}`, -1, 1), th = det(`st:${tag}:${i}`, 0, Math.PI * 2)
+        const rr = det(`sr:${tag}:${i}`, rLo, rHi), sq = Math.sqrt(1 - u * u)
+        pos[i * 3] = sq * Math.cos(th) * rr; pos[i * 3 + 1] = u * rr; pos[i * 3 + 2] = sq * Math.sin(th) * rr
+        const c = palette[Math.floor(det(`sp:${tag}:${i}`, 0, palette.length)) % palette.length]!
+        const b = det(`sb:${tag}:${i}`, 0.6, 1)
+        colA[i * 3] = c[0] * b; colA[i * 3 + 1] = c[1] * b; colA[i * 3 + 2] = c[2] * b
+      }
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+      g.setAttribute('color', new THREE.BufferAttribute(colA, 3))
+      this.scene.add(new THREE.Points(g, mat))
+      this.starMats.push(mat)
+      this.disposables.push(g, mat)
     }
-    const starGeo = new THREE.BufferGeometry()
-    starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    this.starMat = new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0.85 })
-    this.scene.add(new THREE.Points(starGeo, this.starMat))
-    this.disposables.push(starGeo, this.starMat)
-    // HQ 恒星：暖阳 glow（战时开关化身——不亮=灰暗熄星）。
-    this.hqMat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.85)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false })
+    mkStars(1600, 900, 1600, 1.5, 0.8, 'far')
+    mkStars(700, 850, 1500, 2.4, 0.9, 'mid')
+    mkStars(180, 800, 1400, 3.8, 0.95, 'bright')
+    // HQ 恒星：核 + 大光晕（demo glowSprite 移植，加法混合吃 bloom）。
+    this.hqMat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.85)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })
     this.hqSprite = new THREE.Sprite(this.hqMat)
-    this.hqSprite.scale.setScalar(34)
+    this.hqSprite.scale.setScalar(30)
     this.scene.add(this.hqSprite)
-    this.disposables.push(this.hqMat, this.hqMat.map!)
+    this.hqHaloMat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,.55)'], [0.4, 'rgba(255,255,255,.18)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, opacity: 0.55, blending: THREE.AdditiveBlending, fog: false })
+    this.hqHalo = new THREE.Sprite(this.hqHaloMat)
+    this.hqHalo.scale.setScalar(110)
+    this.scene.add(this.hqHalo)
+    this.disposables.push(this.hqMat, this.hqMat.map!, this.hqHaloMat, this.hqHaloMat.map!)
+    // 星云（demo 四片移植：深蓝/暗紫/深青/酒红，加法混合不参与雾）。
+    const nebs: Array<[number, ReadonlyArray<number>, number, number]> = [
+      [0x12235f, [-900, 350, -1100], 1900, 0.2],
+      [0x35155e, [950, -260, -1000], 1700, 0.18],
+      [0x0d3450, [-700, -420, 1000], 2100, 0.16],
+      [0x46203f, [850, 460, 950], 1600, 0.15],
+    ]
+    const nebTex = radialTexture([[0, 'rgba(255,255,255,.9)'], [0.5, 'rgba(255,255,255,.28)'], [1, 'rgba(255,255,255,0)']])
+    this.disposables.push(nebTex)
+    for (const [hex, pos, scale, opacity] of nebs) {
+      const mat = new THREE.SpriteMaterial({ map: nebTex, color: hex, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+      const sp = new THREE.Sprite(mat)
+      sp.position.set(pos[0]!, pos[1]!, pos[2]!)
+      sp.scale.setScalar(scale)
+      this.scene.add(sp)
+      this.nebulaMats.push(mat)
+      this.disposables.push(mat)
+    }
+  }
+
+  /** 小行星带（demo 移植，InstancedMesh 140 块一次绘制）：外环再外一圈碎石带，
+   * 确定性散布——静态不巡游。 */
+  private rebuildBelt(radius: number): void {
+    if (this.belt !== null) { this.scene.remove(this.belt); this.belt.geometry.dispose(); (this.belt.material as THREE.Material).dispose() }
+    if (radius <= 0) { this.belt = null; return }
+    const geo = new THREE.IcosahedronGeometry(1, 0)
+    const mat = new THREE.MeshStandardMaterial({ color: 0x69748c, flatShading: true, roughness: 0.9, metalness: 0.25 })
+    const im = new THREE.InstancedMesh(geo, mat, 140)
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sv = new THREE.Vector3()
+    for (let i = 0; i < 140; i++) {
+      const a = det(`ba:${i}`, 0, Math.PI * 2), r = radius + det(`br:${i}`, -14, 14), k = det(`bk:${i}`, 0.3, 1.25)
+      m4.compose(new THREE.Vector3(Math.cos(a) * r, det(`by:${i}`, -5, 5), Math.sin(a) * r),
+        q.setFromEuler(e.set(det(`be1:${i}`, 0, Math.PI * 2), det(`be2:${i}`, 0, Math.PI * 2), 0)),
+        sv.set(k, k, k))
+      im.setMatrixAt(i, m4)
+    }
+    this.scene.add(im)
+    this.belt = im
+    this.disposables.push(geo, mat)
   }
 
   setTheme(dark: boolean): void {
     this.theme = dark ? DARK : LIGHT
-    this.starMat.color.setHex(this.theme.star)
-    this.starMat.opacity = dark ? 0.85 : 0.5
+    this.scene.fog = dark ? new THREE.FogExp2(0x06070f, 0.00075) : null
+    this.ambient.color.setHex(this.theme.ambient)
+    this.ambient.intensity = dark ? 0.7 : 1.05
+    this.coolFill.intensity = dark ? 700 : 350
+    this.bloom.strength = dark ? 1.0 : 0.55
+    this.bloom.threshold = dark ? 0.18 : 0.32
+    for (const m of this.starMats) {
+      const base = (m.userData as { baseOpacity?: number }).baseOpacity ?? m.opacity
+      m.opacity = dark ? base : Math.max(base * 0.55, 0.25)
+    }
     this.hqMat.color.setHex(this.theme.hqOn)
+    this.hqHaloMat.color.setHex(this.theme.hqOn)
+    this.hqHaloMat.opacity = dark ? 0.5 : 0.22
+    for (const m of this.nebulaMats) m.opacity = dark ? 0.17 : 0.035
     for (const m of this.orbitMats) m.color.setHex(this.theme.orbit)
-    for (const m of this.planetMats) m.color.setHex(this.theme.planet)
+    for (const m of this.haloMats) m.opacity = dark ? 0.32 : 0.16
+    for (const m of this.planetMats) m.emissiveIntensity = dark ? 0.32 : 0.18
   }
 
   setHqActive(active: boolean): void {
     this.hqMat.color.setHex(active ? this.theme.hqOn : this.theme.hqOff)
-    this.hqSprite.scale.setScalar(active ? 34 : 22)
+    this.hqHaloMat.color.setHex(active ? this.theme.hqOn : this.theme.hqOff)
+    this.hqSprite.scale.setScalar(active ? 30 : 20)
+    this.hqHalo.scale.setScalar(active ? 110 : 60)
+    this.hqHaloMat.opacity = active ? (this.theme === DARK ? 0.5 : 0.22) : 0.12
+    this.sunLight.intensity = active ? (this.theme === DARK ? 1400 : 900) : 120
   }
 
-  /** 轨道环 + 行星球体按布局重建（数量少，整建整拆最省心）。 */
+  /** 轨道环 + 行星（demo 材质栈：条纹贴图 + 自发光 + 大气光晕）按布局重建。 */
   syncPlanets(planets: ReadonlyArray<Planet3D>): void {
-    for (const m of this.orbitMats) { this.scene.remove(m.userData.line as THREE.Object3D); m.userData.line?.geometry.dispose(); m.dispose() }
+    for (const m of this.orbitMats) { this.scene.remove(m.userData.line as THREE.Object3D); (m.userData as { line?: THREE.Object3D }).line?.geometry.dispose(); m.dispose() }
     this.orbitMats.length = 0
-    for (const m of this.planetMats) { this.scene.remove(m.userData.mesh as THREE.Object3D); (m.userData.mesh as THREE.Mesh).geometry.dispose(); m.dispose() }
+    for (const m of this.planetMats) {
+      this.scene.remove((m.userData as { mesh?: THREE.Object3D }).mesh ?? null)
+      const mesh = (m.userData as { mesh?: THREE.Mesh }).mesh
+      if (mesh !== undefined) mesh.geometry.dispose()
+      m.map?.dispose()
+      m.emissiveMap?.dispose()
+      m.dispose()
+    }
     this.planetMats.length = 0
+    this.haloMats.length = 0
+    for (const h of this.haloPool) h.visible = false
     const maxRing = planets.reduce((m, p) => Math.max(m, p.ring), 0)
     for (let r = 1; r <= maxRing; r++) {
       const pts: THREE.Vector3[] = []
@@ -209,26 +349,48 @@ class SpaceScene {
       this.orbitMats.push(mat)
       this.disposables.push(geo, mat)
     }
-    const sphere = new THREE.SphereGeometry(5, 24, 16)
+    this.rebuildBelt(maxRing > 0 ? ringRadius3D(maxRing) + 26 : 0)
+    const sphere = new THREE.SphereGeometry(1, 28, 20)
     this.disposables.push(sphere)
-    for (const p of planets) {
-      const mat = new THREE.MeshLambertMaterial({})
+    while (this.haloPool.length < planets.length) {
+      const mat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,.7)'], [0.5, 'rgba(255,255,255,.2)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, opacity: 0.32, blending: THREE.AdditiveBlending, fog: false })
+      const sp = new THREE.Sprite(mat)
+      this.scene.add(sp)
+      this.haloPool.push(sp)
+      this.haloMats.push(mat)
+      this.disposables.push(mat, mat.map!)
+    }
+    planets.forEach((p, i) => {
+      // 色相按环序走 demo 色板 + hash 微抖（同行星恒同貌——确定性红线）。
+      const hue = PLANET_HUES[(p.ring - 1) % PLANET_HUES.length]! + det(`phj:${p.wsPath}`, -0.03, 0.03)
+      const base = new THREE.Color().setHSL(hue, det(`ps:${p.wsPath}`, 0.5, 0.7), det(`pl:${p.wsPath}`, 0.42, 0.58))
+      const tex = planetTexture(base, p.wsPath)
+      const radius = 7 + det(`pr:${p.wsPath}`, 0, 3)
+      const mat = new THREE.MeshStandardMaterial({
+        map: tex, flatShading: true, roughness: 0.92, metalness: 0.05,
+        emissive: base.clone().lerp(new THREE.Color(1, 1, 1), 0.15), emissiveMap: tex, emissiveIntensity: 0.32,
+      })
       const mesh = new THREE.Mesh(sphere, mat)
+      mesh.scale.setScalar(radius)
       mesh.position.set(p.x, p.y, p.z)
       mat.userData = { mesh }
       this.scene.add(mesh)
       this.planetMats.push(mat)
-      this.disposables.push(mat)
-    }
+      const halo = this.haloPool[i]!
+      halo.visible = true
+      halo.position.set(p.x, p.y, p.z)
+      halo.scale.setScalar(radius * 3.4)
+      ;(halo.material as THREE.SpriteMaterial).color.copy(base.clone().lerp(new THREE.Color(1, 1, 1), 0.3))
+    })
     this.setTheme(this.theme === DARK)
   }
 
   /** 光点/ghost：对象池按需增补，位置一次落定（不动——会动的只有相机）。 */
   syncMoons(moons: ReadonlyArray<{ world: { x: number; y: number; z: number }; kind: 'run' | 'wait' }>, ghosts: ReadonlyArray<{ world: { x: number; y: number; z: number }; fail: boolean }>): void {
     while (this.moonPool.length < moons.length) {
-      const mat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,.75)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false })
+      const mat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,.75)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })
       const s = new THREE.Sprite(mat)
-      s.scale.setScalar(9)
+      s.scale.setScalar(13)
       this.scene.add(s)
       this.moonPool.push(s)
       this.disposables.push(mat, mat.map!)
@@ -241,14 +403,12 @@ class SpaceScene {
     })
     for (let i = moons.length; i < this.moonPool.length; i++) this.moonPool[i]!.visible = false
     while (this.ghostPool.length < ghosts.length) {
-      const fail = false
-      const mat = new THREE.SpriteMaterial({ map: ringTexture('#ffffff'), transparent: true, depthWrite: false })
+      const mat = new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,0)'], [0.7, 'rgba(255,255,255,.9)'], [0.82, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, fog: false })
       const s = new THREE.Sprite(mat)
-      s.scale.setScalar(9)
+      s.scale.setScalar(13)
       this.scene.add(s)
       this.ghostPool.push(s)
       this.disposables.push(mat, mat.map!)
-      void fail
     }
     ghosts.forEach((g, i) => {
       const s = this.ghostPool[i]!
@@ -259,21 +419,25 @@ class SpaceScene {
     for (let i = ghosts.length; i < this.ghostPool.length; i++) this.ghostPool[i]!.visible = false
   }
 
-  render(cam: CamState): void {
+  render(cam: CamState, center?: { x: number; y: number; z: number }): void {
     const p = camPosition(cam)
-    this.camera.position.set(p.x, p.y, p.z)
-    this.camera.lookAt(0, 0, 0)
-    this.renderer.render(this.scene, this.camera)
+    const c = center ?? { x: 0, y: 0, z: 0 }
+    this.camera.position.set(c.x + p.x, c.y + p.y, c.z + p.z)
+    this.camera.lookAt(c.x, c.y, c.z)
+    this.composer.render()
   }
 
   resize(w: number, h: number): void {
     this.renderer.setSize(w, h, false)
+    this.composer.setSize(w, h)
+    this.bloom.setSize(w, h)
     this.camera.aspect = w / Math.max(h, 1)
     this.camera.updateProjectionMatrix()
   }
 
   dispose(): void {
     for (const d of this.disposables) d.dispose()
+    this.composer.dispose()
     this.renderer.dispose()
   }
 }
@@ -325,7 +489,7 @@ export function Starfield3D(props: Starfield3DProps): ReactNode {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const overlayRef = useRef<HTMLDivElement | null>(null)
   const sceneRef = useRef<SpaceScene | null>(null)
-  const camRef = useRef<{ cur: CamState; target: CamState }>({ cur: initialCam(planets.length, 1.8), target: initialCam(planets.length, 1.8) })
+  const camRef = useRef<{ cur: CamState; target: CamState; center: { x: number; y: number; z: number } }>({ cur: initialCam(planets.length, 1.8), target: initialCam(planets.length, 1.8), center: { x: 0, y: 0, z: 0 } })
   // 缩放基准距：必须与相机初始/复位同源——挂载瞬时尺寸不可信（曾把基准算到
   // 219 而相机 120，s 恒钉 1.6 上限、滚轮缩放不可见的真坑）。数据落地时按真
   // 实 aspect 一次定标，复位/键盘缩放全走它。
@@ -364,7 +528,7 @@ export function Starfield3D(props: Starfield3DProps): ReactNode {
       last = now
       const cam = camRef.current
       cam.cur = reduce.matches ? clampCam(cam.target) : dampCam(cam.cur, cam.target, dt)
-      scene.render(cam.cur)
+      scene.render(cam.cur, camRef.current.center)
       const w = root.clientWidth, h = root.clientHeight
       scene.camera.updateMatrixWorld()
       for (const e of entriesRef.current) {
@@ -400,28 +564,55 @@ export function Starfield3D(props: Starfield3DProps): ReactNode {
     scene.setHqActive(active)
     const mo = new MutationObserver(() => { scene.setTheme(isDarkTheme()) })
     mo.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
-    // 拖拽旋转（从交互实体起步的拖拽不属于相机——那是点击）。
-    let dragging = false
+    // 三键相机（元首定）：左键拖拽=平移（即时跟手——位移不做阻尼，手感是
+    // 「推着星系走」）；中键拖拽=旋转（阻尼）；滚轮=缩放。左键从交互实体起步
+    // 仍是点击；平移量并入 center（相机位=center+球坐标偏移），双击/R 归零。
+    let mode: 'pan' | 'rotate' | null = null
     let lx = 0, ly = 0
+    const PAN_LIMIT = 300
     const onDown = (e: PointerEvent): void => {
-      if ((e.target as HTMLElement).closest('button') !== null) return
-      dragging = true; lx = e.clientX; ly = e.clientY
+      if (e.button === 1) { mode = 'rotate' }
+      else if (e.button === 0) {
+        if ((e.target as HTMLElement).closest('button') !== null) return
+        mode = 'pan'
+      } else return
+      lx = e.clientX; ly = e.clientY
       root.setPointerCapture(e.pointerId)
     }
     const onMove = (e: PointerEvent): void => {
-      if (!dragging) return
-      camRef.current.target = clampCam({ ...camRef.current.target, yaw: camRef.current.target.yaw + (e.clientX - lx) * 0.006, pitch: camRef.current.target.pitch + (e.clientY - ly) * 0.0045 })
+      if (mode === null) return
+      const dx = e.clientX - lx, dy = e.clientY - ly
       lx = e.clientX; ly = e.clientY
+      if (mode === 'rotate') {
+        camRef.current.target = clampCam({ ...camRef.current.target, yaw: camRef.current.target.yaw + dx * 0.006, pitch: camRef.current.target.pitch + dy * 0.0045 })
+        return
+      }
+      // 平移：像素 → 世界（按中心距换算），沿相机右/上轴推动 center。
+      const cam = camRef.current
+      const distToCenter = Math.max(cam.cur.dist, 1)
+      const worldPerPx = (2 * Math.tan((CAM_FOV_DEG * Math.PI) / 360) * distToCenter) / Math.max(root.clientHeight, 1)
+      const rightX = Math.cos(cam.cur.yaw), rightZ = -Math.sin(cam.cur.yaw)
+      const upScale = Math.cos(cam.cur.pitch)
+      cam.center = {
+        x: cam.center.x + (-dx * rightX * worldPerPx + dy * Math.sin(cam.cur.yaw) * upScale * worldPerPx * 0),
+        y: cam.center.y + dy * Math.cos(cam.cur.pitch) * worldPerPx,
+        z: cam.center.z + (-dx * rightZ * worldPerPx),
+      }
+      const m = Math.hypot(cam.center.x, cam.center.y, cam.center.z)
+      if (m > PAN_LIMIT) { const k = PAN_LIMIT / m; cam.center = { x: cam.center.x * k, y: cam.center.y * k, z: cam.center.z * k } }
     }
-    const onUp = (e: PointerEvent): void => { dragging = false; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
+    const onUp = (e: PointerEvent): void => { mode = null; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
+    // 中键 mousedown 默认（浏览器自动滚动圈）必须拦——pointerdown 的 preventDefault 拦不住它。
+    const onMouseDown = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
     const onWheel = (e: WheelEvent): void => {
       camRef.current.target = clampCam({ ...camRef.current.target, dist: camRef.current.target.dist * Math.exp(e.deltaY * 0.0012) })
     }
-    const onDbl = (): void => { camRef.current.target = clampCam({ yaw: 0.65, pitch: 0.55, dist: baseDistOf() }) }
+    const onDbl = (): void => { camRef.current.target = clampCam({ yaw: 0.65, pitch: 0.55, dist: baseDistOf() }); camRef.current.center = { x: 0, y: 0, z: 0 } }
     root.addEventListener('pointerdown', onDown)
     root.addEventListener('pointermove', onMove)
     root.addEventListener('pointerup', onUp)
     root.addEventListener('pointercancel', onUp)
+    root.addEventListener('mousedown', onMouseDown)
     root.addEventListener('wheel', onWheel, { passive: true })
     root.addEventListener('dblclick', onDbl)
     return () => {
@@ -431,6 +622,7 @@ export function Starfield3D(props: Starfield3DProps): ReactNode {
       root.removeEventListener('pointermove', onMove)
       root.removeEventListener('pointerup', onUp)
       root.removeEventListener('pointercancel', onUp)
+      root.removeEventListener('mousedown', onMouseDown)
       root.removeEventListener('wheel', onWheel)
       root.removeEventListener('dblclick', onDbl)
       scene.dispose()
@@ -487,7 +679,7 @@ export function Starfield3D(props: Starfield3DProps): ReactNode {
     else if (e.key === 'ArrowDown') camRef.current.target = clampCam({ ...t, pitch: t.pitch - 0.1 })
     else if (e.key === '+' || e.key === '=') camRef.current.target = clampCam({ ...t, dist: t.dist * 0.86 })
     else if (e.key === '-') camRef.current.target = clampCam({ ...t, dist: t.dist * 1.16 })
-    else if (e.key === 'r' || e.key === 'R' || e.key === 'Home') camRef.current.target = clampCam({ ...camRef.current.target, yaw: 0.65, pitch: 0.55, dist: baseDistRef.current ?? t.dist })
+    else if (e.key === 'r' || e.key === 'R' || e.key === 'Home') { camRef.current.target = clampCam({ yaw: 0.65, pitch: 0.55, dist: baseDistRef.current ?? t.dist }); camRef.current.center = { x: 0, y: 0, z: 0 } }
     else return
     e.preventDefault()
   }

@@ -223,8 +223,9 @@ with sync_playwright() as p:
       return bad
     }""")
     assert occluded == [], f"星域对象被舱/坞遮挡（critique P0 红线）：{occluded}"
-    # V11 P2 轨道相机三通道：拖拽旋转（从空画布落点起步——行星按钮是点击不是拖拽）、
-    # 双击复位、滚轮缩放（视深缩放：行星同比缩）。
+    # V11 三键相机（元首定）：左键平移（即时跟手）/ 中键旋转（阻尼）/ 滚轮缩放
+    # （视深缩放：行星同比缩）；双击复位含平移归零。拖拽从空画布落点起步——
+    # 行星按钮是点击不是拖拽。
     spot = page.evaluate("""() => {
       const box = document.querySelector('.war-starfield3d').getBoundingClientRect();
       for (let fy = 0.18; fy <= 0.75; fy += 0.07)
@@ -237,14 +238,24 @@ with sync_playwright() as p:
     }""")
     assert spot is not None, "找不到空画布落点（拖拽起点）"
     p0 = page.locator(".war-planet").first.bounding_box()["x"]
-    page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
-    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up()
+    # 中键旋转
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.down(button="middle")
+    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up(button="middle")
     page.wait_for_timeout(800)
     p1 = page.locator(".war-planet").first.bounding_box()["x"]
-    assert abs(p1 - p0) > 30, f"拖拽应旋转星系：{p0:.0f}->{p1:.0f}"
+    assert abs(p1 - p0) > 30, f"中键拖拽应旋转星系：{p0:.0f}->{p1:.0f}"
+    # 左键平移（旋转复位后整列同向位移）
+    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(900)
+    q0 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().x)")
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
+    page.mouse.move(spot["x"] - 260, spot["y"] - 120, steps=12); page.mouse.up()
+    page.wait_for_timeout(400)
+    q1 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().x)")
+    moved = sum(1 for a, b2 in zip(q0, q1) if abs(b2 - a) > 25)
+    assert moved >= 1, f"左键拖拽应平移星系：{q0}->{q1}"
     page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(900)
     p2 = page.locator(".war-planet").first.bounding_box()["x"]
-    assert abs(p2 - p0) < 60, f"双击应复位：{p0:.0f}->{p2:.0f}"
+    assert abs(p2 - p0) < 60, f"双击应复位（含平移归零）：{p0:.0f}->{p2:.0f}"
     w0 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
     page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, 400); page.wait_for_timeout(700)
     w1 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
