@@ -112,4 +112,7 @@ test('V11.5b 三键相机纯函数：clampCam 夹持/yaw 环绕；dampCam 趋近
   assert.ok(one.yaw > 0 && one.yaw < tar.yaw, '一步在两者之间')
   const snap = dampCam(cur, tar, 0)
   assert.equal(snap.yaw, tar.yaw, 'reduced-motion（dt=0）直接吸附目标')
+  // 最短弧：跨 2π→0 回绕边界必须向前小幅推进，不得反向扫大半圈。
+  const wrapStep = dampCam({ yaw: 6.2, pitch: 0.5, dist: 200 }, { yaw: 0.1, pitch: 0.5, dist: 200 }, 1 / 60)
+  assert.ok(wrapStep.yaw > 6.15 && wrapStep.yaw < Math.PI * 2, `回绕边界应向前推进（+0.18 弧度方向），got ${wrapStep.yaw}`)
 })

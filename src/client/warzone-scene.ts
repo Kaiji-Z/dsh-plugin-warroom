@@ -36,11 +36,16 @@ export function clampCam(c: WzCamState): WzCamState {
   return { yaw, pitch: wzClamp(c.pitch, WZ_CAM_PITCH_MIN, WZ_CAM_PITCH_MAX), dist: wzClamp(c.dist, WZ_CAM_DIST_MIN, WZ_CAM_DIST_MAX) }
 }
 
-/** 阻尼趋近（指数，k=9）；dt=0（reduced-motion/冻结帧）直接吸附目标。 */
+/** 阻尼趋近（指数，k=9）；dt=0（reduced-motion/冻结帧）直接吸附目标。
+ * yaw 必须走最短弧：线性插值在 2π→0 回绕边界会反向扫过近一整圈（元首实抓
+ * 「快到 360° 瞬间倒转」）——先折算到 (-π,π] 再插值。 */
 export function dampCam(cur: WzCamState, target: WzCamState, dt: number, k = 9): WzCamState {
   if (dt <= 0) return clampCam(target)
   const t = 1 - Math.exp(-k * dt)
-  return clampCam({ yaw: cur.yaw + (target.yaw - cur.yaw) * t, pitch: cur.pitch + (target.pitch - cur.pitch) * t, dist: cur.dist + (target.dist - cur.dist) * t })
+  const TAU = Math.PI * 2
+  let dy = target.yaw - cur.yaw
+  dy = (((dy + Math.PI) % TAU) + TAU) % TAU - Math.PI
+  return clampCam({ yaw: cur.yaw + dy * t, pitch: cur.pitch + (target.pitch - cur.pitch) * t, dist: cur.dist + (target.dist - cur.dist) * t })
 }
 
 const PI2 = Math.PI * 2
