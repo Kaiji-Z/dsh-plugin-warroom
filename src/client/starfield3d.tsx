@@ -145,7 +145,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (camDrag === null || mode !== '3d') return
       const dx = e.clientX - lx, dy = e.clientY - ly
       lx = e.clientX; ly = e.clientY
-      if (camDrag === 'rotate') scene.orbitBy(dx * 0.006, dy * 0.0045)
+      if (camDrag === 'rotate') scene.orbitBy(-dx * 0.006, dy * 0.0045)
       else scene.panByPx(dx, dy, root.clientHeight)
     }
     const onPointerUp = (e: PointerEvent): void => { camDrag = null; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
