@@ -287,3 +287,13 @@
 **聚焦是主导航态**：①聚焦激活时悬停族系高亮全面让位（traceActive 优先级翻转为 focusCommandId ?? hoverFamily——原 hover 优先会抢聚焦的能力）；②◎ 再点同卡=退出聚焦（onFocus 改 toggle；退出后鼠标若仍在卡上，悬停通道独立接管属正常）；③◎ 图标 17px 加大——`.war-btn.war-focus-btn` 两连类升特异性（`.war-btn` 基类在文件后部会压同名单类），且必须带 `padding:0 8px`：漏了它基类 4px 纵衬垫把按钮撑到 32px 溢出 R5 行（shoot-v10 同尺寸机检实抓）。卡高随之校准 316×168。
 
 **面板 Mac 下载栈式**：去盒壳（无边框/底色/内衬）——历代卡直接自卡面上方生长；**最新代不重复**（坞上卡面即最新，面板只摆 cards.slice(0,-1)），最新前代贴底、更老依次向上，最高 4 行滚轮翻看；层叠入场 --i 错峰（最新前代先起，40ms 步进）。**历史卡=同形去 R5**（--war-history-card-h 137：过去的命令无操作，点开详情弹窗是唯一交互）且无悬停反馈（NO_TRACE+hover 中性化）——生命周期已从主界面退场。星域 ghost 族系同步升根级（hover 组面时 Ⅰ 代昔日阵地也显形，与卡面高亮同语义）。
+
+## V10.1 六代演示链 + 组面板三坑收口（2026-08-26，元首验收轮）
+
+**六代战线种子（playground 层追加，不动 seed-smoke——shoot 依赖其精确板面）**：「projC 部署」链走完三种续接模式（retry/pivot×2/deepen×3）与五档状态色（Ⅰ 收官绿/Ⅱ 再战败红/Ⅲ 转向后取消灰/Ⅳ 报发落琥珀→KillCredit 全绿自动收官转绿是机制真跑/Ⅴ 在打蓝/Ⅵ 分诊中蓝呼吸），外加 L1→L0 改档事件。pip 恰好 >4 触发「…+最新4」截头；面板 5 张历史卡 >4 行上限触发滚轮。种子入口 `scripts/seed-playground.py`（manifest 织换号同步注册）。
+
+**坑①（P0 视觉）：Chromium 把 overflow 滚动容器里的 fixed 后代当滚动内容绘制**——组面板 fixed 挂在调度轨道（overflow:auto）内时，层叠被拽进坞域，高于 4 行的面板被三列卡片盖住（矮面板恰好落在列内容下方空档，probe 双轮才抓到；z-index 9999 无效、elementFromPoint 才是照妖镜）。修法=createPortal 挂 `.war-root` 直下（React 合成事件沿 React 树冒泡，hover/键盘/滚轮语义不变）；shoot 面板 locator 必须改全局（不再是组 DOM 后代）。
+
+**坑②：portal 出坞破 CSS 变量域**——卡规格变量原定义在 `.war-dispatch`，面板挂 war-root 后 `--war-card-w/h` 全失效（宽高回退自然值）。修法=变量升 `.war-root`，规格选择器改 `:is(.war-dispatch, .war-group-panel)` 双域。
+
+**坑③：滚轮起步方向（元首定）**——展开即滚到底：首屏见贴卡面的最新前代（Ⅴ 在底），往上翻才见更老（Mac 下载栈直觉）。effect 依赖必须含 pos：open 先翻时 pos 尚 null、面板未挂载，坐标落位后才是真挂载时机（首版依赖只写 open，scrollTop 赋值扑空）。

@@ -145,7 +145,7 @@ with sync_playwright() as p:
     # 键鼠同权：聚焦卡面即展开历代面板（fixed 悬于卡面上方，新在顶）
     face.focus()
     page.wait_for_timeout(400)
-    panel = g1.locator(".war-group-panel")
+    panel = page.locator(".war-group-panel")  # V10.1 面板 portal 出组挂 war-root——全局 locator
     assert panel.is_visible(), "聚焦组内卡面应展开历代面板（键鼠同权）"
     pcards = panel.locator(".war-command-card")
     assert pcards.count() == 1 and pcards.first.get_attribute("data-war-gen") == "1", "面板只摆历代（最新代由坞上卡面复用，不重复）"
@@ -153,7 +153,7 @@ with sync_playwright() as p:
     assert pb["y"] + pb["height"] <= fb["y"] + 2, "面板应整体悬于卡面上方（不遮卡面）"
     # 面板内滚轮不得横移轨道（原生 stopPropagation 拦截）
     sl0 = page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft")
-    panel.hover(); page.mouse.wheel(0, 200); page.wait_for_timeout(200)
+    panel.hover(); page.mouse.wheel(0, -200); page.wait_for_timeout(200)  # 从底往上翻（元首定：滚轮从底起步）
     assert page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft") == sl0, "面板滚轮不得横移轨道"
     # 历史卡同形无 R5（过去的命令不再需要操作）；点 Ⅰ 代卡直达该代聚焦页
     assert panel.locator(".war-card-actions").count() == 0, "历史卡不应有 R5 操作行"

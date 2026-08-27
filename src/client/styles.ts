@@ -579,13 +579,13 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
 /* --- V10.1 调度坞卡牌组（元首二改）：纯横向深叠，每卡只露 60px 标签缘，
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
-.war-dispatch{--war-card-w:316px;--war-card-h:168px;--war-history-card-h:137px} /* 五行恒高卡实测值（probe 校准）；历史卡=R1-R4 无 R5（166-29） */
-.war-dispatch .war-command-card{width:var(--war-card-w);min-width:var(--war-card-w);max-width:var(--war-card-w);height:var(--war-card-h);overflow:hidden;gap:5px} /* 五行卡规格（元首定）：同尺寸，长文本一行截断 */
-.war-dispatch .war-card-top{flex-wrap:nowrap;overflow:hidden;flex:0 0 auto}
-.war-dispatch .war-command-text{display:block;flex:0 0 auto;white-space:nowrap;-webkit-line-clamp:unset;-webkit-box-orient:initial;text-overflow:ellipsis}
-.war-dispatch .war-life{flex:0 0 auto}
-.war-dispatch .war-card-note{flex:0 0 18px}
-.war-dispatch .war-card-actions{flex:0 0 24px;margin-top:auto;display:flex;align-items:center;gap:6px;min-width:0}
+.war-root{--war-card-w:316px;--war-card-h:168px;--war-history-card-h:137px} /* 五行恒高卡实测值（probe 校准）；历史卡=R1-R4 无 R5（168-31）。定义在 war-root：组面板 portal 出坞后仍在域内 */
+:is(.war-dispatch, .war-group-panel) .war-command-card{width:var(--war-card-w);min-width:var(--war-card-w);max-width:var(--war-card-w);height:var(--war-card-h);overflow:hidden;gap:5px} /* 五行卡规格（元首定）：同尺寸，长文本一行截断 */
+:is(.war-dispatch, .war-group-panel) .war-card-top{flex-wrap:nowrap;overflow:hidden;flex:0 0 auto}
+:is(.war-dispatch, .war-group-panel) .war-command-text{display:block;flex:0 0 auto;white-space:nowrap;-webkit-line-clamp:unset;-webkit-box-orient:initial;text-overflow:ellipsis}
+:is(.war-dispatch, .war-group-panel) .war-life{flex:0 0 auto}
+:is(.war-dispatch, .war-group-panel) .war-card-note{flex:0 0 18px}
+:is(.war-dispatch, .war-group-panel) .war-card-actions{flex:0 0 24px;margin-top:auto;display:flex;align-items:center;gap:6px;min-width:0}
 .war-card-actions-empty{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}
 .war-cmd-group{position:relative;display:block;flex:0 0 auto}
 .war-cmd-group-face{position:relative;display:block}

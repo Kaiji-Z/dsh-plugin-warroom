@@ -11,6 +11,7 @@
  */
 
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
@@ -537,6 +538,12 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
   const closeTimer = useRef<number | null>(null)
   const faceRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  // 面板 portal 落点：Chromium 把 overflow 滚动容器（调度轨道）里的 fixed 后代
+  // 当作滚动内容绘制——层叠被拽进坞域，高面板被三列卡片盖住（六代链 probe 实
+  // 抓）。挂 .war-root 直下恢复真 fixed 层叠；React 合成事件沿 React 树冒泡，
+  // 悬停/键盘/滚轮语义不变。
+  const [rootEl, setRootEl] = useState<HTMLElement | null>(null)
+  useEffect(() => { setRootEl(document.querySelector('.war-root')) }, [])
   const latest = cards[cards.length - 1]!
   const clearTimers = (): void => {
     if (openTimer.current !== null) { window.clearTimeout(openTimer.current); openTimer.current = null }
@@ -557,6 +564,15 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
     window.addEventListener('resize', place)
     return () => { window.removeEventListener('resize', place) }
   }, [open])
+  // 元首定：滚轮从底起步——展开即见贴卡面的最新前代，往上翻才见更老（Mac
+  // 下载栈同款直觉；底部=newest 与视觉堆叠方向一致）。依赖含 pos：open 先翻
+  // 时 pos 尚 null、面板未挂载，坐标落位后才是真挂载时机。
+  useEffect(() => {
+    if (!open) return
+    const el = panelRef.current
+    if (el === null) return
+    el.scrollTop = el.scrollHeight
+  }, [open, pos])
   useEffect(() => {
     const el = panelRef.current
     if (el === null) return
@@ -585,8 +601,8 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
   },
     // 卡面=最新一代（R1 挂历代状态圆点）；点击/回车=打开该代聚焦页。
     createElement('div', { ref: faceRef, className: 'war-cmd-group-face' }, renderCard(latest, genPips(cards, tasksOf, latest.commandId))),
-    open && pos !== null
-      ? createElement('div', {
+    open && pos !== null && rootEl !== null
+      ? createPortal(createElement('div', {
           className: 'war-group-panel', ref: panelRef, role: 'group',
           'aria-label': activeCopy().commandCard.panelAria(cards.length - 1),
           style: { left: `${pos.left}px`, top: `${pos.top}px`, '--war-panel-rows': String(Math.min(cards.length - 1, 4)) } as CSSProperties,
@@ -599,7 +615,7 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
             className: 'war-group-history',
             style: { '--i': String(cards.length - 2 - i) } as CSSProperties,
           }, renderCard(c, undefined, true))),
-        )
+        ), rootEl)
       : null,
   )
 }
