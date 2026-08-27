@@ -139,6 +139,7 @@ gate('bundle', () => {
     [client, 'warzoneLayoutFor', 'V11.5 warzone bridge: real-workspace deterministic planet gen'],
     [client, 'wzCamBounds', 'V11.5g zoom bounds derive from planet layout/sizes live'],
     [client, 'archetypeOf', 'V11.5h NASA natural-color six-archetype planets'],
+    [client, 'HemisphereLight', 'V11.5i visible sun + hemisphere fill light'],
     [client, 'war-wz-xcard', 'V11.5f executing-card overlay pinned at planet screen position'],
     [client, 'setHighlight', 'V11.5f highlight link: hover/focus card lights planet + HQ trajectory'],
     [client, 'HEADQUARTERS', 'V11.4 HQ mothership + tooltip card ported'],

@@ -83,6 +83,10 @@ with sync_playwright() as p:
     # V11.5h：星球=NASA 自然色六原型材质（map+bumpMap+壳层组）
     nasa = page.evaluate("() => window.__wz.scene.planets.every(p => { const s = p.mesh.children.find(c => c.material && c.material.bumpMap); return s !== undefined })")
     ok('星球=NASA 材质（bumpMap 高度场在）', nasa)
+    # V11.5i：可见太阳（主光同向远处，关雾自发光核+光晕）+ 半球补光在场
+    rig = page.evaluate("() => { const s = window.__wz.scene; const sun = s.scene.getObjectByName('sun'); return { sun: sun !== null, hemi: s.scene.children.some(c => c.isHemisphereLight === true), fogged: sun !== null && sun.material.fog === false, d: sun !== null ? Math.round(sun.position.length()) : 0 } }")
+    ok('可见太阳在场（关雾）', rig['sun'] and rig['fogged'] and rig['d'] > 1000, f"d={rig['d']}")
+    ok('半球补光在场', rig['hemi'])
 
     # V11.5a 地形恒定：公转停——星球坐标跨时间纹丝不动（空间记忆根基）
     pos1 = page.evaluate("() => window.__wz.scene.planets.map(p => [p.mesh.position.x.toFixed(2), p.mesh.position.y.toFixed(2), p.mesh.position.z.toFixed(2)])")

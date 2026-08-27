@@ -735,11 +735,31 @@ export class WarzoneScene {
     this.composer.addPass(this.bloom)
     this.composer.addPass(new OutputPass())
     this.scene.add(new THREE.AmbientLight(0x334466, 0.7))
+    // V11.5i（元首令）：可见太阳——主光方位同向、1200 单位外地平线上 16° 一颗
+    // （自发光核+光晕 sprite，bloom 放大成耀斑；材质关雾防远距衰减；蓝白热星色
+    // 与主光 0xaabbff 同谱，不重涂星球）+ 半球补光（天冷地暖，背光面 subtle tint）。
+    // 仰角压到 16° 的硬理由：相机永远俯视原点（pitch 0.08-1.52 全向下），视图锥
+    // 上缘仰角上限 ≈23°——高仰角太阳永远进不了画面（首版 52° 实测 proj.y=4.3 出锥）。
+    // 阴影不开：战场尺度（星距 90-310）星球影子无落点，纯付费零收益。
+    // V11.2 教训随行：太阳只在远处当视觉锚，绝不让光路再逆光剪影。
+    this.glowTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']])
+    this.disposables.push(this.glowTex)
     const dirLight = new THREE.DirectionalLight(0xaabbff, 1.6)
     dirLight.position.set(220, 320, 120)
     this.scene.add(dirLight)
-    this.glowTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']])
-    this.disposables.push(this.glowTex)
+    const sunH = Math.hypot(220, 120), sunEl = 0.28
+    const sunPos = new THREE.Vector3((220 / sunH) * Math.cos(sunEl), Math.sin(sunEl), (120 / sunH) * Math.cos(sunEl)).multiplyScalar(1200)
+    const sunGeo = new THREE.SphereGeometry(18, 24, 16)
+    const sunMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 2.1, 2.4), fog: false })
+    const sun = new THREE.Mesh(sunGeo, sunMat)
+    sun.name = 'sun'
+    sun.position.copy(sunPos)
+    this.scene.add(sun)
+    this.disposables.push(sunGeo, sunMat)
+    const sunGlow = this.glowSprite(new THREE.Color(0.72, 0.8, 1.0), 220, 0.5)
+    sunGlow.position.copy(sunPos)
+    this.scene.add(sunGlow)
+    this.scene.add(new THREE.HemisphereLight(0x33415e, 0x241a12, 0.4))
     this.buildStars()
     this.buildNebulae()
     this.belt = this.buildBelt()
