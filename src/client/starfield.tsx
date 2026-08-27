@@ -259,7 +259,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
             ...troops.slice(0, 3).map(t =>
               createElement('span', { key: `lb-${t.sessionId}`, className: 'war-live-item' },
                 createElement('span', { className: 'war-live-verb' }, t.verbLabel ?? orbIdleLabel),
-                createElement('span', { className: 'war-live-cmd' }, t.sourceLabel ?? untracedLabel ?? t.sessionId.slice(0, 8)))),
+                createElement('span', { className: 'war-live-cmd', title: t.sourceLabel ?? untracedLabel ?? t.sessionId.slice(0, 8) }, t.sourceLabel ?? untracedLabel ?? t.sessionId.slice(0, 8)))),
             ...(troops.length > 3 ? [createElement('span', { key: 'lb-more', className: 'war-live-item' }, `+${troops.length - 3}`)] : []))
         : null,
       mapLegend !== undefined

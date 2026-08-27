@@ -15,6 +15,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { hash01 } from './starfield.tsx'
+import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
 
 /* ================================================================
  * 三键相机（元首定 2026-08-27，V11.5b）：3D 软件范式——左键平移（即时跟手）/
@@ -734,6 +735,14 @@ export class WarzoneScene {
   private hqVariant: 'ship' | 'fortress' | null = null
   private hqProxy: THREE.Mesh | null = null
   private lastBridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> } | null = null
+  /** V12.2 语义令牌视图：CSS 是色源（--war-wz- 系列、--war-tac- 系列、--war-log- 系列），
+   * applyTheme 时整组刷新；headless/主题错位由 war-tokens 回退同值基线。 */
+  private tac: WarTacPalette = TAC_FALLBACK_DARK
+  private logC: Readonly<Record<WzLogKind, string>> = { order: '#ffc98a', engage: '#ff7755', triumph: '#5fc4ff', retreat: '#ff5a5a', 'return': '#9a86ff', review: '#ffc24d' }
+  private readonly cHl = new THREE.Color('#6fe3ff')
+  private readonly cBattle = new THREE.Color('#ff6a55')
+  private readonly cHeld = new THREE.Color('#66d4ff')
+  private readonly cWait = new THREE.Color('#b07800')
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     // alpha:true（元首定）：画布透明，容器 CSS 底透出。
@@ -1274,7 +1283,7 @@ export class WarzoneScene {
     if (phase === 'outbound' && !this.bridged) target.inbound++
     proxy.userData.ref = s
     this.squads.push(s)
-    if (phase === 'outbound' && !this.bridged) this.pushLog('#ffc98a', `${s.code} ${s.cname}出击 ▸ ${target.name.split(' ·')[0]!}`)
+    if (phase === 'outbound' && !this.bridged) this.pushLog(this.logC.order, `${s.code} ${s.cname}出击 ▸ ${target.name.split(' ·')[0]!}`)
     return s
   }
 
@@ -1302,7 +1311,7 @@ export class WarzoneScene {
       s.phase = 'battle'
       s.battleT = p.battleT = det(`bt:${s.id}`, 6, 14)
       s.orbitSpd = det(`osb:${s.id}`, 1.8, 2.6)
-      this.pushLog('#ff7755', `${s.code} 接敌 · ${p.name.split(' ·')[0]!} 交战开始`)
+      this.pushLog(this.logC.engage, `${s.code} 接敌 · ${p.name.split(' ·')[0]!} 交战开始`)
     } else {
       s.phase = 'deployed'
       s.orbitSpd = det(`osd:${s.id}`, 0.4, 0.7)
@@ -1316,8 +1325,8 @@ export class WarzoneScene {
     s.phase = 'deployed'
     s.orbitSpd = det(`osc:${s.id}`, 0.4, 0.7)
     p.deployedSquads.push(s)
-    this.spawnRing(p.mesh.position, p.radius * 1.6, 0x66d4ff)
-    this.pushLog('#5fc4ff', `${s.code} 攻占 ${p.name.split(' ·')[0]!} · 驻军 +${s.ships}`)
+    this.spawnRing(p.mesh.position, p.radius * 1.6, this.cHeld)
+    this.pushLog(this.logC.triumph, `${s.code} 攻占 ${p.name.split(' ·')[0]!} · 驻军 +${s.ships}`)
   }
 
   private removeSquad(i: number): void {
@@ -1337,7 +1346,7 @@ export class WarzoneScene {
     this.planPath(s, _v1.set(0, -6, 0), 14)
   }
 
-  private spawnRing(pos: THREE.Vector3, radius: number, color: number): void {
+  private spawnRing(pos: THREE.Vector3, radius: number, color: THREE.Color): void {
     let f = this.fxPool.find(f => !f.active)
     if (!f) {
       const ringGeo = new THREE.RingGeometry(0.85, 1, 48)
@@ -1348,7 +1357,7 @@ export class WarzoneScene {
     }
     f.active = true; f.t = 0; f.baseR = radius
     f.mesh.visible = true
-    ;(f.mesh.material as THREE.MeshBasicMaterial).color.set(color)
+    ;(f.mesh.material as THREE.MeshBasicMaterial).color.copy(color)
     f.mesh.position.copy(pos)
   }
 
@@ -1391,8 +1400,8 @@ export class WarzoneScene {
           p.status = '待进攻'
           p.garrison = Math.max(0, p.garrison - 3)
           p.deployedSquads.splice(0).forEach(s => this.sendHome(s))
-          this.spawnRing(p.mesh.position, p.radius * 1.4, 0xff5a33)
-          this.pushLog('#ff5a5a', `${p.name.split(' ·')[0]!} 遭敌反攻 · 失守!`)
+          this.spawnRing(p.mesh.position, p.radius * 1.4, this.cBattle)
+          this.pushLog(this.logC.retreat, `${p.name.split(' ·')[0]!} 遭敌反攻 · 失守!`)
         }
       }
     }
@@ -1470,6 +1479,10 @@ export class WarzoneScene {
 
   private applyTheme(dark: boolean): void {
     this.darkTheme = dark
+    // V12.2 语义令牌刷新：CSS 是色源；美术资产（贴图/舰体/光照）仍走下方工厂分支。
+    this.tac = readTacPalette(dark)
+    this.logC = warLogColors(dark)
+    this.cHl.set(this.tac.hl); this.cBattle.set(this.tac.battle); this.cHeld.set(this.tac.held); this.cWait.set(this.tac.wait)
     this.starGroup.visible = dark
     this.nebGroup.visible = dark
     this.cloudGroup.visible = !dark
@@ -1568,7 +1581,7 @@ export class WarzoneScene {
     for (const p of this.planets) {
       if (!this.hlWs.has(p.wsPath)) continue
       const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -6, 0), p.mesh.position.clone()])
-      const mat = new THREE.LineDashedMaterial({ color: this.isDarkTheme ? 0x6fe3ff : 0x0e7490, dashSize: 6, gapSize: 4, transparent: true, opacity: this.isDarkTheme ? 0.85 : 0.95 })
+      const mat = new THREE.LineDashedMaterial({ color: this.cHl, dashSize: 6, gapSize: 4, transparent: true, opacity: this.isDarkTheme ? 0.85 : 0.95 })
       const line = new THREE.Line(geo, mat)
       line.computeLineDistances()
       this.scene.add(line)
@@ -1610,15 +1623,15 @@ export class WarzoneScene {
         _c1.copy(p.baseGlow)
         let op = 0.3
         if (p.status === '作战中') {
-          _c1.set(0xff5a33)
+          _c1.copy(this.cBattle)
           op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
           p.ringT -= dt
-          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, 0xff6a33); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
+          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, this.cBattle); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
         } else if (p.status === '已占领') {
-          _c1.lerp(_c2.set(0x66d4ff), 0.4)
+          _c1.lerp(_c2.copy(this.cHeld), 0.4)
           op = 0.34
         }
-        if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.set(0x6fe3ff), 0.35) }
+        if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.copy(this.cHl), 0.35) }
         p.halo.material.color.lerp(_c1, 0.08)
         p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
         const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
@@ -1627,20 +1640,20 @@ export class WarzoneScene {
         // V12 浅色：辉光失效——基座环+作战光柱接班状态语义（光柱=王国之泪语言）
         const rm = p.ring.material as THREE.MeshBasicMaterial
         if (p.status === '作战中') {
-          rm.color.set(0xd9480f)
+          rm.color.copy(this.cBattle)
           rm.opacity = 0.5 + 0.25 * Math.sin(t * 7 + p.seed * 6)
           if (p.pillar !== null) {
             p.pillar.visible = true
             ;(p.pillar.material as THREE.MeshBasicMaterial).opacity = 0.26 + 0.1 * Math.sin(t * 3.2 + p.seed)
           }
           p.ringT -= dt
-          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, 0xd9480f); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
+          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, this.cBattle); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
         } else {
           if (p.pillar !== null) p.pillar.visible = false
-          if (p.status === '已占领') { rm.color.set(0x1971c2); rm.opacity = 0.45 }
-          else { rm.color.set(0xb07800); rm.opacity = 0.26 }
+          if (p.status === '已占领') { rm.color.copy(this.cHeld); rm.opacity = 0.45 }
+          else { rm.color.copy(this.cWait); rm.opacity = 0.26 }
         }
-        if (this.hlWs.has(p.wsPath)) { rm.color.set(0x0e7490); rm.opacity = 0.85 }
+        if (this.hlWs.has(p.wsPath)) { rm.color.copy(this.cHl); rm.opacity = 0.85 }
       }
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
@@ -1735,7 +1748,7 @@ export class WarzoneScene {
     for (const s of [...this.squads]) {
       if (s.sessionId !== null && !live.has(s.sessionId) && s.phase !== 'return') {
         this.sendHome(s)
-        this.pushLog('#9a86ff', `${s.code} ${s.cname} 返航 · 会话收束`)
+        this.pushLog(this.logC.return, `${s.code} ${s.cname} 返航 · 会话收束`)
       }
     }
     for (const bs of bridge.squads) {
@@ -1746,7 +1759,7 @@ export class WarzoneScene {
         const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase, sourceCommandId: bs.sourceCommandId, live: bs.live })
         s.sessionId = bs.sessionId
         this.squadBySession.set(bs.sessionId, s)
-        this.pushLog('#ffc98a', `${s.code} ${bs.sourceLabel ?? bs.verb ?? '执行会话'}出击 ▸ ${planet.name.split(' ·')[0]!}`)
+        this.pushLog(this.logC.order, `${s.code} ${bs.sourceLabel ?? bs.verb ?? '执行会话'}出击 ▸ ${planet.name.split(' ·')[0]!}`)
         continue
       }
       existing.verb = bs.verb
@@ -1805,6 +1818,8 @@ export class WarzoneTactical {
   private readonly scanPat: CanvasPattern | null
   /** V12：2D 双皮——深色=战术雷达 / 浅色=蓝图纸面（白纸+青蓝制图线，元首定）。 */
   private dark = true
+  /** V12.2：调色板经 war-tokens 从 CSS 令牌读取（setTheme 刷新；headless 回退）。 */
+  private tac: WarTacPalette = TAC_FALLBACK_DARK
   private w = 0
   private h = 0
   private cx = 0
@@ -1824,7 +1839,7 @@ export class WarzoneTactical {
     this.canvas.dataset.zoom = String(Math.min(1.5, Math.max(0.55, (Number(this.canvas.dataset.zoom ?? 1)) * (1 - deltaY * 0.001))))
   }
 
-  setTheme(dark: boolean): void { this.dark = dark }
+  setTheme(dark: boolean): void { this.dark = dark; this.tac = readTacPalette(dark) }
 
   private get zoom(): number { return Number(this.canvas.dataset.zoom ?? 1) }
 
@@ -1843,28 +1858,11 @@ export class WarzoneTactical {
     const g = this.g
     const w = this.w, h = this.h
     const S = safe ?? { x: 0, y: 0, w, h }
-    // V12 双皮调色板：深色=战术雷达 / 浅色=蓝图纸面（状态色浅色压深保对比度）
-    const P = this.dark ? {
-      bg0: '#04101f', bg1: '#020812', bg2: '#010409', grid: 'rgba(60,120,190,.07)',
-      ring: 'rgba(80,160,230,.2)', ringTxt: 'rgba(110,180,240,.4)', cross: 'rgba(80,160,230,.15)',
-      tick: 'rgba(90,170,240,.35)', bearing: 'rgba(120,190,250,.5)', hqPulse: '111,227,255',
-      hqFill: 'rgba(20,50,90,.92)', hq: '#9fdcff', hqCore: '#cfeeff', hqLabel: '#bfe6ff',
-      stWait: '#ffc24d', stBattle: '#ff6a55', stHeld: '#5fc4ff',
-      hl: '#8fe8ff', hlLine: 'rgba(111,227,255,.55)', battlePulse: '255,90,60',
-      garrison: 'rgba(95,196,255,.7)', name: 'rgba(200,225,250,.85)', nameHl: '#bfefff',
-      sqBattle: '#ff7755', sqRet: '#9a86ff', sqDep: '#5fc4ff', sqHold: '#ffc98a',
-      corner: 'rgba(111,227,255,.5)', scan: true,
-    } : {
-      bg0: '#f8fbfe', bg1: '#eef4fa', bg2: '#e3edf7', grid: 'rgba(70,110,160,.12)',
-      ring: 'rgba(90,130,180,.38)', ringTxt: 'rgba(80,120,170,.6)', cross: 'rgba(90,130,180,.22)',
-      tick: 'rgba(90,130,180,.45)', bearing: 'rgba(70,105,150,.65)', hqPulse: '28,78,128',
-      hqFill: 'rgba(214,232,248,.95)', hq: '#1c4e80', hqCore: '#2d6ca6', hqLabel: '#1c4e80',
-      stWait: '#b07800', stBattle: '#d9480f', stHeld: '#1971c2',
-      hl: '#0e7490', hlLine: 'rgba(14,116,144,.55)', battlePulse: '217,72,15',
-      garrison: 'rgba(25,113,194,.75)', name: 'rgba(40,70,110,.9)', nameHl: '#0b3a53',
-      sqBattle: '#d9480f', sqRet: '#6741d9', sqDep: '#1971c2', sqHold: '#b07800',
-      corner: 'rgba(28,78,128,.5)', scan: false,
-    }
+    // V12.2 双皮调色板改由 CSS 令牌供给（--war-tac-*/--war-wz-*，war-tokens 读取
+    // + 同值回退）：换肤/换主题只改 CSS 一处，雷达/蓝图两皮自动跟随。
+    // stWait/stBattle/stHeld 是旧调用点别名（2D 盘内状态三原色）。
+    const tac = this.tac
+    const P = { ...tac, stWait: tac.wait, stBattle: tac.battle, stHeld: tac.held, scan: this.dark }
     const cx = this.cx = S.x + S.w / 2
     const cy = this.cy = S.y + S.h / 2 + 10
     const baseR = Math.max(130, Math.min(S.h * 0.5 - 64, S.w * 0.5 - 24, 460))

@@ -26,7 +26,7 @@ export interface WarCopy {
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
   starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string; controls: string }
-  dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string }
+  dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string; segActive: string; segSettled: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
     title: string
@@ -342,7 +342,7 @@ export const warCopy: WarCopy = {
     tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）', segActive: '进行中', segSettled: '已收官' },
   commandBand: {
     title: '等你发落',
     quiet: '无需发落——此命令在自动推进中',
@@ -703,7 +703,7 @@ export const plainCopy: WarCopy = {
     tasks: { title: '任务', note: '未完成的任务' },
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）· 快捷键 n', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）· 快捷键 n', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图', segActive: '进行中', segSettled: '已完成' },
   commandBand: {
     title: '等你处理',
     quiet: '不用管——这条命令在自己推进',

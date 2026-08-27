@@ -20,7 +20,7 @@ const statusChip = (st: string): string =>
 function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
   if (ent.kind === 'hq') {
     const st = hqStats(scene.planets, scene.squads)
-    return `<div class="tt-head"><span class="dot" style="background:#6fe3ff"></span>
+    return `<div class="tt-head"><span class="dot"></span>
       <span class="tt-name">HEADQUARTERS</span><span class="tt-tag">元首 · 指挥中枢</span></div>
       <div class="tt-desc">作战室旗舰「太空总部」——你的全部战区与执行编队由此投送调度。</div>
       <div class="tt-row"><span>战区</span><b>${scene.planets.length} 个</b></div>
@@ -48,12 +48,12 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
     : s.phase === 'deployed' ? (s.paused ? '配额暂停 · 待命' : '待验收 · 驻泊巡护')
     : s.phase === 'holding' ? '集结 · 待起跑'
     : `返航 · 进度 ${Math.min(99, s.t * 100) | 0}%`
-  return `<div class="tt-head"><span class="dot" style="background:#ffb35c"></span>
+  return `<div class="tt-head"><span class="dot warm"></span>
     <span class="tt-name">${s.cname}</span><span class="tt-tag">执行编队 ${s.code}</span></div>
     <div class="tt-desc">执行会话 ${s.sessionId ?? ''}</div>
     <div class="tt-row"><span>源命令</span><b>${s.sourceLabel ?? '未溯源'}</b></div>
     <div class="tt-row"><span>目标战区</span><b>${tgt}</b></div>
-    <div class="tt-row"><span>行军状态</span><b style="color:#ffc98a">${stTxt}</b></div>`
+    <div class="tt-row"><span>行军状态</span><b class="tt-emph">${stTxt}</b></div>`
 }
 
 export interface WarzoneProps {
@@ -460,8 +460,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       createElement('div', { className: 'war-wz-legend' },
         createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
         createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
-        createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领')),
-      createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图')),
+        createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
+        createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹')),
+      createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
   )
 }

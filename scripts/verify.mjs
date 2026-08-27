@@ -267,6 +267,13 @@ gate('bundle', () => {
     // V9.13 补丁二：宿主不给插件子树 border-box——content-box 下 width:100%+padding 的件横向戳出
     // （composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640，元首报修实测）。
     [client, '.war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}', 'plugin subtree border-box reset (no width:100%+padding overflow)'],
+    // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。
+    [client, '--war-text-1: var(--dsw-alias-label-primary)', 'text semantic middle layer (component rules stop piercing dsw aliases)'],
+    [client, '--war-border: var(--dsw-alias-border-l2)', 'border semantic token'],
+    [client, '--war-wz-wait', 'warzone scene token set (light=deepened, dark=bright)'],
+    [client, '--war-log-order', 'speedlog semantic colors (kind-based)'],
+    [client, 'data-war-skin', 'skin hook attribute on war-root (visual skins remap --war-* only)'],
+    [client, 'readTacPalette', 'TS-side token reader (CSS is the single color source)'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],

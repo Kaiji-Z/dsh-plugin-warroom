@@ -21,6 +21,7 @@ import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './prefl
 import { galaxyLayout, garrisonOf, moonPos, planetLabel, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
 import { Warzone } from './starfield3d.tsx'
 import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type WzLogFeedItem } from './warzone-scene.ts'
+import { warLogKindColor } from './war-tokens.ts'
 import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
@@ -253,10 +254,13 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[], reportSeenAt?: numbe
   if (reportDone) {
     const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed') ?? chain.find(t => t.status === 'reported')
     const label = terminal !== undefined ? activeCopy().taskStatus[terminal.status] : ''
+    // V12.2 critique P2：败局状态行同染红（与生命条红终局同源）——灰字全绿条
+    // 曾让折戟读起来像善终。
+    const failTone = terminal !== undefined && terminal.status === 'failed' ? 'err' as const : '' as const
     const seen = reportSeenAt !== undefined && reportSeenAt >= latestSettleMs(chain)
     return seen
-      ? { reached: { command: true, task: true, battle: true, report: true }, now: null, status: `${chainPrefix}${label}`, tone: '' }
-      : { reached: { command: true, task: true, battle: true, report: false }, now: 'report', status: `${chainPrefix}${label}`, tone: '' }
+      ? { reached: { command: true, task: true, battle: true, report: true }, now: null, status: `${chainPrefix}${label}`, tone: failTone }
+      : { reached: { command: true, task: true, battle: true, report: false }, now: 'report', status: `${chainPrefix}${label}`, tone: failTone }
   }
   const battleLive = chain.some(t => t.status === 'in_progress' || t.attemptLog.length > 0)
   if (battleLive) {
@@ -274,10 +278,13 @@ function formingVariantOf(cmd: BoardCommand, chain: BoardTask[]): 'plan' | 'talk
   return cmd.plan !== null ? 'plan' : cmd.status === 'talking' ? 'talking' : cmd.staffSessionId !== null ? 'drafting' : null
 }
 
-/** 阶段条（4 段分段进度：done 绿 / now 蓝呼吸 / 其余灰）。 */
+/** 阶段条（4 段分段进度：done 绿 / now 蓝呼吸 / 其余灰；败局报告段红收尾）。 */
 function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   const copy = activeCopy().lifecycle
   const life = lifecycleOf(cmd, chain, reportSeenAtOf(cmd.commandId))
+  // V12.2 critique P2：链终局=failed 时报告段红收尾——绿严格=善终（图例契约），
+  // 折戟不许再以全绿条示人（cancelled 的 err 终局此前比 failed 更红，倒挂）。
+  const failTerminus = life.reached.report && chain.some(t => t.status === 'failed')
   const stages: Array<{ key: LifeStage; label: string }> = [
     { key: 'command', label: copy.stages.command },
     { key: 'task', label: copy.stages.task },
@@ -286,7 +293,7 @@ function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   ]
   return createElement('div', { className: 'war-life' },
     ...stages.map(s => createElement('div', { key: s.key, className: 'war-life-stage' },
-      createElement('span', { className: `war-life-bar${life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }),
+      createElement('span', { className: `war-life-bar${failTerminus && s.key === 'report' ? ' err' : life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }),
       createElement('span', { className: `war-life-label${life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }, s.label),
     )),
     createElement('span', { className: `war-life-status${life.tone !== '' ? ` ${life.tone}` : ''}`, style: { gridColumn: '1 / -1' } }, life.status),
@@ -482,7 +489,12 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     createElement('span', { className: 'war-time' }, relTime(cmd.createdAt)),
   ),
   // R2 命令原文：一行截断（悬停 title 看全文，聚焦页标题有原文）。
-  createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}`, title: cmd.text }, cmd.text),
+  // V12.2 critique 整改：聚焦页（tour）里标题已是命令原话——卡内不再复读全文，
+  // 降为 ID 行（原话由页首大标题独占，叙事不重复）。
+  tour
+    ? createElement('div', { className: 'war-command-text', title: cmd.text },
+        createElement('span', { className: 'war-taskid' }, cmd.commandId))
+    : createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}`, title: cmd.text }, cmd.text),
   // R3 全生命周期阶段条：命令不因发布而死卡——任务/执行/战报进度常驻卡上。
   LifeStrip(cmd, chain),
   // R4 通知行：夜间预检后果提示 / 取消原因；空也保留行位（恒高）。
@@ -1551,7 +1563,17 @@ function WarIsland(props: {
   },
     createElement('span', { className: `war-head-dot${active ? ' on' : ''}` }),
     createElement('span', { className: 'war-island-title' }, activeCopy().head.title),
-    createElement('span', { className: 'war-island-counts' }, copy.counts(counts)),
+    // V12.2 critique P3 整改：计数数字上权重（13px/600）——岛计数是全板第一眼
+    // 信息，此前 12px/400 比任何卡标题都弱（层级倒挂）。数字 <b> 化，标签保持弱灰；
+    // 「待领」段（琥珀=等你——四数中唯一行动信号）加主从：非零时数字染琥珀。
+    // aria-live=polite：SSE 计数跃迁对读屏可闻（收件箱增量播报之外的轻量覆盖）。
+    createElement('span', { className: 'war-island-counts', 'aria-label': countsText, 'aria-live': 'polite' },
+      ...countsText.split('·').flatMap((part, pi): ReactNode[] => {
+        const isWait = part.trim().startsWith('待领')
+        return (pi > 0 ? [' · '] : []).concat([...part.split(/(\d+)/)].map((segText, i) => /^\d+$/.test(segText)
+          ? createElement('b', { key: `n${pi}-${i}`, className: `war-island-num${isWait ? ' wait' : ''}` }, segText)
+          : segText))
+      })),
     inbox.length > 0
       ? createElement('span', {
           className: `war-island-badge${inbox.some(i => i.tone === 'err') ? ' hot' : ''}`,
@@ -1814,17 +1836,22 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     useEscOnlyLayer(focusCommandId !== null, () => { setFocusCommandId(null) })
     // V9.5（复评 P2-2）：全板快捷键 n = 新建命令（无弹窗层且不在输入框时）——
     // 主写操作不再藏在 20 个 Tab 之后的坞左端。
+    // V12.2 critique P3：m = 列表/星域切换——主视图切换从「hover 岛→⚙→抽屉」
+    // 三步降为一步（Alex 画像主诉）。
     useEffect(() => {
       const onKey = (e: KeyboardEvent): void => {
-        if (e.key !== 'n' || e.ctrlKey || e.metaKey || e.altKey) return
+        if ((e.key !== 'n' && e.key !== 'm') || e.ctrlKey || e.metaKey || e.altKey) return
         if (escLayers.length > 0) return
         const el = e.target instanceof Element ? e.target : null
         if (el !== null && el.closest('input, textarea, select, [contenteditable], .war-modal-backdrop, .war-settings-backdrop') !== null) return
-        setComposerOpen(true)
+        if (e.key === 'n') { setComposerOpen(true); return }
+        const next = viewPref === 'map' ? 'list' : 'map'
+        setViewPref(next)
+        try { localStorage.setItem('warroom-cfg-view', next) } catch { /* 隐私模式 */ }
       }
       document.addEventListener('keydown', onKey)
       return () => { document.removeEventListener('keydown', onKey) }
-    }, [])
+    }, [viewPref])
     // V9.2 聚焦点空白即退（元首指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
     useEffect(() => {
       if (focusCommandId === null) return
@@ -2057,14 +2084,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const src = lineageOf(t.taskId)?.commandId ?? null
       wzSquads.push({ sessionId: last.sessionId, wsPath: t.workspacePath ?? '', phase: 'deployed', verb: null, paused: false, sourceCommandId: src, sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null, live: false })
     }
-    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: '#ffc98a', text: `下令 · ${c.text.slice(0, 18)}` }))
+    // V12.2：速报色 kind 化——值由 --war-log-* 令牌解析（浅压深/深原亮），不再散写 hex。
+    const logOrder = warLogKindColor('order'), logTriumph = warLogKindColor('triumph'), logRetreat = warLogKindColor('retreat'), logReview = warLogKindColor('review')
+    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: logOrder, text: `下令 · ${c.text.slice(0, 18)}` }))
     for (const t of tasks) {
       const src = commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? t.title.slice(0, 12)
       for (const a of t.attemptLog ?? []) {
         if (a.outcome === null || a.endedAt === null) continue
-        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: '#5fc4ff', text: `凯旋 · ${src}` })
-        else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: '#ff5a5a', text: `败退 · ${src}` })
-        else wzLogFeed.push({ ts: a.endedAt, color: '#ffc24d', text: `战报待验收 · ${src}` })
+        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: logTriumph, text: `凯旋 · ${src}` })
+        else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: logRetreat, text: `败退 · ${src}` })
+        else wzLogFeed.push({ ts: a.endedAt, color: logReview, text: `战报待验收 · ${src}` })
       }
     }
     const wzLog = warLogOf(wzLogFeed)
@@ -2135,7 +2164,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       if (lc !== null) openCommand(lc.commandId, segment)
       else services.sessions?.open(a.sessionId)
     }
-    return createElement('div', { className: 'war-root' },
+    // V12.2 皮肤钩子：data-war-skin 随文案皮肤落属性——当前军事/平话只换措辞，
+    // 未来视觉皮肤在 CSS [data-war-skin] 选择器内重映射 --war-* 令牌层即可。
+    return createElement('div', { className: 'war-root', 'data-war-skin': skinId() },
       // V8 hero 灵动岛：替代标题栏——操作件与大盘状态全收进顶部胶囊（展开浮层
       // 盖列区，不推挤；聚焦模式 = 岛的常驻形态）。
       createElement(WarIsland, {
@@ -2262,7 +2293,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             key: 'dispatch',
             onCompose: () => { setComposerOpen(true) },
           },
-            ...dispatchGroups.flatMap(g => {
+            // V12.2 critique P1 整改：调度轨道按活跃/收官分段（竖排小铭牌）——
+            // 命令量增长后回访扫读不必整轨滚完；仅一段在场时不挂牌（空板无噪音）。
+            // 分段不改排序（活跃优先+新→旧原样），只插视觉路标。
+            (() => {
+              const seg = (t: string): ReactNode => createElement('div', { key: `seg-${t}`, className: 'war-track-seg' }, t)
+              const groupNode = (g: { rootId: string; cards: BoardCommand[] }): ReactNode => {
               const renderDockCard = (c: BoardCommand, pips?: ReactNode, history = false): ReactNode => {
                 // V10.1 卡组：族系高亮解析升到战线根——hover/聚焦命中链上任一代
                 // （星域光点常溯源到 Ⅰ 代旧令），坞里代表这条战线的卡要点亮：
@@ -2282,13 +2318,24 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 }, false, pips, history)
               }
               return g.cards.length === 1
-                ? [renderDockCard(g.cards[0]!)]
-                : [createElement(CommandGroupCard, {
+                ? renderDockCard(g.cards[0]!)
+                : createElement(CommandGroupCard, {
                     key: `grp-${g.rootId}`, rootId: g.rootId, cards: g.cards,
                     renderCard: renderDockCard,
                     tasksOf: c => tasks.filter(t => lineageOf(t.taskId)?.commandId === c.commandId),
-                  })]
-            }),
+                  })
+              }
+              const faceActive = (g: { rootId: string; cards: BoardCommand[] }): boolean => cmdActive(g.cards[0]!)
+              const activeGroups = dispatchGroups.filter(faceActive)
+              const settledGroups = dispatchGroups.filter(g => !faceActive(g))
+              const dcopy = activeCopy().dispatch
+              return [
+                ...(activeGroups.length > 0 && settledGroups.length > 0 ? [seg(dcopy.segActive)] : []),
+                ...activeGroups.map(groupNode),
+                ...(settledGroups.length > 0 ? [seg(dcopy.segSettled)] : []),
+                ...settledGroups.map(groupNode),
+              ]
+            })(),
           ),
         ),
       mapHint && !mapView

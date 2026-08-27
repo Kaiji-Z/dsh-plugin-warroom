@@ -477,3 +477,17 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **两坑（均机检/探针当场抓获）**：①**构造器 applyTheme 曾在 buildHq 之前调用**——浅色宿主开机不换皮（母舰留天空、hqVariant 恒 null）；probe 因「先强制深色」流程漏网，补**开机即正确范式**断言（36/36）。②**TDZ 坑 V10.1 原案重演**——底锥 add() 调用插在 const add 声明前，运行时 ReferenceError 整板回落 2D（build 不查运行时；空板先抓 pageerror 的纪律再次生效）。**取证采样坑**：截图中心 ≠ 画面中心（板面画布偏移），HQ 实际投影 (1000,477)——采样必须按投影定位。
 
 **验证**：verify PASS + probe 36/36 + shoot 三件套全绿。取证 v121-hq-dark/light.png。
+
+## V12.2 语义 token 化全项目重铸（2026-08-28，元首令：全面排查语义→token 化→场景切换→皮肤化基础 + impeccable ≥35 交付门）
+
+**架构定案——三层令牌（styles.ts v5.0）**：L1 基元（裸色只许出现在 `.war-root` 与 `body[data-ds-dark-theme] .war-root` 两个令牌定义块，含 wz/tac/log/sky/chart/sun 六组场景令牌与链八相谱）；L2 语义（`--war-*`——组件与场景规则**只**引用本层，dsw 直穿清零、warzone 覆盖层 60+ 裸色清零、'Segoe UI' 硬编码字体清零）；L3 场景开关（明缺省/暗随宿主 body/皮肤钩子 `[data-war-skin]` 挂 .war-root 随文案皮肤落属性/星域态 .war-mapmode）。**TS 侧唯一色源=CSS**：`src/client/war-tokens.ts` 在构造与 setTheme/applyTheme 时 getComputedStyle 读令牌（帧循环禁读），headless/主题错位（probe 强转深色）走同值回退——**回退哨兵由 tests/war-tokens.test.ts 双向锁死**（令牌闭合：每个被引用 var(--war-*) 必有静态定义——直接防 styles.ts:530 旧案 `var(--war-canvas-bg)` 未定义 var 的再次发生；组件区纯净：非定义块无 dsw 直穿/裸 hex，豁免=mask 黑/镜面高光/中性阴影/var 回退；回退↔CSS 值互锁）。
+
+**语义收编清单**：文本三阶（text-1/2/3）、边框三档（border/soft/hover）、字体双轨（font/font-code）、状态原色四档（*-border：描边/圆点/彩带/辉光共用饱和档，与压黑前景档分工）、三区彩带（band-task/field/report）、圆角阶（r-pill/lg/md/sm）。**2D 战术盘双皮调色板整表迁入令牌**（--war-tac-* 21 字段×2 皮 + wz 状态四原色共享）；**速报日志色 kind 化**（order/engage/triumph/retreat/return/review 六类，浅色压深修 latent bug——旧 #ffc98a 画白蓝图 ~1.8:1）；**3D 语义状态色统一 token 族**（battle/held/hl/wait 四 THREE.Color 在 applyTheme 刷新；美术资产 NASA 贴图/浮空岛/舰体/HDR 留 applyTheme 工厂=皮肤另一半缝，文档写明边界）。
+
+**critique 三轮（双子代理，快照 `.impeccable/critique/`）**：36（V10.1 旧基线）→ 33（首轮：调度条索引/窄窗降级/星域浅色/聚焦页重复/岛计数倒挂）→ 32（复评新发现：aria-live 覆盖/星舱截断/四数平权；两条误报经父级源码复核勘误——「无 aria-live」「无方向键」皆不实）→ **35（终审达标）**。整改落点：调度轨道**状态分段竖铭牌**（进行中|已收官，词典双皮肤新增 segActive/segSettled）、列表态 <900px **单列堆叠**（200% 缩放降级）、星域标签 text-1+`--war-label-halo` 双主题光晕、**warzone 覆盖层 12px 底线**（10/11px 全部清除）、岛计数数字 13px/600+**待领琥珀主从**+aria-live=polite、聚焦页 tour 卡去重（原文由页首标题独占，卡内降 ID 行）、live-cmd 全文 title、**败局红终局**（`war-life-bar.err`——绿严格=善终的图例契约修复，已阅态 done-done-done-err/未阅态红状态行）、`.war-wz-hint` 对比度 3.77→浅 5.81/深 6.63、**m 快捷键**（列表⇄星域一步切，与 n 同守卫）、3D 图例补「聚焦轨迹」行。
+
+**遗留 backlog（终审 P3，产品决策留元首）**：命令筛选/搜索（50+ 卡时「只看等你发落」）；待×3 词法后缀化（等·参谋/等·指挥官——词表决策）；败局决策带「无快捷操作」与报告卡内恢复的层级。
+
+**坑（本轮新增入账）**：①**块注释内 `*/` 序列提前终止注释**——`（--war-wz-*/--war-tac-*）` 一写就把后面内容当代码，esbuild 报「Expected identifier but found --」，注释里禁止 token 通配写法；②**对象字面量保留字键**（`return:`）需引号；③**critique 快照同秒同名互相覆盖**——多轮落盘必须隔秒；④**双子代理复审方差**——fresh 代理每轮会发现新 P2/P3 且有 ~2 条/轮误报率，父级必须源码复核再入整改单（本轮拦下「无 aria-live」「无方向键」「hover 宽度跳变」三条误报）。
+
+**验证**：verify **228 测** PASS（新增 war-tokens 五测：闭合/纯净/钩子在场/回退哨兵×2——哨兵首跑即抓到本人 held #5fc4ff vs 令牌 #66d4ff 漂移，机制自证有效）+ verify.mjs 六新针脚 + shoot-theme **20/20** + shoot-v10 五相位 + shoot-v7 + probe-warzone **36/36** + 双主题 3D 令牌 computed 实证（浅 #b07800→深 #ffc24d 全组翻转）+ 像素统计（浅 lum242/深 lum26）+ 12px 底线浏览器复扫 0 违规。取证 `.goal/evidence/v12/`：v122-3d-light/dark、v122-fix-dispatch/narrow/3d-light、v122-final-map-light/dark。
