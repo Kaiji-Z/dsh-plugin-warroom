@@ -125,6 +125,21 @@ with sync_playwright() as p:
     r = page.locator('.war-planet[data-ws-index="1"]').bounding_box()
     ok('双击复位', abs(r['x'] - before['x']) < 60 and abs(r['y'] - before['y']) < 60, f"back=({r['x']:.0f},{r['y']:.0f}) orig=({before['x']:.0f},{before['y']:.0f})")
     ctx.close()
+    # 性能护栏（V11.3）：headless 走 SwiftShader 软件光栅必然 4fps（bloom 全屏
+    # 后处理 CPU 化）——fps 门必须在【有头真 GPU】实例里测。
+    hp = (p.chromium.launch(headless=False)).new_context(viewport={'width': 1280, 'height': 800}).new_page()
+    hp.goto(BOARD, wait_until='domcontentloaded')
+    hp.evaluate("() => localStorage.setItem('warroom-cfg-view','map')")
+    hp.wait_for_selector('[data-dsh-warroom-entry]', timeout=20000).click()
+    hp.wait_for_selector('.war-starfield3d', timeout=20000)
+    hp.wait_for_timeout(3500)
+    fps = hp.evaluate("""async () => {
+      let n = 0; const t0 = performance.now()
+      await new Promise(res => { const tick = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(tick); else res(null) }; requestAnimationFrame(tick) })
+      return n / ((performance.now() - t0) / 1000)
+    }""")
+    ok('fps>=45（有头真 GPU）', fps >= 45, f'{fps:.1f}fps')
+    hp.context.browser.close()
     browser.close()
 
 fails = [r for r in results if not r[1]]

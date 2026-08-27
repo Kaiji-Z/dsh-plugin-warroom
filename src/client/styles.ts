@@ -535,6 +535,9 @@ body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(e
 .war-s3d-overlay .war-planet,.war-s3d-overlay .war-orb{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform}
 .war-s3d-overlay .war-orb-ghost{position:absolute;left:0;top:0}
 .war-s3d-overlay .war-hq{position:absolute;left:0;top:0;pointer-events:none;font-size:0} /* 太阳本体在 canvas；DOM 只留语义（title/aria） */
+/* V11.3：canvas 行星已真实化，DOM 球退位成细环锚点（免得像颗黑月压在星球上） */
+.war-s3d-overlay .war-planet-ball{background:transparent;border-color:color-mix(in srgb,var(--dsw-alias-border-l2) 55%,transparent)}
+.war-s3d-overlay .war-planet.busy .war-planet-ball{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 65%,transparent)}
 .war-live-stack{position:absolute;left:50%;bottom:230px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:1;pointer-events:none}
 .war-live-bar{display:flex;gap:14px;align-items:center;padding:6px 14px;border-radius:999px;background:color-mix(in srgb, var(--war-card-bg) 82%, transparent);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 22px color-mix(in srgb,#000 18%,transparent);max-width:72vw;overflow:hidden}
 @supports (backdrop-filter: blur(8px)){.war-live-bar{backdrop-filter:blur(8px)}}

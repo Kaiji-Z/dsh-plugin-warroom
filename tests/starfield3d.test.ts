@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CAM_DIST_MAX, CAM_DIST_MIN, CAM_PITCH_MAX, CAM_PITCH_MIN, camPosition, clampCam, dampCam, galaxyLayout3D, initialCam, layoutExtent, moonPos3D } from '../src/client/starfield3d.tsx'
+import { CAM_DIST_MAX, CAM_DIST_MIN, CAM_PITCH_MAX, CAM_PITCH_MIN, archetypeOf, camPosition, clampCam, dampCam, galaxyLayout3D, initialCam, layoutExtent, moonPos3D, planetNoise } from '../src/client/starfield3d.tsx'
 
 /** V11.2 3D 太空战区纯数学：相机夹持/阻尼、松散散布确定性（元首规格②——不再
  * 同心环）、光点近地轨道、初始机位按外沿自适应。红线①：同输入恒同输出——
@@ -88,4 +88,19 @@ test('initialCam: 外沿越大机位越远、恒在夹持带内、中带收缩�
   assert.ok(pod.dist > big.dist, '中带被浮舱吃掉时机位应更远')
   const p = camPosition(initialCam(100, 1.8))
   assert.ok(Math.hypot(p.x, p.y, p.z) > 0)
+})
+
+test('V11.3 planetNoise/archetypeOf: 同种子恒同值、异种子异值、值域 [0,1]、原型合法', () => {
+  assert.equal(planetNoise('te:w/a', 0.3, 0.6), planetNoise('te:w/a', 0.3, 0.6), '同 seed 恒同值（贴图确定性根基）')
+  assert.notEqual(planetNoise('te:w/a', 0.3, 0.6), planetNoise('te:w/b', 0.3, 0.6), '异 seed 异貌')
+  // 周期性：u 环绕（equirect 接缝两侧同值）。
+  assert.ok(Math.abs(planetNoise('k', 0.999, 0.5) - planetNoise('k', 0.001, 0.5)) < 0.35, 'u 环绕近似连续')
+  for (let i = 0; i < 60; i++) {
+    const v = planetNoise(`k${i}`, i * 0.017, i * 0.031)
+    assert.ok(v >= 0 && v <= 1.0001, `值域 [0,1]: ${v}`)
+  }
+  for (const ws of ['w/a', 'w/b', 'w/c', 'd/e']) {
+    assert.equal(archetypeOf(ws), archetypeOf(ws), '同 wsPath 恒同型')
+    assert.ok(['gas', 'icegas', 'rust', 'gray', 'ice', 'terra'].includes(archetypeOf(ws)), `原型合法: ${archetypeOf(ws)}`)
+  }
 })

@@ -349,3 +349,15 @@
 5. **暗色残留第 4 次破案**：settings.yaml 的 `ui-theme: dark` 不是脚本写的——**:3080 活宿主界面切主题会持久化回 settings.yaml**（元首开着板切了暗色）。取证跑批前先核该文件；复现「v7 st-published 2.01」先查这个。
 
 验证：verify PASS + probe-v112 16/16 + shoot 三件套全绿（复位 light 后）；五机位复拍对比确认三组缺陷全消。
+
+## V11.3 星球真实化：NASA 自然色 + 星空提质（2026-08-27，元首定案「彩色的很 low」+ 三问拍板）
+
+**定案三问**：①色板=全 NASA 自然色（彩虹糖退役）；②环境动效放行（自转+云漂——「不造假运动」红线第二次修订，真实天体本就在转）；③范围锁星球+星空（母舰/战机保持）。**浅色模式不适用星空语义——深色为准，浅色只保不破不再投入**（元首本轮明示）。
+
+**六原型贴图管线**（取代 PLANET_HUES 彩虹板）：确定性值噪声（lattice 预生成 Float32Array，逐像素零字符串拼接——512x256 性能护栏）+ fBm 四阶金字塔（u 横向环绕无缝/极点夹持）；`archetypeOf(wsPath)` hash 分派 gas(木星米棕带纹+域扭曲+风暴斑)/icegas(海王深蓝弱带)/rust(火星锈岩+玄武斑+极冠+22 坑)/gray(水星密坑 36)/ice(冰壳裂脊线)/terra(深海+棕绿大陆+极冠)；同趟 ImageData 画 map+bump 高度场（bumpScale .45 终结线浮雕）；**模块级纹理缓存**（key=kind:wsPath，超 48 组丢最旧）——syncPlanets 随 SSE 高频重建网格但贴图终身画一次。
+
+**大气/云/自转**：BackSide fresnel 薄壳（1.15x，pow3.5 陡衰减，色随原型、gray 免）接棒 halo 光球（退役）；云壳 1.02x（fBm alphaMap 纬向拉伸，terra/rust）；轴倾 group.rotation.z、自转表面 rotation.y（0.02-0.055 rad/s，气巨 1.7x），云 1.35x 速差；reduced-motion 全冻结。emissive 0.42→0.06（夜面真黑）。星空：黑体谱星色（白/蓝白/黄白/橙/红橙）+ 银河带（倾斜大圆环 900 微星拟高斯散布+两片带向微光）+ 星云降调。
+
+**三轮目检排障（视觉检查工作流的价值证明）**：①首轮行星全炸白球——先疑大气 shader（uK 1→0.32 无效）再疑云层 Lambert 过曝（收覆盖无效），最终定位：**照片显示色直接当材质 albedo**（sRGB 238→线性 0.86）在 2.4 主光下必然白切——六套 ramp 全部压到真实反照率（气巨 0.35-0.5）+ 主光回 2.0 才治本；②headless fps=4 是 SwiftShader 软件光栅假象——**fps 门必须在有头真 GPU 实例测**（实测 60.1-60.3fps，probe 已内置 headful 实例）；③键盘缩放替代滚轮/双击捕拍（点空白聚焦 canvas 后 +/-/R——滚轮点会误开命令卡，中距截图拍成聚焦页）。DOM 球 3D 态弱化成细环（真实行星上压个黑球像黑月）。
+
+**验证**：verify PASS（新测试 planetNoise/archetypeOf 确定性+环绕连续性+原型合法）+ probe-v112 17/17（含 headful fps≥45）+ shoot 三件套全绿（v7 前又踩 ui-theme dark 回写——活宿主界面持久化，复位后背靠背跑批）。取证 `.goal/evidence/v11/v113-*.png`。
