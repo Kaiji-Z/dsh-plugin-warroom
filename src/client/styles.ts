@@ -559,7 +559,7 @@ body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(e
 .war-wz-chip.st-wait{color:#ffc24d;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.45)}
 .war-wz-chip.st-battle{color:#ff6a55;background:rgba(255,64,48,.12);border:1px solid rgba(255,80,64,.5)}
 .war-wz-chip.st-held{color:#66d4ff;background:rgba(77,163,255,.12);border:1px solid rgba(77,163,255,.5)}
-.war-board.wz-cmd .war-zone,.war-board.wz-cmd .war-dispatch{visibility:hidden} /* 指挥室全屏化：浮舱/坞让位 */
+/* V11.5：雷达=值班默认态，浮舱/坞是操作面恒在场（原 wz-cmd 全屏让位退役） */
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}
 .war-s3d-overlay .war-planet,.war-s3d-overlay .war-orb{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform}

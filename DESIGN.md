@@ -381,3 +381,15 @@
 ### V11.4b 「星链」星空修复（同日，元首目检「星星排列整齐像星链，不像星空」）
 
 真正的根因不在移植，在种子函数：裸 FNV-1a 对「只差末位一个字符的连续键」（星星 key:0..2799）输出**恰差 prime/2^32≈0.0039**——u/th 坐标渐变排队，2800 颗星被织成 720 条弧线（V11 起截图里的「点状弧线」一直误判成碎石带，实为星链）。修=hash01 加 murmur3 终结混叠（fmix32：xor15/imul/xor13/imul/xor16），全库散列受益且确定性不变；实测修后 u 序列全随机、分桶 259-311（理想 280），verify 全绿（无测试钉死旧值——当时立「断言关系不钉值」的纪律红利）。另按元首令恢复画布 alpha:true（透明底，容器 CSS 透出）。**教训入坑录：确定性种子函数对连续整型后缀键必须有终结雪崩，新哈希使用前先跑连续键相关性检查。**
+
+## V11.5 连线：真实板数据驱动 warzone（2026-08-27，元首愿景收敛定案）
+
+**愿景**（元首宏图收敛三答）：整个 AI 编程系统=太空战争——用户=舰长（HQ 母舰）、agent=舰队、星系=workspace、folder 星球层不做（收敛）；产品先插件后独立（多宿主 hub=第三阶段）；**雷达值班+3D 战略**双态（2D 指挥室为日常默认态——高信息密度值班，3D 星图为战略/演示态，V 键双向）。定位=k9s for AI agents 的星图渲染（state-first 导航对 history-first 会话列表的换轨）。
+
+**映射落法**：星球=workspace（N=去重战区数，命名=目录名·W-02，大小分级=历史任务量排名 top2 大/3-5 中/余小，`warzoneLayoutFor` 纯函数确定性散布）；状态=待进攻（无活跃）/作战中（有 live attempt，橙红脉冲+战火环）/已占领（有凯旋史，偏蓝+驻军弧=凯旋数）；编队=agent 会话（live attempt：holding 集结/已领未起跑→battle 交战/有动词→deployed 驻泊/配额暂停或待验收；spawn=母舰起飞 qbez、消失=返航消隐、相位随板迁移，`attemptPhaseOf` 纯函数）；inbound=待发命令数；WAR LOG=真实事件流（下令琥珀/凯旋蓝/败退红/待验收琥珀，`warLogOf` 30 封顶本地时分戳）；HQ 卡/星球卡/编队卡全部真实字段。**demo 自驱模拟（trySpawn/失守反转/自动攻占）整体退役**——bridged 态旁路，每颗星每次发光对应真实状态（红线）。
+
+**视图纪律**：雷达默认态下浮舱/坞**不再让位**（原 wz-cmd 全屏化退役）——雷达是态势底图，任务/战报舱与命令坞是操作面恒在场；HUD/图例/提示按 demo body.cmd 语义隐退。reduced-motion 冻结全程保留。
+
+**坑**：syncBoard 初稿把 SQ 编号当 sessionId diff 键+虚构 helper——返工为 WzSquad.sessionId 字段+squadBySession Map；rebuildBelt 是旧设计残留名（demo 碎石带本就固定母舰近郊，1:1 保持）；针脚 warzonePlanets 被树摇换 warzoneLayoutFor。
+
+**验证**：verify PASS（桥接 4 新测：warzoneLayoutFor 确定性/任务量分级/命名、attemptPhaseOf 暂停优先、warLogOf 倒序封顶 stamp）+ **probe-warzone(bridge) 14/14**（星球==去重 workspace、编队==live+reported、状态与编队在场一致红线、真实日志、雷达默认+浮舱在场、V 切 3D、HQ 卡真实行、59fps）+ shoot 三件套全绿（P2 连线版：雷达默认/浮舱恒在/HQ 卡带凯旋行/相机 OrbitControls）。取证 `.goal/evidence/v11/v115-*.png`。

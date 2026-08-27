@@ -20,6 +20,7 @@ import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
 import { galaxyLayout, garrisonOf, moonPos, planetLabel, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
 import { Warzone } from './starfield3d.tsx'
+import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type WzLogFeedItem } from './warzone-scene.ts'
 import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
@@ -2023,6 +2024,46 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             })
         })
       : []
+    // V11.5 连线：warzone 桥数据（宇宙=元首+workspace；编队=agent 会话；雷达值班）。
+    const wzPlanets: WzBridgePlanet[] = wsOrder.map(ws => {
+      const g = garrisonOf(tasks, ws)
+      return {
+        wsPath: ws,
+        activity: tasks.filter(t => t.workspacePath === ws).length,
+        status: g.orbs.length > 0 ? '作战中' : g.triumphs > 0 ? '已占领' : '待进攻',
+        garrison: g.triumphs,
+        failing: g.failing,
+        inbound: g.awaiting,
+      }
+    })
+    const wzSquads: WzBridgeSquad[] = []
+    for (const { t, a } of live) {
+      const verb = a.activity?.label ?? null
+      wzSquads.push({
+        sessionId: a.sessionId,
+        wsPath: t.workspacePath ?? '',
+        phase: attemptPhaseOf(verb, t.quotaPaused === true),
+        verb,
+        paused: t.quotaPaused === true,
+        sourceLabel: commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? null,
+      })
+    }
+    for (const t of tasks.filter(tk => tk.status === 'reported')) {
+      const last = [...(t.attemptLog ?? [])].reverse().find(a => a.outcome === 'reported')
+      if (last === undefined) continue
+      wzSquads.push({ sessionId: last.sessionId, wsPath: t.workspacePath ?? '', phase: 'deployed', verb: null, paused: false, sourceLabel: commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? null })
+    }
+    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: '#ffc98a', text: `下令 · ${c.text.slice(0, 18)}` }))
+    for (const t of tasks) {
+      const src = commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? t.title.slice(0, 12)
+      for (const a of t.attemptLog ?? []) {
+        if (a.outcome === null || a.endedAt === null) continue
+        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: '#5fc4ff', text: `凯旋 · ${src}` })
+        else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: '#ff5a5a', text: `败退 · ${src}` })
+        else wzLogFeed.push({ ts: a.endedAt, color: '#ffc24d', text: `战报待验收 · ${src}` })
+      }
+    }
+    const wzLog = warLogOf(wzLogFeed)
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = focusCommandId ?? hoverFamily
     // V10.1 元首定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
@@ -2136,6 +2177,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             : createElement(Warzone, {
                 key: 'starfield3d',
                 ariaLabel: activeCopy().starfield.aria,
+                active: data.active,
+                planets: wzPlanets,
+                squads: wzSquads,
+                log: wzLog,
                 onUnavailable: () => { setNo3d(true) },
               })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。

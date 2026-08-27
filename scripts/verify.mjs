@@ -136,7 +136,7 @@ gate('bundle', () => {
     [client, 'war-island-panel', 'island expanded overlay panel (non-pushing)'],
     [client, 'visitMini', 'island visit mini digest copy (both skins)'],
     [client, 'scrollIntoView', 'hover family auto-scroll to highlighted cards'],
-    [client, 'warzonePlanets', 'V11.4 warzone demo 1:1 port (deterministic planet gen)'],
+    [client, 'warzoneLayoutFor', 'V11.5 warzone bridge: real-workspace deterministic planet gen'],
     [client, 'FLEET ROSTER', 'V11.4 tactical 2D command view ported'],
     [client, 'HEADQUARTERS', 'V11.4 HQ mothership + tooltip card ported'],
     [client, 'WebGLRenderer', 'V11 3D starfield three.js bundled (no runtime require)'],

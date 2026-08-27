@@ -173,10 +173,14 @@ with sync_playwright() as p:
     assert sf.locator(".war-wz-3d").count() == 1 and page.evaluate("() => document.querySelector('.war-wz-3d').width > 0"), "warzone 3D canvas 未渲染"
     assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
+    # 雷达值班默认态下 HUD/图例/提示按 demo 语义隐退（在场性可查、可见性留给 3D 态）
     for sel, name in [(".war-wz-hud", "HUD"), (".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
-        assert sf.locator(sel).count() == 1 and sf.locator(sel).is_visible(), f"warzone {name} 件缺席"
-    wz = page.evaluate("() => { const w = window.__wz; const ps = w.scene.planets; return { n: ps.length, cls: [ps.filter(p=>p.cls==='large').length, ps.filter(p=>p.cls==='medium').length, ps.filter(p=>p.cls==='small').length], squads: w.scene.squads.length, log: w.scene.log.length } }")
-    assert wz["n"] == 16 and wz["cls"] == [3, 6, 7], f"warzone 星球 16（大3中6小7）不符：{wz}"
+        assert sf.locator(sel).count() == 1, f"warzone {name} 件缺席"
+    assert sf.locator(".war-wz-toggle").is_visible(), "视图切换钮必须恒可见"
+    wz = page.evaluate("() => { const w = window.__wz; const ps = w.scene.planets; return { n: ps.length, names: ps.map(p=>p.name), squads: w.scene.squads.length, log: w.scene.log.length, modes: ps.map(p=>p.status) } }")
+    ws_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return new Set(b.tasks.map(t => t.workspacePath).filter(Boolean)).size }")
+    assert wz["n"] == ws_n, f"warzone 星球数应==去重 workspace 数 {ws_n}，got {wz['n']}"
+    assert all(' · W-' in n for n in wz['names']), f"星球命名应=目录名·W-编号：{wz['names'][:2]}"
     assert wz["squads"] >= 1 and wz["log"] >= 1, f"编队/日志未跑起来：{wz}"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
@@ -196,21 +200,20 @@ with sync_playwright() as p:
     top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")
     assert top_el, "灵动岛必须浮于星域之上（岛中心命中岛自身）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
-    # V11.4：悬停信息卡（画面中心=HQ 拾取代理）+ 指挥室切换闭环
+    # V11.5 连线：雷达=值班默认态（挂载即 cmd、浮舱/坞恒在场）；V 双向切换
+    assert page.locator(".war-wz-tac").is_visible(), "雷达值班默认态未生效（挂载应即指挥室）"
+    assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-dispatch").is_visible(), "雷达态浮舱/坞必须在场（操作面恒在）"
+    page.screenshot(path=str(OUT / "v10-map-cmd.png"))
+    page.keyboard.press("v")
+    page.wait_for_timeout(700)
+    assert page.evaluate("() => window.__wz.mode()") == "3d" and not page.locator(".war-wz-tac").is_visible(), "V 键未切到 3D 战略态"
+    # 3D 悬停信息卡（画面中心=HQ 拾取代理）：真实战力行
     page.mouse.move(sf_bb["x"] + sf_bb["width"] / 2, sf_bb["y"] + sf_bb["height"] / 2)
     page.wait_for_timeout(700)
     assert page.locator(".war-wz-tip").is_visible(), "悬停信息卡未现身（画面中心应命中 HQ 代理）"
-    assert "HEADQUARTERS" in page.locator(".war-wz-tip").inner_text(), "HQ 卡内容不符"
+    tip_txt = page.locator(".war-wz-tip").inner_text()
+    assert "HEADQUARTERS" in tip_txt and "凯旋" in tip_txt, f"HQ 卡应带真实战力行：{tip_txt[:40]}"
     page.mouse.move(8, 300)
-    page.locator('.war-wz-toggle button[data-wz-mode="cmd"]').click()
-    page.wait_for_timeout(500)
-    assert page.locator(".war-wz-tac").is_visible(), "指挥室 2D 战术画布未现身"
-    assert page.evaluate("() => document.querySelector('.war-board').classList.contains('wz-cmd')"), "指挥室模式 board 缺 wz-cmd 类（浮舱未让位）"
-    page.screenshot(path=str(OUT / "v10-map-cmd.png"))
-    page.keyboard.press("v")
-    page.wait_for_timeout(500)
-    assert page.evaluate("() => window.__wz.mode()") == "3d", "V 键未切回现实视图"
-    assert not page.locator(".war-wz-tac").is_visible(), "切回后 2D 画布应隐退"
     # V11.4 相机（demo OrbitControls 正案）：左键旋转/滚轮缩放（中键推拉）。
     spot = page.evaluate("""() => {
       const box = document.querySelector('.war-starfield3d').getBoundingClientRect();

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ease, pad2, qbez, warzonePlanets } from '../src/client/warzone-scene.ts'
+import { attemptPhaseOf, ease, pad2, qbez, warLogOf, warzoneLayoutFor, warzonePlanets } from '../src/client/warzone-scene.ts'
 
 /** V11.4 warzone demo 移植的纯函数面：星球布局确定性（红线①——同种子恒同貌，
  * SSE 零抖动、探针可断言的根基）+ 贝塞尔航迹几何。 */
@@ -55,4 +55,45 @@ test('ease/pad2: 缓动端点与补零（demo 逐字行为）', () => {
   assert.ok(ease(0.25) < 0.25, '前半程慢启动')
   assert.equal(pad2(3), '03')
   assert.equal(pad2(17), '17')
+})
+
+test('V11.5 warzoneLayoutFor: 真实 workspace 谱——确定性/大小按任务量排名/命名编号', () => {
+  const ws = ['D:/repo/alpha', 'D:/repo/beta', 'D:/repo/gamma', 'D:/repo/deploy', 'D:/repo/docs', 'D:/repo/ops', 'D:/repo/tools', 'D:/repo/ui', 'D:/repo/web']
+  const act = [12, 1, 5, 30, 2, 0, 3, 8, 4]
+  const a = warzoneLayoutFor(ws, act)
+  const b = warzoneLayoutFor(ws, act)
+  assert.deepEqual(a, b, '同谱恒同布局（SSE 零抖动）')
+  assert.equal(a.length, ws.length)
+  // 任务量 top2（deploy 30/alpha 12）=大星；3-5 名（ui 8/gamma 5/web 4）=中星。
+  const clsOf = new Map(a.map(p => [p.name.split(' ·')[0]!, p.cls]))
+  assert.equal(clsOf.get('deploy'), 'large')
+  assert.equal(clsOf.get('alpha'), 'large')
+  assert.equal(clsOf.get('ui'), 'medium')
+  assert.equal(clsOf.get('ops'), 'small')
+  assert.equal(a[0]!.name, 'alpha · W-01', '命名=目录名 · W-编号')
+  // 间距拒绝采样仍生效。
+  for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) {
+    const d = Math.hypot(a[i]!.x - a[j]!.x, a[i]!.y - a[j]!.y, a[i]!.z - a[j]!.z)
+    assert.ok(d > a[i]!.radius + a[j]!.radius, '真实谱星球不叠')
+  }
+})
+
+test('V11.5 attemptPhaseOf: 配额暂停=驻泊 / 有动词=交战 / 否则=集结', () => {
+  assert.equal(attemptPhaseOf(null, false), 'holding')
+  assert.equal(attemptPhaseOf('', false), 'holding')
+  assert.equal(attemptPhaseOf('编辑中', false), 'battle')
+  assert.equal(attemptPhaseOf(null, true), 'deployed', '暂停优先于动词（等你 > 机器在动）')
+  assert.equal(attemptPhaseOf('编辑中', true), 'deployed')
+})
+
+test('V11.5 warLogOf: 时间倒序 + 30 封顶 + stamp 本地时分', () => {
+  const items = [
+    { ts: '2026-08-27T10:00:00Z', color: '#a', text: '早' },
+    { ts: '2026-08-27T09:00:00Z', color: '#b', text: '更早' },
+    ...Array.from({ length: 40 }, (_, i) => ({ ts: `2026-08-26T0${i % 10}:30:00Z`, color: '#c', text: `条目${i}` })),
+  ]
+  const log = warLogOf(items)
+  assert.equal(log.length, 30, '30 封顶')
+  assert.equal(log[0]!.text, '早', '最新在前')
+  assert.ok(log[0]!.stamp !== undefined && /^\d{2}:\d{2}$/.test(log[0]!.stamp!), 'stamp=本地时分')
 })

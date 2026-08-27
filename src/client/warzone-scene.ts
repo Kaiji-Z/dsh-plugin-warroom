@@ -110,6 +110,115 @@ export function warzonePlanets(seed = 'warzone'): WzPlanetSpec[] {
 }
 
 /* ================================================================
+ * 板桥接（V11.5 连线）：宇宙 = 元首（HQ）+ workspace（星球）+ agent 会话（编队）。
+ * 以下纯函数导出单测钉死；demo 自驱模拟（trySpawn/失守反转）在 bridged 态旁路。
+ * ================================================================ */
+
+const dirNameOf = (wsPath: string): string => {
+  const parts = wsPath.split(/[\\/]+/).filter(p => p.length > 0)
+  return parts.length > 0 ? parts[parts.length - 1]! : wsPath
+}
+
+export interface WzBridgePlanet {
+  readonly wsPath: string
+  /** 历史任务量（大小分级依据：多仗=大星）。 */
+  readonly activity: number
+  readonly status: '待进攻' | '作战中' | '已占领'
+  /** 凯旋数（驻军弧）。 */
+  readonly garrison: number
+  readonly failing: number
+  /** 待发（inbound 计数）。 */
+  readonly inbound: number
+}
+
+export type WzSquadPhase = 'outbound' | 'battle' | 'deployed' | 'holding' | 'return'
+
+export interface WzBridgeSquad {
+  readonly sessionId: string
+  readonly wsPath: string
+  /** 板面判定相位：battle=执行中 / deployed=驻泊（待验收或配额暂停）/ holding=集结待命。 */
+  readonly phase: 'battle' | 'deployed' | 'holding'
+  readonly verb: string | null
+  readonly paused: boolean
+  readonly sourceLabel: string | null
+}
+
+/** 真实 workspace 谱系（纯）：沿用 demo 轨道/间距算法，命名=目录名 · W-02，
+ * 大小分级按历史任务量排名（前 2 大 / 中 3 / 余小；不足时降级取齐）。 */
+export function warzoneLayoutFor(wsPaths: readonly string[], activity: readonly number[], seed = 'bridge'): WzPlanetSpec[] {
+  const hues = [0.58, 0.66, 0.75, 0.55, 0.08, 0.03, 0.14, 0.47]
+  const rank = wsPaths.map((_, i) => i).sort((a, b) => activity[b]! - activity[a]!)
+  const clsOf = new Map<number, WzClass>()
+  rank.forEach((idx, r) => { clsOf.set(idx, r < 2 && wsPaths.length > 2 ? 'large' : r < 5 && wsPaths.length > 4 ? 'medium' : 'small') })
+  const placed: Array<{ x: number; y: number; z: number; radius: number }> = []
+  return wsPaths.map((wsPath, i) => {
+    const k = `${seed}:${wsPath}`
+    const cls = clsOf.get(i) ?? 'small'
+    const radius = cls === 'large' ? det(`r:${k}`, 9, 13) : cls === 'medium' ? det(`r:${k}`, 4.5, 6.5) : det(`r:${k}`, 1.8, 3)
+    const orbit = {
+      r: cls === 'large' ? det(`or:${k}`, 175, 260) : cls === 'medium' ? det(`or:${k}`, 95, 175) : det(`or:${k}`, 60, 150),
+      ecc: det(`oe:${k}`, 0.05, 0.22),
+      speed: det(`os:${k}`, 0.008, 0.028) * (detBool(`od:${k}`, 0.5) ? 1 : -1),
+      angle: det(`oa:${k}`, 0, PI2),
+      phase: det(`op:${k}`, 0, PI2),
+      tiltA: det(`ot:${k}`, 4, 22),
+      yBase: det(`oy:${k}`, -38, 38),
+    }
+    let x = 0, y = 0, z = 0
+    for (let tr = 0; tr < 24; tr++) {
+      orbit.angle = det(`oa:${k}:${tr}`, 0, PI2)
+      orbit.yBase = det(`oy:${k}:${tr}`, -38, 38)
+      const rr = orbit.r * (1 + orbit.ecc * Math.sin(orbit.angle * 1.618 + orbit.phase))
+      x = Math.cos(orbit.angle) * rr
+      z = Math.sin(orbit.angle) * rr
+      y = orbit.yBase + Math.sin(orbit.angle * 0.9 + orbit.phase * 2) * orbit.tiltA
+      if (placed.every(p => Math.hypot(x - p.x, y - p.y, z - p.z) > p.radius + radius + 20)) break
+    }
+    placed.push({ x, y, z, radius })
+    return {
+      index: i,
+      cls,
+      name: `${dirNameOf(wsPath)} · W-${pad2(i + 1)}`,
+      radius,
+      level: cls === 'large' ? 4 : cls === 'medium' ? 3 : detBool(`lv:${k}`, 0.5) ? 2 : 1,
+      hue: hues[i % hues.length]! + det(`hu:${k}`, -0.03, 0.03),
+      sat: det(`sa:${k}`, 0.5, 0.7),
+      light: det(`li:${k}`, 0.42, 0.58),
+      heldStart: false,
+      garrison: 0,
+      rotSpeed: det(`rs:${k}`, 0.02, 0.12) * (detBool(`rd:${k}`, 0.5) ? 1 : -1),
+      seed: det(`sd:${k}`, 0, 10),
+      orbit,
+      x, y, z,
+    }
+  })
+}
+
+/** attempt → 编队相位（纯）：配额暂停=驻泊（等你）；有动词=交战（机器在动）；
+ * 否则=集结（已领取未起跑）。颜色语义与板面四档对齐由雷达/光晕负责。 */
+export function attemptPhaseOf(verb: string | null, paused: boolean): 'battle' | 'deployed' | 'holding' {
+  if (paused) return 'deployed'
+  if (verb !== null && verb !== '') return 'battle'
+  return 'holding'
+}
+
+export interface WzLogFeedItem { readonly ts: string; readonly color: string; readonly text: string }
+
+/** 战况日志（纯）：命令下达（琥珀）+ attempt 结算（凯旋蓝/败红/报琥珀）按时间倒序，30 封顶。 */
+export function warLogOf(items: readonly WzLogFeedItem[]): WzLogEntry[] {
+  return items
+    .slice()
+    .sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0))
+    .slice(0, 30)
+    .map(e => ({ t: new Date(e.ts).getTime() / 1000, color: e.color, text: e.text, stamp: fmtStamp(e.ts) }))
+}
+
+const fmtStamp = (ts: string): string => {
+  const d = new Date(ts)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/* ================================================================
  * 场景实体与引擎
  * ================================================================ */
 
@@ -117,6 +226,7 @@ export interface WzPlanet {
   kind: 'planet'
   id: number
   name: string
+  wsPath: string
   cls: WzClass
   level: number
   radius: number
@@ -128,6 +238,7 @@ export interface WzPlanet {
   orbit: WzPlanetSpec['orbit']
   status: WzStatus
   garrison: number
+  failing: number
   battleT: number
   ringT: number
   inbound: number
@@ -139,6 +250,8 @@ export interface WzPlanet {
 export interface WzSquad {
   kind: 'squad'
   id: number
+  /** 板面会话号（bridged diff 的键；demo 自驱为 null）。 */
+  sessionId: string | null
   code: string
   cname: string
   group: THREE.Group
@@ -146,7 +259,12 @@ export interface WzSquad {
   glowMat: THREE.SpriteMaterial
   ships: number
   target: WzPlanet
-  phase: 'outbound' | 'battle' | 'deployed' | 'return'
+  phase: WzSquadPhase
+  /** 板面判定相位（bridged：arrival 后相位追它；不参与运动学）。 */
+  boardPhase: 'battle' | 'deployed' | 'holding'
+  verb: string | null
+  paused: boolean
+  sourceLabel: string | null
   t: number
   start: THREE.Vector3
   ctrl: THREE.Vector3
@@ -157,7 +275,7 @@ export interface WzSquad {
   battleT: number
 }
 
-export interface WzLogEntry { t: number; color: string; text: string }
+export interface WzLogEntry { t: number; color: string; text: string; stamp?: string }
 
 const CFG = { planetCount: 16, squadCap: 9, squadSpeed: 26, spawnGapLo: 4.5, spawnGapHi: 8 }
 
@@ -246,6 +364,11 @@ export class WarzoneScene {
   private flipT = 14
   private spawnEpoch = 0
   private flipEpoch = 0
+  /** V11.5 连线态：星球/编队/日志全由 syncBoard 真实数据驱动，demo 自驱模拟旁路。 */
+  private bridged = false
+  private hqActive = true
+  private planetKey = ''
+  private readonly squadBySession = new Map<string, WzSquad>()
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     // alpha:true（元首定）：画布透明，容器 CSS 底透出。
@@ -289,8 +412,43 @@ export class WarzoneScene {
     this.hqBeacon = hq.userData.beacon as THREE.Mesh
     this.scene.add(new THREE.PointLight(0xff8844, 1500, 220, 2).translateY(-26))
     this.scene.add(new THREE.PointLight(0x66ccff, 900, 200, 2).translateY(36))
-    this.buildPlanets()
-    this.seedInitialSquads()
+    // V11.5：星球/编队不再自建（demo 自驱退役）——挂载后由 syncBoard 真实数据落子。
+  }
+
+  /** 单星球落子（桥接 syncBoard 驱动）。 */
+  private addPlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
+    const sphereGeo = new THREE.SphereGeometry(1, 16, 12)
+    const hitGeo = new THREE.SphereGeometry(1, 8, 6)
+    const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
+    this.disposables.push(sphereGeo, hitGeo, hitMat)
+    const base = new THREE.Color().setHSL(spec.hue, spec.sat, spec.light)
+    const tex = planetTexture(base, `p${spec.index}`)
+    const mesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
+      map: tex, flatShading: true, roughness: 0.92, metalness: 0.05,
+      emissive: base.clone().lerp(new THREE.Color(1, 1, 1), 0.15), emissiveMap: tex, emissiveIntensity: 0.32,
+    }))
+    mesh.scale.setScalar(spec.radius)
+    mesh.position.set(spec.x, spec.y, spec.z)
+    this.scene.add(mesh)
+    const baseGlow = base.clone().lerp(new THREE.Color(1, 1, 1), 0.3)
+    const halo = this.glowSprite(baseGlow.clone(), spec.radius * 3.4, 0.32)
+    halo.position.copy(mesh.position)
+    this.scene.add(halo)
+    const proxy = new THREE.Mesh(hitGeo, hitMat)
+    proxy.scale.setScalar(Math.max(spec.radius * 1.35, 4.5))
+    proxy.position.copy(mesh.position)
+    this.scene.add(proxy)
+    this.pickables.push(proxy)
+    const p: WzPlanet = {
+      kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
+      radius: spec.radius, mesh, halo, proxy, baseGlow, haloScale: spec.radius * 3.4,
+      orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
+      seed: spec.seed, rot: spec.rotSpeed,
+    }
+    mesh.userData.ref = p
+    proxy.userData.ref = p
+    this.planets.push(p)
+    return p
   }
 
   private buildStars(): void {
@@ -446,42 +604,6 @@ export class WarzoneScene {
     return sp
   }
 
-  private buildPlanets(): void {
-    const sphereGeo = new THREE.SphereGeometry(1, 16, 12)
-    const hitGeo = new THREE.SphereGeometry(1, 8, 6)
-    const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
-    this.disposables.push(sphereGeo, hitGeo, hitMat)
-    for (const spec of warzonePlanets('warzone')) {
-      const base = new THREE.Color().setHSL(spec.hue, spec.sat, spec.light)
-      const tex = planetTexture(base, `p${spec.index}`)
-      const mesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
-        map: tex, flatShading: true, roughness: 0.92, metalness: 0.05,
-        emissive: base.clone().lerp(new THREE.Color(1, 1, 1), 0.15), emissiveMap: tex, emissiveIntensity: 0.32,
-      }))
-      mesh.scale.setScalar(spec.radius)
-      mesh.position.set(spec.x, spec.y, spec.z)
-      this.scene.add(mesh)
-      const baseGlow = base.clone().lerp(new THREE.Color(1, 1, 1), 0.3)
-      const halo = this.glowSprite(baseGlow.clone(), spec.radius * 3.4, 0.32)
-      halo.position.copy(mesh.position)
-      this.scene.add(halo)
-      const proxy = new THREE.Mesh(hitGeo, hitMat)
-      proxy.scale.setScalar(Math.max(spec.radius * 1.35, 4.5))
-      proxy.position.copy(mesh.position)
-      this.scene.add(proxy)
-      this.pickables.push(proxy)
-      const p: WzPlanet = {
-        kind: 'planet', id: spec.index, name: spec.name, cls: spec.cls, level: spec.level,
-        radius: spec.radius, mesh, halo, proxy, baseGlow, haloScale: spec.radius * 3.4,
-        orbit: spec.orbit, status: spec.heldStart ? '已占领' : '待进攻', garrison: spec.garrison,
-        battleT: 0, ringT: 0, inbound: 0, deployedSquads: [], seed: spec.seed, rot: spec.rotSpeed,
-      }
-      mesh.userData.ref = p
-      proxy.userData.ref = p
-      this.planets.push(p)
-    }
-  }
-
   private makeShip(parent: THREE.Group, glowMat: THREE.SpriteMaterial): void {
     const shipHullMat = new THREE.MeshStandardMaterial({ color: 0x8d99b0, metalness: 0.85, roughness: 0.3, flatShading: true })
     const shipAccMat = new THREE.MeshStandardMaterial({ color: 0x51427e, metalness: 0.7, roughness: 0.35, flatShading: true })
@@ -497,7 +619,7 @@ export class WarzoneScene {
     this.disposables.push(body.geometry, wing.geometry, fin.geometry, eng.geometry)
   }
 
-  private createSquad(target: WzPlanet, phase: 'outbound' | 'deployed' = 'outbound', presetT = 0): WzSquad {
+  private createSquad(target: WzPlanet, phase: WzSquadPhase = 'outbound', presetT = 0, info?: { verb: string | null; paused: boolean; sourceLabel: string | null; boardPhase: 'battle' | 'deployed' | 'holding' }): WzSquad {
     const id = this.squadSeq++
     const group = new THREE.Group()
     const glowMat = new THREE.SpriteMaterial({
@@ -526,17 +648,20 @@ export class WarzoneScene {
     this.scene.add(proxy)
     this.pickables.push(proxy)
     const s: WzSquad = {
-      kind: 'squad', id, code: 'SQ-' + pad2(id), cname: `第${id}突击编队`,
+      kind: 'squad', id, sessionId: null, code: 'SQ-' + pad2(id),
+      cname: info !== undefined ? (info.sourceLabel ?? info.verb ?? `执行编队`) : `第${id}突击编队`,
       group, proxy, glowMat, ships: n, target, phase,
+      boardPhase: info?.boardPhase ?? 'deployed',
+      verb: info?.verb ?? null, paused: info?.paused ?? false, sourceLabel: info?.sourceLabel ?? null,
       t: presetT, start, ctrl: new THREE.Vector3(), dur: 1,
       seed: det(`ss:${id}`, 0, 10), orbitA: det(`so:${id}`, 0, PI2),
       orbitSpd: det(`sp:${id}`, 0.8, 1.4), battleT: 0,
     }
     this.planPath(s, target.mesh.position, target.radius + 6)
-    if (phase === 'outbound') target.inbound++
+    if (phase === 'outbound' && !this.bridged) target.inbound++
     proxy.userData.ref = s
     this.squads.push(s)
-    if (phase === 'outbound') this.pushLog('#ffc98a', `${s.code} ${s.cname}出击 ▸ ${target.name.split(' ·')[0]!}`)
+    if (phase === 'outbound' && !this.bridged) this.pushLog('#ffc98a', `${s.code} ${s.cname}出击 ▸ ${target.name.split(' ·')[0]!}`)
     return s
   }
 
@@ -550,9 +675,15 @@ export class WarzoneScene {
 
   private squadArrive(s: WzSquad): void {
     const p = s.target
-    p.inbound = Math.max(0, p.inbound - 1)
+    if (!this.bridged) p.inbound = Math.max(0, p.inbound - 1)
     const rel = _v1.copy(s.group.position).sub(p.mesh.position)
     s.orbitA = Math.atan2(rel.z, rel.x)
+    if (this.bridged) {
+      // 连线态：到达即落板面相位（交战/驻泊/集结）——星球状态不由此改写（红线）。
+      s.phase = s.boardPhase
+      s.orbitSpd = det(`osd:${s.id}`, 0.4, 0.7)
+      return
+    }
     if (p.status === '待进攻') {
       p.status = '作战中'
       s.phase = 'battle'
@@ -581,6 +712,7 @@ export class WarzoneScene {
     this.scene.remove(s.group, s.proxy)
     const pi = this.pickables.indexOf(s.proxy)
     if (pi >= 0) this.pickables.splice(pi, 1)
+    if (s.sessionId !== null) this.squadBySession.delete(s.sessionId)
     this.squads.splice(i, 1)
   }
 
@@ -590,19 +722,6 @@ export class WarzoneScene {
     s.start = s.group.position.clone()
     s.phase = 'return'
     this.planPath(s, _v1.set(0, -6, 0), 14)
-  }
-
-  private seedInitialSquads(): void {
-    let dep = 0
-    this.planets.filter(p => p.status === '已占领').forEach(p => {
-      if (dep++ < 5) {
-        const s = this.createSquad(p, 'deployed')
-        s.group.position.copy(p.mesh.position).add(_v1.set(p.radius + 8, 2, 0))
-      }
-    })
-    const targets = this.planets.filter(p => p.status === '待进攻')
-    if (targets.length) this.createSquad(targets[Math.floor(det(`i0`, 0, targets.length)) % targets.length]!)
-    if (targets.length > 1) this.createSquad(targets[1 + Math.floor(det(`i1`, 0, targets.length - 1))]!, 'outbound', 0.35)
   }
 
   private spawnRing(pos: THREE.Vector3, radius: number, color: number): void {
@@ -683,10 +802,11 @@ export class WarzoneScene {
     this.simT += dt
     const hq = this.hqBeacon.parent as THREE.Group
     hq.rotation.y += dt * 0.06
+    const duty = this.hqActive ? 1 : 0.32
     const pulse = 1 + 0.18 * Math.sin(t * 5)
-    this.hqEngines.forEach((sp, i) => sp.scale.setScalar(9 * (1 + 0.16 * Math.sin(t * 5 + i * 1.7))))
-    this.hqEngineMat.opacity = 0.7 + 0.25 * pulse * 0.5
-    ;(this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar(0.8 + 0.3 * Math.sin(t * 3))
+    this.hqEngines.forEach((sp, i) => sp.scale.setScalar(9 * duty * (1 + 0.16 * Math.sin(t * 5 + i * 1.7))))
+    this.hqEngineMat.opacity = (0.7 + 0.25 * pulse * 0.5) * duty
+    ;(this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
     for (const p of this.planets) {
       const o = p.orbit
       o.angle += o.speed * dt
@@ -732,7 +852,7 @@ export class WarzoneScene {
         const by = Math.sin(t * 1.6 + s.seed) * 2.5
         s.group.position.set(tp.x + Math.cos(s.orbitA) * rr, tp.y + by, tp.z + Math.sin(s.orbitA) * rr)
         s.group.lookAt(tp.x + Math.cos(s.orbitA + 0.35) * rr, tp.y + by, tp.z + Math.sin(s.orbitA + 0.35) * rr)
-        if (s.phase === 'battle') {
+        if (s.phase === 'battle' && !this.bridged) {
           s.battleT -= dt
           if (s.battleT <= 0) this.capturePlanet(s.target, s)
         }
@@ -741,10 +861,76 @@ export class WarzoneScene {
       s.proxy.position.copy(s.group.position)
     }
     this.updateRings(dt, this.camera)
-    this.warLoop(dt)
+    if (!this.bridged) this.warLoop(dt)
     this.starMat.uniforms.uTime!.value = t
     this.starGroup.rotation.y += dt * 0.004
     this.belt.rotation.y += dt * 0.01
+  }
+
+  /** 板同步（V11.5 连线正门）：星球集（wsPath 变更时整组重建，否则原地刷状态）
+   * + 编队 diff（新会话=母舰起飞 / 消失=返航 / 相位迁移随板面）+ WAR LOG 整组
+   * 替换 + HQ 战时开关。此后 demo 自驱永久旁路。 */
+  syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> }): void {
+    this.bridged = true
+    this.hqActive = bridge.active
+    const key = bridge.planets.map(p => p.wsPath).join('|')
+    if (key !== this.planetKey) {
+      for (const p of this.planets) {
+        this.scene.remove(p.mesh, p.halo, p.proxy)
+        const pi = this.pickables.indexOf(p.proxy)
+        if (pi >= 0) this.pickables.splice(pi, 1)
+        ;(p.mesh.material as THREE.MeshStandardMaterial).map?.dispose()
+        ;(p.mesh.material as THREE.MeshStandardMaterial).emissiveMap?.dispose()
+        ;(p.mesh.material as THREE.Material).dispose()
+        p.halo.material.dispose()
+        p.mesh.geometry.dispose()
+      }
+      this.planets.length = 0
+      this.planetKey = key
+      const specs = warzoneLayoutFor(bridge.planets.map(p => p.wsPath), bridge.planets.map(p => p.activity))
+      for (const sp of specs) {
+        const b = bridge.planets[sp.index]!
+        this.addPlanet(sp, b.wsPath, b.status, b.garrison, b.failing, b.inbound)
+      }
+    } else {
+      bridge.planets.forEach((b, i) => {
+        const p = this.planets[i]
+        if (p === undefined) return
+        p.status = b.status
+        p.garrison = b.garrison
+        p.failing = b.failing
+        p.inbound = b.inbound
+      })
+    }
+    const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
+    const live = new Set(bridge.squads.map(s => s.sessionId))
+    for (const s of [...this.squads]) {
+      if (s.sessionId !== null && !live.has(s.sessionId) && s.phase !== 'return') {
+        this.sendHome(s)
+        this.pushLog('#9a86ff', `${s.code} ${s.cname} 返航 · 会话收束`)
+      }
+    }
+    for (const bs of bridge.squads) {
+      const existing = this.squadBySession.get(bs.sessionId)
+      const planet = byWs.get(bs.wsPath)
+      if (planet === undefined) continue
+      if (existing === undefined) {
+        const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase })
+        s.sessionId = bs.sessionId
+        this.squadBySession.set(bs.sessionId, s)
+        this.pushLog('#ffc98a', `${s.code} ${bs.sourceLabel ?? bs.verb ?? '执行会话'}出击 ▸ ${planet.name.split(' ·')[0]!}`)
+        continue
+      }
+      existing.verb = bs.verb
+      existing.paused = bs.paused
+      existing.sourceLabel = bs.sourceLabel
+      if (bs.sourceLabel !== null || bs.verb !== null) existing.cname = bs.sourceLabel ?? bs.verb ?? existing.cname
+      existing.boardPhase = bs.phase
+      if (existing.phase !== 'return' && existing.phase !== 'outbound' && existing.phase !== bs.phase) existing.phase = bs.phase
+      if (existing.target !== planet) existing.target = planet
+    }
+    this.log.length = 0
+    this.log.push(...bridge.log)
   }
 
   render(): void {
@@ -956,7 +1142,7 @@ export class WarzoneTactical {
       const ry = 64 + 40 + i * 31
       const ph = s.phase
       const col = ph === 'battle' ? '#ff7755' : ph === 'return' ? '#9a86ff' : ph === 'deployed' ? '#5fc4ff' : '#ffc98a'
-      const stTxt = ph === 'outbound' ? `出征 ${Math.min(99, s.t * 100) | 0}%` : ph === 'battle' ? '交战中' : ph === 'deployed' ? '已部署' : `返航 ${Math.min(99, s.t * 100) | 0}%`
+      const stTxt = ph === 'outbound' ? `出征 ${Math.min(99, s.t * 100) | 0}%` : ph === 'battle' ? (s.verb ?? '交战中') : ph === 'deployed' ? (s.paused ? '暂停待命' : '驻泊待验收') : ph === 'holding' ? '集结待命' : `返航 ${Math.min(99, s.t * 100) | 0}%`
       g.fillStyle = '#dceaff'; g.font = '11px Consolas,"Microsoft YaHei"'; g.textAlign = 'left'
       g.fillText(`${s.code}`, 28, ry)
       g.fillStyle = col; g.fillText(stTxt, 82, ry)
@@ -986,9 +1172,8 @@ export class WarzoneTactical {
     this.panel(rpX, 156, rpW, 44 + lgN * 22, '战况速报 WAR LOG')
     log.slice(0, 9).forEach((e, i) => {
       const ey = 156 + 44 + i * 22
-      const mm = pad2(e.t / 60 | 0), ss = pad2(e.t % 60 | 0)
       g.fillStyle = 'rgba(140,170,200,.6)'; g.font = '10px Consolas'; g.textAlign = 'left'
-      g.fillText(`T+${mm}:${ss}`, rpX + 12, ey)
+      g.fillText(e.stamp ?? `T+${pad2(e.t / 60 | 0)}:${pad2(e.t % 60 | 0)}`, rpX + 12, ey)
       g.fillStyle = e.color; g.font = '11px "Microsoft YaHei"'
       g.fillText(e.text, rpX + 76, ey)
     })
