@@ -87,6 +87,7 @@ body[data-ds-dark-theme] .war-root{
 
 /* --- V8 hero 灵动岛（标题栏替代）：收起=计数仪表胶囊，hover 展开/点击钉住 ------- */
 .war-island{position:relative;flex:0 0 auto;padding:10px 12px 4px;z-index:40}
+.war-sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;clip:rect(0 0 0 0);clip-path:inset(50%);overflow:hidden;white-space:nowrap} /* 读屏专用（视觉隐藏 live 区） */
 .war-island-pill{display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--war-card-bg);box-shadow:var(--war-shadow-1);cursor:pointer;transition:border-radius .22s ease,box-shadow .22s ease}
 .war-island-pill:hover{box-shadow:var(--war-shadow-2)}
 /* 展开态 morph：胶囊 → 圆角矩形——pill 上圆下平（熔进浮层），浮层上平下圆。 */

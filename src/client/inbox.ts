@@ -76,3 +76,16 @@ export function agingLeader(items: InboxItem[]): string | null {
   const first = items.find(i => i.tone === 'err')
   return first === undefined ? null : `${first.kind}:${first.refId}`
 }
+
+/** V10.1 审查（通知可达性）：收件箱净增判定——灵动岛礼貌播报只在该出声时
+ * 出声。纯函数供单测钉死语义：
+ *  - 未水合（SSE/首灌期）：一律不出声——计数 0→N 是「到访现状」，摘要横幅的
+ *    本职，不是新事件（开局播「新增 4 件」是噪音，probe 实抓）；
+ *  - 水合后首次（prev === null）：只记基线不出声；
+ *  - 之后净增（next > prev）：返回增量（播「新增 N 件」）；持平/减少：null。
+ */
+export function inboxGrowthAnnounce(prev: number | null, next: number, hydrated: boolean): number | null {
+  if (!hydrated) return null
+  if (prev === null) return null
+  return next > prev ? next - prev : null
+}

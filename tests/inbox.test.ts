@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { agingLeader, agingTone, collectInbox, formatWait, INBOX_ERR_MS, INBOX_WARN_MS, type InboxItem } from '../src/client/inbox.ts'
+import { agingLeader, agingTone, collectInbox, formatWait, inboxGrowthAnnounce, INBOX_ERR_MS, INBOX_WARN_MS, type InboxItem } from '../src/client/inbox.ts'
 import type { BoardCommand, BoardTask } from '../src/client/data.ts'
 
 /** V7-① 等你发落收件箱——纯聚合层（不引 react/node 专属 API），node 直测。
@@ -96,4 +96,22 @@ test('agingLeader：err 档最老一条领跑（全红时红里也要有先后�
   assert.equal(warnOnly[0]!.tone, 'warn')
   assert.equal(agingLeader(warnOnly), null)
   assert.equal(agingLeader([]), null)
+})
+
+// V10.1 灵动岛收件箱播报判定：水合静默 / 基线静默 / 净增播 / 持平减少静默。
+test('inboxGrowthAnnounce: 水合期一律静默（到访现状归摘要横幅，不播）', () => {
+  assert.equal(inboxGrowthAnnounce(null, 0, false), null)
+  assert.equal(inboxGrowthAnnounce(null, 4, false), null)
+  assert.equal(inboxGrowthAnnounce(1, 5, false), null)
+})
+
+test('inboxGrowthAnnounce: 水合后首次只记基线不出声', () => {
+  assert.equal(inboxGrowthAnnounce(null, 4, true), null)
+})
+
+test('inboxGrowthAnnounce: 净增返回增量，持平/减少静默', () => {
+  assert.equal(inboxGrowthAnnounce(4, 5, true), 1)
+  assert.equal(inboxGrowthAnnounce(4, 8, true), 4)
+  assert.equal(inboxGrowthAnnounce(4, 4, true), null)
+  assert.equal(inboxGrowthAnnounce(4, 2, true), null)
 })

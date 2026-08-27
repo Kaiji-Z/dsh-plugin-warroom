@@ -316,6 +316,8 @@ export interface WarCopy {
     pin: string
     unpin: string
     expandTitle: string
+    /** V10.1 审查：收件箱新增的礼貌播报（视觉隐藏 live 区）。 */
+    announceInbox: (n: number) => string
   }
   dock: {
     label: string
@@ -424,7 +426,7 @@ export const warCopy: WarCopy = {
     firstSeen: '首次到访——板上就是全部现状',
     closed: (n: number) => `收官 ${n}`,
     failed: (n: number) => `折戟 ${n}`,
-    commands: (n: number) => `新命令 ${n}`,
+    commands: (n: number) => `新令 ${n}`,
     pending: (n: number) => `等你发落 ${n}`,
   },
   trace: {
@@ -659,18 +661,24 @@ export const warCopy: WarCopy = {
     lineageLabel: '源自命令',
   },
   island: {
-    counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 作战中 ${c.active}${c.failed > 0 ? ` · 折戟 ${c.failed}` : ''}`,
+    // V10.1 审查：零段折叠（三个 0 是胶囊噪音）；「待接」与「待领」一字之差
+    // 语义撞车——参谋侧未成形命令正名「接令」（分诊/对话都在接令中）。
+    counts: c =>
+      [c.pending > 0 ? `接令 ${c.pending}` : '', c.waiting > 0 ? `待领 ${c.waiting}` : '', c.active > 0 ? `作战 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
+        .filter(x => x !== '').join(' · '),
     inboxBadge: n => `✉ ${n}`,
+    // V10.1 审查：▲收官→✓收官（善终语义，与凯旋印记同符）。
     visitMini: (closed, failed, commands) =>
-      [closed > 0 ? `▲收官 ${closed}` : '', failed > 0 ? `✕折戟 ${failed}` : '', commands > 0 ? `✚新令 ${commands}` : '']
+      [closed > 0 ? `✓收官 ${closed}` : '', failed > 0 ? `✕折戟 ${failed}` : '', commands > 0 ? `✚新令 ${commands}` : '']
         .filter(s => s !== '').join(' · '),
     pin: '钉住展开（再点收起）',
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',
+    announceInbox: n => `作战室新增 ${n} 件等你发落`,
   },
   dock: {
     label: '作战室',
-    titleLine: c => `待接命令 ${c.pending} · 待领取 ${c.waiting} · 进行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
+    titleLine: c => `接令中 ${c.pending} · 待领取 ${c.waiting} · 进行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
     segLine: c => `作战室${c.pending > 0 ? ` 命令${c.pending}` : ''} 待领${c.waiting} 进行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
     unread: n => `${n} 新`,
   },
@@ -1012,18 +1020,21 @@ export const plainCopy: WarCopy = {
     lineageLabel: '源自命令',
   },
   island: {
-    counts: c => `待接 ${c.pending} · 待领 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 失败 ${c.failed}` : ''}`,
+    counts: c =>
+      [c.pending > 0 ? `待分诊 ${c.pending}` : '', c.waiting > 0 ? `待领 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
+        .filter(x => x !== '').join(' · '),
     inboxBadge: n => `✉ ${n}`,
     visitMini: (closed, failed, commands) =>
-      [closed > 0 ? `▲完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']
+      [closed > 0 ? `✓完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']
         .filter(s => s !== '').join(' · '),
     pin: '钉住展开（再点收起）',
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',
+    announceInbox: n => `作战室新增 ${n} 件待处理`,
   },
   dock: {
     label: '作战室',
-    titleLine: c => `待接命令 ${c.pending} · 待领取 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
+    titleLine: c => `待分诊 ${c.pending} · 待领取 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
     segLine: c => `作战室${c.pending > 0 ? ` 命令${c.pending}` : ''} 待领${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
     unread: n => `${n} 新`,
   },

@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
-import { agingLeader, collectInbox, formatWait, type InboxItem, type InboxKind } from './inbox.ts'
+import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
 import { galaxyLayout, garrisonOf, moonPos, planetLabel, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
@@ -1492,6 +1492,9 @@ function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNod
  * 修复：hover 面板不得在到访第一屏挡住列区/吸附点击）。操作钮冒泡阻断。 */
 function WarIsland(props: {
   active: boolean
+  /** V10.1 审查：SSE/首灌水合标志——水合期的计数跳变不进播报（那是到访
+   * 摘要横幅的本职），只在板开着时新到的收件项才值得出声。 */
+  hydrated: boolean
   counts: { pending: number; waiting: number; active: number; failed: number }
   inbox: InboxItem[]
   visit: VisitDelta
@@ -1502,10 +1505,24 @@ function WarIsland(props: {
   onSettings: () => void
   onInboxAct: (it: InboxItem) => void
 }): ReactNode {
-  const { active, counts, inbox, visit, lastSeen, now, focusText, onExitFocus, onSettings, onInboxAct } = props
+  const { active, hydrated, counts, inbox, visit, lastSeen, now, focusText, onExitFocus, onSettings, onInboxAct } = props
   const [hover, setHover] = useState(false)
   const [pinned, setPinned] = useState(false)
   const copy = activeCopy().island
+  // V10.1 审查（通知可达性）：收件箱净增时经视觉隐藏 live 区礼貌播报——
+  // 「新增 N 件等你发落」是该打断元首的级别；减少/持平不播（防噪音）。
+  const [announce, setAnnounce] = useState<string | null>(null)
+  const prevInbox = useRef<number | null>(null)
+  useEffect(() => {
+    // 判定语义（水合静默/基线/净增）在 inboxGrowthAnnounce 纯函数，单测钉死。
+    const grow = inboxGrowthAnnounce(prevInbox.current, inbox.length, hydrated)
+    if (grow !== null) setAnnounce(copy.announceInbox(grow))
+    if (hydrated) prevInbox.current = inbox.length
+  }, [inbox.length, hydrated])
+  // V10.1 审查（读屏）：aria-label 覆盖内容会使计数/徽章对读屏不可见——
+  // 标签名动态拼入大盘计数与收件箱数。
+  const countsText = copy.counts(counts)
+  const pillAria = `${activeCopy().head.title}${countsText !== '' ? `——${countsText}` : ''}${inbox.length > 0 ? `——${activeCopy().inbox.title} ${inbox.length}` : ''}——${copy.expandTitle}`
   // V9.2：聚焦不再是展开条件——聚焦时看板必须可见（只是变暗非族系）。
   // V9.5：hover 加 150ms 意图延迟；V9.6：离岛必须清定时器——否则快速划过
   // 后面板在指针离开后才弹开并卡在打开态（复评实锤竞态）。
@@ -1525,7 +1542,7 @@ function WarIsland(props: {
     role: 'button',
     tabIndex: 0,
     'aria-expanded': open,
-    'aria-label': `${activeCopy().head.title}——${copy.expandTitle}`,
+    'aria-label': pillAria,
     title: pinned ? copy.unpin : copy.pin,
     onClick: () => { setPinned(!pinned) },
     onKeyDown: keyActivate(() => { setPinned(!pinned) }),
@@ -1554,7 +1571,7 @@ function WarIsland(props: {
         }, `◎ ${focusText.slice(0, 18)}${focusText.length > 18 ? '…' : ''}`)
       : null,
     createElement('span', { className: 'war-island-spacer' }),
-    pinned ? createElement('span', { className: 'war-island-pinned', title: copy.unpin }, '📌') : null,
+    pinned ? createElement('span', { className: 'war-island-pinned', title: copy.unpin }, '◉') : null,
     createElement('button', {
       className: 'war-btn war-island-gear',
       type: 'button',
@@ -1569,6 +1586,9 @@ function WarIsland(props: {
       VisitBanner(visit, lastSeen, now),
       InboxStrip(inbox, onInboxAct),
     )
+    : null,
+  announce !== null
+    ? createElement('span', { key: 'announce', className: 'war-sr-only', role: 'status' }, announce)
     : null,
   )
 }
@@ -2062,6 +2082,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       createElement(WarIsland, {
         key: 'island',
         active: data?.active === true,
+        hydrated: data !== null && data !== undefined,
         counts,
         inbox,
         visit,

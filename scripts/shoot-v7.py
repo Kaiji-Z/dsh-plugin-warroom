@@ -128,7 +128,7 @@ with sync_playwright() as p:
     banner = visit.inner_text()
     assert "收官 1" in banner, f"visit banner closed delta wrong: {banner!r}"
     assert "折戟 1" in banner, f"visit banner failed delta wrong: {banner!r}"
-    assert "新命令" in banner and "等你发落" in banner, f"visit banner segments missing: {banner!r}"
+    assert "新令" in banner and "等你发落" in banner, f"visit banner segments missing: {banner!r}"  # V10.1 与到访迷你条同词（✚新令）
     print(f"visit banner (in island): {banner.splitlines()[0]!r}")
 
     hints = page.locator(".war-waithint").all_inner_texts()
