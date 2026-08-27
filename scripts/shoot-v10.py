@@ -121,10 +121,44 @@ with sync_playwright() as p:
     n_badge = page.locator('.war-dispatch .war-gen-badge[data-war-gen="2"]').count()
     assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
     grp = page.locator(".war-cmd-group[data-war-group]")
-    assert grp.count() >= 1, "同链命令必须叠成卡牌组"
-    assert grp.first.locator(".war-command-card").count() == 2, "卡牌组内应恰好两代"
-    gb = grp.first.bounding_box(); cw = grp.first.locator(".war-command-card").first.bounding_box()
-    assert abs(gb["width"] - (cw["width"] + 50)) <= 6, f"露出必须≈50px：group_w={gb['width']:.0f} card_w={cw['width']:.0f}"
+    assert grp.count() >= 1, "同链命令必须聚成卡牌组"
+    g1 = grp.first
+    face = g1.locator(".war-cmd-group-face .war-command-card")
+    # V10.1 卡组三改：坞里只摆最新代卡面（叠缘 50px 露出机制退役）
+    assert face.count() == 1, "组内只应有最新代卡面"
+    assert g1.locator(".war-command-card").count() == 1, "未展开时历代卡不应渲染"
+    gb = g1.bounding_box(); fb = face.bounding_box()
+    assert abs(gb["width"] - fb["width"]) <= 6, f"组宽应≈卡宽（叠缘已退役）：group_w={gb['width']:.0f} card_w={fb['width']:.0f}"
+    # 历代状态 pip：Ⅰ/Ⅱ 两枚（罗马数字=代数），最新代带 now 标记
+    pips = g1.locator(".war-gen-pips .war-gen-pip")
+    assert pips.count() == 2, f"卡面应挂 2 枚历代状态 pip，got {pips.count()}"
+    assert g1.locator(".war-gen-pip.now").count() == 1, "最新代 pip 应带 now 标记（卡面=此代）"
+    # 五行恒高卡规格：全坞同尺寸 + 零内容溢出
+    sizes = page.evaluate("""() => {
+      const cs = [...document.querySelectorAll('.war-dispatch .war-command-card')];
+      return { ws: [...new Set(cs.map(c => c.clientWidth))], hs: [...new Set(cs.map(c => c.clientHeight))],
+               clip: cs.filter(c => c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1).length };
+    }""")
+    assert len(sizes["ws"]) == 1 and len(sizes["hs"]) == 1, f"命令卡必须同尺寸：{sizes}"
+    assert sizes["clip"] == 0, f"有 {sizes['clip']} 张卡内容溢出被裁"
+    # 键鼠同权：聚焦卡面即展开历代面板（fixed 悬于卡面上方，新在顶）
+    face.focus()
+    page.wait_for_timeout(400)
+    panel = g1.locator(".war-group-panel")
+    assert panel.is_visible(), "聚焦组内卡面应展开历代面板（键鼠同权）"
+    pcards = panel.locator(".war-command-card")
+    assert pcards.count() == 2 and pcards.first.get_attribute("data-war-gen") == "2", "面板应两代且最新在顶"
+    pb = panel.bounding_box()
+    assert pb["y"] + pb["height"] <= fb["y"] + 2, "面板应整体悬于卡面上方（不遮卡面）"
+    # 面板内滚轮不得横移轨道（原生 stopPropagation 拦截）
+    sl0 = page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft")
+    panel.hover(); page.mouse.wheel(0, 200); page.wait_for_timeout(200)
+    assert page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft") == sl0, "面板滚轮不得横移轨道"
+    # 点 Ⅰ 代卡直达该代聚焦页（无露缘带路由的直取通道）
+    pcards.nth(1).click()
+    page.wait_for_selector(".war-cd-modal", timeout=5000)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
     print("P1 list-default ok")
 
     # --- P2 星域（localStorage 路径切换——开关 UI 在设置抽屉）-------------------

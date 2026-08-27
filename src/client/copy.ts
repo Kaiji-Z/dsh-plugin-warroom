@@ -177,6 +177,13 @@ export interface WarCopy {
     continueBtn: string
     continueBtnTitle: string
   }
+  /** V10.1 卡规格统一：R5 空占位 / 战线历代状态 pip（罗马数字=代数）/ 组展开面板。 */
+  commandCard: {
+    noQuickAction: string
+    pipsTitle: (generations: number) => string
+    pipStatus: Record<'run' | 'wait' | 'done' | 'fail' | 'idle', string>
+    panelAria: (generations: number) => string
+  }
   commandDetail: {
     gradeReasonPrefix: string
     regradesNote: (n: number) => string
@@ -521,6 +528,12 @@ export const warCopy: WarCopy = {
     tags: { deepen: '续战令·深化', retry: '续战令·再战', pivot: '续战令·转向' },
     continueBtn: '下续战令',
     continueBtnTitle: '以这条命令为母本下达续作——新令接过战线继续打',
+  },
+  commandCard: {
+    noQuickAction: '无快捷操作',
+    pipsTitle: n => `这条战线共 ${n} 代——罗马数字即代数，颜色即该代当前状态`,
+    pipStatus: { run: '推进中', wait: '等你发落', done: '善终', fail: '败退', idle: '未战而终' },
+    panelAria: n => `战线历代（共 ${n} 代）：上/下键选代，回车打开该代详情`,
   },
   starfield: {
     aria: '星域战场：每片战区一颗星，执行中的部队绕星而行',
@@ -868,6 +881,12 @@ export const plainCopy: WarCopy = {
     tags: { deepen: '跟进·接着做', retry: '跟进·重试', pivot: '跟进·改方向' },
     continueBtn: '继续这件事',
     continueBtnTitle: '以这条命令为基础下发跟进——新的跟进接在原事后面',
+  },
+  commandCard: {
+    noQuickAction: '暂无操作',
+    pipsTitle: n => `这条跟进线共 ${n} 步——罗马数字是步数，颜色是每步状态`,
+    pipStatus: { run: '进行中', wait: '待你处理', done: '已完成', fail: '失败', idle: '已取消' },
+    panelAria: n => `历史跟进（共 ${n} 步）：上/下键选择，回车查看`,
   },
   starfield: {
     aria: '项目全景：每个项目一颗星球，正在干活的任务绕圈转',

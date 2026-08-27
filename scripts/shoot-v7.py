@@ -627,7 +627,7 @@ with sync_playwright() as p:
     page.screenshot(path=f"{OUT}/v9-focus-report.png")
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
-    assert page.locator(".war-dispatch .war-enter-chip").count() >= 1, "enter-session chip missing on conversational card"
+    assert page.locator(".war-dispatch .war-enter-btn").count() >= 1, "enter-session action missing on conversational card"
     # n = 新建命令（无弹窗层、非输入焦点）；草稿 Esc 不焚、重开续写。
     page.keyboard.press("n")
     page.wait_for_selector(".war-modal", timeout=3000)

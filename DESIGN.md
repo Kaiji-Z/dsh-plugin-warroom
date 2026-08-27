@@ -269,3 +269,13 @@
 **坑录增补**：①起草器续接 chip 曾混用 `war-recent-item` 类把 shoot-v7 的 recent 选择器毒化（9 个假最近项、recent 回填断言失效）——取证脚本选择器就是针脚，组件类名必须独立命名空间；②shoot-theme/shoot-v7 各吃特定种子板面，互相串场前必须先跑对应 shooter 重建板面；③smoke 服 host 半边启动时装载代码，重建 lib 后必须重启进程（client 可热、host 不可热）——本机重启惯例 `CI=true nohup pnpm dsh --profile web --patch <repo>/cordis.smoke.yml --port 3080 --no-open`（无 TTY 下 CI=true 免依赖清空交互确认）。
 
 **验证**：verify 209 测 PASS（+6 净增：directives+4、relay+4、starfield 新档 6，另并入既有计数口径）+ shoot-v10.py 五相位全绿×2 遍 + shoot-theme 双主题 20 对全绿 + 双主题地图截图入库。
+
+## V10.1 卡规格统一 + 卡牌组三改（2026-08-26，元首定案三条）
+
+**五行恒高卡（全部命令卡）**：R1 徽章行（dot/状态/档位/世代/sched/时间靠右）→ R2 命令原文一行截断（title 悬停全文，聚焦页标题有原文）→ R3 生命条 → R4 通知行（预检提示·取消原因，空也留 18px 位）→ R5 快捷操作行（进入对话·改直发·◎ 聚焦；tour 变体全空给「无快捷操作」占位）。实测尺寸 `--war-card-w:316px/--war-card-h:166px`（probe 双皮肤零溢出校准）；◎ 从 R1 挪到 R5=全部操作归行，R1 宽度让位徽章。旧预检虚线盒退役，`.war-card-note.war-preflight` 保留类名防 shoot-v7 针脚（war-preflight-text/-btn 同名保留）。
+
+**卡组三改（元首三答）**：①坞里只摆最新代卡面（叠缘 50px 露出/band 路由/pointer-events 全退役——被盖卡点击劫持的 P0 从构造上消失）；②组性双信号=卡底两道渐缩纸缘（::before/::after z:-1，非阴影不犯硬影禁）+ R1 历代状态 pip（罗马数字=代数 GEN_ROMAN 同源，颜色=该代 OWN 任务状态四档+灰=未战而终，最新代下划线 now 标记；>4 代截头「…+最新4」与面板 4 行同口径防撑爆 R1）；③悬停 150ms/离开 200ms 向上展开面板：fixed 定位从卡面实测坐标落位（轨道横滚容器必裁剪绝对定位子元素；宿主无 transform 祖先，modal/map-hint 两条 fixed 先例），`min(代数,4)` 行固定高内部滚轮翻看（原生 stopPropagation 拦轨道横移——React 合成 wheel 到不了原生 track 监听），新在顶，点任一代直达聚焦页。键鼠同权：focus-within 同展开、↑/↓ 选代、Enter 打开、Esc 收拢回卡面；dock roving（←/→）排除面板卡。
+
+**代际 OWN 语义（probe 实抓）**：pip 状态必须按「该代自己的任务」算（lineage 归属过滤），不能吃 commandTasks deps 闭包——否则祖先代的 closed 会把后代 pip 染绿。同理族系高亮升根级：星域光点溯源到 Ⅰ 代旧令时，坞里代表该战线的组卡面要点亮（exact-id 匹配落空，shoot-v10 P2 回归实抓）；单命令 root=自身行为不变。
+
+**坑录**：宿主 `~/.dsh/settings.yaml` 的 ui-theme: dark 残留会让 shoot-v7 浅色对比度断言全灭（st-published 2.01:1 同款复发）——起服前先核 preference: light。
