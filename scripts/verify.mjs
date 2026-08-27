@@ -136,6 +136,8 @@ gate('bundle', () => {
     [client, 'war-island-panel', 'island expanded overlay panel (non-pushing)'],
     [client, 'visitMini', 'island visit mini digest copy (both skins)'],
     [client, 'scrollIntoView', 'hover family auto-scroll to highlighted cards'],
+    [client, 'galaxyLayout3D', 'V11 3D starfield deterministic layout (pure)'],
+    [client, 'WebGLRenderer', 'V11 3D starfield three.js bundled (no runtime require)'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
     [host, '悬赏令起草法', 'drafting craft body rides the bundle'],

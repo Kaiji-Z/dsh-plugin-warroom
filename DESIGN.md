@@ -305,3 +305,11 @@
 **通知可达性两实修**：①pill 的 aria-label 原为静态「作战室——悬停展开·点击钉住」，aria-label 覆盖内容使计数/徽章对读屏不可见——改动态拼入大盘计数+收件箱数（「作战室——接令 5 · 待领 4 …——等你发落 4——悬停展开」）；②新增视觉隐藏 live 区（.war-sr-only + role=status）：收件箱净增播「作战室新增 N 件等你发落」。**水合守卫（probe 实抓）**：首版把 SSE 首灌 0→4 也当"新增"播——开局报"新增 4 件"是噪音（那是到访摘要横幅的本职）。判定抽纯函数 `inboxGrowthAnnounce`（inbox.ts，单测钉死：未水合一律静默/水合后首次只记基线/净增返增量/持平减少静默）。本地 smoke 服无 LLM 网关，活体增长链路靠纯函数+水合静默 e2e 双覆盖。
 
 **坑**：shoot-v7 到访横幅断言「新命令」被改名击中——取证针脚就是文案契约，改名必须跟针脚。
+
+## V11 · 3D 星域战场 P2（2026-08-27，元首定案「直接做到 P2」）
+
+**架构定案**：真 WebGL（three@0.185 打进 client bundle，禁 CDN）画「空间」——星粒球壳（确定性种子 900 点）/行星球体（Lambert 微光影）/同心轨道环/卫星光点/ghost 空心环/HQ 暖阳；**DOM 覆盖层承载全部交互实体**——行星按钮/光点/ghost/速报条/微图例仍是 DOM（aria/键盘/族系高亮/shoot 针脚原封不动），canvas 只管空间。手写轨道相机（拖拽旋转/滚轮缩放/双击与 R 复位、指数阻尼、reduced-motion 直达）；覆盖层每帧以视空间深度投影摆位（translate3d+scale+深度 zIndex），背后元素隐藏。**三红线沿用**：坐标全确定性（SSE revision 零抖动，相机是 ref 本地量不随渲染重置）；不造假运动（会动的只有用户手里的相机）；WebGL 不可用整棵回落 2D 星域（onUnavailable→no3d）。浅色=纸色宇宙/深色=星尘深空（读 body[data-ds-dark-theme] + MutationObserver 跟随宿主）。
+
+**工程坑录（四连，全部 probe/shoot 实抓）**：①tsdown 默认把 dependencies 外置——client 包裹层的 require 只认宿主冻结模块表，运行时 require('three') 必静默回落 2D；解法 `noExternal:['three']`（bundle 240KB→1.56MB raw，gzip 72→~390KB，元首知情成本）。②覆盖层登记原走 CSS 属性选择器——**Windows 反斜杠路径（C:\repo\alpha）在 CSS 选择器里是转义符**，querySelector 永不命中（shoot 板全灭、playground 正斜杠侥幸全过的照妖镜）；解法 JS 侧 key 映射。③缩放基准距两路不同源：相机初值用 aspect 1.8、基准用挂载瞬时尺寸（布局未稳 aspect≈0→dist 夹到 420 上限）→ s 恒钉 1.6、滚轮「失灵」；解法 ResizeObserver 首次真实尺寸 + 数据落地双条件定标，复位/键盘全走同一 ref。④窄板（1280）初始机位按全宽 fit——行星投进任务/战报浮舱；解法 `initialCam(count, aspect, safeWidthFrac)` 横向按【可用带宽】收缩（views 按实测舱位推占比），CAM_DIST_MAX 升 800，与 2D 禁区收缩同语义（1720/1280/1000 三视口零遮挡机检全过）。
+
+**验证**：tests/starfield3d.test.ts 5 测（夹持/阻尼/布局确定性/月轨/机位自适应含中带收缩）；verify 针脚 galaxyLayout3D+WebGLRenderer；shoot-v10 P2 增 3D 断言（canvas 在场/拖拽旋转/双击复位/滚轮同比缩——近距卡 1.6 上限的不计/覆盖层零遮挡）；三件套 EXIT=0；双主题 3D 截图目检（九星环系+太阳+光点+速报条浮舱共存）。

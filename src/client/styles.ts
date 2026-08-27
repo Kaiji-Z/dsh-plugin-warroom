@@ -525,6 +525,14 @@ body[data-ds-dark-theme] .war-root .war-legend-dot.dot-done{background:var(--dsw
 body[data-ds-dark-theme] .war-root .war-legend-dot.dot-fail{background:var(--dsw-alias-state-error-label,var(--dsw-alias-state-error-primary))}
 .war-detach,.war-cd-session{min-height:24px}
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
+/* --- V11 P2 3D 星域（元首定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
+.war-starfield3d{cursor:grab;touch-action:none;user-select:none}
+.war-starfield3d:active{cursor:grabbing}
+.war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.war-s3d-overlay{position:absolute;inset:0;pointer-events:none}
+.war-s3d-overlay .war-planet,.war-s3d-overlay .war-orb{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform}
+.war-s3d-overlay .war-orb-ghost{position:absolute;left:0;top:0}
+.war-s3d-overlay .war-hq{position:absolute;left:0;top:0;pointer-events:none;font-size:0} /* 太阳本体在 canvas；DOM 只留语义（title/aria） */
 .war-live-stack{position:absolute;left:50%;bottom:230px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:1;pointer-events:none}
 .war-live-bar{display:flex;gap:14px;align-items:center;padding:6px 14px;border-radius:999px;background:color-mix(in srgb, var(--war-card-bg) 82%, transparent);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 22px color-mix(in srgb,#000 18%,transparent);max-width:72vw;overflow:hidden}
 @supports (backdrop-filter: blur(8px)){.war-live-bar{backdrop-filter:blur(8px)}}

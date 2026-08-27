@@ -169,6 +169,9 @@ with sync_playwright() as p:
     open_board()
     sf = page.locator(".war-starfield")
     assert sf.count() == 1 and sf.is_visible(), "星域画布未现身（board 级铺满）"
+    # V11 P2：真 3D 星域——WebGL canvas 在场 + 覆盖层交互实体仍是 DOM
+    assert sf.locator(".war-s3d-canvas").count() == 1 and page.evaluate("() => document.querySelector('.war-s3d-canvas').width > 0"), "3D 星域 canvas 未渲染"
+    assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
@@ -220,6 +223,34 @@ with sync_playwright() as p:
       return bad
     }""")
     assert occluded == [], f"星域对象被舱/坞遮挡（critique P0 红线）：{occluded}"
+    # V11 P2 轨道相机三通道：拖拽旋转（从空画布落点起步——行星按钮是点击不是拖拽）、
+    # 双击复位、滚轮缩放（视深缩放：行星同比缩）。
+    spot = page.evaluate("""() => {
+      const box = document.querySelector('.war-starfield3d').getBoundingClientRect();
+      for (let fy = 0.18; fy <= 0.75; fy += 0.07)
+        for (let fx = 0.42; fx <= 0.62; fx += 0.05) {
+          const x = box.x + box.width * fx, y = box.y + box.height * fy;
+          const el = document.elementFromPoint(x, y);
+          if (el && (el.className === 'war-s3d-canvas' || String(el.className).includes('war-starfield3d'))) return {x, y};
+        }
+      return null;
+    }""")
+    assert spot is not None, "找不到空画布落点（拖拽起点）"
+    p0 = page.locator(".war-planet").first.bounding_box()["x"]
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
+    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up()
+    page.wait_for_timeout(800)
+    p1 = page.locator(".war-planet").first.bounding_box()["x"]
+    assert abs(p1 - p0) > 30, f"拖拽应旋转星系：{p0:.0f}->{p1:.0f}"
+    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(900)
+    p2 = page.locator(".war-planet").first.bounding_box()["x"]
+    assert abs(p2 - p0) < 60, f"双击应复位：{p0:.0f}->{p2:.0f}"
+    w0 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, 400); page.wait_for_timeout(700)
+    w1 = page.evaluate("() => [...document.querySelectorAll('.war-planet')].map(p => p.getBoundingClientRect().width)")
+    shrunk = sum(1 for a, b2 in zip(w0, w1) if b2 < a - 3)
+    assert shrunk >= 1 and all(b2 <= a + 1 for a, b2 in zip(w0, w1)), f"滚轮后拉应同比缩小（近距卡 1.6 上限的不计）：{w0}->{w1}"
+    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(600)
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 

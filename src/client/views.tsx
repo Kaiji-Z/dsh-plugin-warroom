@@ -19,6 +19,7 @@ import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxI
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
 import { galaxyLayout, garrisonOf, moonPos, planetLabel, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
+import { galaxyLayout3D, moonPos3D, Starfield3D } from './starfield3d.tsx'
 import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
@@ -1776,6 +1777,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     })
     // V10.1 对抗审查 P1：窗口跨 900px 界限即时回退/恢复地图（此前只在渲染时判一次）。
     const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1720))
+    // V11 P2：WebGL 不可用即回落 2D 星域（功能不缺角，红线③）。
+    const [no3d, setNo3d] = useState(false)
     // critique P1：三列 roving——每列单停位，方向键在列内移卡。
     const opsRef = useRef<HTMLDivElement | null>(null)
     useEffect(() => {
@@ -1971,17 +1974,34 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
     const planetSpecs = galaxyLayout(wsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
     const starPlanets = planetSpecs.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
+    // V11 P2（元首定案）：3D 星域数据与 2D 同环共建——初始相机按外环自适应，
+    // 行星投影落带与 2D 禁区语义一致（浮舱/坞不可压）。
+    const planetSpecs3D = galaxyLayout3D(wsOrder)
+    const starPlanets3D = planetSpecs3D.map(spec => ({ spec, garrison: garrisonOf(tasks, spec.wsPath) }))
     const commandTextOf = new Map(commands.map(c => [c.commandId, c.text.slice(0, 14)] as const))
     const moonSlot = new Map<string, number>()
+    const starTroops3D: Array<Parameters<typeof Starfield3D>[0]['troops'][number]> = []
     const starTroops = live.flatMap(({ t, a }) => {
       const idx = wsOrder.indexOf(t.workspacePath ?? '')
       if (idx < 0) return []
       const spec = planetSpecs[idx]!
+      const spec3D = planetSpecs3D[idx]!
       // V10.1 对抗审查 P1：同星多活体确定性避让——按序偏移 π/3（hash 相位撞车无防线）。
       const k = moonSlot.get(spec.wsPath) ?? 0
       moonSlot.set(spec.wsPath, k + 1)
       const pos = moonPos(spec, a.sessionId, k * Math.PI / 3)
       const src = lineageOf(t.taskId)?.commandId ?? null
+      // critique：兜底不再露会话号片段（「可追查不装」在细节碎玻璃）——词典化「未溯源」。
+      const sourceLabel = src !== null ? commandTextOf.get(src) ?? null : null
+      starTroops3D.push({
+        sessionId: a.sessionId,
+        world: moonPos3D(spec3D, a.sessionId, k * Math.PI / 3),
+        verbLabel: a.activity?.label ?? activeCopy().starfield.orbIdle,
+        paused: t.quotaPaused === true,
+        sourceCommandId: src,
+        sourceLabel,
+        untraced: src === null,
+      })
       return [{
         sessionId: a.sessionId,
         planet: spec,
@@ -1990,8 +2010,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         verbLabel: a.activity?.label ?? activeCopy().starfield.orbIdle,
         paused: t.quotaPaused === true,
         sourceCommandId: src,
-        // critique：兜底不再露会话号片段（「可追查不装」在细节碎玻璃）——词典化「未溯源」。
-        sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null,
+        sourceLabel,
         untraced: src === null,
       }]
     })
@@ -2005,15 +2024,21 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // Ⅰ 代的昔日阵地照样显形（exact-id 会落空，同 shoot P2 抓的卡面问题）。
     const familyRoot = ghostFamily !== null ? commandsNewest.find(c => c.commandId === ghostFamily)?.chain.rootId : undefined
     const familyCmdIds = new Set(familyRoot !== undefined ? commandsNewest.filter(c => c.chain.rootId === familyRoot).map(c => c.commandId) : [])
+    const starGhosts3D: Array<Parameters<typeof Starfield3D>[0]['ghosts'][number]> = []
     const starGhosts = ghostFamily !== null
       ? tasks.flatMap(t => {
           if (!familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? '')) return []
           const idx = wsOrder.indexOf(t.workspacePath ?? '')
           if (idx < 0) return []
           const spec = planetSpecs[idx]!
+          const spec3D = planetSpecs3D[idx]!
           return t.attemptLog
             .filter(a => a.outcome !== null)
-            .map(a => { const pos = moonPos(spec, a.sessionId); return { sessionId: a.sessionId, xPct: pos.xPct, yPct: pos.yPct, outcome: a.outcome! } })
+            .map(a => {
+              const pos = moonPos(spec, a.sessionId)
+              starGhosts3D.push({ sessionId: a.sessionId, world: moonPos3D(spec3D, a.sessionId), outcome: a.outcome! })
+              return { sessionId: a.sessionId, xPct: pos.xPct, yPct: pos.yPct, outcome: a.outcome! }
+            })
         })
       : []
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
@@ -2103,28 +2128,53 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}` },
           // V10.1 TITP 化（元首示意图定案）：星域=界面本体，board 级铺满为底；
           // 任务/战报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
-          ...(mapView ? [createElement(StarfieldMap, {
-            key: 'starfield',
-            active: data.active,
-            planets: starPlanets,
-            troops: starTroops,
-            ariaLabel: activeCopy().starfield.aria,
-            hqTitleLit: activeCopy().starfield.hqOn,
-            hqTitleDark: activeCopy().starfield.hqOff,
-            onOpenCommand: id => { openCommand(id) },
-            onOrbHover: id => {
-              if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
-            },
-            ghosts: starGhosts,
-            orbIdleLabel: activeCopy().starfield.orbIdle,
-            mapLegend: activeCopy().starfield.mapLegend,
-            untracedLabel: activeCopy().starfield.untraced,
-            onPlanetOpen: (wsPath: string) => {
-              // critique P1-1：行星可达后的落点——该战区最新有仗的源命令聚焦页。
-              const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
-              if (c !== undefined) openCommand(c.commandId)
-            },
-          })] : []),
+          ...(mapView ? [no3d
+            ? createElement(StarfieldMap, {
+                key: 'starfield',
+                active: data.active,
+                planets: starPlanets,
+                troops: starTroops,
+                ariaLabel: activeCopy().starfield.aria,
+                hqTitleLit: activeCopy().starfield.hqOn,
+                hqTitleDark: activeCopy().starfield.hqOff,
+                onOpenCommand: id => { openCommand(id) },
+                onOrbHover: id => {
+                  if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
+                },
+                ghosts: starGhosts,
+                orbIdleLabel: activeCopy().starfield.orbIdle,
+                mapLegend: activeCopy().starfield.mapLegend,
+                untracedLabel: activeCopy().starfield.untraced,
+                onPlanetOpen: (wsPath: string) => {
+                  // critique P1-1：行星可达后的落点——该战区最新有仗的源命令聚焦页。
+                  const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
+                  if (c !== undefined) openCommand(c.commandId)
+                },
+              })
+            : createElement(Starfield3D, {
+                key: 'starfield3d',
+                active: data.active,
+                planets: starPlanets3D,
+                troops: starTroops3D,
+                ghosts: starGhosts3D,
+                ariaLabel: activeCopy().starfield.aria,
+                controlsHint: activeCopy().starfield.controls,
+                hqTitleLit: activeCopy().starfield.hqOn,
+                hqTitleDark: activeCopy().starfield.hqOff,
+                onOpenCommand: id => { openCommand(id) },
+                onOrbHover: id => {
+                  if (id !== null) { if (hoverFamilyOn) setHoverFamily(id) } else setHoverFamily(null)
+                },
+                orbIdleLabel: activeCopy().starfield.orbIdle,
+                mapLegend: activeCopy().starfield.mapLegend,
+                untracedLabel: activeCopy().starfield.untraced,
+                onPlanetOpen: (wsPath: string) => {
+                  const c = commandsNewest.find(cc => chainOf(cc).some(t => t.workspacePath === wsPath))
+                  if (c !== undefined) openCommand(c.commandId)
+                },
+                onUnavailable: () => { setNo3d(true) },
+                safeWidthFrac: Math.max(0.28, (boardBox.w - 660) / Math.max(boardBox.w, 1)),
+              })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
           // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
