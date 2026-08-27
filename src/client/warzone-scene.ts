@@ -248,10 +248,8 @@ export class WarzoneScene {
   private flipEpoch = 0
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
-    // 不透明画布（demo 正案）：alpha:true 会让宿主浅色主题的白底透出来，
-    // 加法混合的白星画在白底上=整片星空隐身（目检实抓）。
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-    this.renderer.setClearColor(0x02030a, 1)
+    // alpha:true（元首定）：画布透明，容器 CSS 底透出。
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
     this.renderer.setSize(width, height, false)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping

@@ -9,13 +9,20 @@
 import { createElement, type ReactNode } from 'react'
 import type { BoardAttempt, BoardTask } from './data.ts'
 
-/** FNV-1a → [0,1)：相位/角度种子的唯一来源（同输入恒同输出）。 */
+/** FNV-1a + murmur3 终结混叠 → [0,1)：相位/角度种子的唯一来源（同输入恒同输出）。
+ * 终结混叠必须要有：裸 FNV-1a 对「只差末位一个字符的连续键」（星星 `key:0..N`）
+ * 输出恰差 prime/2^32≈0.0039——2800 颗星被排成渐变细线（星链既视感，元首目检实抓）。 */
 export function hash01(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)
     h = Math.imul(h, 16777619)
   }
+  h ^= h >>> 15
+  h = Math.imul(h, 2246822519)
+  h ^= h >>> 13
+  h = Math.imul(h, 3266489917)
+  h ^= h >>> 16
   return (h >>> 0) / 2 ** 32
 }
 
