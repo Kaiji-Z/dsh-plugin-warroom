@@ -193,7 +193,7 @@ body[data-ds-dark-theme] .war-root{
 .war-dot.done{background:var(--dsw-alias-state-success-primary)}
 .war-command-card.pulse{border-color:var(--dsw-alias-state-business-primary);animation:war-pulse 1.6s ease-in-out infinite}
 @keyframes war-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 3px var(--dsw-alias-state-business-primary)}}
-@media (prefers-reduced-motion: reduce){.war-command-card.pulse{animation:none}.war-group-panel{animation:none}}
+@media (prefers-reduced-motion: reduce){.war-command-card.pulse{animation:none}.war-group-history .war-command-card{animation:none}}
 .war-command-text{font-size:13px;font-weight:600;line-height:1.5;color:var(--dsw-alias-label-primary);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .war-command-text.struck{color:var(--dsw-alias-label-secondary);text-decoration:line-through}
 
@@ -253,7 +253,7 @@ body[data-ds-dark-theme] .war-root{
 .war-card.war-rel-dim{opacity:.32}
 .war-card.war-rel-dim:focus-visible,.war-card.war-rel-dim:focus-within{opacity:1}
 .war-card.war-rel-same{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary)}
-.war-focus-btn{padding:0 6px;line-height:18px;font-size:12px;flex:0 0 auto}
+.war-focus-btn{padding:0 8px;line-height:22px;font-size:17px;flex:0 0 auto} /* V10.1 元首定：聚焦图标加大一档 */
 
 /* --- V7-④ 夜间预检 + 起草器档位/最近命令 ---------------------------------------- */
 .war-card-note{display:flex;align-items:center;min-width:0;min-height:18px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} /* R4 通知行：预检提示/取消原因；空也留位（恒高） */
@@ -328,6 +328,7 @@ body[data-ds-dark-theme] .war-root{
 
 /* --- buttons ------------------------------------------------------------------ */
 .war-btn{cursor:pointer;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--war-well-bg);color:var(--dsw-alias-label-primary);font-size:12px;padding:4px 10px;font-family:var(--dsw-font-family)}
+.war-btn.war-focus-btn{font-size:17px;line-height:22px;padding:0 8px} /* ◎ 加大（基类在后压同名，升特异性两连；纵向 0 衬垫保 R5 行高 24） */
 /* 实心主按钮：动作底色双主题各自压黑定档，白字 ≥4.5:1（token 联动宿主主色）。 */
 .war-btn.primary{background:var(--war-action-bg);color:var(--war-action-fg);border-color:transparent}
 .war-btn:disabled{opacity:.5;cursor:default}
@@ -578,7 +579,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
 /* --- V10.1 调度坞卡牌组（元首二改）：纯横向深叠，每卡只露 60px 标签缘，
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
-.war-dispatch{--war-card-w:316px;--war-card-h:166px} /* 五行恒高卡实测值（probe 165+1 校准） */
+.war-dispatch{--war-card-w:316px;--war-card-h:168px;--war-history-card-h:137px} /* 五行恒高卡实测值（probe 校准）；历史卡=R1-R4 无 R5（166-29） */
 .war-dispatch .war-command-card{width:var(--war-card-w);min-width:var(--war-card-w);max-width:var(--war-card-w);height:var(--war-card-h);overflow:hidden;gap:5px} /* 五行卡规格（元首定）：同尺寸，长文本一行截断 */
 .war-dispatch .war-card-top{flex-wrap:nowrap;overflow:hidden;flex:0 0 auto}
 .war-dispatch .war-command-text{display:block;flex:0 0 auto;white-space:nowrap;-webkit-line-clamp:unset;-webkit-box-orient:initial;text-overflow:ellipsis}
@@ -595,19 +596,23 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-cmd-group-face::before{left:20px;right:20px;bottom:-6px;opacity:.7}
 .war-cmd-group.open .war-cmd-group-face::before,.war-cmd-group.open .war-cmd-group-face::after{display:none}
 /* 组性信号②：历代状态 pip——罗马数字=代数，颜色=该代状态（四档语义 + 灰=未战而终） */
-.war-gen-pips{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto}
-.war-gen-pip{font-size:11px;line-height:16px;font-weight:700;padding:0 3px;border-radius:4px}
+.war-gen-pips{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto}
+.war-gen-pip{width:8px;height:8px;border-radius:50%;padding:0;font-size:0;background:currentColor;flex:0 0 auto}
 .war-gen-pip.st-run{color:var(--war-run-strong)}
 .war-gen-pip.st-wait{color:var(--war-wait)}
 .war-gen-pip.st-done{color:var(--war-done)}
 .war-gen-pip.st-fail{color:var(--war-fail)}
 .war-gen-pip.st-idle{color:var(--dsw-alias-label-tertiary)}
-.war-gen-pip.now{text-decoration:underline;text-underline-offset:3px} /* 卡面=最新代 */
-.war-gen-pip.more{color:var(--dsw-alias-label-tertiary);font-weight:600;padding:0 1px} /* >4 代截头标记 */
-/* 组展开面板：fixed 从卡面实测坐标落位（轨道横滚容器会裁剪绝对定位子元素），
- * translateY(-100%) 令面板底缘贴卡面上缘；固定高 min(代数,4) 行、内部滚轮翻看 */
-.war-group-panel{position:fixed;width:calc(var(--war-card-w) + 18px);max-height:calc(min(var(--war-panel-rows, 4), 4) * (var(--war-card-h) + 8px) + 18px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:14px;border:1px solid var(--dsw-alias-border-l2);background:var(--war-pop-bg);box-shadow:var(--war-shadow-2);z-index:60;transform:translateY(-100%);animation:war-panel-in .16s ease-out}
-@keyframes war-panel-in{from{opacity:0;transform:translateY(-96%)}to{opacity:1;transform:translateY(-100%)}}
+.war-gen-pip.now{width:10px;height:10px;outline:1.5px solid currentColor;outline-offset:2px} /* 卡面=最新代：放大+描环 */
+.war-gen-pip.more{font-size:11px;width:auto;height:16px;background:none;color:var(--dsw-alias-label-tertiary);font-weight:600;padding:0 1px} /* >4 代截头标记 */
+/* 组展开面板（Mac 下载栈式，元首定）：无边框无底色无内衬——历代卡直接自卡面
+ * 上方生长（最新前代贴底，更老依次向上），最高 4 行滚轮翻看；fixed 从卡面实测
+ * 坐标落位（轨道横滚容器会裁剪绝对定位子元素），translateY(-100%) 底缘贴卡面 */
+.war-group-panel{position:fixed;width:calc(var(--war-card-w) + 12px);max-height:calc(min(var(--war-panel-rows, 4), 4) * (var(--war-history-card-h) + 8px) + 4px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:2px 12px 2px 0;z-index:60;transform:translateY(-100%);scrollbar-width:thin}
+.war-group-history{display:block}
+.war-group-history .war-command-card{height:var(--war-history-card-h);box-shadow:var(--war-shadow-1);animation:war-fan-in .18s ease-out backwards;animation-delay:calc(var(--i, 0) * 40ms)} /* 层叠入场：最新前代先起，更老依次跟上 */
+.war-group-history .war-command-card:hover{transform:none;box-shadow:var(--war-shadow-1);border-color:var(--dsw-alias-border-l2)} /* 历史卡无悬停反馈（元首定）——生命周期已退场，点开详情是唯一交互 */
+@keyframes war-fan-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);border-radius:10px;background:var(--war-wait-tint);padding:8px 12px}
 .war-cd-band.quiet{border-color:var(--dsw-alias-border-l2);background:var(--war-well-bg)}

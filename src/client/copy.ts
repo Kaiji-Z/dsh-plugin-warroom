@@ -531,9 +531,9 @@ export const warCopy: WarCopy = {
   },
   commandCard: {
     noQuickAction: '无快捷操作',
-    pipsTitle: n => `这条战线共 ${n} 代——罗马数字即代数，颜色即该代当前状态`,
+    pipsTitle: n => `这条战线共 ${n} 代——每个圆点是一代，颜色即该代当前状态`,
     pipStatus: { run: '推进中', wait: '等你发落', done: '善终', fail: '败退', idle: '未战而终' },
-    panelAria: n => `战线历代（共 ${n} 代）：上/下键选代，回车打开该代详情`,
+    panelAria: n => `战线前史共 ${n} 代（最新一代就在坞上）：上/下键选代，回车打开详情`,
   },
   starfield: {
     aria: '星域战场：每片战区一颗星，执行中的部队绕星而行',
@@ -884,9 +884,9 @@ export const plainCopy: WarCopy = {
   },
   commandCard: {
     noQuickAction: '暂无操作',
-    pipsTitle: n => `这条跟进线共 ${n} 步——罗马数字是步数，颜色是每步状态`,
+    pipsTitle: n => `这条跟进线共 ${n} 步——每个圆点是一步，颜色是每步状态`,
     pipStatus: { run: '进行中', wait: '待你处理', done: '已完成', fail: '失败', idle: '已取消' },
-    panelAria: n => `历史跟进（共 ${n} 步）：上/下键选择，回车查看`,
+    panelAria: n => `此前跟进共 ${n} 步（最新一步就在下方）：上/下键选择，回车查看`,
   },
   starfield: {
     aria: '项目全景：每个项目一颗星球，正在干活的任务绕圈转',

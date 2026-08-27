@@ -398,9 +398,9 @@ function genBadge(cmd: BoardCommand): ReactNode {
   }, label)
 }
 
-/** V10.1 战线历代状态 pip：罗马数字=代数（ GEN_ROMAN 同源，Ⅰ 代也显名），
- * 颜色=该代战线状态——蓝=机器在动/琥珀=等你/绿=善终/红=败/灰=未战而终。
- * 不展开也能读整条战线健康度（元首定案）。 */
+/** V10.1 战线历代状态 pip（元首复评定形=纯圆点）：一点一代，颜色=该代战线
+ * 状态——蓝=机器在动/琥珀=等你/绿=善终/红=败/灰=未战而终；最新代点放大描环
+ * （卡面=此代）。代数罗马数字只在悬停 title/aria 里讲（圆点不背字）。 */
 type PipStatus = 'run' | 'wait' | 'done' | 'fail' | 'idle'
 function pipLabel(generation: number): string {
   return GEN_ROMAN[Math.max(1, generation)] ?? `第${generation}代`
@@ -426,12 +426,12 @@ function genPips(cards: BoardCommand[], tasksOf: (c: BoardCommand) => BoardTask[
   },
   cards.length > 4 ? createElement('span', { key: 'more', 'aria-hidden': 'true', className: 'war-gen-pip more' }, '…') : null,
   ...shown.map(c => createElement('span', {
-    key: c.commandId, 'aria-hidden': 'true',
+    key: c.commandId, 'aria-hidden': 'true', title: `${pipLabel(c.chain.generation)} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`,
     className: `war-gen-pip st-${genPipStatus(c, tasksOf(c))}${c.commandId === latestId ? ' now' : ''}`,
-  }, pipLabel(c.chain.generation))))
+  })))
 }
 
-function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, tour = false, pips: ReactNode = null): ReactNode {
+function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: ClientServicesFace, onDetail: (cmd: BoardCommand) => void, chain: BoardTask[], trace: CardTrace, onRegrade: (grade: 'L0' | 'L1' | 'L2') => void, tour = false, pips: ReactNode = null, history = false): ReactNode {
   const meta = commandStatus(cmd.status)
   const enterSession = (): void => {
     const target = cmd.staffSessionId ?? hqSessionId
@@ -491,8 +491,9 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
       ? createElement('span', { className: 'war-preflight-text' }, activeCopy().preflight.hint)
       : cancelledNote,
   ),
-  // R5 快捷操作行：进入对话 / 改直发（V7-④ 出口）/ ◎ 聚焦；tour 变体全空给占位。
-  createElement('div', { className: 'war-card-actions' },
+  // R5 快捷操作行：进入对话 / 改直发（V7-④ 出口）/ ◎ 聚焦；tour 变体全空给占位；
+  // history 变体（组展开面板里的历代卡）无此行——过去的命令不再需要操作，只可点看。
+  history ? null : createElement('div', { className: 'war-card-actions' },
     conversational
       ? createElement('button', {
           className: 'war-btn war-enter-btn',
@@ -519,14 +520,16 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   )
 }
 
-/** V10.1 卡牌组（元首定案）：坞里只摆最新一代卡面，组性走「叠纸影 + 历代
- * 状态 pip」；悬停 ~150ms 整组向上展开（固定高 min(代数,4) 行、新在顶、滚轮
- * 翻看），离开 ~200ms 收拢；聚焦组内任一卡同样展开——键鼠同权（↑/↓ 选代、
- * 回车打开该代、Esc 收拢回卡面）。面板 position:fixed 从卡面实测坐标落位：
- * 轨道是横滚容器，绝对定位子元素会被竖向裁剪；宿主无 transform 祖先（modal/
- * map-hint 两条 fixed 先例）。滚轮拦截用原生监听——轨道横移劫持同为原生监听，
- * React 合成 stopPropagation 到不了它（冒泡序 panel→track 先于 root 委托）。 */
-function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; renderCard: (c: BoardCommand, pips?: ReactNode) => ReactNode; tasksOf: (c: BoardCommand) => BoardTask[] }): ReactNode {
+/** V10.1 卡牌组（元首复评定形）：坞里只摆最新一代卡面，组性走「叠纸影 +
+ * 历代状态圆点」；悬停 ~150ms 组面按 Mac 下载栈式向上展开——面板只摆【历代】
+ * （最新一代=坞上卡面本体复用，不重复），最新前代贴卡面在上、更老依次向上，
+ * 最高 4 行滚轮翻看，离开 ~200ms 收拢；聚焦组内任一卡同样展开——键鼠同权
+ * （↑/↓ 选代、回车打开该代、Esc 收拢回卡面）。历史卡同形无 R5、无悬停。
+ * 面板 position:fixed 从卡面实测坐标落位：轨道是横滚容器，绝对定位子元素会被
+ * 竖向裁剪；宿主无 transform 祖先（modal/map-hint 两条 fixed 先例）。滚轮拦截
+ * 用原生监听——轨道横移劫持同为原生监听，React 合成 stopPropagation 到不了它
+ * （冒泡序 panel→track 先于 root 委托）。 */
+function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; renderCard: (c: BoardCommand, pips?: ReactNode, history?: boolean) => ReactNode; tasksOf: (c: BoardCommand) => BoardTask[] }): ReactNode {
   const { rootId, cards, renderCard, tasksOf } = props
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
@@ -570,7 +573,7 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
     const idx = list.findIndex(c => c === document.activeElement)
     if (idx < 0) return
     e.preventDefault()
-    // DOM 序=新在顶：↑ 向新代，↓ 向旧代。
+    // DOM 序=旧在顶新在底（贴卡面）：↑ 向旧代，↓ 向新代（贴近坞上卡面）。
     const next = e.key === 'ArrowUp' ? Math.max(idx - 1, 0) : Math.min(idx + 1, list.length - 1)
     list[next]!.focus()
   }
@@ -580,17 +583,22 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
     onFocusCapture: scheduleOpen,
     onBlurCapture: e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) scheduleClose() },
   },
-    // 卡面=最新一代（R1 挂历代状态 pip）；点击/回车=打开该代聚焦页。
+    // 卡面=最新一代（R1 挂历代状态圆点）；点击/回车=打开该代聚焦页。
     createElement('div', { ref: faceRef, className: 'war-cmd-group-face' }, renderCard(latest, genPips(cards, tasksOf, latest.commandId))),
     open && pos !== null
       ? createElement('div', {
           className: 'war-group-panel', ref: panelRef, role: 'group',
-          'aria-label': activeCopy().commandCard.panelAria(cards.length),
-          style: { left: `${pos.left}px`, top: `${pos.top}px`, '--war-panel-rows': String(cards.length) } as CSSProperties,
+          'aria-label': activeCopy().commandCard.panelAria(cards.length - 1),
+          style: { left: `${pos.left}px`, top: `${pos.top}px`, '--war-panel-rows': String(Math.min(cards.length - 1, 4)) } as CSSProperties,
           onKeyDown: panelKey,
         },
-          // 新在顶：最新代在最上，历史各代依次向下。
-          ...[...cards].reverse().map(c => renderCard(c)),
+          // 只摆历代（最新代=坞上卡面，不重复）；旧在顶、最新前代在底贴卡面；
+          // 包一层挂 --i 层叠入场序（最新前代先起=0，更老依次跟上——下载栈式）。
+          ...cards.slice(0, -1).map((c, i) => createElement('div', {
+            key: `h-${c.commandId}`,
+            className: 'war-group-history',
+            style: { '--i': String(cards.length - 2 - i) } as CSSProperties,
+          }, renderCard(c, undefined, true))),
         )
       : null,
   )
@@ -1954,10 +1962,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const mapView = viewPref === 'map' && winW >= 900
     // V10.1 对抗审查 P0-2：hover/聚焦某战线时，其已结算 attempts 在星域显「昔日阵地」
     // ghost（元首 V10 定案「凯旋印记 hover 显形」本体——平时不留常驻位，追问才显形）。
-    const ghostFamily = hoverFamily ?? focusCommandId
+    // V10.1 元首定：聚焦态下悬停族系高亮让位——聚焦是主导航态，悬停不该抢戏；
+    // 悬停只在无聚焦时工作（原 hoverFamily ?? focusCommandId 优先级翻转）。
+    const ghostFamily = focusCommandId ?? hoverFamily
+    // 族系解析升根级（与坞卡高亮同语义）：ghost 也按战线根聚合——hover 组面时
+    // Ⅰ 代的昔日阵地照样显形（exact-id 会落空，同 shoot P2 抓的卡面问题）。
+    const familyRoot = ghostFamily !== null ? commandsNewest.find(c => c.commandId === ghostFamily)?.chain.rootId : undefined
+    const familyCmdIds = new Set(familyRoot !== undefined ? commandsNewest.filter(c => c.chain.rootId === familyRoot).map(c => c.commandId) : [])
     const starGhosts = ghostFamily !== null
       ? tasks.flatMap(t => {
-          if (lineageOf(t.taskId)?.commandId !== ghostFamily) return []
+          if (!familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? '')) return []
           const idx = wsOrder.indexOf(t.workspacePath ?? '')
           if (idx < 0) return []
           const spec = planetSpecs[idx]!
@@ -1967,8 +1981,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         })
       : []
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
-    const traceActive = hoverFamily ?? focusCommandId
-    const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: setFocusCommandId })
+    const traceActive = focusCommandId ?? hoverFamily
+    // V10.1 元首定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
+    const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: id => { setFocusCommandId(cur => cur === id ? null : id) } })
     // V10.1 对抗审查 P0-1：外部挂载卡随 field 隐退会人间蒸发——地图态改驻任务舱尾（台账语义）。
     const threadCards = threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))
     // V9.11 任务列=参谋侧台账：成形卡（接令起、任务书未挂出的命令）置顶——参谋
@@ -2139,19 +2154,23 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             onCompose: () => { setComposerOpen(true) },
           },
             ...dispatchGroups.flatMap(g => {
-              const renderDockCard = (c: BoardCommand, pips?: ReactNode): ReactNode => {
+              const renderDockCard = (c: BoardCommand, pips?: ReactNode, history = false): ReactNode => {
                 // V10.1 卡组：族系高亮解析升到战线根——hover/聚焦命中链上任一代
                 // （星域光点常溯源到 Ⅰ 代旧令），坞里代表这条战线的卡要点亮：
                 // 坞只摆最新代，exact-id 匹配会让旧代溯源高亮落空（shoot P2 实抓）。
-                // 单命令的 root=自身，行为不变。
-                const base = traceFor(c.commandId)
-                const trace = base.active !== null && base.active !== c.commandId
-                  && commandsNewest.find(x => x.commandId === base.active)?.chain.rootId === c.chain.rootId
-                  ? { ...base, active: c.commandId }
-                  : base
+                // 单命令的 root=自身，行为不变。历史卡（面板内历代）无悬停无聚焦
+                // ——生命周期已从主界面退场，点开详情弹窗是唯一交互（元首定）。
+                const trace = history ? NO_TRACE
+                  : (() => {
+                      const base = traceFor(c.commandId)
+                      return base.active !== null && base.active !== c.commandId
+                        && commandsNewest.find(x => x.commandId === base.active)?.chain.rootId === c.chain.rootId
+                        ? { ...base, active: c.commandId }
+                        : base
+                    })()
                 return CommandCard(c, hqSessionId, services, cmd => openCommand(cmd.commandId), chainOf(c), trace, grade => {
                   actNote(regradeCommand(c.commandId, grade), activeCopy().commandDetail.regradeTo(activeCopy().grade[grade]))
-                }, false, pips)
+                }, false, pips, history)
               }
               return g.cards.length === 1
                 ? [renderDockCard(g.cards[0]!)]

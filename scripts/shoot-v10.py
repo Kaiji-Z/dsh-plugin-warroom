@@ -131,8 +131,9 @@ with sync_playwright() as p:
     assert abs(gb["width"] - fb["width"]) <= 6, f"组宽应≈卡宽（叠缘已退役）：group_w={gb['width']:.0f} card_w={fb['width']:.0f}"
     # 历代状态 pip：Ⅰ/Ⅱ 两枚（罗马数字=代数），最新代带 now 标记
     pips = g1.locator(".war-gen-pips .war-gen-pip")
-    assert pips.count() == 2, f"卡面应挂 2 枚历代状态 pip，got {pips.count()}"
-    assert g1.locator(".war-gen-pip.now").count() == 1, "最新代 pip 应带 now 标记（卡面=此代）"
+    assert pips.count() == 2, f"卡面应挂 2 枚历代状态圆点，got {pips.count()}"
+    assert (pips.first.text_content() or "").strip() == "", "圆点 pip 不应带文字"
+    assert g1.locator(".war-gen-pip.now").count() == 1, "最新代圆点应带 now 描环（卡面=此代）"
     # 五行恒高卡规格：全坞同尺寸 + 零内容溢出
     sizes = page.evaluate("""() => {
       const cs = [...document.querySelectorAll('.war-dispatch .war-command-card')];
@@ -147,15 +148,17 @@ with sync_playwright() as p:
     panel = g1.locator(".war-group-panel")
     assert panel.is_visible(), "聚焦组内卡面应展开历代面板（键鼠同权）"
     pcards = panel.locator(".war-command-card")
-    assert pcards.count() == 2 and pcards.first.get_attribute("data-war-gen") == "2", "面板应两代且最新在顶"
+    assert pcards.count() == 1 and pcards.first.get_attribute("data-war-gen") == "1", "面板只摆历代（最新代由坞上卡面复用，不重复）"
     pb = panel.bounding_box()
     assert pb["y"] + pb["height"] <= fb["y"] + 2, "面板应整体悬于卡面上方（不遮卡面）"
     # 面板内滚轮不得横移轨道（原生 stopPropagation 拦截）
     sl0 = page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft")
     panel.hover(); page.mouse.wheel(0, 200); page.wait_for_timeout(200)
     assert page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft") == sl0, "面板滚轮不得横移轨道"
-    # 点 Ⅰ 代卡直达该代聚焦页（无露缘带路由的直取通道）
-    pcards.nth(1).click()
+    # 历史卡同形无 R5（过去的命令不再需要操作）；点 Ⅰ 代卡直达该代聚焦页
+    assert panel.locator(".war-card-actions").count() == 0, "历史卡不应有 R5 操作行"
+    assert panel.locator(".war-group-history").count() == 1, "历史卡应有层叠入场包层"
+    pcards.nth(0).click()
     page.wait_for_selector(".war-cd-modal", timeout=5000)
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
