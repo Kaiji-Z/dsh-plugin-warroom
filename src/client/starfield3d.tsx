@@ -103,8 +103,8 @@ export function layoutExtent(planets: ReadonlyArray<Planet3D>): number {
  * 的中带占比）双约束取紧者；外沿 ×1.5 裕度含光点/标签随从。 */
 export function initialCam(extent: number, aspect: number, safeWidthFrac = 1): CamState {
   const half = Math.tan((CAM_FOV_DEG * Math.PI) / 360)
-  const fitH = (extent * 1.35) / half
-  const fitW = (extent * 1.35) / (half * Math.max(aspect, 0.1) * Math.max(safeWidthFrac, 0.2))
+  const fitH = (extent * 1.28) / half
+  const fitW = (extent * 1.28) / (half * Math.max(aspect, 0.1) * Math.max(safeWidthFrac, 0.2))
   return clampCam({ yaw: 0.65, pitch: 0.55, dist: Math.max(fitH, fitW) })
 }
 
@@ -206,8 +206,11 @@ class SpaceScene {
   private readonly composer: EffectComposer
   private readonly bloom: UnrealBloomPass
   private readonly ambient = new THREE.AmbientLight(0x334466, 0.7)
-  private readonly sunLight = new THREE.PointLight(0xffc27a, 1500, 620, 2)
-  private readonly coolFill = new THREE.PointLight(0x66ccff, 700, 420, 2)
+  /** 主光=方向灯（默认机位侧上方）：行星朝相机面受光，纹理可读——点光在原点
+   * 只会给行星逆光剪影（目检实抓：深色主题行星全黑、浅色成扁平深蓝圆片）。 */
+  private readonly keyLight = new THREE.DirectionalLight(0xfff2e0, 2.4)
+  private readonly rimLight = new THREE.DirectionalLight(0x88aaff, 0.5)
+  private readonly engineLight = new THREE.PointLight(0xffc27a, 260, 260, 2)
   private readonly disposables: Array<{ dispose(): void }> = []
   private readonly starMats: THREE.ShaderMaterial[] = []
   private readonly nebulaMats: THREE.SpriteMaterial[] = []
@@ -240,15 +243,18 @@ class SpaceScene {
     this.composer.addPass(this.bloom)
     this.composer.addPass(new OutputPass())
     this.scene.add(this.ambient)
-    this.sunLight.position.set(0, 8, 0)
-    this.scene.add(this.sunLight)
-    this.coolFill.position.set(0, 90, 0)
-    this.scene.add(this.coolFill)
+    this.keyLight.position.set(340, 420, 260)
+    this.scene.add(this.keyLight)
+    this.rimLight.position.set(-300, 140, -280)
+    this.scene.add(this.rimLight)
+    this.engineLight.position.set(0, 0, 10)
+    this.scene.add(this.engineLight)
     this.shipMat = new THREE.MeshStandardMaterial({ color: 0xd9dee8, flatShading: true, roughness: 0.5, metalness: 0.55, emissive: 0xff7a45, emissiveIntensity: 0.55 })
     this.disposables.push(this.shipGeo, this.shipMat, this.shipGlowTex)
     this.hullMat = new THREE.MeshStandardMaterial({ color: this.theme.hull, flatShading: true, roughness: 0.42, metalness: 0.62, emissive: 0x2a3a55, emissiveIntensity: 0.5 })
     this.disposables.push(this.hullMat)
     this.buildMother()
+    this.mother.scale.setScalar(1.18)
     // 闪烁星海（demo 星 shader 移植+确定性相位/尺寸）：远小 1600 / 中 700 / 亮
     // 180，五色调×亮度；uTime 每帧推，逐星相位错开——深空「活着」的底噪。
     const palette: ReadonlyArray<readonly [number, number, number]> = [[1, 1, 1], [0.72, 0.82, 1], [1, 0.85, 0.65], [0.82, 0.72, 1], [0.65, 0.9, 1]]
@@ -336,13 +342,13 @@ class SpaceScene {
     add(new THREE.CylinderGeometry(1.05, 1.25, 11, 5), -4.4, -0.4, 0.4, Math.PI / 2)  // 左舷舱
     add(new THREE.CylinderGeometry(1.05, 1.25, 11, 5), 4.4, -0.4, 0.4, Math.PI / 2)   // 右舷舱
     add(new THREE.BoxGeometry(0.5, 3.6, 5.2), 0, 2.2, 6.6)                            // 尾鳍
-    const glowTex = radialTexture([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,.6)'], [1, 'rgba(255,255,255,0)']])
+    const glowTex = radialTexture([[0, 'rgba(255,236,200,.95)'], [0.28, 'rgba(255,170,80,.5)'], [1, 'rgba(255,140,60,0)']])
     this.disposables.push(glowTex)
     for (const [ex, ey] of [[-2.2, -0.2], [2.2, -0.2], [0, -1.8]] as const) {
-      const mat = new THREE.SpriteMaterial({ map: glowTex, color: this.theme.engine, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+      const mat = new THREE.SpriteMaterial({ map: glowTex, color: this.theme.engine, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
       const sp = new THREE.Sprite(mat)
       sp.position.set(ex, ey, 9.2)
-      sp.scale.setScalar(4)
+      sp.scale.setScalar(2.6)
       this.mother.add(sp)
       this.engineGlows.push(sp)
       this.engineMats.push(mat)
@@ -356,12 +362,13 @@ class SpaceScene {
     if (this.belt !== null) { this.scene.remove(this.belt); this.belt.geometry.dispose(); (this.belt.material as THREE.Material).dispose() }
     if (radius <= 0) { this.belt = null; return }
     const geo = new THREE.IcosahedronGeometry(1, 0)
-    const mat = new THREE.MeshStandardMaterial({ color: 0x69748c, flatShading: true, roughness: 0.9, metalness: 0.25 })
-    const im = new THREE.InstancedMesh(geo, mat, 140)
+    const mat = new THREE.MeshStandardMaterial({ color: 0x59637a, flatShading: true, roughness: 0.9, metalness: 0.25 })
+    const im = new THREE.InstancedMesh(geo, mat, 120)
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sv = new THREE.Vector3()
-    for (let i = 0; i < 140; i++) {
-      const a = det(`ba:${i}`, 0, Math.PI * 2), r = radius + det(`br:${i}`, -14, 14), k = det(`bk:${i}`, 0.3, 1.25)
-      m4.compose(new THREE.Vector3(Math.cos(a) * r, det(`by:${i}`, -6, 6), Math.sin(a) * r),
+    for (let i = 0; i < 120; i++) {
+      // 大半径差 ±30 + 纵向 ±16：读作碎屑云而非「规整圆环」（元首「不要规整同心圆」）。
+      const a = det(`ba:${i}`, 0, Math.PI * 2), r = radius + det(`br:${i}`, -30, 30), k = det(`bk:${i}`, 0.25, 0.95)
+      m4.compose(new THREE.Vector3(Math.cos(a) * r, det(`by:${i}`, -16, 16), Math.sin(a) * r),
         q.setFromEuler(e.set(det(`be1:${i}`, 0, Math.PI * 2), det(`be2:${i}`, 0, Math.PI * 2), 0)),
         sv.set(k, k, k))
       im.setMatrixAt(i, m4)
@@ -375,14 +382,14 @@ class SpaceScene {
     this.theme = dark ? DARK : LIGHT
     this.scene.fog = dark ? new THREE.FogExp2(0x06070f, 0.00075) : null
     this.ambient.color.setHex(this.theme.ambient)
-    this.ambient.intensity = dark ? 0.7 : 1.05
-    this.coolFill.intensity = dark ? 700 : 350
-    this.bloom.strength = dark ? 1.0 : 0.55
-    this.bloom.threshold = dark ? 0.18 : 0.32
+    this.ambient.intensity = dark ? 0.55 : 0.9
+    this.rimLight.intensity = dark ? 0.5 : 0.35
+    this.bloom.strength = dark ? 0.85 : 0.45
+    this.bloom.threshold = dark ? 0.28 : 0.32
     for (const m of this.starMats) m.uniforms.uDim!.value = dark ? 1 : 0.5
     for (const m of this.nebulaMats) m.opacity = dark ? 0.17 : 0.035
-    for (const m of this.haloMats) m.opacity = dark ? 0.32 : 0.16
-    for (const m of this.planetMats) m.emissiveIntensity = dark ? 0.32 : 0.18
+    for (const m of this.haloMats) m.opacity = dark ? 0.28 : 0.07
+    for (const m of this.planetMats) m.emissiveIntensity = dark ? 0.42 : 0.22
     for (const m of this.engineMats) m.color.setHex(this.theme.engine)
     for (const sid of this.ships.keys()) {
       const glow = this.ships.get(sid)!.group.children.find(c => c.type === 'Sprite') as THREE.Sprite | undefined
@@ -394,7 +401,8 @@ class SpaceScene {
 
   setHqActive(active: boolean): void {
     this.hqActive = active
-    this.sunLight.intensity = active ? (this.theme === DARK ? 1500 : 950) : 150
+    this.keyLight.intensity = active ? 2.4 : 0.6
+    this.engineLight.intensity = active ? 260 : 50
   }
 
   /** 星球重建（demo 材质栈：条纹贴图+自发光+大气光晕）；松散散布不画轨道环。 */
@@ -410,7 +418,7 @@ class SpaceScene {
     this.planetMats.length = 0
     this.haloMats.length = 0
     for (const h of this.haloPool) h.visible = false
-    this.rebuildBelt(planets.length > 0 ? layoutExtent(planets) * 0.9 : 0)
+    this.rebuildBelt(planets.length > 0 ? layoutExtent(planets) * 1.18 : 0)
     const sphere = new THREE.SphereGeometry(1, 28, 20)
     this.disposables.push(sphere)
     while (this.haloPool.length < planets.length) {
@@ -512,8 +520,8 @@ class SpaceScene {
   update(dt: number, time: number, frozen: boolean): void {
     for (const m of this.starMats) m.uniforms.uTime!.value = frozen ? 0 : time
     const pulse = this.hqActive ? 0.8 + Math.sin(time * 2.4) * 0.18 : 0.35
-    for (const g of this.engineGlows) g.scale.setScalar(frozen ? 4 : 3.2 + pulse * 1.4)
-    for (const mat of this.engineMats) mat.opacity = this.hqActive ? 0.45 + pulse * 0.22 : 0.22
+    for (const g of this.engineGlows) g.scale.setScalar(frozen ? 2.6 : 2.3 + pulse * 1.0)
+    for (const mat of this.engineMats) mat.opacity = this.hqActive ? 0.4 + pulse * 0.2 : 0.18
     for (const [sid, ship] of this.ships) {
       if (ship.phase === 'fly' || ship.phase === 'return') {
         if (frozen) {
