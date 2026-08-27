@@ -227,20 +227,31 @@ with sync_playwright() as p:
     }""")
     assert spot is not None, "找不到空画布落点（拖拽起点）"
     def cam():
-        return page.evaluate("() => { const p = window.__wz.scene.camera.position; return [p.x, p.y, p.z] }")
-    def dist(p):
-        return (p[0] ** 2 + p[1] ** 2 + p[2] ** 2) ** 0.5
+        return page.evaluate("() => window.__wz.scene.camInfo()")
+    # V11.5b 三键相机（元首定）：左平移（center 动）/ 中旋转（绕屏幕中心，yaw 动 center 不动）/
+    # 滚轮缩放（dist 动）；双击复位含平移归零。
     c0 = cam()
     page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
-    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up()
-    page.wait_for_timeout(1000)
+    page.mouse.move(spot["x"] - 260, spot["y"] - 80, steps=12); page.mouse.up()
+    page.wait_for_timeout(700)
     c1 = cam()
-    assert sum(abs(a - b) for a, b in zip(c0, c1)) > 10, f"左键拖拽应旋转相机：{c0}->{c1}"
+    assert abs(c1["cx"] - c0["cx"]) + abs(c1["cy"] - c0["cy"]) + abs(c1["cz"] - c0["cz"]) > 5, f"左键拖拽应平移（center 移动）：{c0}->{c1}"
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.down(button="middle")
+    page.mouse.move(spot["x"] - 300, spot["y"], steps=12); page.mouse.up(button="middle")
+    page.wait_for_timeout(1000)
+    c2 = cam()
+    dyaw = abs(c2["yaw"] - c1["yaw"])
+    dyaw = min(dyaw, 2 * 3.14159 - dyaw)
+    assert dyaw > 0.08, f"中键拖拽应旋转（yaw 变化）：{c1['yaw']:.3f}->{c2['yaw']:.3f}"
+    assert abs(c2["cx"] - c1["cx"]) < 1, f"旋转必须绕屏幕中心（center 不动）：{c1}->{c2}"
     page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, 500); page.wait_for_timeout(1000)
-    d1 = dist(cam())
-    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, -800); page.wait_for_timeout(1000)
-    d2 = dist(cam())
-    assert abs(d2 - d1) > 5, f"滚轮应缩放（往复距离变化）：{d1:.0f}->{d2:.0f}"
+    d1 = cam()["dist"]
+    page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, -900); page.wait_for_timeout(1000)
+    d2 = cam()["dist"]
+    assert abs(d2 - d1) > 8, f"滚轮应缩放（往复距离变化）：{d1:.0f}->{d2:.0f}"
+    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(2800)
+    c3 = cam()
+    assert abs(c3["cx"] - c0["cx"]) < 2 and abs(c3["dist"] - c0["dist"]) < 8 and min(abs(c3["yaw"] - c0["yaw"]), 2 * 3.14159 - abs(c3["yaw"] - c0["yaw"])) < 0.05, f"双击应复位（含平移归零；headless 软光栅 rAF 慢须长等阻尼收敛）：{c0}->{c3}"
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 

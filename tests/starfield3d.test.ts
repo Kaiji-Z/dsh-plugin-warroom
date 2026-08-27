@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { attemptPhaseOf, ease, pad2, qbez, warLogOf, warzoneLayoutFor, warzonePlanets } from '../src/client/warzone-scene.ts'
+import { attemptPhaseOf, clampCam, dampCam, ease, pad2, qbez, warLogOf, warzoneLayoutFor, warzonePlanets, WZ_CAM_DIST_MAX, WZ_CAM_DIST_MIN, WZ_CAM_PITCH_MAX, WZ_CAM_PITCH_MIN } from '../src/client/warzone-scene.ts'
 
 /** V11.4 warzone demo 移植的纯函数面：星球布局确定性（红线①——同种子恒同貌，
  * SSE 零抖动、探针可断言的根基）+ 贝塞尔航迹几何。 */
@@ -96,4 +96,20 @@ test('V11.5 warLogOf: 时间倒序 + 30 封顶 + stamp 本地时分', () => {
   assert.equal(log.length, 30, '30 封顶')
   assert.equal(log[0]!.text, '早', '最新在前')
   assert.ok(log[0]!.stamp !== undefined && /^\d{2}:\d{2}$/.test(log[0]!.stamp!), 'stamp=本地时分')
+})
+
+test('V11.5b 三键相机纯函数：clampCam 夹持/yaw 环绕；dampCam 趋近且 dt=0 直接吸附', () => {
+  const c = clampCam({ yaw: -0.5, pitch: 9, dist: 1 })
+  assert.ok(c.yaw >= 0 && c.yaw < Math.PI * 2)
+  assert.equal(c.pitch, WZ_CAM_PITCH_MAX)
+  assert.equal(c.dist, WZ_CAM_DIST_MIN)
+  const c2 = clampCam({ yaw: 7, pitch: 0, dist: 99999 })
+  assert.equal(c2.pitch, WZ_CAM_PITCH_MIN)
+  assert.equal(c2.dist, WZ_CAM_DIST_MAX)
+  const cur = { yaw: 0, pitch: 0.5, dist: 200 }
+  const tar = { yaw: 1, pitch: 0.9, dist: 100 }
+  const one = dampCam(cur, tar, 1 / 60)
+  assert.ok(one.yaw > 0 && one.yaw < tar.yaw, '一步在两者之间')
+  const snap = dampCam(cur, tar, 0)
+  assert.equal(snap.yaw, tar.yaw, 'reduced-motion（dt=0）直接吸附目标')
 })

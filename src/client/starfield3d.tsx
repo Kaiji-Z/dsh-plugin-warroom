@@ -111,9 +111,11 @@ export function Warzone(props: WarzoneProps): ReactNode {
     const setMode = (m: '3d' | 'cmd'): void => { applyMode(m); setCmd(m === 'cmd') }
     const toggle = (): void => setMode(mode === '3d' ? 'cmd' : '3d')
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'v' && e.key !== 'V') return
       const t = e.target as HTMLElement | null
-      if (t !== null && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      const typing = t !== null && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      if ((e.key === 'r' || e.key === 'R') && !typing && mode === '3d') { scene.resetCam(); return }
+      if (e.key !== 'v' && e.key !== 'V') return
+      if (typing) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       toggle()
     }
@@ -121,11 +123,44 @@ export function Warzone(props: WarzoneProps): ReactNode {
       const m = (e.currentTarget as HTMLElement).dataset.wzMode
       if (m === '3d' || m === 'cmd') setMode(m)
     }
-    const onWheel = (e: WheelEvent): void => { if (mode === 'cmd') tac.zoomBy(e.deltaY) }
+    const onWheel = (e: WheelEvent): void => {
+      if (mode === 'cmd') tac.zoomBy(e.deltaY)
+      else scene.zoomBy(e.deltaY)
+    }
+    // V11.5b 三键相机（元首定，仅 3D 态）：左键平移（即时跟手）/ 中键旋转（阻尼，
+    // 绕屏幕中心）；中键 mousedown 防 autoscroll。滚轮双路由：雷达缩态势图、3D 缩机距。
+    let camDrag: 'pan' | 'rotate' | null = null
+    let lx = 0, ly = 0
+    const onPointerDown = (e: PointerEvent): void => {
+      if (mode !== '3d') return
+      if (e.button === 1) camDrag = 'rotate'
+      else if (e.button === 0) {
+        if ((e.target as HTMLElement).closest('button') !== null) return
+        camDrag = 'pan'
+      } else return
+      lx = e.clientX; ly = e.clientY
+      root.setPointerCapture(e.pointerId)
+    }
+    const onPointerMove = (e: PointerEvent): void => {
+      if (camDrag === null || mode !== '3d') return
+      const dx = e.clientX - lx, dy = e.clientY - ly
+      lx = e.clientX; ly = e.clientY
+      if (camDrag === 'rotate') scene.orbitBy(dx * 0.006, dy * 0.0045)
+      else scene.panByPx(dx, dy, root.clientHeight)
+    }
+    const onPointerUp = (e: PointerEvent): void => { camDrag = null; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
+    const onMouseDownCam = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
+    const onDbl = (): void => { if (mode === '3d') scene.resetCam() }
     root.addEventListener('mousemove', onMove)
     root.addEventListener('mouseleave', onLeave)
     root.addEventListener('contextmenu', onCtx)
     root.addEventListener('wheel', onWheel, { passive: true })
+    root.addEventListener('pointerdown', onPointerDown)
+    root.addEventListener('pointermove', onPointerMove)
+    root.addEventListener('pointerup', onPointerUp)
+    root.addEventListener('pointercancel', onPointerUp)
+    root.addEventListener('mousedown', onMouseDownCam)
+    root.addEventListener('dblclick', onDbl)
     window.addEventListener('keydown', onKey)
     for (const b of Array.from(root.querySelectorAll<HTMLElement>('[data-wz-mode]'))) b.addEventListener('click', onBtn)
     // 主循环
@@ -140,7 +175,6 @@ export function Warzone(props: WarzoneProps): ReactNode {
       const dt = reduce.matches ? 0 : Math.min((now - last) / 1000, 0.05)
       last = now
       t += dt
-      if (mode === '3d') scene.controls.update()
       scene.update(dt, t)
       // 悬停拾取
       let hovered: WzEntityRef | null = null
@@ -185,7 +219,19 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (mode === '3d') {
         scene.render()
       } else {
-        tac.draw(t, dt, scene.planets, scene.squads, scene.log, hits)
+        // V11.5c：雷达画进【灵动岛/任务舱/战报舱/命令坞围合的中央自由区】。
+        const r = root.getBoundingClientRect()
+        let x0 = 0, y0 = 0, x1 = r.width, y1 = r.height
+        const isl = document.querySelector('.war-island')
+        const tk = document.querySelector('.war-zone.war-tasks')
+        const rp = document.querySelector('.war-zone.war-report')
+        const dk = document.querySelector('.war-dispatch')
+        if (isl !== null) y0 = Math.max(y0, isl.getBoundingClientRect().bottom - r.top)
+        if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - r.left)
+        if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - r.left)
+        if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - r.top)
+        const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
+        tac.draw(t, scene.planets, scene.squads, scene.log, hits, safe)
       }
       raf = requestAnimationFrame(frame)
     }
@@ -208,6 +254,12 @@ export function Warzone(props: WarzoneProps): ReactNode {
       root.removeEventListener('mouseleave', onLeave)
       root.removeEventListener('contextmenu', onCtx)
       root.removeEventListener('wheel', onWheel)
+      root.removeEventListener('pointerdown', onPointerDown)
+      root.removeEventListener('pointermove', onPointerMove)
+      root.removeEventListener('pointerup', onPointerUp)
+      root.removeEventListener('pointercancel', onPointerUp)
+      root.removeEventListener('mousedown', onMouseDownCam)
+      root.removeEventListener('dblclick', onDbl)
       window.removeEventListener('keydown', onKey)
       for (const b of Array.from(root.querySelectorAll<HTMLElement>('[data-wz-mode]'))) b.removeEventListener('click', onBtn)
       applyMode('3d')
