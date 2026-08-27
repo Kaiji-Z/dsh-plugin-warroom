@@ -137,6 +137,7 @@ gate('bundle', () => {
     [client, 'visitMini', 'island visit mini digest copy (both skins)'],
     [client, 'scrollIntoView', 'hover family auto-scroll to highlighted cards'],
     [client, 'warzoneLayoutFor', 'V11.5 warzone bridge: real-workspace deterministic planet gen'],
+    [client, 'wzCamBounds', 'V11.5g zoom bounds derive from planet layout/sizes live'],
     [client, 'war-wz-xcard', 'V11.5f executing-card overlay pinned at planet screen position'],
     [client, 'setHighlight', 'V11.5f highlight link: hover/focus card lights planet + HQ trajectory'],
     [client, 'HEADQUARTERS', 'V11.4 HQ mothership + tooltip card ported'],

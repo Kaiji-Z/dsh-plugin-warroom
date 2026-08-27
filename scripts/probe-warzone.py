@@ -46,6 +46,22 @@ with sync_playwright() as p:
     tbt = page.locator('.war-wz-toggle').inner_text()
     ok('切换钮=3D 视图/2D 视图', '3D 视图' in tbt and '2D 视图' in tbt, tbt.replace('\n', '/'))
     ok('执行卡数==live attempts（卡钉星球屏位）', page.locator('.war-wz-xcard').count() == live_n, f"{page.locator('.war-wz-xcard').count()} vs {live_n}")
+    # V11.5g（元首令）：卡索引线=实线琥珀（与 HQ 虚线青双通道区分）+ 2D 卡可拖、线随卡
+    if live_n > 0 and page.locator('.war-wz-xcard').count() > 0:
+        ls = page.evaluate("() => { const l = document.querySelector('.war-wz-xline'); if (!l) return ''; const cs = getComputedStyle(l); return cs.strokeDasharray + '|' + cs.stroke }")
+        ok('卡索引线=实线琥珀（≠HQ 虚线青）', 'none' in ls.split('|')[0] and '255, 179, 92' in ls.split('|')[1], ls[:48])
+        el = page.locator('.war-wz-xcard').first
+        bb1 = el.bounding_box()
+        xy1 = page.evaluate("() => { const l = document.querySelector('.war-wz-xline'); return [Number(l.getAttribute('x2')), Number(l.getAttribute('y2'))] }")
+        page.mouse.move(bb1['x'] + bb1['width'] / 2, bb1['y'] + 8)
+        page.mouse.down()
+        page.mouse.move(bb1['x'] + bb1['width'] / 2 + 140, bb1['y'] + 8 + 90, steps=8)
+        page.mouse.up()
+        page.wait_for_timeout(300)
+        bb2 = el.bounding_box()
+        xy2 = page.evaluate("() => { const l = document.querySelector('.war-wz-xline'); return [Number(l.getAttribute('x2')), Number(l.getAttribute('y2'))] }")
+        ok('2D 执行卡可拖（自由摆放）', bb2['x'] - bb1['x'] > 60 or bb2['y'] - bb1['y'] > 40, f"Δcard=({bb2['x']-bb1['x']:.0f},{bb2['y']-bb1['y']:.0f})")
+        ok('拖后实线随卡（端点同步星球→卡）', abs(xy2[0] - xy1[0]) > 60 or abs(xy2[1] - xy1[1]) > 40, f"Δline=({xy2[0]-xy1[0]:.0f},{xy2[1]-xy1[1]:.0f})")
     page.screenshot(path=str(OUT / 'v115-radar.png'))
 
     # 真实数据核对
@@ -75,6 +91,19 @@ with sync_playwright() as p:
     page.keyboard.press('v')
     page.wait_for_timeout(800)
     ok('V 切 3D 战略态', page.evaluate("() => window.__wz.mode()") == '3d' and not page.locator('.war-wz-tac').is_visible())
+    # V11.5g：缩放界随战场动态（外沿/星体实时）——狂拉两头都停在自己的界上
+    info = page.evaluate("() => window.__wz.scene.camInfo()")
+    page.evaluate("() => window.__wz.scene.zoomBy(99999)")
+    page.wait_for_timeout(5000)
+    far = page.evaluate("() => window.__wz.scene.camInfo()")
+    page.evaluate("() => window.__wz.scene.zoomBy(-99999)")
+    page.wait_for_timeout(5000)
+    near = page.evaluate("() => window.__wz.scene.camInfo()")
+    ok('缩放远界=动态 max（狂拉被封）', abs(far['dist'] - far['distMax']) < 8 and far['distMax'] >= 350 and far['distMax'] <= 3200, f"dist={far['dist']:.0f} max={far['distMax']:.0f}")
+    ok('缩放近界=动态 min（狂推不穿模）', abs(near['dist'] - near['distMin']) < 8 and near['distMin'] >= 40, f"dist={near['dist']:.0f} min={near['distMin']:.0f}")
+    page.evaluate("() => window.__wz.scene.resetCam()")
+    page.wait_for_timeout(5000)
+    ok('复位机位在动态界内', abs(page.evaluate("() => window.__wz.scene.camInfo()")['dist'] - 350) < 8)
     s1 = page.locator('.war-wz-3d').screenshot()
     time.sleep(1.2)
     s2 = page.locator('.war-wz-3d').screenshot()

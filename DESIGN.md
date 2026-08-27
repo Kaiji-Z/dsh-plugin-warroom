@@ -426,3 +426,16 @@ orbitBy 的 dx 符号翻转（`-dx * 0.006`）：拖右=场景右旋（3D 软件
 **目检抓真 bug（几何机检补位）**：执行卡钉星球真实屏位，projA 星球投影恰落命令坞底下——卡被 .war-dispatch 拦截不可点。修=卡位钳进围合安全区（hw/hh 按 offsetWidth 实测，线仍指真实星球位）；playwright 几何断言双态 0 相交（比视觉更硬）。另 probe 红线收窄：作战中⇔有 **live** 编队进驻（reported 驻泊编队可停在非交战星——待验收≠作战中，不是状态说谎）。
 
 **验证**：verify PASS（218 测）+ probe-warzone **21/21**（HUD 撤除/按钮名/执行卡==live/高亮进出双断言/名签）+ shoot-v10/v7/theme 三件套全绿 + 双态几何 0 相交。取证 v115f-radar/3d/3d-highlight.png。**CDN 目检通道又失效**（analyze_image 对 Read 回传 URL 400），用 PIL 裁半图+DOM 几何机检替代——目检 SOP 再确认。
+
+### V11.5g 执行卡拖放+双线语义+HQ 锚星阶+动态缩放界（2026-08-27，元首五条令）
+
+**五条**：①2D 执行卡可自由拖放、始终以**实线**索引回星球；②3D 连线同改、与 HQ 线区分；③tooltip 不许被调度栏/浮舱遮住；④星球大小以 HQ 为基准重设——旧 LV4 大星(9-13)降为 LV1 小星档、以此类推（小星拉远看不见是根因：旧 1.8-3 在 dist>500 时屏占不足 4px）；⑤缩放范围随星球布局与星体大小实时限界。
+
+**落法**：
+- **双线语义**：卡索引线=**实线琥珀** rgba(255,179,92,.78) 1.3px（SVG，双态共用）；HQ↔星球高亮轨迹=虚线青 0x6fe3ff（3D LineDashedMaterial/2D 雷达同款）——「部队在哪打」vs「母舰援护谁」两通道一眼分野。卡描边/悬停同步琥珀系。
+- **2D 拖放**：委托 pointer 事件在卡容器（React 重渲染不丢手柄），pointer capture 保拖拽跟踪；偏移记 `cardOffRef`（sessionId→dx/dy，相对安全区锚位，2D 态生效、3D 态忽略钉回投影）；未拖的卡仍钳围合 safe 区，拖过的自由摆放。**坑：pointer capture 会把拖拽后的 click 落回卡上误开聚焦页**（probe 实抓）——拖动>4px 后 350ms 窗内捕获阶段拦截 click。拖拽期间点亮该战区高亮（与悬停同路）。
+- **tooltip 防遮挡**：围合 safe 矩形计算提前到拾取后（双态共用），信息卡位置钳进 safe（先按指针方位翻转，再整体夹持）。
+- **HQ 锚星阶**：small 9-13 / medium 14-18 / large 19-24（HQ 船体半径 ~15 居中为锚）；demo 谱与真实谱同步换代；编队驻泊/交战轨道半径改比例式（`radius*1.15+6` / `*1.18+4/7`），光环/冲击环本就比例式。
+- **动态缩放界**：`wzCamBounds(minR, maxR, extent, viewH)` 纯函数——近界=max(最大星,HQ)×2.3（防穿模），远界=min(最小星可见性[viewH 下≥9px], (外沿+最大星)×2.6[战场取景], 3200)，兜底≥home（复位永合法）；`clampCam/dampCam` 加可选界参（无参退静态常数，旧调用/旧测零破坏）；`recalcCamBounds()` 钩在 syncBoard 星球重建与 resize，orbitBy/zoomBy/帧阻尼全吃动态界。camInfo 携带 distMin/distMax 供探针。
+
+**验证**：verify 219 测 PASS（wzCamBounds 新测五断言+星阶范围断言换代+可选界兼容测）+ probe-warzone **27/27**（实线琥珀 computed-style、拖放 Δcard==Δline、狂拉两头封在动态界±8、复位在界内）+ shoot-v10/v7/theme 三件套全绿 + 像素机检（远界 dist694 时小星 23px/大星 59px、拖后连线拉伸 177px）。取证 v115g-radar-drag/3d/3d-far/tooltip-safe.png。**教训**：宿主主题残留第 5 次入账（:3080 活 UI 写回 dark，取证前必查 settings.yaml）。

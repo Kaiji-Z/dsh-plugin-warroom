@@ -535,12 +535,14 @@ body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(e
 .war-wz.war-wz-cmd .war-wz-tac{display:block}
 .war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-foot{display:none}
 .war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 55%,rgba(2,4,12,.6) 100%)}
-/* V11.5f 执行卡覆盖层：SVG 连线（星球→卡）+ 活体卡 + 高亮名签（frame 循环摆位） */
+/* V11.5f 执行卡覆盖层：SVG 连线（星球→卡）+ 活体卡 + 高亮名签（frame 循环摆位）。
+ * V11.5g（元首令）：卡索引线=实线琥珀——与 HQ↔星球高亮轨迹（虚线青 0x6fe3ff）双通道区分。 */
 .war-wz-lines{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
-.war-wz-xline{stroke:rgba(111,227,255,.55);stroke-width:1;stroke-dasharray:3 3}
+.war-wz-xline{stroke:rgba(255,179,92,.78);stroke-width:1.3}
 .war-wz-cards{position:absolute;inset:0;z-index:8;pointer-events:none}
-.war-wz-xcard{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 11px 4px 8px;border-radius:999px;background:rgba(8,14,28,.84);border:1px solid rgba(111,227,255,.38);color:#cfe6ff;font:11px/1.4 'Segoe UI','Microsoft YaHei';white-space:nowrap;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 0 14px rgba(0,140,255,.14);transition:border-color .15s,box-shadow .15s}
-.war-wz-xcard:hover,.war-wz-xcard:focus-visible{border-color:rgba(111,227,255,.85);box-shadow:0 0 18px rgba(0,140,255,.3);color:#eef8ff;outline:none}
+.war-wz-xcard{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 11px 4px 8px;border-radius:999px;background:rgba(8,14,28,.84);border:1px solid rgba(255,179,92,.4);color:#cfe6ff;font:11px/1.4 'Segoe UI','Microsoft YaHei';white-space:nowrap;cursor:grab;backdrop-filter:blur(6px);box-shadow:0 0 14px rgba(0,140,255,.14);transition:border-color .15s,box-shadow .15s;touch-action:none}
+.war-wz-xcard:active{cursor:grabbing}
+.war-wz-xcard:hover,.war-wz-xcard:focus-visible{border-color:rgba(255,179,92,.9);box-shadow:0 0 18px rgba(0,140,255,.3);color:#eef8ff;outline:none}
 .war-wz-xdot{flex:none;width:7px;height:7px;border-radius:50%;background:#6fe3ff;box-shadow:0 0 7px #6fe3ff;animation:war-wz-breathe 1.6s ease-in-out infinite}
 .war-wz-xverb{font-weight:600}
 .war-wz-xsrc{color:#7e9cc0;font-size:10px}

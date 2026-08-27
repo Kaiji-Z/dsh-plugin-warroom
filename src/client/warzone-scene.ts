@@ -31,21 +31,32 @@ export const WZ_CAM_HOME: WzCamState = { yaw: Math.atan2(64, 252), pitch: Math.a
 
 const wzClamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
-export function clampCam(c: WzCamState): WzCamState {
+/** V11.5g（元首令）：缩放界随战场实时限界——近界防穿模（最大星体×2.3，HQ 船
+ * 体半径 ~15 也入算），远界双卡：最小星可见性（viewH 下仍 ≥9px）与战场取景
+ * （布局外沿×2.6）；再兜底不小于初始机位（复位永远合法）。纯函数导出单测。 */
+export function wzCamBounds(minR: number, maxR: number, extent: number, viewH: number): { min: number; max: number } {
+  const min = Math.max(WZ_CAM_DIST_MIN, Math.max(maxR, 15) * 2.3)
+  const visMax = (Math.max(minR, 1) * Math.max(viewH, 320)) / (9 * Math.tan((55 * Math.PI) / 360))
+  const extMax = (extent + Math.max(maxR, 1)) * 2.6
+  const max = Math.max(Math.min(visMax, extMax, 3200), WZ_CAM_HOME.dist, min * 1.6)
+  return { min, max }
+}
+
+export function clampCam(c: WzCamState, dMin = WZ_CAM_DIST_MIN, dMax = WZ_CAM_DIST_MAX): WzCamState {
   const yaw = ((c.yaw % (PI2)) + PI2) % PI2
-  return { yaw, pitch: wzClamp(c.pitch, WZ_CAM_PITCH_MIN, WZ_CAM_PITCH_MAX), dist: wzClamp(c.dist, WZ_CAM_DIST_MIN, WZ_CAM_DIST_MAX) }
+  return { yaw, pitch: wzClamp(c.pitch, WZ_CAM_PITCH_MIN, WZ_CAM_PITCH_MAX), dist: wzClamp(c.dist, Math.min(dMin, dMax), Math.max(dMin, dMax)) }
 }
 
 /** 阻尼趋近（指数，k=9）；dt=0（reduced-motion/冻结帧）直接吸附目标。
  * yaw 必须走最短弧：线性插值在 2π→0 回绕边界会反向扫过近一整圈（元首实抓
- * 「快到 360° 瞬间倒转」）——先折算到 (-π,π] 再插值。 */
-export function dampCam(cur: WzCamState, target: WzCamState, dt: number, k = 9): WzCamState {
-  if (dt <= 0) return clampCam(target)
+ * 「快到 360° 瞬间反向转」）——先折算到 (-π,π] 再插值。 */
+export function dampCam(cur: WzCamState, target: WzCamState, dt: number, k = 9, dMin?: number, dMax?: number): WzCamState {
+  if (dt <= 0) return clampCam(target, dMin, dMax)
   const t = 1 - Math.exp(-k * dt)
   const TAU = Math.PI * 2
   let dy = target.yaw - cur.yaw
   dy = (((dy + Math.PI) % TAU) + TAU) % TAU - Math.PI
-  return clampCam({ yaw: cur.yaw + dy * t, pitch: cur.pitch + (target.pitch - cur.pitch) * t, dist: cur.dist + (target.dist - cur.dist) * t })
+  return clampCam({ yaw: cur.yaw + dy * t, pitch: cur.pitch + (target.pitch - cur.pitch) * t, dist: cur.dist + (target.dist - cur.dist) * t }, dMin, dMax)
 }
 
 const PI2 = Math.PI * 2
@@ -99,7 +110,9 @@ export function warzonePlanets(seed = 'warzone'): WzPlanetSpec[] {
   const placed: Array<{ x: number; y: number; z: number; radius: number }> = []
   return classes.map((cls, i) => {
     const k = `${seed}:${i}`
-    const radius = cls === 'large' ? det(`r:${k}`, 9, 13) : cls === 'medium' ? det(`r:${k}`, 4.5, 6.5) : det(`r:${k}`, 1.8, 3)
+    // V11.5g（元首令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
+    // 降为 LV1 小星档，中/大按步进续推；拉远小星仍可见（旧 1.8-3 在 dist>500 时不足 4px）。
+    const radius = cls === 'large' ? det(`r:${k}`, 19, 24) : cls === 'medium' ? det(`r:${k}`, 14, 18) : det(`r:${k}`, 9, 13)
     const orbit = {
       r: cls === 'large' ? det(`or:${k}`, 175, 260) : cls === 'medium' ? det(`or:${k}`, 95, 175) : det(`or:${k}`, 60, 150),
       ecc: det(`oe:${k}`, 0.05, 0.22),
@@ -189,7 +202,9 @@ export function warzoneLayoutFor(wsPaths: readonly string[], activity: readonly 
   return wsPaths.map((wsPath, i) => {
     const k = `${seed}:${wsPath}`
     const cls = clsOf.get(i) ?? 'small'
-    const radius = cls === 'large' ? det(`r:${k}`, 9, 13) : cls === 'medium' ? det(`r:${k}`, 4.5, 6.5) : det(`r:${k}`, 1.8, 3)
+    // V11.5g（元首令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
+    // 降为 LV1 小星档，中/大按步进续推；拉远小星仍可见（旧 1.8-3 在 dist>500 时不足 4px）。
+    const radius = cls === 'large' ? det(`r:${k}`, 19, 24) : cls === 'medium' ? det(`r:${k}`, 14, 18) : det(`r:${k}`, 9, 13)
     // V11.5f（元首令）：排布尽可能分散——带宽外扩 + 拒绝间距 20→42 + 纵向展宽。
     const orbit = {
       r: cls === 'large' ? det(`or:${k}`, 200, 310) : cls === 'medium' ? det(`or:${k}`, 130, 240) : det(`or:${k}`, 90, 200),
@@ -412,6 +427,10 @@ export class WarzoneScene {
   /** 三键相机态：cur 阻尼趋近 target；center=屏幕锚（平移推动它，旋转绕它）。 */
   private camCur: WzCamState = { ...WZ_CAM_HOME }
   private camTar: WzCamState = { ...WZ_CAM_HOME }
+  /** V11.5g：动态缩放界——wzCamBounds 按 planets 半径/外沿+视高重算（syncBoard/resize 钩）。 */
+  private camMinDist = WZ_CAM_DIST_MIN
+  private camMaxDist = WZ_CAM_DIST_MAX
+  private viewH = 800
   private readonly camCenter = new THREE.Vector3(0, 0, 0)
   private readonly PAN_LIMIT = 340
 
@@ -424,6 +443,7 @@ export class WarzoneScene {
     this.renderer.toneMappingExposure = 1.1
     this.scene.fog = new THREE.FogExp2(0x06070f, 0.00075)
     this.camera = new THREE.PerspectiveCamera(55, width / Math.max(height, 1), 0.1, 5000)
+    this.viewH = height
     this.camera.position.set(64, 108, 252)
     // V11.5b 三键相机（OrbitControls 退役）：左平移/中旋转（绕屏幕中心 center）/
     // 滚轮缩放；阻尼在 update() 内推进，render() 落位。
@@ -693,7 +713,7 @@ export class WarzoneScene {
       seed: det(`ss:${id}`, 0, 10), orbitA: det(`so:${id}`, 0, PI2),
       orbitSpd: det(`sp:${id}`, 0.8, 1.4), battleT: 0,
     }
-    this.planPath(s, target.mesh.position, target.radius + 6)
+    this.planPath(s, target.mesh.position, target.radius * 1.15 + 6)
     if (phase === 'outbound' && !this.bridged) target.inbound++
     proxy.userData.ref = s
     this.squads.push(s)
@@ -835,7 +855,7 @@ export class WarzoneScene {
 
   /** 中键旋转（dYaw/dPitch 弧度，阻尼经 target）。 */
   orbitBy(dYaw: number, dPitch: number): void {
-    this.camTar = clampCam({ ...this.camTar, yaw: this.camTar.yaw + dYaw, pitch: this.camTar.pitch + dPitch })
+    this.camTar = clampCam({ ...this.camTar, yaw: this.camTar.yaw + dYaw, pitch: this.camTar.pitch + dPitch }, this.camMinDist, this.camMaxDist)
   }
 
   /** 左键平移：像素→世界（按中心距换算），沿相机右/上轴推 center；即时跟手。 */
@@ -849,9 +869,9 @@ export class WarzoneScene {
     if (m > this.PAN_LIMIT) this.camCenter.multiplyScalar(this.PAN_LIMIT / m)
   }
 
-  /** 滚轮缩放（指数；往外拉=变大）。 */
+  /** 滚轮缩放（指数；往外拉=变大）——V11.5g 界随战场动态。 */
   zoomBy(deltaY: number): void {
-    this.camTar = clampCam({ ...this.camTar, dist: this.camTar.dist * Math.exp(deltaY * 0.0012) })
+    this.camTar = clampCam({ ...this.camTar, dist: this.camTar.dist * Math.exp(deltaY * 0.0012) }, this.camMinDist, this.camMaxDist)
   }
 
   /** 双击/R 复位：机位+平移归零。 */
@@ -861,8 +881,25 @@ export class WarzoneScene {
   }
 
   /** 探针/取证快照。 */
-  camInfo(): { cx: number; cy: number; cz: number; yaw: number; pitch: number; dist: number } {
-    return { cx: this.camCenter.x, cy: this.camCenter.y, cz: this.camCenter.z, yaw: this.camCur.yaw, pitch: this.camCur.pitch, dist: this.camCur.dist }
+  camInfo(): { cx: number; cy: number; cz: number; yaw: number; pitch: number; dist: number; distMin: number; distMax: number } {
+    return { cx: this.camCenter.x, cy: this.camCenter.y, cz: this.camCenter.z, yaw: this.camCur.yaw, pitch: this.camCur.pitch, dist: this.camCur.dist, distMin: this.camMinDist, distMax: this.camMaxDist }
+  }
+
+  /** V11.5g：按当前星球谱（半径 min/max + 布局外沿）与视高重算缩放界；
+   * syncBoard 星球重建与 resize 各钩一次（空板退静态常数）。 */
+  private recalcCamBounds(): void {
+    if (this.planets.length === 0) { this.camMinDist = WZ_CAM_DIST_MIN; this.camMaxDist = WZ_CAM_DIST_MAX; return }
+    let minR = Infinity, maxR = 0, extent = 0
+    for (const p of this.planets) {
+      minR = Math.min(minR, p.radius)
+      maxR = Math.max(maxR, p.radius)
+      extent = Math.max(extent, Math.hypot(p.mesh.position.x, p.mesh.position.y, p.mesh.position.z))
+    }
+    const b = wzCamBounds(minR, maxR, extent, this.viewH)
+    this.camMinDist = b.min
+    this.camMaxDist = b.max
+    this.camCur = clampCam(this.camCur, b.min, b.max)
+    this.camTar = clampCam(this.camTar, b.min, b.max)
   }
 
   /** 高亮战区集合（板卡悬停/聚焦/执行卡悬停共入口）；星球静态，轨迹线重建即可。 */
@@ -899,7 +936,7 @@ export class WarzoneScene {
   /** 帧推进（demo animate 的模拟半边）：母舰呼吸/星球轨道与状态/编队/特效/调度。 */
   update(dt: number, t: number): void {
     this.simT += dt
-    this.camCur = dampCam(this.camCur, this.camTar, dt)
+    this.camCur = dampCam(this.camCur, this.camTar, dt, 9, this.camMinDist, this.camMaxDist)
     const hq = this.hqBeacon.parent as THREE.Group
     hq.rotation.y += dt * 0.06
     const duty = this.hqActive ? 1 : 0.32
@@ -940,7 +977,7 @@ export class WarzoneScene {
       if (s.phase === 'outbound' || s.phase === 'return') {
         const end = s.phase === 'return'
           ? _v2.set(0, -6, 0)
-          : _v1.copy(s.target.mesh.position).add(_v3.copy(s.start).sub(s.target.mesh.position).normalize().multiplyScalar(s.target.radius + 6))
+          : _v1.copy(s.target.mesh.position).add(_v3.copy(s.start).sub(s.target.mesh.position).normalize().multiplyScalar(s.target.radius * 1.15 + 6))
         s.t += dt / s.dur
         const tt = ease(Math.min(s.t, 1))
         qbez(s.start, s.ctrl, end, tt, s.group.position)
@@ -953,7 +990,7 @@ export class WarzoneScene {
       } else {
         const tp = s.target.mesh.position
         s.orbitA += dt * s.orbitSpd * (s.phase === 'battle' ? 2.2 : 1)
-        const rr = s.target.radius + (s.phase === 'battle' ? 5 : 8) + Math.sin(t * 2 + s.seed) * 0.8
+        const rr = s.target.radius * 1.18 + (s.phase === 'battle' ? 4 : 7) + Math.sin(t * 2 + s.seed) * 0.8
         const by = Math.sin(t * 1.6 + s.seed) * 2.5
         s.group.position.set(tp.x + Math.cos(s.orbitA) * rr, tp.y + by, tp.z + Math.sin(s.orbitA) * rr)
         s.group.lookAt(tp.x + Math.cos(s.orbitA + 0.35) * rr, tp.y + by, tp.z + Math.sin(s.orbitA + 0.35) * rr)
@@ -998,6 +1035,7 @@ export class WarzoneScene {
         this.addPlanet(sp, b.wsPath, b.status, b.garrison, b.failing, b.inbound)
       }
       this.rebuildHlLines()
+      this.recalcCamBounds()
     } else {
       bridge.planets.forEach((b, i) => {
         const p = this.planets[i]
@@ -1058,6 +1096,8 @@ export class WarzoneScene {
     this.renderer.setSize(w, h, false)
     this.composer.setSize(w, h)
     this.bloom.setSize(w, h)
+    this.viewH = h
+    this.recalcCamBounds()
   }
 
   dispose(): void {

@@ -87,6 +87,8 @@ export function Warzone(props: WarzoneProps): ReactNode {
   const hlWsRef = useRef(highlightWs)
   const hoverWsRef = useRef<string | null>(null)
   const hlKeyRef = useRef('')
+  /** V11.5g：2D 态执行卡拖放偏移（sessionId→dx/dy，相对安全区锚位；会话级内存不落盘）。 */
+  const cardOffRef = useRef(new Map<string, { dx: number; dy: number }>())
   const [failed, setFailed] = useState(false)
   const [cmd, setCmd] = useState(true)
 
@@ -165,6 +167,52 @@ export function Warzone(props: WarzoneProps): ReactNode {
     const onPointerUp = (e: PointerEvent): void => { camDrag = null; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
     const onMouseDownCam = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
     const onDbl = (): void => { if (mode === '3d') scene.resetCam() }
+    // V11.5g（元首令）：2D 态执行卡可自由拖放——委托在卡容器上（React 重渲染不丢
+    // 手柄），只记 offset；卡位=安全区锚+offset，实线索引线永连星球。拖拽期间点亮
+    // 该战区高亮（与悬停同路）。3D 态卡钉星球投影不可拖（手势让位相机）。
+    const cardOff = cardOffRef.current
+    let dragSid: string | null = null
+    let dragPx = 0, dragPy = 0, dragOx = 0, dragOy = 0
+    let dragMoved = false
+    let dragSuppressUntil = 0
+    const onCardDown = (e: PointerEvent): void => {
+      if (mode !== 'cmd' || e.button !== 0) return
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.war-wz-xcard')
+      if (el === null) return
+      dragSid = el.dataset.wzSid ?? null
+      if (dragSid === null) return
+      const off = cardOff.get(dragSid) ?? { dx: 0, dy: 0 }
+      dragOx = off.dx; dragOy = off.dy
+      dragPx = e.clientX; dragPy = e.clientY
+      dragMoved = false
+      el.setPointerCapture(e.pointerId)
+      e.preventDefault()
+    }
+    const onCardMove = (e: PointerEvent): void => {
+      if (dragSid === null) return
+      const dx = e.clientX - dragPx, dy = e.clientY - dragPy
+      if (Math.abs(dx) + Math.abs(dy) > 4) dragMoved = true
+      cardOff.set(dragSid, { dx: dragOx + dx, dy: dragOy + dy })
+      const sq = squadsRef.current.find(q => q.sessionId === dragSid)
+      if (sq !== undefined) hoverWsRef.current = sq.wsPath
+    }
+    const onCardUp = (e: PointerEvent): void => {
+      if (dragSid === null) return
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.war-wz-xcard')
+      try { (el ?? cardsRef.current)?.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ }
+      // pointer capture 会把拖拽后的 click 落回卡上——真拖过就短窗拦截，防误开源命令。
+      if (dragMoved) dragSuppressUntil = performance.now() + 350
+      dragSid = null
+    }
+    const onCardClickCap = (e: MouseEvent): void => {
+      if (performance.now() < dragSuppressUntil) { e.stopPropagation(); e.preventDefault() }
+    }
+    const cardsEl = cardsRef.current
+    cardsEl?.addEventListener('pointerdown', onCardDown)
+    cardsEl?.addEventListener('pointermove', onCardMove)
+    cardsEl?.addEventListener('pointerup', onCardUp)
+    cardsEl?.addEventListener('pointercancel', onCardUp)
+    cardsEl?.addEventListener('click', onCardClickCap, true)
     root.addEventListener('mousemove', onMove)
     root.addEventListener('mouseleave', onLeave)
     root.addEventListener('contextmenu', onCtx)
@@ -206,6 +254,21 @@ export function Warzone(props: WarzoneProps): ReactNode {
           hovered = scene.pick((mx / Math.max(r.width, 1)) * 2 - 1, -(my / Math.max(r.height, 1)) * 2 + 1) as WzEntityRef | null
         }
       }
+      // V11.5c：围合中央自由区（灵动岛/任务舱/战报舱/命令坞之外）——雷达画进它，
+      // V11.5f 起执行卡/名签钳进它（星球投影可能落在坞/舱底下，卡必须可达可点）；
+      // V11.5g 起悬停信息卡也钳进它（元首令：tooltip 不许被调度栏/浮舱遮住）。
+      const rw = root.clientWidth, rh = root.clientHeight
+      const rect = root.getBoundingClientRect()
+      let x0 = 0, y0 = 0, x1 = rect.width, y1 = rect.height
+      const isl = document.querySelector('.war-island')
+      const tk = document.querySelector('.war-zone.war-tasks')
+      const rp = document.querySelector('.war-zone.war-report')
+      const dk = document.querySelector('.war-dispatch')
+      if (isl !== null) y0 = Math.max(y0, isl.getBoundingClientRect().bottom - rect.top)
+      if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - rect.left)
+      if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - rect.left)
+      if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - rect.top)
+      const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
       // 信息卡（内容变化或每 0.5s 刷新——兵力/状态实时变）
       const tip = tipRef.current
       if (tip !== null) {
@@ -219,9 +282,11 @@ export function Warzone(props: WarzoneProps): ReactNode {
           tip.style.display = 'block'
           const w = tip.offsetWidth, h = tip.offsetHeight
           let x = mx + 18, y = my + 16
-          if (x + w > root.clientWidth - 10) x = mx - w - 16
-          if (y + h > root.clientHeight - 10) y = my - h - 14
-          tip.style.transform = `translate(${Math.max(8, x)}px,${Math.max(8, y)}px)`
+          if (x + w > safe.x + safe.w - 8) x = mx - w - 16
+          if (y + h > safe.y + safe.h - 8) y = my - h - 14
+          x = Math.min(Math.max(x, safe.x + 8), Math.max(safe.x + 8, safe.x + safe.w - w - 8))
+          y = Math.min(Math.max(y, safe.y + 8), Math.max(safe.y + 8, safe.y + safe.h - h - 8))
+          tip.style.transform = `translate(${x.toFixed(0)}px,${y.toFixed(0)}px)`
           root.style.cursor = 'pointer'
         } else {
           tip.style.display = 'none'
@@ -229,7 +294,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
           root.style.cursor = mode === '3d' ? 'grab' : 'default'
         }
       }
-      // V11.5f 高亮集合（板卡悬停/聚焦 ∪ 执行卡悬停）——变更时才重建轨迹线
+      // V11.5f 高亮集合（板卡悬停/聚焦 ∪ 执行卡悬停/拖拽）——变更时才重建轨迹线
       const hlList = hoverWsRef.current !== null ? [...new Set([...hlWsRef.current, hoverWsRef.current])] : [...hlWsRef.current]
       const hlSet = new Set(hlList)
       const hlKey = hlList.join('|')
@@ -238,20 +303,6 @@ export function Warzone(props: WarzoneProps): ReactNode {
         scene.setHighlight(hlList)
       }
       // 分流渲染
-      const rw = root.clientWidth, rh = root.clientHeight
-      // V11.5c：围合中央自由区（灵动岛/任务舱/战报舱/命令坞之外）——雷达画进它，
-      // V11.5f 执行卡/名签也钳进它（星球投影可能落在坞/舱底下，卡必须可达可点）。
-      const rect = root.getBoundingClientRect()
-      let x0 = 0, y0 = 0, x1 = rect.width, y1 = rect.height
-      const isl = document.querySelector('.war-island')
-      const tk = document.querySelector('.war-zone.war-tasks')
-      const rp = document.querySelector('.war-zone.war-report')
-      const dk = document.querySelector('.war-dispatch')
-      if (isl !== null) y0 = Math.max(y0, isl.getBoundingClientRect().bottom - rect.top)
-      if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - rect.left)
-      if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - rect.left)
-      if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - rect.top)
-      const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
       if (mode === '3d') {
         scene.render()
       } else {
@@ -276,13 +327,16 @@ export function Warzone(props: WarzoneProps): ReactNode {
           stack.set(sq.wsPath, k + 1)
           const pos = posOf(sq.wsPath)
           if (pos === null) { el.style.visibility = 'hidden'; if (line !== null) line.style.visibility = 'hidden'; continue }
-          // 卡钳进围合安全区（星球投影可能在坞/舱底下——卡必须可达可点），线仍指真实星球位
+          // 未拖动的卡钳进围合安全区（星球投影可能在坞/舱底下——必须可达可点）；
+          // V11.5g 2D 态拖过即自由摆放（元首令），线仍指真实星球位。
           const hw = el.offsetWidth / 2 + 4
           const hh = el.offsetHeight + 6
-          const cx2 = Math.min(Math.max(pos.x, safe.x + hw), safe.x + safe.w - hw)
+          let cx2 = Math.min(Math.max(pos.x, safe.x + hw), safe.x + safe.w - hw)
           let cy2 = pos.y - 30 - k * 34
           if (cy2 - hh < safe.y) cy2 = safe.y + hh
           if (cy2 > safe.y + safe.h - 4) cy2 = safe.y + safe.h - 4
+          const off = mode === 'cmd' ? cardOffRef.current.get(sid) : undefined
+          if (off !== undefined) { cx2 += off.dx; cy2 += off.dy }
           el.style.visibility = ''
           el.style.transform = `translate(-50%,-100%) translate(${cx2.toFixed(1)}px,${(cy2 - 6).toFixed(1)}px)`
           if (line !== null) {
@@ -338,6 +392,11 @@ export function Warzone(props: WarzoneProps): ReactNode {
       root.removeEventListener('pointercancel', onPointerUp)
       root.removeEventListener('mousedown', onMouseDownCam)
       root.removeEventListener('dblclick', onDbl)
+      cardsEl?.removeEventListener('pointerdown', onCardDown)
+      cardsEl?.removeEventListener('pointermove', onCardMove)
+      cardsEl?.removeEventListener('pointerup', onCardUp)
+      cardsEl?.removeEventListener('pointercancel', onCardUp)
+      cardsEl?.removeEventListener('click', onCardClickCap, true)
       window.removeEventListener('keydown', onKey)
       for (const b of Array.from(root.querySelectorAll<HTMLElement>('[data-wz-mode]'))) b.removeEventListener('click', onBtn)
       applyMode('3d')

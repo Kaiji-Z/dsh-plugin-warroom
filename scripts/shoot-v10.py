@@ -189,6 +189,11 @@ with sync_playwright() as p:
     live_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return b.tasks.reduce((n, t) => n + (t.attemptLog ?? []).filter(a => a.outcome === null).length, 0) }")
     assert sf.locator(".war-wz-xcard").count() == live_n, f"执行卡数应==live attempts {live_n}，got {sf.locator('.war-wz-xcard').count()}"
     assert sf.locator(".war-wz-lines line").count() == live_n, "SVG 连线数应与执行卡一致"
+    # V11.5g：卡索引线=实线琥珀（与 HQ↔星球高亮虚线青区分）
+    xl = sf.locator(".war-wz-xline").first
+    if live_n > 0:
+        dash = page.evaluate("() => getComputedStyle(document.querySelector('.war-wz-xline')).strokeDasharray")
+        assert dash == 'none', f"卡索引线应实线，got dasharray={dash}"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
     assert page.evaluate("() => { const t = document.querySelector('.war-dispatch-track'); return t.scrollHeight <= t.clientHeight + 1 }"), "调度坞轨道不得出现纵向滚动（高度须容下所有卡+富余）"
