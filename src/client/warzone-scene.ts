@@ -281,7 +281,8 @@ export interface WzPlanet {
   cls: WzClass
   level: number
   radius: number
-  mesh: THREE.Mesh
+  mesh: THREE.Group
+  cloud: THREE.Mesh | null
   halo: THREE.Sprite
   proxy: THREE.Mesh
   baseGlow: THREE.Color
@@ -341,36 +342,316 @@ function radialTex(stops: Array<[number, string]>): THREE.Texture {
   return new THREE.CanvasTexture(cv)
 }
 
-/** 星球表面（demo planetTexture 逐字，随机 det 化）：条带+斑块+陨石坑+极冠。 */
-function planetTexture(color: THREE.Color, key: string): THREE.Texture {
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128
-  const ctx = cv.getContext('2d')!
-  const hsl = { h: 0, s: 0, l: 0 }
-  color.getHSL(hsl)
-  const col = (l: number, a = 1): string => `hsla(${(hsl.h * 360) | 0},${(hsl.s * 100) | 0}%,${(l * 100) | 0}%,${a})`
-  ctx.fillStyle = col(hsl.l); ctx.fillRect(0, 0, 256, 128)
-  for (let i = 0, n = 5 + Math.floor(det(`pb0:${key}`, 0, 7)); i < n; i++) {
-    ctx.fillStyle = col(hsl.l + det(`pb1:${key}:${i}`, -0.11, 0.11), det(`pb2:${key}:${i}`, 0.18, 0.48))
-    ctx.fillRect(0, det(`pb3:${key}:${i}`, 0, 128), 256, 3 + det(`pb4:${key}:${i}`, 0, 16))
+/* ================================================================
+ * 星球 NASA 自然色（V11.3 定案，V11.5h 复权移植）：六原型确定性 fBm 贴图 +
+ * bumpMap 高度场 + 大气临边辉 + 云层 + 行星环。ramp 取真实反照率——照片
+ * 显示色直接当 albedo 会被主光推成白板（V11.3 首轮实抓）。贴图模块级缓存
+ * （48 组丢最旧），SSE 高频重建零重画；缓存贴图绝不入 disposables。
+ * ================================================================ */
+export type PlanetArchetype = 'gas' | 'icegas' | 'rust' | 'gray' | 'ice' | 'terra'
+
+/** 原型分派（纯）：同 wsPath 恒同型；权重偏哑光岩质——真实宇宙没有糖果色。 */
+export function archetypeOf(wsPath: string): PlanetArchetype {
+  const r = hash01(`arch:${wsPath}`)
+  if (r < 0.18) return 'gas'
+  if (r < 0.32) return 'icegas'
+  if (r < 0.5) return 'rust'
+  if (r < 0.68) return 'gray'
+  if (r < 0.84) return 'ice'
+  return 'terra'
+}
+
+/** 大气临边辉色（null=无大气壳）：水星型灰星免（无可感大气）。 */
+const ATMO_COLOR: Record<PlanetArchetype, number | null> = { gas: 0xe8c9a0, icegas: 0x7f9fd4, rust: 0xd9a075, gray: null, ice: 0xbcd8ff, terra: 0x7fb3ff }
+
+/** 原型中性辉光底色（halo=状态语义载体：作战中橙红/占领蓝/高亮青在 update 覆盖）。 */
+const ARCH_GLOW: Record<PlanetArchetype, number> = { gas: 0xc9b795, icegas: 0x9db4d8, rust: 0xc08a66, gray: 0x8d8d92, ice: 0xc4d8ee, terra: 0x7fa8d8 }
+
+/* --- 确定性值噪声：lattice 预生成 Float32Array，逐像素零字符串拼接（512x256 性能护栏） --- */
+
+function noiseGrid(seed: string, gw: number, gh: number): Float32Array {
+  const g = new Float32Array(gw * gh)
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) g[y * gw + x] = hash01(`${seed}:${x}:${y}`)
+  return g
+}
+
+/** 双线性平滑采样；u 横向环绕（equirect 左右无缝），v 纵向夹持（极点收拢）。 */
+function sampleGrid(g: Float32Array, gw: number, gh: number, u: number, v: number): number {
+  const x = (((u % 1) + 1) % 1) * gw
+  const y = Math.min(Math.max(v, 0), 1) * (gh - 1)
+  const xi = Math.floor(x), yi = Math.floor(y)
+  const xf = x - xi, yf = y - yi
+  const sx = xf * xf * (3 - 2 * xf), sy = yf * yf * (3 - 2 * yf)
+  const x0 = xi % gw, x1 = (xi + 1) % gw
+  const y0 = Math.min(yi, gh - 1), y1 = Math.min(yi + 1, gh - 1)
+  const a = g[y0 * gw + x0]!, b = g[y0 * gw + x1]!, c = g[y1 * gw + x0]!, d = g[y1 * gw + x1]!
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy
+}
+
+const pyramidCache = new Map<string, Float32Array[]>()
+function seedPyramid(seed: string): Float32Array[] {
+  let p = pyramidCache.get(seed)
+  if (p === undefined) {
+    p = [noiseGrid(`${seed}:0`, 8, 4), noiseGrid(`${seed}:1`, 16, 8), noiseGrid(`${seed}:2`, 32, 16), noiseGrid(`${seed}:3`, 64, 32)]
+    pyramidCache.set(seed, p)
   }
-  for (let i = 0, n = 8 + Math.floor(det(`pe0:${key}`, 0, 10)); i < n; i++) {
-    ctx.beginPath()
-    ctx.ellipse(det(`pe1:${key}:${i}`, 0, 256), 10 + det(`pe2:${key}:${i}`, 0, 108), det(`pe3:${key}:${i}`, 6, 32), det(`pe4:${key}:${i}`, 4, 16), det(`pe5:${key}:${i}`, 0, Math.PI), 0, PI2)
-    ctx.fillStyle = col(hsl.l + (detBool(`pe6:${key}:${i}`, 0.5) ? 0.14 : -0.14), det(`pe7:${key}:${i}`, 0.12, 0.34))
-    ctx.fill()
+  return p
+}
+
+/** fBm 采样（纯，导出供单测钉确定性）：同 seed 恒同值，值域 [0,1]，u/v 任意。 */
+export function planetNoise(seed: string, u: number, v: number): number {
+  const p = seedPyramid(seed)
+  let sum = 0, amp = 0.5, norm = 0
+  for (let o = 0; o < 4; o++) { sum += sampleGrid(p[o]!, 8 << o, 4 << o, u, v) * amp; norm += amp; amp *= 0.55 }
+  return sum / norm
+}
+
+type RGB = readonly [number, number, number]
+const mixRGB = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+const sstep = (a: number, b: number, x: number): number => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t) }
+
+const TEX_W = 512, TEX_H = 256
+interface PaintedMaps { map: THREE.CanvasTexture; bump: THREE.CanvasTexture }
+const texCache = new Map<string, PaintedMaps>()
+const cloudCache = new Map<string, THREE.CanvasTexture>()
+const ringCache = new Map<string, THREE.CanvasTexture>()
+
+/** 贴图缓存（模块级，key=kind:wsPath）：syncPlanets 随 SSE 高频重建网格，但
+ * fBm 512x256 一张几十 ms——必须一次生成终身缓存。缓存贴图绝不入 scene
+ * disposables（防卸载双释放）。超 48 组丢最旧。 */
+function paintedMaps(key: string, paint: (img: ImageData, bump: ImageData) => void, post?: (ctx: CanvasRenderingContext2D, bctx: CanvasRenderingContext2D) => void): PaintedMaps {
+  let t = texCache.get(key)
+  if (t === undefined) {
+    const c = document.createElement('canvas'); c.width = TEX_W; c.height = TEX_H
+    const bc = document.createElement('canvas'); bc.width = TEX_W; bc.height = TEX_H
+    const ctx = c.getContext('2d')!, bctx = bc.getContext('2d')!
+    const img = ctx.createImageData(TEX_W, TEX_H), bimg = bctx.createImageData(TEX_W, TEX_H)
+    paint(img, bimg)
+    ctx.putImageData(img, 0, 0); bctx.putImageData(bimg, 0, 0)
+    post?.(ctx, bctx)
+    const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 4; map.needsUpdate = true
+    const bump = new THREE.CanvasTexture(bc); bump.needsUpdate = true
+    t = { map, bump }
+    texCache.set(key, t)
+    if (texCache.size > 48) {
+      const oldest = texCache.keys().next().value
+      if (oldest !== undefined) { const om = texCache.get(oldest)!; om.map.dispose(); om.bump.dispose(); texCache.delete(oldest) }
+    }
   }
-  for (let i = 0; i < 40; i++) {
-    ctx.beginPath()
-    ctx.arc(det(`pc1:${key}:${i}`, 0, 256), det(`pc2:${key}:${i}`, 0, 128), det(`pc3:${key}:${i}`, 0.5, 2.1), 0, PI2)
-    ctx.fillStyle = col(hsl.l - 0.18, 0.35); ctx.fill()
+  return t
+}
+
+/** 坑环（岩质星后处理）：暗坑 + 偏移亮缘；接缝越界对侧补画。 */
+function stampCraters(ctx: CanvasRenderingContext2D, bctx: CanvasRenderingContext2D, seed: string, count: number): void {
+  for (let i = 0; i < count; i++) {
+    const cx = det(`${seed}:cx:${i}`, 0, TEX_W), cy = det(`${seed}:cy:${i}`, TEX_H * 0.08, TEX_H * 0.92), r = det(`${seed}:cr:${i}`, 2, 9)
+    for (const ox of [0, -TEX_W, TEX_W]) {
+      if (ox !== 0 && cx > r * 2 && cx < TEX_W - r * 2) continue
+      ctx.beginPath(); ctx.arc(cx + ox, cy, r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(10,8,6,.24)'; ctx.fill()
+      ctx.beginPath(); ctx.arc(cx + ox - r * 0.3, cy - r * 0.3, r * 0.72, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,250,240,.12)'; ctx.fill()
+      bctx.beginPath(); bctx.arc(cx + ox, cy, r, 0, Math.PI * 2); bctx.fillStyle = 'rgba(0,0,0,.5)'; bctx.fill()
+      bctx.beginPath(); bctx.arc(cx + ox, cy, r * 1.25, 0, Math.PI * 2); bctx.strokeStyle = 'rgba(255,255,255,.35)'; bctx.lineWidth = 1.2; bctx.stroke()
+    }
   }
-  const pg = ctx.createLinearGradient(0, 0, 0, 128)
-  pg.addColorStop(0, 'rgba(255,255,255,.3)'); pg.addColorStop(0.16, 'rgba(255,255,255,0)')
-  pg.addColorStop(0.84, 'rgba(255,255,255,0)'); pg.addColorStop(1, 'rgba(255,255,255,.3)')
-  ctx.fillStyle = pg; ctx.fillRect(0, 0, 256, 128)
-  const tex = new THREE.CanvasTexture(cv)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
+}
+
+/** 气巨（木星型）：湍流域扭曲带纹 + 确定性风暴斑。ramp 取真实反照率
+ * （气巨 ~0.35-0.5），照片显示色直接当 albedo 会被主光推成白板（首轮实抓）。 */
+function paintGas(img: ImageData, bump: ImageData, seed: string): void {
+  const ramp: RGB[] = [[196, 186, 166], [158, 136, 106], [126, 92, 64], [172, 154, 126], [112, 88, 68]]
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const warp = planetNoise(`${seed}:w`, u, v) - 0.5
+      const t = Math.min(Math.max(planetNoise(`${seed}:b`, u * 0.5, v * 7 + warp * 2.4), 0), 1) * (ramp.length - 1)
+      const i = Math.min(Math.floor(t), ramp.length - 2)
+      const col = mixRGB(ramp[i]!, ramp[i + 1]!, t - i)
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      const bh = 118 + warp * 60
+      bd[k] = bh; bd[k + 1] = bh; bd[k + 2] = bh; bd[k + 3] = 255
+    }
+  }
+}
+
+function postGas(ctx: CanvasRenderingContext2D, seed: string): void {
+  const sx = det(`${seed}:sx`, 0.25, 0.75) * TEX_W, sy = det(`${seed}:sy`, 0.58, 0.7) * TEX_H, sr = TEX_W * 0.075
+  const g = ctx.createRadialGradient(sx, sy, sr * 0.15, sx, sy, sr)
+  g.addColorStop(0, 'rgba(158,84,58,.85)'); g.addColorStop(0.55, 'rgba(172,104,72,.5)'); g.addColorStop(1, 'rgba(172,104,72,0)')
+  ctx.fillStyle = g
+  ctx.save(); ctx.translate(sx, sy); ctx.scale(1, 0.55); ctx.translate(-sx, -sy)
+  ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+}
+
+/** 冰气巨（海王型）：深蓝弱对比带纹。 */
+function paintIceGas(img: ImageData, bump: ImageData, seed: string): void {
+  const ramp: RGB[] = [[30, 54, 84], [44, 74, 110], [70, 100, 134], [104, 130, 160]]
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const warp = planetNoise(`${seed}:w`, u, v) - 0.5
+      const t = Math.min(Math.max(0.3 + planetNoise(`${seed}:b`, u * 0.5, v * 5 + warp * 1.2) * 0.4, 0), 1) * (ramp.length - 1)
+      const i = Math.min(Math.floor(t), ramp.length - 2)
+      const col = mixRGB(ramp[i]!, ramp[i + 1]!, t - i)
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      const bh = 122 + warp * 26
+      bd[k] = bh; bd[k + 1] = bh; bd[k + 2] = bh; bd[k + 3] = 255
+    }
+  }
+}
+
+/** 锈岩（火星型）：尘 / 玄武斑 / 极冠 + 坑环。 */
+function paintRust(img: ImageData, bump: ImageData, seed: string): void {
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const n = planetNoise(`${seed}:m`, u * 2.2, v * 2.2)
+      let col = mixRGB([76, 48, 38], [156, 114, 80], sstep(0.34, 0.7, n))
+      if (planetNoise(`${seed}:k`, u * 3.6, v * 3.6) > 0.67) col = mixRGB(col, [52, 34, 28], 0.65)
+      const cap = sstep(0.87, 0.96, v) + sstep(0.13, 0.04, v)
+      if (cap > 0) col = mixRGB(col, [212, 208, 200], Math.min(cap, 1))
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      const bh = n * 255
+      bd[k] = bh; bd[k + 1] = bh; bd[k + 2] = bh; bd[k + 3] = 255
+    }
+  }
+}
+
+/** 玄武灰（水星型）：无大气、密坑环。 */
+function paintGray(img: ImageData, bump: ImageData, seed: string): void {
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const n = planetNoise(`${seed}:g`, u * 2.4, v * 2.4)
+      let col: RGB = [100 + (n - 0.5) * 40, 98 + (n - 0.5) * 38, 95 + (n - 0.5) * 36]
+      if (planetNoise(`${seed}:p`, u * 3, v * 3) > 0.62) col = mixRGB(col, [88, 79, 72], 0.6)
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      const bh = n * 255
+      bd[k] = bh; bd[k + 1] = bh; bd[k + 2] = bh; bd[k + 3] = 255
+    }
+  }
+}
+
+/** 冰壳（木卫型）：白蓝底 + 裂脊线 + 淡褐斑。 */
+function paintIce(img: ImageData, bump: ImageData, seed: string): void {
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const n = planetNoise(`${seed}:i`, u * 2, v * 2)
+      let col = mixRGB([168, 184, 198], [206, 214, 222], n)
+      const ridge = Math.abs(planetNoise(`${seed}:r`, u * 2.6, v * 2.6) - 0.5)
+      if (ridge < 0.03) col = mixRGB(col, [92, 120, 150], 0.75)
+      if (planetNoise(`${seed}:t`, u * 3.2, v * 3.2) > 0.64) col = mixRGB(col, [158, 147, 128], 0.5)
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      const bh = 128 + (n - 0.5) * 60 - (ridge < 0.03 ? 40 : 0)
+      bd[k] = bh; bd[k + 1] = bh; bd[k + 2] = bh; bd[k + 3] = 255
+    }
+  }
+}
+
+/** 类地（深海 + 棕绿大陆 + 极冠）。 */
+function paintTerra(img: ImageData, bump: ImageData, seed: string): void {
+  const d = img.data, bd = bump.data
+  for (let y = 0; y < TEX_H; y++) {
+    const v = y / TEX_H
+    for (let x = 0; x < TEX_W; x++) {
+      const u = x / TEX_W
+      const n = planetNoise(`${seed}:e`, u, v)
+      let col: RGB; let h: number
+      if (n < 0.55) {
+        col = mixRGB([16, 36, 64], [38, 72, 100], sstep(0.18, 0.55, n))
+        h = 88
+      } else {
+        const e = (n - 0.55) / 0.45
+        col = e < 0.22 ? [116, 106, 78] : e < 0.58 ? mixRGB([116, 106, 78], [80, 94, 58], (e - 0.22) / 0.36) : mixRGB([80, 94, 58], [96, 88, 74], (e - 0.58) / 0.42)
+        h = 110 + e * 120
+      }
+      const cap = sstep(0.44, 0.5, Math.abs(v - 0.5))
+      if (cap > 0.55) { col = mixRGB(col, [210, 216, 222], Math.min((cap - 0.55) / 0.45, 1) * 0.9); h = Math.max(h, 200) }
+      const k = (y * TEX_W + x) * 4
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255
+      bd[k] = h; bd[k + 1] = h; bd[k + 2] = h; bd[k + 3] = 255
+    }
+  }
+}
+
+const PAINTERS: Record<PlanetArchetype, (img: ImageData, bump: ImageData, seed: string) => void> = { gas: paintGas, icegas: paintIceGas, rust: paintRust, gray: paintGray, ice: paintIce, terra: paintTerra }
+const PAINT_POST: Partial<Record<PlanetArchetype, (ctx: CanvasRenderingContext2D, bctx: CanvasRenderingContext2D, seed: string) => void>> = { gas: postGas, rust: (ctx, bctx, s) => stampCraters(ctx, bctx, `rs:${s}`, 22), gray: (ctx, bctx, s) => stampCraters(ctx, bctx, `gr:${s}`, 36) }
+
+/** 云层亮度图（alphaMap 读 G 通道）：纬向拉伸的 fBm 云。 */
+function cloudTexture(wsPath: string): THREE.CanvasTexture {
+  const key = `cloud:${wsPath}`
+  let t = cloudCache.get(key)
+  if (t === undefined) {
+    const c = document.createElement('canvas'); c.width = TEX_W; c.height = TEX_H
+    const ctx = c.getContext('2d')!
+    const img = ctx.createImageData(TEX_W, TEX_H)
+    for (let y = 0; y < TEX_H; y++) {
+      const v = y / TEX_H
+      for (let x = 0; x < TEX_W; x++) {
+        const u = x / TEX_W
+        const a = sstep(0.58, 0.78, planetNoise(`cl:${wsPath}`, u * 1.3, v * 3.2)) * 255
+        const k = (y * TEX_W + x) * 4
+        img.data[k] = a; img.data[k + 1] = a; img.data[k + 2] = a; img.data[k + 3] = 255
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+    t = new THREE.CanvasTexture(c); t.needsUpdate = true
+    cloudCache.set(key, t)
+  }
+  return t
+}
+
+/** 行星环带纹理（径向条带 + Cassini 缝 + 两端羽化）。 */
+function ringTexture(wsPath: string): THREE.CanvasTexture {
+  const key = `ring:${wsPath}`
+  let t = ringCache.get(key)
+  if (t === undefined) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 4
+    const ctx = c.getContext('2d')!
+    const img = ctx.createImageData(256, 4)
+    for (let x = 0; x < 256; x++) {
+      const tt = x / 255
+      const n = planetNoise(`rg:${wsPath}`, tt * 2.4, 0.5)
+      let a = 0.14 + 0.34 * sstep(0.3, 0.75, n)
+      if (Math.abs(tt - 0.64) < 0.04) a *= 0.12
+      if (tt < 0.04) a *= tt / 0.04
+      else if (tt > 0.97) a *= (1 - tt) / 0.03
+      for (let y = 0; y < 4; y++) {
+        const k = (y * 256 + x) * 4
+        img.data[k] = 198; img.data[k + 1] = 190; img.data[k + 2] = 172; img.data[k + 3] = a * 255
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+    t = new THREE.CanvasTexture(c); t.needsUpdate = true
+    ringCache.set(key, t)
+  }
+  return t
+}
+
+/** 大气临边辉（BackSide fresnel 薄壳）：真实行星照片的标志——轮廓外圈一圈
+ * 大气色，接棒退役的 halo 光球。 */
+function makeAtmoMaterial(hex: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(hex) }, uK: { value: 0.18 } },
+    vertexShader: 'varying vec3 vN;\nvoid main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying vec3 vN; uniform vec3 uColor; uniform float uK;\nvoid main(){ float i = pow(max(0.55 - dot(normalize(vN), vec3(0.0, 0.0, 1.0)), 0.0), 3.5) * uK; gl_FragColor = vec4(uColor * i, i); }',
+    side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  })
 }
 
 export function hqStats(planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>): { inbound: number; battle: number; deployed: number; ships: number; garrison: number } {
@@ -470,37 +751,64 @@ export class WarzoneScene {
     // V11.5：星球/编队不再自建（demo 自驱退役）——挂载后由 syncBoard 真实数据落子。
   }
 
-  /** 单星球落子（桥接 syncBoard 驱动）。 */
+  /** 单星球落子（V11.5h NASA 自然色）：Group = 表面 + 云壳（terra/rust）+ 大气
+   * 临边辉（非 gray）± 环（气巨 55%）+ halo 状态光晕 + pick 代理，全部本地坐标
+   * （轨道推进只推 group）。贴图走模块缓存（arch:wsPath 键，SSE 重建零重画）。 */
   private addPlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
-    const sphereGeo = new THREE.SphereGeometry(1, 16, 12)
-    const hitGeo = new THREE.SphereGeometry(1, 8, 6)
-    const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
-    this.disposables.push(sphereGeo, hitGeo, hitMat)
-    const base = new THREE.Color().setHSL(spec.hue, spec.sat, spec.light)
-    const tex = planetTexture(base, `p${spec.index}`)
-    const mesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
-      map: tex, flatShading: true, roughness: 0.92, metalness: 0.05,
-      emissive: base.clone().lerp(new THREE.Color(1, 1, 1), 0.15), emissiveMap: tex, emissiveIntensity: 0.32,
+    const arch = archetypeOf(wsPath)
+    const post = PAINT_POST[arch]
+    const { map, bump } = paintedMaps(`wz:${arch}:${wsPath}`, (img, bimg) => PAINTERS[arch](img, bimg, wsPath), post === undefined ? undefined : (ctx, bctx) => post(ctx, bctx, wsPath))
+    const group = new THREE.Group()
+    group.position.set(spec.x, spec.y, spec.z)
+    group.rotation.z = det(`tilt:${wsPath}`, -0.32, 0.32)
+    const sphereGeo = new THREE.SphereGeometry(1, 40, 28)
+    const surface = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
+      map, bumpMap: bump, bumpScale: 0.45, roughness: 0.96, metalness: 0.02,
+      emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.08,
     }))
-    mesh.scale.setScalar(spec.radius)
-    mesh.position.set(spec.x, spec.y, spec.z)
-    this.scene.add(mesh)
-    const baseGlow = base.clone().lerp(new THREE.Color(1, 1, 1), 0.3)
-    const halo = this.glowSprite(baseGlow.clone(), spec.radius * 3.4, 0.32)
-    halo.position.copy(mesh.position)
-    this.scene.add(halo)
-    const proxy = new THREE.Mesh(hitGeo, hitMat)
+    surface.scale.setScalar(spec.radius)
+    group.add(surface)
+    let cloud: THREE.Mesh | null = null
+    if (arch === 'terra' || arch === 'rust') {
+      const cmat = new THREE.MeshLambertMaterial({ color: 0xe8edf2, alphaMap: cloudTexture(wsPath), transparent: true, depthWrite: false, opacity: 0.8 })
+      cloud = new THREE.Mesh(sphereGeo, cmat)
+      cloud.scale.setScalar(spec.radius * 1.02)
+      group.add(cloud)
+    }
+    const atmoHex = ATMO_COLOR[arch]
+    if (atmoHex !== null) {
+      const atmo = new THREE.Mesh(sphereGeo, makeAtmoMaterial(atmoHex))
+      atmo.scale.setScalar(spec.radius * 1.15)
+      group.add(atmo)
+    }
+    if ((arch === 'gas' || arch === 'icegas') && det(`ring:${wsPath}`, 0, 1) < 0.55) {
+      const inner = spec.radius * 1.5, outer = spec.radius * 2.4
+      const rg = new THREE.RingGeometry(inner, outer, 72, 1)
+      const posA = rg.attributes.position, uvA = rg.attributes.uv
+      for (let i = 0; i < posA.count; i++) {
+        const rr = Math.hypot(posA.getX(i)!, posA.getY(i)!)
+        uvA.setXY(i, (rr - inner) / (outer - inner), 0.5)
+      }
+      const ring = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ map: ringTexture(wsPath), transparent: true, side: THREE.DoubleSide, depthWrite: false }))
+      ring.rotation.x = Math.PI / 2 - det(`rt:${wsPath}`, 0.18, 0.42)
+      group.add(ring)
+    }
+    // halo=状态语义载体（作战中橙红脉冲/占领偏蓝/高亮青）——底色取原型中性辉光。
+    const baseGlow = new THREE.Color(ARCH_GLOW[arch])
+    const halo = this.glowSprite(baseGlow.clone(), spec.radius * 3.0, 0.32)
+    group.add(halo)
+    const proxy = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))
     proxy.scale.setScalar(Math.max(spec.radius * 1.35, 4.5))
-    proxy.position.copy(mesh.position)
-    this.scene.add(proxy)
+    group.add(proxy)
     this.pickables.push(proxy)
+    this.scene.add(group)
     const p: WzPlanet = {
       kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
-      radius: spec.radius, mesh, halo, proxy, baseGlow, haloScale: spec.radius * 3.4,
+      radius: spec.radius, mesh: group, cloud, halo, proxy, baseGlow, haloScale: spec.radius * 3.0,
       orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
       seed: spec.seed, rot: spec.rotSpeed,
     }
-    mesh.userData.ref = p
+    surface.userData.ref = p
     proxy.userData.ref = p
     this.planets.push(p)
     return p
@@ -952,8 +1260,7 @@ export class WarzoneScene {
       const rr = o.r * (1 + o.ecc * Math.sin(o.angle * 1.618 + o.phase))
       p.mesh.position.set(Math.cos(o.angle) * rr, o.yBase + Math.sin(o.angle * 0.9 + o.phase * 2) * o.tiltA, Math.sin(o.angle) * rr)
       p.mesh.rotation.y += p.rot * dt
-      p.halo.position.copy(p.mesh.position)
-      p.proxy.position.copy(p.mesh.position)
+      if (p.cloud !== null) p.cloud.rotation.y += p.rot * dt * 1.16
       _c1.copy(p.baseGlow)
       let op = 0.3
       if (p.status === '作战中') {
@@ -1018,14 +1325,18 @@ export class WarzoneScene {
     const key = bridge.planets.map(p => p.wsPath).join('|')
     if (key !== this.planetKey) {
       for (const p of this.planets) {
-        this.scene.remove(p.mesh, p.halo, p.proxy)
+        // halo/proxy 是 group 子节点——移除 group 即整棵退场；缓存贴图（模块级
+        // texCache）绝不在此 dispose（SSE 重建零重画的根基）。
+        this.scene.remove(p.mesh)
         const pi = this.pickables.indexOf(p.proxy)
         if (pi >= 0) this.pickables.splice(pi, 1)
-        ;(p.mesh.material as THREE.MeshStandardMaterial).map?.dispose()
-        ;(p.mesh.material as THREE.MeshStandardMaterial).emissiveMap?.dispose()
-        ;(p.mesh.material as THREE.Material).dispose()
-        p.halo.material.dispose()
-        p.mesh.geometry.dispose()
+        const seen = new Set<THREE.Material | THREE.BufferGeometry>()
+        p.mesh.traverse(node => {
+          const m = (node as THREE.Mesh).material as THREE.Material | undefined
+          const g = (node as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
+          if (m !== undefined && !seen.has(m)) { seen.add(m); m.dispose() }
+          if (g !== undefined && !seen.has(g)) { seen.add(g); g.dispose() }
+        })
       }
       this.planets.length = 0
       this.planetKey = key

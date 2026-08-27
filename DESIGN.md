@@ -439,3 +439,11 @@ orbitBy 的 dx 符号翻转（`-dx * 0.006`）：拖右=场景右旋（3D 软件
 - **动态缩放界**：`wzCamBounds(minR, maxR, extent, viewH)` 纯函数——近界=max(最大星,HQ)×2.3（防穿模），远界=min(最小星可见性[viewH 下≥9px], (外沿+最大星)×2.6[战场取景], 3200)，兜底≥home（复位永合法）；`clampCam/dampCam` 加可选界参（无参退静态常数，旧调用/旧测零破坏）；`recalcCamBounds()` 钩在 syncBoard 星球重建与 resize，orbitBy/zoomBy/帧阻尼全吃动态界。camInfo 携带 distMin/distMax 供探针。
 
 **验证**：verify 219 测 PASS（wzCamBounds 新测五断言+星阶范围断言换代+可选界兼容测）+ probe-warzone **27/27**（实线琥珀 computed-style、拖放 Δcard==Δline、狂拉两头封在动态界±8、复位在界内）+ shoot-v10/v7/theme 三件套全绿 + 像素机检（远界 dist694 时小星 23px/大星 59px、拖后连线拉伸 177px）。取证 v115g-radar-drag/3d/3d-far/tooltip-safe.png。**教训**：宿主主题残留第 5 次入账（:3080 活 UI 写回 dark，取证前必查 settings.yaml）。
+
+### V11.5h 星球回 NASA 自然色（2026-08-28，元首令「星球用NASA自然色」）
+
+V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 考古整体移植进 warzone-scene.ts：**archetypeOf(wsPath)** 确定性分派（gas 气巨/icegas 冰气巨/rust 锈质/gray 灰质/ice 冰质/terra 类地，权重偏哑光岩质）+ fBm 确定性贴图（lattice 预生成 Float32Array、512x256、模块级缓存 48 组丢最旧——SSE 重建零重画）+ bumpMap 高度场 + 云壳（terra/rust，差速自转 ×1.16）+ 大气临边辉（BackSide fresnel，gray 免）+ 行星环（气巨 55%，Cassini 缝）。**ramp 取真实反照率的 V11.3 教训原样随行**（照片显示色当 albedo 会被主光推成白板）。架构改造：WzPlanet.mesh 升 THREE.Group（表面/云/大气/环/halo/proxy 全子节点本地坐标，轨道只推 group）；halo 仍是状态语义载体（作战中橙红脉冲/占领蓝/高亮青），底色换原型中性辉光 ARCH_GLOW；teardown 群组遍历释放（Set 去重），**缓存贴图绝不 dispose**（违者 SSE 重建即白球）。
+
+**坑（考古移植三连）**：①sed 区间重叠致 ATMO_COLOR 重复声明；②提取区间切在 STAR_VERT 模板字符串中间——半截 shader 尾巴留在块尾炸全文解析；③planetNoise 尾两行被边界截掉（brace 差 1 只报 EOF，靠 top-level 声明深度扫描定位）。以后考古移植用函数边界标记而非行号区间。
+
+**验证**：verify 220 测 PASS（archetypeOf 确定性+120 路径六型全覆盖、planetNoise 确定性/值域）+ probe-warzone **28/28**（新增 NASA 材质断言：每星 bumpMap 在场）+ shoot 三件套全绿 + 纹理互异机检（8 星 8 张独立贴图）+ 壳层组合实证（表面/云/大气/环/halo/代理子节点齐全）。取证 v115h-3d-nasa/close.png。

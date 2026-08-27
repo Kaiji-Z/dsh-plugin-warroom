@@ -80,6 +80,9 @@ with sync_playwright() as p:
     board_status = page.evaluate("""(wsSet) => { const s = window.__wz.scene; const out = [];
       for (const p of s.planets) { const hasLive = s.squads.some(q => q.live && q.target === p && q.phase !== 'return'); out.push(p.status === '作战中' ? hasLive : !hasLive) } return out.every(Boolean) }""", ws_set)
     ok('星球状态与 live 编队一致（红线：状态不说谎）', board_status)
+    # V11.5h：星球=NASA 自然色六原型材质（map+bumpMap+壳层组）
+    nasa = page.evaluate("() => window.__wz.scene.planets.every(p => { const s = p.mesh.children.find(c => c.material && c.material.bumpMap); return s !== undefined })")
+    ok('星球=NASA 材质（bumpMap 高度场在）', nasa)
 
     # V11.5a 地形恒定：公转停——星球坐标跨时间纹丝不动（空间记忆根基）
     pos1 = page.evaluate("() => window.__wz.scene.planets.map(p => [p.mesh.position.x.toFixed(2), p.mesh.position.y.toFixed(2), p.mesh.position.z.toFixed(2)])")
