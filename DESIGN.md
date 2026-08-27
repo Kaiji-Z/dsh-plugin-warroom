@@ -373,3 +373,7 @@
 **移植抓虫三则**：①薄壳漏 `createElement` 导入——挂载 ReferenceError，整板 0 元素（React 壳件必查导入面）；②`pick()` 返回实体 ref 本身，帧循环误拆 `hit.ref`→undefined→`hovered.kind` 炸断 rAF 主循环（信息卡永不现身+引擎停摆一石二鸟，页错探针立功）；③排障通道=页内直接调 `__wz.scene.pick(0,0)` 二分定位（射线对/壳错）。
 
 **验证**：verify PASS（tests 换血：布局确定性/间距/分级/qbez/ease；针脚 warzonePlanets+FLEET ROSTER+HEADQUARTERS）+ **probe-warzone 21/21**（DOM 件/16 星分级/编队在途/日志演化/信息卡/指挥室按钮+V 键闭环/浮舱让位/1280 冒烟/有头 fps 60.1）+ shoot-v10 P2 改写全绿（星球 DOM 断言→warzone 断言+相机 OrbitControls 断言）+ v7/theme 回归绿（ui-theme dark 又回写一次——复位后背靠背跑批）。取证 `.goal/evidence/v11/v114-*.png` + `.goal/evidence/v10/`。
+
+### V11.4a 星空修复（同日，元首目检「星空和 html 里看到的不一样」）
+
+根因：渲染器误开 `alpha:true`（透明画布）——双重后果：①宿主浅色主题白底透出，加法混合白星画在白底=整片隐身；②更隐蔽的：加法混合写进 alpha 画布后，浏览器按预乘 alpha 合成会把 RGB 钳到 α 以下——星点系统性压暗、bloom 辉光被削，观感「稀疏暗淡不像 demo」。修=`alpha:false`+`setClearColor(0x02030a)`（demo body 底色，1:1 正案）。教训：**移植 demo 的加法混合星空必须连画布透明度一起照抄**；实测上空带亮星点 53 颗/峰值 243，probe 21/21 无回归。
