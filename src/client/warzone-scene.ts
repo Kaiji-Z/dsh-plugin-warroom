@@ -26,8 +26,8 @@ import { hash01 } from './starfield.tsx'
 export interface WzCamState { yaw: number; pitch: number; dist: number }
 export const WZ_CAM_PITCH_MIN = 0.08, WZ_CAM_PITCH_MAX = 1.52
 export const WZ_CAM_DIST_MIN = 40, WZ_CAM_DIST_MAX = 800
-/** demo 初始机位 (64,108,252) 的球坐标。 */
-export const WZ_CAM_HOME: WzCamState = { yaw: Math.atan2(64, 252), pitch: Math.asin(108 / Math.hypot(64, 108, 252)), dist: Math.hypot(64, 108, 252) }
+/** 初始机位（demo 方位角，距离按 V11.5f 分散重排后的外沿拉远）。 */
+export const WZ_CAM_HOME: WzCamState = { yaw: Math.atan2(64, 252), pitch: Math.asin(108 / Math.hypot(64, 108, 252)), dist: 350 }
 
 const wzClamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
@@ -172,6 +172,10 @@ export interface WzBridgeSquad {
   readonly verb: string | null
   readonly paused: boolean
   readonly sourceLabel: string | null
+  /** 源命令 id（执行卡点击跳聚焦页）。 */
+  readonly sourceCommandId: string | null
+  /** 活体会话（attempt 未收束）——执行卡只挂活体。 */
+  readonly live: boolean
 }
 
 /** 真实 workspace 谱系（纯）：沿用 demo 轨道/间距算法，命名=目录名 · W-02，
@@ -186,24 +190,25 @@ export function warzoneLayoutFor(wsPaths: readonly string[], activity: readonly 
     const k = `${seed}:${wsPath}`
     const cls = clsOf.get(i) ?? 'small'
     const radius = cls === 'large' ? det(`r:${k}`, 9, 13) : cls === 'medium' ? det(`r:${k}`, 4.5, 6.5) : det(`r:${k}`, 1.8, 3)
+    // V11.5f（元首令）：排布尽可能分散——带宽外扩 + 拒绝间距 20→42 + 纵向展宽。
     const orbit = {
-      r: cls === 'large' ? det(`or:${k}`, 175, 260) : cls === 'medium' ? det(`or:${k}`, 95, 175) : det(`or:${k}`, 60, 150),
+      r: cls === 'large' ? det(`or:${k}`, 200, 310) : cls === 'medium' ? det(`or:${k}`, 130, 240) : det(`or:${k}`, 90, 200),
       ecc: det(`oe:${k}`, 0.05, 0.22),
       speed: det(`os:${k}`, 0.008, 0.028) * (detBool(`od:${k}`, 0.5) ? 1 : -1),
       angle: det(`oa:${k}`, 0, PI2),
       phase: det(`op:${k}`, 0, PI2),
-      tiltA: det(`ot:${k}`, 4, 22),
-      yBase: det(`oy:${k}`, -38, 38),
+      tiltA: det(`ot:${k}`, 6, 30),
+      yBase: det(`oy:${k}`, -55, 55),
     }
     let x = 0, y = 0, z = 0
     for (let tr = 0; tr < 24; tr++) {
       orbit.angle = det(`oa:${k}:${tr}`, 0, PI2)
-      orbit.yBase = det(`oy:${k}:${tr}`, -38, 38)
+      orbit.yBase = det(`oy:${k}:${tr}`, -55, 55)
       const rr = orbit.r * (1 + orbit.ecc * Math.sin(orbit.angle * 1.618 + orbit.phase))
       x = Math.cos(orbit.angle) * rr
       z = Math.sin(orbit.angle) * rr
       y = orbit.yBase + Math.sin(orbit.angle * 0.9 + orbit.phase * 2) * orbit.tiltA
-      if (placed.every(p => Math.hypot(x - p.x, y - p.y, z - p.z) > p.radius + radius + 20)) break
+      if (placed.every(p => Math.hypot(x - p.x, y - p.y, z - p.z) > p.radius + radius + 42)) break
     }
     placed.push({ x, y, z, radius })
     return {
@@ -296,6 +301,8 @@ export interface WzSquad {
   verb: string | null
   paused: boolean
   sourceLabel: string | null
+  sourceCommandId: string | null
+  live: boolean
   t: number
   start: THREE.Vector3
   ctrl: THREE.Vector3
@@ -399,6 +406,9 @@ export class WarzoneScene {
   private hqActive = true
   private planetKey = ''
   private readonly squadBySession = new Map<string, WzSquad>()
+  /** 悬停/聚焦高亮战区（V11.5f 元首令）：光晕增亮 + HQ↔星球虚线轨迹。 */
+  private readonly hlWs = new Set<string>()
+  private hlLines: THREE.Line[] = []
   /** 三键相机态：cur 阻尼趋近 target；center=屏幕锚（平移推动它，旋转绕它）。 */
   private camCur: WzCamState = { ...WZ_CAM_HOME }
   private camTar: WzCamState = { ...WZ_CAM_HOME }
@@ -644,7 +654,7 @@ export class WarzoneScene {
     this.disposables.push(body.geometry, wing.geometry, fin.geometry, eng.geometry)
   }
 
-  private createSquad(target: WzPlanet, phase: WzSquadPhase = 'outbound', presetT = 0, info?: { verb: string | null; paused: boolean; sourceLabel: string | null; boardPhase: 'battle' | 'deployed' | 'holding' }): WzSquad {
+  private createSquad(target: WzPlanet, phase: WzSquadPhase = 'outbound', presetT = 0, info?: { verb: string | null; paused: boolean; sourceLabel: string | null; boardPhase: 'battle' | 'deployed' | 'holding'; sourceCommandId: string | null; live: boolean }): WzSquad {
     const id = this.squadSeq++
     const group = new THREE.Group()
     const glowMat = new THREE.SpriteMaterial({
@@ -678,6 +688,7 @@ export class WarzoneScene {
       group, proxy, glowMat, ships: n, target, phase,
       boardPhase: info?.boardPhase ?? 'deployed',
       verb: info?.verb ?? null, paused: info?.paused ?? false, sourceLabel: info?.sourceLabel ?? null,
+      sourceCommandId: info?.sourceCommandId ?? null, live: info?.live ?? false,
       t: presetT, start, ctrl: new THREE.Vector3(), dur: 1,
       seed: det(`ss:${id}`, 0, 10), orbitA: det(`so:${id}`, 0, PI2),
       orbitSpd: det(`sp:${id}`, 0.8, 1.4), battleT: 0,
@@ -854,6 +865,37 @@ export class WarzoneScene {
     return { cx: this.camCenter.x, cy: this.camCenter.y, cz: this.camCenter.z, yaw: this.camCur.yaw, pitch: this.camCur.pitch, dist: this.camCur.dist }
   }
 
+  /** 高亮战区集合（板卡悬停/聚焦/执行卡悬停共入口）；星球静态，轨迹线重建即可。 */
+  setHighlight(ws: ReadonlyArray<string>): void {
+    this.hlWs.clear()
+    for (const w of ws) this.hlWs.add(w)
+    this.rebuildHlLines()
+  }
+
+  private rebuildHlLines(): void {
+    for (const l of this.hlLines) { this.scene.remove(l); (l.material as THREE.Material).dispose(); l.geometry.dispose() }
+    this.hlLines = []
+    for (const p of this.planets) {
+      if (!this.hlWs.has(p.wsPath)) continue
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -6, 0), p.mesh.position.clone()])
+      const mat = new THREE.LineDashedMaterial({ color: 0x6fe3ff, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.85 })
+      const line = new THREE.Line(geo, mat)
+      line.computeLineDistances()
+      this.scene.add(line)
+      this.hlLines.push(line)
+      if (this.hlLines.length >= 4) break
+    }
+  }
+
+  /** 星球世界位 → 屏幕 CSS px（3D 态，render 之后调用；出视锥 null）。 */
+  planetScreen(wsPath: string, w: number, h: number): { x: number; y: number } | null {
+    const p = this.planets.find(q => q.wsPath === wsPath)
+    if (p === undefined) return null
+    _v1.copy(p.mesh.position).project(this.camera)
+    if (_v1.z > 1 || _v1.z < -1) return null
+    return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
+  }
+
   /** 帧推进（demo animate 的模拟半边）：母舰呼吸/星球轨道与状态/编队/特效/调度。 */
   update(dt: number, t: number): void {
     this.simT += dt
@@ -886,8 +928,11 @@ export class WarzoneScene {
         _c1.lerp(_c2.set(0x66d4ff), 0.4)
         op = 0.34
       }
+      if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.set(0x6fe3ff), 0.35) }
       p.halo.material.color.lerp(_c1, 0.08)
       p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
+      const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
+      p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
       const s = this.squads[i]!
@@ -952,6 +997,7 @@ export class WarzoneScene {
         const b = bridge.planets[sp.index]!
         this.addPlanet(sp, b.wsPath, b.status, b.garrison, b.failing, b.inbound)
       }
+      this.rebuildHlLines()
     } else {
       bridge.planets.forEach((b, i) => {
         const p = this.planets[i]
@@ -975,7 +1021,7 @@ export class WarzoneScene {
       const planet = byWs.get(bs.wsPath)
       if (planet === undefined) continue
       if (existing === undefined) {
-        const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase })
+        const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase, sourceCommandId: bs.sourceCommandId, live: bs.live })
         s.sessionId = bs.sessionId
         this.squadBySession.set(bs.sessionId, s)
         this.pushLog('#ffc98a', `${s.code} ${bs.sourceLabel ?? bs.verb ?? '执行会话'}出击 ▸ ${planet.name.split(' ·')[0]!}`)
@@ -984,6 +1030,8 @@ export class WarzoneScene {
       existing.verb = bs.verb
       existing.paused = bs.paused
       existing.sourceLabel = bs.sourceLabel
+      existing.sourceCommandId = bs.sourceCommandId
+      existing.live = bs.live
       if (bs.sourceLabel !== null || bs.verb !== null) existing.cname = bs.sourceLabel ?? bs.verb ?? existing.cname
       existing.boardPhase = bs.phase
       if (existing.phase !== 'return' && existing.phase !== 'outbound' && existing.phase !== bs.phase) existing.phase = bs.phase
@@ -1020,8 +1068,9 @@ export class WarzoneScene {
 }
 
 /* ================================================================
- * 指挥室 2D 战术视图（demo §8.5 全量）：雷达盘/扫描余辉/HQ 八角/星球符号/
- * 编队三角+虚线航迹/编队名册/态势统计/战况速报/CRT 扫描线。
+ * 指挥室 2D 战术视图（V11.5f 按令去面板）：雷达盘/HQ 八角/星球符号（含高亮
+ * 虚线轨迹+名签）/编队三角+虚线航迹/CRT 静态扫描线；名册/态势/速报面板族与
+ * 扫描波束动画已随「指挥室屏幕=围合中央自由区」定案退役。
  * ================================================================ */
 
 export interface TacHit { x: number; y: number; r: number; ref: unknown }
@@ -1059,31 +1108,16 @@ export class WarzoneTactical {
     this.g.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
-  private panel(x: number, y: number, w: number, h: number, title: string): void {
-    const g = this.g
-    g.fillStyle = 'rgba(6,13,26,.78)'
-    g.strokeStyle = 'rgba(111,227,255,.3)'; g.lineWidth = 1
-    g.beginPath()
-    if (g.roundRect) g.roundRect(x, y, w, h, 6); else g.rect(x, y, w, h)
-    g.fill(); g.stroke()
-    g.fillStyle = 'rgba(111,227,255,.1)'; g.fillRect(x, y, w, 24)
-    g.strokeStyle = 'rgba(111,227,255,.3)'
-    g.beginPath(); g.moveTo(x, y + 24); g.lineTo(x + w, y + 24); g.stroke()
-    g.fillStyle = '#9fdcff'; g.font = 'bold 11px "Microsoft YaHei",Consolas'
-    g.textAlign = 'left'; g.textBaseline = 'alphabetic'
-    g.fillText(title, x + 10, y + 16)
-  }
 
-  /** 帧绘制（V11.5c 元首定）：雷达画进【灵动岛/任务舱/战报舱/命令坞围合的中央
-   * 自由区】（safe 矩形，缺省全幅）；扫描波束动态动画按令退役（静态刻度仍在）。 */
-  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, log: ReadonlyArray<WzLogEntry>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }): void {
+  /** 帧绘制（V11.5f 元首令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
+   * 文字全部退役——只剩盘+符号+高亮；扫描波束动态动画此前已退役。 */
+  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>): void {
     const g = this.g
     const w = this.w, h = this.h
     const S = safe ?? { x: 0, y: 0, w, h }
-    const panels = S.w >= 940
     const cx = this.cx = S.x + S.w / 2
     const cy = this.cy = S.y + S.h / 2 + 10
-    const baseR = Math.max(130, Math.min(S.h * 0.5 - 64, S.w * 0.5 - (panels ? 300 : 24), 460))
+    const baseR = Math.max(130, Math.min(S.h * 0.5 - 64, S.w * 0.5 - 24, 460))
     this.worldScale = baseR / 300 * this.zoom
     const ws = this.worldScale
     hits.length = 0
@@ -1142,11 +1176,18 @@ export class WarzoneTactical {
     g.textAlign = 'center'; g.textBaseline = 'alphabetic'
     g.fillText('HQ · HEADQUARTERS', s1.x, s1.y + 32)
     hits.push({ x: s1.x, y: s1.y, r: 26, ref: { kind: 'hq' } })
-    // 星球符号
+    // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹）
     planets.forEach(p => {
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
       const col = p.status === '作战中' ? '#ff6a55' : p.status === '已占领' ? '#5fc4ff' : '#ffc24d'
       const rr = Math.max(7, p.radius * 0.9)
+      const isHl = hl !== undefined && hl.has(p.wsPath)
+      if (isHl) {
+        g.setLineDash([5, 6])
+        g.beginPath(); g.moveTo(cx, cy); g.lineTo(s1.x, s1.y)
+        g.strokeStyle = 'rgba(111,227,255,.55)'; g.lineWidth = 1.4; g.stroke()
+        g.setLineDash([])
+      }
       if (p.status === '作战中') {
         const k = (t * 1.4 + p.seed) % 1
         g.beginPath(); g.arc(s1.x, s1.y, rr + 4 + k * 16, 0, PI2)
@@ -1154,14 +1195,15 @@ export class WarzoneTactical {
       }
       g.beginPath(); g.arc(s1.x, s1.y, rr, 0, PI2)
       g.fillStyle = col + '2e'; g.fill()
-      g.strokeStyle = col; g.lineWidth = 1.6; g.stroke()
+      g.strokeStyle = isHl ? '#8fe8ff' : col; g.lineWidth = isHl ? 2.6 : 1.6; g.stroke()
       g.beginPath(); g.arc(s1.x, s1.y, 2.2, 0, PI2); g.fillStyle = col; g.fill()
       if (p.garrison > 0) {
         g.beginPath(); g.arc(s1.x, s1.y, rr + 5, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
         g.strokeStyle = 'rgba(95,196,255,.7)'; g.lineWidth = 2; g.stroke()
       }
       g.font = '10px "Microsoft YaHei",Consolas'; g.textAlign = 'center'
-      g.fillStyle = 'rgba(200,225,250,.85)'
+      g.fillStyle = isHl ? '#bfefff' : 'rgba(200,225,250,.85)'
+      if (isHl) g.font = 'bold 12px "Microsoft YaHei",Consolas'
       g.fillText(p.name.split(' ·')[0]!, s1.x, s1.y - rr - 6)
       g.fillStyle = col; g.font = '9px Consolas'
       g.fillText(`LV${p.level}·${p.garrison}艘`, s1.x, s1.y + rr + 13)
@@ -1195,57 +1237,7 @@ export class WarzoneTactical {
       g.restore()
       hits.push({ x: s1.x, y: s1.y, r: 12, ref: s })
     })
-    // 左面板：作战编队名册 / 右面板：态势+速报——都锚在安全区内（宽不足时让位）
-    if (panels) {
-      const lpX = S.x + 14, lpY = S.y + 46
-      const lpW = 252, lpH = Math.min(340, 58 + squads.length * 31)
-      this.panel(lpX, lpY, lpW, lpH, '作战编队 FLEET ROSTER')
-      squads.slice(0, 9).forEach((s, i) => {
-        const ry = lpY + 40 + i * 31
-        const ph = s.phase
-        const col = ph === 'battle' ? '#ff7755' : ph === 'return' ? '#9a86ff' : ph === 'deployed' ? '#5fc4ff' : '#ffc98a'
-        const stTxt = ph === 'outbound' ? `出征 ${Math.min(99, s.t * 100) | 0}%` : ph === 'battle' ? (s.verb ?? '交战中') : ph === 'deployed' ? (s.paused ? '暂停待命' : '驻泊待验收') : ph === 'holding' ? '集结待命' : `返航 ${Math.min(99, s.t * 100) | 0}%`
-        g.fillStyle = '#dceaff'; g.font = '11px Consolas,"Microsoft YaHei"'; g.textAlign = 'left'
-        g.fillText(`${s.code}`, lpX + 10, ry)
-        g.fillStyle = col; g.fillText(stTxt, lpX + 64, ry)
-        g.fillStyle = 'rgba(150,180,215,.85)'; g.textAlign = 'right'
-        g.fillText(ph === 'return' ? '▸ HQ' : '▸ ' + s.target.name.split(' ·')[0]!, lpX + lpW - 10, ry)
-        g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(lpX + 10, ry + 6, lpW - 56, 3)
-        if (ph === 'outbound' || ph === 'return') {
-          g.fillStyle = col; g.fillRect(lpX + 10, ry + 6, (lpW - 56) * Math.min(1, s.t), 3)
-        } else {
-          g.fillStyle = col + '99'; g.fillRect(lpX + 10, ry + 6, lpW - 56, 3)
-        }
-      })
-      const rpW = 272, rpX = S.x + S.w - rpW - 14
-      const cnt: Record<WzStatus, number> = { '待进攻': 0, '作战中': 0, '已占领': 0 }
-      planets.forEach(p => cnt[p.status]++)
-      this.panel(rpX, lpY, rpW, 76, '战区态势 STATUS')
-      ;([['待进攻', cnt['待进攻'], '#ffc24d'], ['作战中', cnt['作战中'], '#ff6a55'], ['已占领', cnt['已占领'], '#5fc4ff']] as Array<[string, number, string]>).forEach((it, i) => {
-        const ix = rpX + 16 + i * 88
-        g.fillStyle = it[2]!; g.fillRect(ix, lpY + 40, 8, 8)
-        g.fillStyle = '#cfe3ff'; g.font = 'bold 17px Consolas'; g.textAlign = 'left'
-        g.fillText(String(it[1]), ix + 14, lpY + 49)
-        g.fillStyle = 'rgba(160,190,220,.75)'; g.font = '10px "Microsoft YaHei"'
-        g.fillText(it[0]! + '星球', ix, lpY + 65)
-      })
-      const lgN = Math.min(9, log.length)
-      const lgY = lpY + 76 + 14
-      this.panel(rpX, lgY, rpW, 44 + lgN * 22, '战况速报 WAR LOG')
-      log.slice(0, 9).forEach((e, i) => {
-        const ey = lgY + 44 + i * 22
-        g.fillStyle = 'rgba(140,170,200,.6)'; g.font = '10px Consolas'; g.textAlign = 'left'
-        g.fillText(e.stamp ?? `T+${pad2(e.t / 60 | 0)}:${pad2(e.t % 60 | 0)}`, rpX + 12, ey)
-        g.fillStyle = e.color; g.font = '11px "Microsoft YaHei"'
-        g.fillText(e.text, rpX + 76, ey)
-      })
-    }
-    // 顶栏 / 底栏 / 四角括号（全锚安全区）
-    const mm = pad2(t / 60 | 0), ss = pad2(t % 60 | 0)
-    g.fillStyle = '#9fdcff'; g.font = 'bold 13px Consolas,"Microsoft YaHei"'; g.textAlign = 'center'
-    g.fillText('TACTICAL COMMAND VIEW · 战区指挥态势图', cx, S.y + 22)
-    g.fillStyle = 'rgba(140,170,200,.65)'; g.font = '10px Consolas'
-    g.fillText(`MISSION T+${mm}:${ss}   SIGNAL LOCK · 数据链正常   滚轮 缩放态势图 · V 切换现实视图`, cx, S.y + S.h - 12)
+    // V11.5f（元首令）：名册/态势/速报/顶底栏文字全部退役——只剩盘+符号+高亮。
     const B = 26, M = 14
     ;([[S.x + M, S.y + M, 1, 1], [S.x + S.w - M, S.y + M, -1, 1], [S.x + M, S.y + S.h - M, 1, -1], [S.x + S.w - M, S.y + S.h - M, -1, -1]] as const).forEach(c => {
       g.strokeStyle = 'rgba(111,227,255,.5)'; g.lineWidth = 2

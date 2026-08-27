@@ -2,9 +2,10 @@
  * V11.4 星域=warzone demo 整体进驻（元首令「完全一比一」）。本组件只是挂载壳：
  * 3D 引擎与 2D 指挥室全在 warzone-scene.ts（demo 全要素 1:1）；壳负责——容器内
  * 鼠标追踪与拾取（3D 射线 / 2D 邻近）、悬停信息卡（HQ/星球/编队三卡，0.5s 实时
- * 刷新）、◉ 现实视图/▤ 指挥室切换（按钮+V 键，输入态守卫）、尺寸随动、WebGL
+ * 刷新）、3D 视图/2D 视图切换（按钮+V 键，输入态守卫）、尺寸随动、WebGL
  * 失败回落 2D 星域（底线保留）、调试句柄 window.__wz（探针断言用）。
- * 板数据（workspace/attempts→星球/编队）的连线是下一阶段；当前世界为 demo 自驱。
+ * V11.5 起板真值驱动（星球=workspace/编队=执行会话/日志=真实事件）；V11.5f 增
+ * 执行卡覆盖层（卡钉星球屏位+连线，点击跳源命令）与悬停/聚焦→星球高亮联动。
  * @module dsh-plugin-warroom/client/starfield3d
  */
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'
@@ -62,17 +63,30 @@ export interface WarzoneProps {
   readonly planets: ReadonlyArray<WzBridgePlanet>
   readonly squads: ReadonlyArray<WzBridgeSquad>
   readonly log: ReadonlyArray<WzLogEntry>
+  /** V11.5f：悬停/聚焦命令卡 → 高亮对应战区（星球名+HQ↔星球轨迹）。 */
+  readonly highlightWs: ReadonlyArray<string>
+  /** 执行卡点击 → 跳源命令聚焦页。 */
+  readonly onOpenCommand?: (commandId: string) => void
+  /** 执行卡动词兜底。 */
+  readonly orbIdleLabel: string
   /** WebGL 不可用/初始化失败：父级整棵回落 2D 星域（底线）。 */
   readonly onUnavailable: () => void
 }
 
 export function Warzone(props: WarzoneProps): ReactNode {
-  const { ariaLabel, active, planets, squads, log, onUnavailable } = props
+  const { ariaLabel, active, planets, squads, log, highlightWs, onOpenCommand, orbIdleLabel, onUnavailable } = props
   const rootRef = useRef<HTMLDivElement | null>(null)
   const c3dRef = useRef<HTMLCanvasElement | null>(null)
   const c2dRef = useRef<HTMLCanvasElement | null>(null)
   const tipRef = useRef<HTMLDivElement | null>(null)
   const sceneRef = useRef<WarzoneScene | null>(null)
+  const cardsRef = useRef<HTMLDivElement | null>(null)
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const nameRef = useRef<HTMLDivElement | null>(null)
+  const squadsRef = useRef(squads)
+  const hlWsRef = useRef(highlightWs)
+  const hoverWsRef = useRef<string | null>(null)
+  const hlKeyRef = useRef('')
   const [failed, setFailed] = useState(false)
   const [cmd, setCmd] = useState(true)
 
@@ -215,23 +229,87 @@ export function Warzone(props: WarzoneProps): ReactNode {
           root.style.cursor = mode === '3d' ? 'grab' : 'default'
         }
       }
+      // V11.5f 高亮集合（板卡悬停/聚焦 ∪ 执行卡悬停）——变更时才重建轨迹线
+      const hlList = hoverWsRef.current !== null ? [...new Set([...hlWsRef.current, hoverWsRef.current])] : [...hlWsRef.current]
+      const hlSet = new Set(hlList)
+      const hlKey = hlList.join('|')
+      if (hlKey !== hlKeyRef.current) {
+        hlKeyRef.current = hlKey
+        scene.setHighlight(hlList)
+      }
       // 分流渲染
+      const rw = root.clientWidth, rh = root.clientHeight
+      // V11.5c：围合中央自由区（灵动岛/任务舱/战报舱/命令坞之外）——雷达画进它，
+      // V11.5f 执行卡/名签也钳进它（星球投影可能落在坞/舱底下，卡必须可达可点）。
+      const rect = root.getBoundingClientRect()
+      let x0 = 0, y0 = 0, x1 = rect.width, y1 = rect.height
+      const isl = document.querySelector('.war-island')
+      const tk = document.querySelector('.war-zone.war-tasks')
+      const rp = document.querySelector('.war-zone.war-report')
+      const dk = document.querySelector('.war-dispatch')
+      if (isl !== null) y0 = Math.max(y0, isl.getBoundingClientRect().bottom - rect.top)
+      if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - rect.left)
+      if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - rect.left)
+      if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - rect.top)
+      const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
       if (mode === '3d') {
         scene.render()
       } else {
-        // V11.5c：雷达画进【灵动岛/任务舱/战报舱/命令坞围合的中央自由区】。
-        const r = root.getBoundingClientRect()
-        let x0 = 0, y0 = 0, x1 = r.width, y1 = r.height
-        const isl = document.querySelector('.war-island')
-        const tk = document.querySelector('.war-zone.war-tasks')
-        const rp = document.querySelector('.war-zone.war-report')
-        const dk = document.querySelector('.war-dispatch')
-        if (isl !== null) y0 = Math.max(y0, isl.getBoundingClientRect().bottom - r.top)
-        if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - r.left)
-        if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - r.left)
-        if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - r.top)
-        const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
-        tac.draw(t, scene.planets, scene.squads, scene.log, hits, safe)
+        tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet)
+      }
+      // V11.5f 执行卡覆盖层：活体编队卡钉在星球屏幕位 + SVG 连线 + 高亮名签
+      const cards = cardsRef.current
+      const svg = svgRef.current
+      if (cards !== null && svg !== null) {
+        const stack = new Map<string, number>()
+        const posOf = (ws: string): { x: number; y: number } | null => {
+          if (mode === '3d') return scene.planetScreen(ws, rw, rh)
+          const hit = hits.find(h => (h.ref as { kind?: string } | null)?.kind === 'planet' && (h.ref as WzPlanet).wsPath === ws)
+          return hit === undefined ? null : { x: hit.x, y: hit.y }
+        }
+        for (const el of Array.from(cards.querySelectorAll<HTMLElement>('.war-wz-xcard'))) {
+          const sid = el.dataset.wzSid ?? ''
+          const sq = squadsRef.current.find(q => q.sessionId === sid)
+          const line = svg.querySelector<SVGLineElement>(`line[data-wz-sid="${CSS.escape(sid)}"]`)
+          if (sq === undefined) continue
+          const k = stack.get(sq.wsPath) ?? 0
+          stack.set(sq.wsPath, k + 1)
+          const pos = posOf(sq.wsPath)
+          if (pos === null) { el.style.visibility = 'hidden'; if (line !== null) line.style.visibility = 'hidden'; continue }
+          // 卡钳进围合安全区（星球投影可能在坞/舱底下——卡必须可达可点），线仍指真实星球位
+          const hw = el.offsetWidth / 2 + 4
+          const hh = el.offsetHeight + 6
+          const cx2 = Math.min(Math.max(pos.x, safe.x + hw), safe.x + safe.w - hw)
+          let cy2 = pos.y - 30 - k * 34
+          if (cy2 - hh < safe.y) cy2 = safe.y + hh
+          if (cy2 > safe.y + safe.h - 4) cy2 = safe.y + safe.h - 4
+          el.style.visibility = ''
+          el.style.transform = `translate(-50%,-100%) translate(${cx2.toFixed(1)}px,${(cy2 - 6).toFixed(1)}px)`
+          if (line !== null) {
+            line.style.visibility = ''
+            line.setAttribute('x1', String(pos.x))
+            line.setAttribute('y1', String(pos.y))
+            line.setAttribute('x2', String(cx2))
+            line.setAttribute('y2', String(cy2))
+          }
+        }
+        // 高亮名签：第一颗高亮星球上方（同样钳进安全区）
+        const nameEl = nameRef.current
+        if (nameEl !== null) {
+          const firstWs = hlList[0]
+          const pos = firstWs !== undefined ? posOf(firstWs) : null
+          if (pos !== null) {
+            const p = scene.planets.find(q => q.wsPath === firstWs)
+            nameEl.textContent = p?.name ?? ''
+            const nhw = nameEl.offsetWidth / 2 + 4
+            const nx = Math.min(Math.max(pos.x, safe.x + nhw), safe.x + safe.w - nhw)
+            const ny = Math.min(pos.y + 16, safe.y + safe.h - 26)
+            nameEl.style.visibility = ''
+            nameEl.style.transform = `translate(-50%,0) translate(${nx.toFixed(1)}px,${ny.toFixed(1)}px)`
+          } else {
+            nameEl.style.visibility = 'hidden'
+          }
+        }
       }
       raf = requestAnimationFrame(frame)
     }
@@ -271,10 +349,12 @@ export function Warzone(props: WarzoneProps): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 数据面：板真值 → 引擎（星球谱/编队谱/日志/HQ 战时）。
+  // 数据面：板真值 → 引擎（星球谱/编队谱/日志/HQ 战时）+ 覆盖层引用。
   useEffect(() => {
+    squadsRef.current = squads
+    hlWsRef.current = highlightWs
     sceneRef.current?.syncBoard({ active, planets, squads, log })
-  }, [active, planets, squads, log])
+  }, [active, planets, squads, log, highlightWs])
 
   if (failed) return null
   return createElement('div', {
@@ -287,18 +367,34 @@ export function Warzone(props: WarzoneProps): ReactNode {
     createElement('canvas', { ref: c3dRef, className: 'war-wz-3d', 'aria-hidden': 'true' }),
     createElement('canvas', { ref: c2dRef, className: 'war-wz-tac', 'aria-hidden': 'true' }),
     createElement('div', { className: 'war-wz-vig', 'aria-hidden': 'true' }),
-    createElement('div', { className: 'war-wz-hud', 'aria-hidden': 'true' },
-      createElement('h1', null, 'DEEP SPACE WARZONE'),
-      createElement('p', null, '深空战区 · 第六舰队作战态势图')),
+    // V11.5f 执行中卡片覆盖层：卡钉星球屏位 + SVG 连线 + 高亮名签（frame 循环摆位），
+    // 点击跳源命令、悬停/聚焦联动星球高亮。
+    createElement('svg', { ref: svgRef, className: 'war-wz-lines', 'aria-hidden': 'true' },
+      ...squads.filter(s => s.live).map(s => createElement('line', { key: s.sessionId, 'data-wz-sid': s.sessionId, className: 'war-wz-xline' }))),
+    createElement('div', { ref: cardsRef, className: 'war-wz-cards' },
+      ...squads.filter(s => s.live).map(s => createElement('button', {
+        key: s.sessionId, type: 'button', className: 'war-wz-xcard', 'data-wz-sid': s.sessionId,
+        title: `${s.wsPath} · ${s.verb ?? orbIdleLabel}`,
+        'aria-label': `执行中：${s.verb ?? orbIdleLabel}${s.sourceLabel !== null ? `（${s.sourceLabel}）` : ''}，点击查看源命令`,
+        onMouseEnter: () => { hoverWsRef.current = s.wsPath },
+        onMouseLeave: () => { hoverWsRef.current = null },
+        onFocus: () => { hoverWsRef.current = s.wsPath },
+        onBlur: () => { hoverWsRef.current = null },
+        onClick: () => { if (s.sourceCommandId !== null) onOpenCommand?.(s.sourceCommandId) },
+      },
+        createElement('span', { className: 'war-wz-xdot' }),
+        createElement('span', { className: 'war-wz-xverb' }, s.verb ?? orbIdleLabel),
+        s.sourceLabel !== null ? createElement('span', { className: 'war-wz-xsrc' }, s.sourceLabel) : null))),
+    createElement('div', { ref: nameRef, className: 'war-wz-pname', 'aria-hidden': 'true' }),
     createElement('div', { className: 'war-wz-toggle', role: 'group', 'aria-label': '视图切换' },
-      createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, '◉ 现实视图'),
-      createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, '▤ 指挥室')),
+      createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, '3D 视图'),
+      createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, '2D 视图')),
     createElement('div', { className: 'war-wz-foot', 'aria-hidden': 'true' },
       createElement('div', { className: 'war-wz-legend' },
         createElement('span', null, createElement('i', { style: { background: '#ffc24d' } }), '待进攻'),
         createElement('span', null, createElement('i', { style: { background: '#ff6a55' } }), '作战中'),
         createElement('span', null, createElement('i', { style: { background: '#66d4ff' } }), '已占领')),
-      createElement('div', { className: 'war-wz-hint' }, '左键拖拽 旋转视角 · 滚轮 缩放远近 · 悬停单位 查看详情 · V 切换指挥室')),
+      createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
   )
 }

@@ -2039,19 +2039,23 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const wzSquads: WzBridgeSquad[] = []
     for (const { t, a } of live) {
       const verb = a.activity?.label ?? null
+      const src = lineageOf(t.taskId)?.commandId ?? null
       wzSquads.push({
         sessionId: a.sessionId,
         wsPath: t.workspacePath ?? '',
         phase: attemptPhaseOf(verb, t.quotaPaused === true),
         verb,
         paused: t.quotaPaused === true,
-        sourceLabel: commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? null,
+        sourceCommandId: src,
+        sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null,
+        live: true,
       })
     }
     for (const t of tasks.filter(tk => tk.status === 'reported')) {
       const last = [...(t.attemptLog ?? [])].reverse().find(a => a.outcome === 'reported')
       if (last === undefined) continue
-      wzSquads.push({ sessionId: last.sessionId, wsPath: t.workspacePath ?? '', phase: 'deployed', verb: null, paused: false, sourceLabel: commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? null })
+      const src = lineageOf(t.taskId)?.commandId ?? null
+      wzSquads.push({ sessionId: last.sessionId, wsPath: t.workspacePath ?? '', phase: 'deployed', verb: null, paused: false, sourceCommandId: src, sourceLabel: src !== null ? commandTextOf.get(src) ?? null : null, live: false })
     }
     const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: '#ffc98a', text: `下令 · ${c.text.slice(0, 18)}` }))
     for (const t of tasks) {
@@ -2064,6 +2068,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       }
     }
     const wzLog = warLogOf(wzLogFeed)
+    // V11.5f 高亮联动：悬停/聚焦战线的全部战区（去重）→ 对应星球亮起+名签+HQ 轨迹线。
+    const highlightWs = familyCmdIds.size > 0
+      ? [...new Set(tasks
+          .filter(t => familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))
+          .map(t => t.workspacePath ?? '')
+          .filter(ws => ws !== ''))]
+      : []
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = focusCommandId ?? hoverFamily
     // V10.1 元首定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
@@ -2181,6 +2192,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 planets: wzPlanets,
                 squads: wzSquads,
                 log: wzLog,
+                highlightWs,
+                onOpenCommand: id => { openCommand(id) },
+                orbIdleLabel: activeCopy().starfield.orbIdle,
                 onUnavailable: () => { setNo3d(true) },
               })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。

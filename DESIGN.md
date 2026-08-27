@@ -407,3 +407,22 @@
 ### V11.5e 回绕倒转修复（同日，元首实抓「快到 360° 瞬间反向转回去」）
 
 根因：dampCam 对 yaw 线性插值，而 clampCam 把 yaw 归一化 [0,2π)——累计旋转跨 2π→0 边界时目标值从 6.28 回绕成 0.01，阻尼器带当前值沿数字直线倒退扫过近整圈（k=9 下即「嗖」地反转）。修=最短弧插值（Δ 折算 (-π,π] 再乘阻尼系数）——角度回绕必走短弧。单测钉边界（6.2→0.1 应推进 +0.18 方向）；实弹 14 段连续拖拽 3.12rad 全程单调无倒跳。教训入坑录：**任何角度阻尼/插值必须先做 shortest-arc 折算，归一化与插值不能裸拼**。
+
+### V11.5d 中键横向旋向翻转（同日，元首实抓「左右旋转是反的」）
+
+orbitBy 的 dx 符号翻转（`-dx * 0.006`）：拖右=场景右旋（3D 软件惯例——手抓场景转而非转相机）。同轮按元首令重播种子演示板（「切换到新的种子demo」=seed-playground.py 重播种卡配置，**不是**改星空种子——歧义当场澄清，星空种子 gen 前缀误改已回滚）。
+
+### V11.5f 指挥室减负 + 执行卡索引 + 高亮联动（2026-08-27，元首六条令）
+
+**元首六条**：①指挥室去信息窗（作战编队/战区态势/战况速报）；②星球尽可能分散不挤；③执行中卡片索引到星球所在处（连线=旧战场卡的实时动词卡）；④「深空战区/DEEP SPACE WARZONE」HUD 取消，按钮改「3D 视图/2D 视图」；⑤悬停/聚焦板卡→高亮对应星球+显工作区名+HQ↔星球飞船轨迹。
+
+**落法**：
+- **雷达减负**：WarzoneTactical.draw 砍 panel() 族（名册/态势/速报/顶底栏文字），只留盘+距离环+HQ 八角+星球符号（含高亮虚线轨迹+亮名）+编队三角+CRT 静态纹；安全区测量从 cmd 分支提升到双态共用（执行卡钳位也用它）。
+- **星球分散**：warzoneLayoutFor 带宽拉宽（大星 r200-310/中 130-240/小 90-200，tilt 6-30°，y ±55）+拒绝间距 `p.radius+radius+42`；WZ_CAM_HOME.dist 281.6→350（拉远兜视野）。
+- **执行卡覆盖层**（.war-wz-xcard）：live 编队才上卡（呼吸点+动词+源命令摘要），DOM 卡钉星球屏幕位（3D=planetScreen 投影/2D=hits 命中位），SVG 虚线连星球→卡，点击跳源命令聚焦页（sourceCommandId 经桥新字段透传），悬停/聚焦联动星球高亮；同星多卡按 k*34 纵向叠放。
+- **高亮联动**：hlWs=板卡 hover/focus（views 按 familyCmdIds→任务 workspace 去重算 highlightWs 无条件传参）∪ 执行卡 hover；scene.setHighlight 重建 ≤4 条 LineDashedMaterial 虚线（HQ↔星球，dashSize6/gapSize4 青色）+星球本体增亮（op .58+青染 35%+halo×1.16）+名签 .war-wz-pname（亮星下方）+2D 雷达同高亮（盘心→星球亮虚线+粗名）。frame 循环 hlKey 变更检测，SSE revision-only 不受扰。
+- **HUD 撤**：JSX 块+CSS+针脚全清（FLEET ROSTER 针换 war-wz-xcard/setHighlight 针）；提示行改「左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图」。
+
+**目检抓真 bug（几何机检补位）**：执行卡钉星球真实屏位，projA 星球投影恰落命令坞底下——卡被 .war-dispatch 拦截不可点。修=卡位钳进围合安全区（hw/hh 按 offsetWidth 实测，线仍指真实星球位）；playwright 几何断言双态 0 相交（比视觉更硬）。另 probe 红线收窄：作战中⇔有 **live** 编队进驻（reported 驻泊编队可停在非交战星——待验收≠作战中，不是状态说谎）。
+
+**验证**：verify PASS（218 测）+ probe-warzone **21/21**（HUD 撤除/按钮名/执行卡==live/高亮进出双断言/名签）+ shoot-v10/v7/theme 三件套全绿 + 双态几何 0 相交。取证 v115f-radar/3d/3d-highlight.png。**CDN 目检通道又失效**（analyze_image 对 Read 回传 URL 400），用 PIL 裁半图+DOM 几何机检替代——目检 SOP 再确认。

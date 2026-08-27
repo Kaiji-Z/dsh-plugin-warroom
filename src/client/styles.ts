@@ -533,12 +533,20 @@ body[data-ds-dark-theme] .war-root .war-starfield3d{background:radial-gradient(e
 .war-wz-3d{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-wz-tac{position:absolute;inset:0;width:100%;height:100%;display:none;background:#010409}
 .war-wz.war-wz-cmd .war-wz-tac{display:block}
-.war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-hud,.war-wz.war-wz-cmd .war-wz-foot{display:none}
+.war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-foot{display:none}
 .war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 55%,rgba(2,4,12,.6) 100%)}
-.war-wz-hud{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:6;pointer-events:none;user-select:none;text-align:center}
-.war-wz-hud h1{margin:0;font:bold 17px/1.2 'Segoe UI',Consolas,monospace;letter-spacing:.28em;background:linear-gradient(90deg,#8fd8ff,#7f6cff 55%,#ff9a5c);-webkit-background-clip:text;background-clip:text;color:transparent}
-.war-wz-hud p{margin:5px 0 0;font:11px/1.5 'Segoe UI','Microsoft YaHei';color:#6e86ad;letter-spacing:.14em}
-.war-wz-toggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid rgba(111,227,255,.4);border-radius:8px;overflow:hidden;backdrop-filter:blur(6px);background:rgba(8,14,28,.6)} /* 顶中（HUD 下）——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
+/* V11.5f 执行卡覆盖层：SVG 连线（星球→卡）+ 活体卡 + 高亮名签（frame 循环摆位） */
+.war-wz-lines{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
+.war-wz-xline{stroke:rgba(111,227,255,.55);stroke-width:1;stroke-dasharray:3 3}
+.war-wz-cards{position:absolute;inset:0;z-index:8;pointer-events:none}
+.war-wz-xcard{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 11px 4px 8px;border-radius:999px;background:rgba(8,14,28,.84);border:1px solid rgba(111,227,255,.38);color:#cfe6ff;font:11px/1.4 'Segoe UI','Microsoft YaHei';white-space:nowrap;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 0 14px rgba(0,140,255,.14);transition:border-color .15s,box-shadow .15s}
+.war-wz-xcard:hover,.war-wz-xcard:focus-visible{border-color:rgba(111,227,255,.85);box-shadow:0 0 18px rgba(0,140,255,.3);color:#eef8ff;outline:none}
+.war-wz-xdot{flex:none;width:7px;height:7px;border-radius:50%;background:#6fe3ff;box-shadow:0 0 7px #6fe3ff;animation:war-wz-breathe 1.6s ease-in-out infinite}
+.war-wz-xverb{font-weight:600}
+.war-wz-xsrc{color:#7e9cc0;font-size:10px}
+.war-wz-pname{position:absolute;left:0;top:0;z-index:7;pointer-events:none;padding:2px 10px;border-radius:6px;background:rgba(8,14,28,.82);border:1px solid rgba(111,227,255,.5);color:#9fdcff;font:bold 12px/1.6 'Segoe UI','Microsoft YaHei';white-space:nowrap;box-shadow:0 0 12px rgba(0,140,255,.2)}
+@keyframes war-wz-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.82)}}
+.war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid rgba(111,227,255,.4);border-radius:8px;overflow:hidden;backdrop-filter:blur(6px);background:rgba(8,14,28,.6)} /* 顶中——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
 .war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px 'Segoe UI','Microsoft YaHei';letter-spacing:.1em;color:#8fb6dd;background:transparent}
 .war-wz-toggle button.on{background:linear-gradient(180deg,rgba(60,140,255,.3),rgba(60,140,255,.1));color:#eaf6ff;text-shadow:0 0 8px rgba(111,227,255,.8)}
 .war-wz-toggle button:hover{color:#dff2ff}

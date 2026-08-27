@@ -173,15 +173,22 @@ with sync_playwright() as p:
     assert sf.locator(".war-wz-3d").count() == 1 and page.evaluate("() => document.querySelector('.war-wz-3d').width > 0"), "warzone 3D canvas 未渲染"
     assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
-    # 雷达值班默认态下 HUD/图例/提示按 demo 语义隐退（在场性可查、可见性留给 3D 态）
-    for sel, name in [(".war-wz-hud", "HUD"), (".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
+    # V11.5f 元首令：HUD（DEEP SPACE WARZONE 标题块）撤除；面板族已在引擎退役。
+    assert sf.locator(".war-wz-hud").count() == 0, "HUD 应已撤除（V11.5f）"
+    for sel, name in [(".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
         assert sf.locator(sel).count() == 1, f"warzone {name} 件缺席"
     assert sf.locator(".war-wz-toggle").is_visible(), "视图切换钮必须恒可见"
+    btn_txt = page.locator(".war-wz-toggle").inner_text()
+    assert "3D 视图" in btn_txt and "2D 视图" in btn_txt, f"切换钮应为 3D 视图/2D 视图：{btn_txt}"
     wz = page.evaluate("() => { const w = window.__wz; const ps = w.scene.planets; return { n: ps.length, names: ps.map(p=>p.name), squads: w.scene.squads.length, log: w.scene.log.length, modes: ps.map(p=>p.status) } }")
     ws_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return new Set(b.tasks.map(t => t.workspacePath).filter(Boolean)).size }")
     assert wz["n"] == ws_n, f"warzone 星球数应==去重 workspace 数 {ws_n}，got {wz['n']}"
     assert all(' · W-' in n for n in wz['names']), f"星球命名应=目录名·W-编号：{wz['names'][:2]}"
     assert wz["squads"] >= 1 and wz["log"] >= 1, f"编队/日志未跑起来：{wz}"
+    # V11.5f 执行中卡片覆盖层：live attempt 数 == 执行卡数（连线钉星球屏位）
+    live_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return b.tasks.reduce((n, t) => n + (t.attemptLog ?? []).filter(a => a.outcome === null).length, 0) }")
+    assert sf.locator(".war-wz-xcard").count() == live_n, f"执行卡数应==live attempts {live_n}，got {sf.locator('.war-wz-xcard').count()}"
+    assert sf.locator(".war-wz-lines line").count() == live_n, "SVG 连线数应与执行卡一致"
     dock_y = page.locator(".war-dispatch").bounding_box()["y"]
     assert dock_y > 500, f"命令坞必须压底（TITP），got y={dock_y}"
     assert page.evaluate("() => { const t = document.querySelector('.war-dispatch-track'); return t.scrollHeight <= t.clientHeight + 1 }"), "调度坞轨道不得出现纵向滚动（高度须容下所有卡+富余）"
