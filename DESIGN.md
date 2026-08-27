@@ -393,3 +393,7 @@
 **坑**：syncBoard 初稿把 SQ 编号当 sessionId diff 键+虚构 helper——返工为 WzSquad.sessionId 字段+squadBySession Map；rebuildBelt 是旧设计残留名（demo 碎石带本就固定母舰近郊，1:1 保持）；针脚 warzonePlanets 被树摇换 warzoneLayoutFor。
 
 **验证**：verify PASS（桥接 4 新测：warzoneLayoutFor 确定性/任务量分级/命名、attemptPhaseOf 暂停优先、warLogOf 倒序封顶 stamp）+ **probe-warzone(bridge) 14/14**（星球==去重 workspace、编队==live+reported、状态与编队在场一致红线、真实日志、雷达默认+浮舱在场、V 切 3D、HQ 卡真实行、59fps）+ shoot 三件套全绿（P2 连线版：雷达默认/浮舱恒在/HQ 卡带凯旋行/相机 OrbitControls）。取证 `.goal/evidence/v11/v115-*.png`。
+
+### V11.5a 公转停止（同日，元首问「星球应该运动吗」→ 定案：公转停/自转留）
+
+论证四层：①空间记忆是宇宙愿景核心资产，4-13 分钟一圈的漂移把上午记的星图下午就重排；②军图铁律=地形不动单位动（星球是地形 workspace，编队是单位 agent——地形漂移不表达任何真实状态，与「假失守」同罪仅更温和）；③值班可用性：雷达爬行符号难扫视、3D 漂移目标难 hover；④场景生命由星闪/扫描余辉/编队/引擎呼吸/交战脉冲/**自转**（V11.3 放行，不改位置）供血，不需要公转。实现=update() bridged 态不推进 o.angle（一行门控）；probe 新增「星球坐标 2.5s 恒定」断言钉死。拒绝折中方案「极慢公转」：感知不到=无生命感，却照样弃位置确定性。

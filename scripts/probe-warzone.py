@@ -59,6 +59,12 @@ with sync_playwright() as p:
       for (const p of s.planets) { const hasLive = s.squads.some(q => q.target === p && q.phase !== 'return'); out.push(p.status === '作战中' ? hasLive : !hasLive) } return out.every(Boolean) }""", ws_set)
     ok('星球状态与编队在场一致（红线：状态不说谎）', board_status)
 
+    # V11.5a 地形恒定：公转停——星球坐标跨时间纹丝不动（空间记忆根基）
+    pos1 = page.evaluate("() => window.__wz.scene.planets.map(p => [p.mesh.position.x.toFixed(2), p.mesh.position.y.toFixed(2), p.mesh.position.z.toFixed(2)])")
+    page.wait_for_timeout(2500)
+    pos2 = page.evaluate("() => window.__wz.scene.planets.map(p => [p.mesh.position.x.toFixed(2), p.mesh.position.y.toFixed(2), p.mesh.position.z.toFixed(2)])")
+    ok('星球坐标 2.5s 恒定（公转已停）', pos1 == pos2)
+
     # V 切 3D 战略态：真实星球+编队可见、帧差在动
     page.keyboard.press('v')
     page.wait_for_timeout(800)

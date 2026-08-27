@@ -809,7 +809,9 @@ export class WarzoneScene {
     ;(this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
     for (const p of this.planets) {
       const o = p.orbit
-      o.angle += o.speed * dt
+      // V11.5a（元首定）：公转停——地形是固定参照系（空间记忆/拾取稳定/军图惯例），
+      // 真实在动的只有单位（编队）；自转保留（不改位置）。demo 漂移仅非 bridged 态。
+      if (!this.bridged) o.angle += o.speed * dt
       const rr = o.r * (1 + o.ecc * Math.sin(o.angle * 1.618 + o.phase))
       p.mesh.position.set(Math.cos(o.angle) * rr, o.yBase + Math.sin(o.angle * 0.9 + o.phase * 2) * o.tiltA, Math.sin(o.angle) * rr)
       p.mesh.rotation.y += p.rot * dt
