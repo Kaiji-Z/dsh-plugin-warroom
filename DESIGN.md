@@ -323,3 +323,17 @@
 **坑（本轮双坑）**：①noExternal:['three'] 精确匹配漏掉 'three/addons/...' 子路径——外置 require 一出，壳层模块表 miss 让**整个 client 加载炸掉**（插件入口都不见，console 才有真相）；改正则 `/^three(\/.*)?$/`。②宿主 ui-theme: dark 残留再犯（v7 st-published 2.01 同款）——shoot-theme 不写 settings.yaml，恢复是人工纪律；任何 dark 截图回合后必须核 light。
 
 **验证**：verify PASS（starfield3d 5 测含中带收缩）；shoot-v10 P2 三键断言（中键旋转/左键平移/双击复位含平移归零/滚轮同比缩）+ 三件套 EXIT=0 + 1720/1280/1000 三视口零遮挡复验。
+
+## V11.2 「3D 可交互太空战区」重铸（2026-08-27，元首规格书：母舰/散布/派兵/星闪）
+
+**规格四件**：①场景中心=大型母舰 Headquarters（金属科幻、引擎光晕、静泊原点、全场景最大单体）；②星球松散随机散布（大中小强烈分异、独有色相贴图光晕——**明确不要规整同心圆**）；③作战部队从母舰起飞飞往星球（平滑动画），attempt 收束返航消隐；④星海闪烁 + 深空雾 + 辉光。元首规格实质**修订两条旧红线**：「不造假运动」让位于派兵剧场、「内老外新同心环」让位于松散散布——落法是飞行=真实部署的动态呈现（事件驱动起飞、挂载期已驻单位演到场上演回放），不是状态伪造。
+
+**母舰建模（全程序生成）**：六棱柱主舰身（纵轴 Z、艏细艉粗）+ 舰首锥 + 舰桥/桅杆 + 双舷舱 + 尾鳍，flatShading 金属材质（metalness .62）；三喷口引擎 glow sprite（加法混合），脉动=战时心跳（`sin(t*2.4)`，active 关战争降为余烬）。**远景读成光球的教训**：引擎 glow 首版 scale 5.5/opacity .85 在 bloom 下把 34 长的船体整个吞掉——收小到 4/.6 才让船体轮廓在默认机位可辨。4 倍放大目检通道（PIL crop + LANCZOS resize）确证建模无误，是辉光量级问题。
+
+**松散散布（galaxyLayout3D 重写）**：大中小按创建序分配（前 2 大、3-5 中、余小），半径带大 [68+1.2n,100+1.2n]/中 [46+1.2n,76+1.2n]/小 [34+1.2n,62+1.2n]，方位/距离/纵向全 hash 确定性随机；逐颗 12 次拒绝采样（与已落位星间距 > 半径和+12、母舰净空 >40）。initialCam 改按 layoutExtent(extent) 定机位（不再环数推半径），裕度 1.35。
+
+**派兵战机（ShipSystem）**：每活体 attempt 一架（锥体 1.5/5.2 + 橙红 glow 9）；三态机 fly→stationed→return→gone：起飞=母舰艉部随机偏移出发，缓入缓出二次贝塞尔（控制点 hash 抬高）3.2s 到达 moonPos3D 目标点；驻泊=绕目标 2.4 半径 0.35rad/s 巡护（lookAt 切线朝向）；消失=贝塞尔返航 2.2s 后移除。SSE 增量同步（sessionId diff：新=起飞、缺=返航、留=目标随动）。reduced-motion：不飞不闪直接驻泊。DOM orb 按钮仍钉在目标点（交互/aria 原封），战机是 canvas 剧场。
+
+**星闪**：三层星海换 ShaderMaterial（uTime 逐星相位 `sin(uTime*freq+phase)` 幅度 ±42%、尺寸衰减 1400/-mv.z × pixelRatio）；亮度下限提到 .72、far 层尺寸 1.8——首版「星海稀疏」目检反馈后调。
+
+**验证**：verify PASS 218 测（starfield3d 6 测：散布确定性/大中小带/净空/不叠/椭圆轨道下界/extent 机位）；probe-v112 16/16（双主题 canvas+母舰标记+帧差>0+三视口零遮挡+三键相机）；shoot-v10/v7/theme 三件套 EXIT=0（v7 前又踩 ui-theme dark 残留第 4 次，复位 light 后全绿）；目检双主题 1720 截图落 .goal/evidence/v11/。
