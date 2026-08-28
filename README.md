@@ -106,6 +106,10 @@ pnpm dsh --profile web --patch D:/.../dsh-plugin-warroom/cordis.dev.yml --port 3
 | V9.11 卡位模型 | 任务列台账 / 实时活动行 / 战报已阅转绿 / demo 织换器 | 182 测 |
 | V9.12 审查整改 | 事件流复活 / 演示精修九项 / SPEC v8 | 195 测+三探针 |
 | **V9.13 色彩系统** | `--war-*` 语义令牌层双主题 / 海拔四级 / 状态四档语义 / 选中态三通道 / border-box 复位 | **203 测 + shoot-theme 20/20（版本收口）** |
+| V10-V10.1 | 命令续接三模式（deepen/retry/pivot）/ 世代徽标+族谱面包屑 / 星域 TITP 化（board 级铺满+贴边浮舱+卡牌组） | 各轮 verify+shoot |
+| V11-V11.5 | 3D 星域战场（NASA 星球/母舰 HQ/编队相位/雷达值班）→ warzone 真实板数据驱动连线 | probe-bridge 14/14 |
+| V12-V12.2 | 浅色范式（天空/浮空岛）→ 语义 token 化全项目重铸（三层令牌 + war-tokens.ts 唯一色源 + critique 35/40） | 228 测 + theme 20/20 |
+| **V13 战线一等公民** | **血脉≠战线（战线=血脉∩战场，续代跨战场=新战线）** / 任务列战线分组 / 调度坞按段分组 / 星域世代环+未分组行星 / 纯前端零后端 | **235 测 + shoot-v13 12 断言（拆段双证）+ probe 40/40** |
 
 **后续候选**：路由冷恢复桥、调度轮转优化、飞书遥控、git worktree 隔离、战绩/声望、多参谋、战场游戏化、npm 发布（release.mjs + OIDC）。
 

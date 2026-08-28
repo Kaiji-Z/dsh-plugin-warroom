@@ -24,6 +24,7 @@ OUT = Path(sys.argv[2] if len(sys.argv) > 2 else ".goal/evidence/v7")
 PAIRS = [
     (".war-chip.st-closed", 4.5, False),        # 善终绿（正文级 12px）
     (".war-chip.st-failed", 4.5, False),        # 败红
+    (".war-fail", 4.5, False),                  # 败因行 12px 正文（V13 实测 4.25 抓低后入列）
     (".war-chip.st-talking", 4.5, False),       # 等你答问（琥珀，V9.13 拆分）
     (".war-chip.st-in_progress", 4.5, False),   # 进行蓝
     (".war-life-status.warn", 4.5, False),      # 生命条警示行
@@ -140,7 +141,9 @@ with sync_playwright() as p:
 
     OUT.mkdir(parents=True, exist_ok=True)
 
-    # --- 浅色轮（宿主缺省即浅色）---
+    # --- 浅色轮（V13.4 加固：强制摘 dark attr——宿主缺省可能被活界面写回为 dark）---
+    page.evaluate("() => document.body.removeAttribute('data-ds-dark-theme')")
+    page.wait_for_timeout(400)
     ladder_light = read_ladder(page)
     canvas_light = ladder_light["canvas"]
     fails_light = run_round(page, "light", "light")

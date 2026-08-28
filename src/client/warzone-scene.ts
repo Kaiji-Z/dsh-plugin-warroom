@@ -15,7 +15,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { hash01 } from './starfield.tsx'
-import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
+import { readTacPalette, warLogColors, readChainHue, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
+import { UNGROUPED_WS_KEY, type WzBridgeFrontLite } from './front.ts'
 
 /* ================================================================
  * 三键相机（元首定 2026-08-27，V11.5b）：3D 软件范式——左键平移（即时跟手）/
@@ -160,6 +161,8 @@ export function warzonePlanets(seed = 'warzone'): WzPlanetSpec[] {
  * ================================================================ */
 
 const dirNameOf = (wsPath: string): string => {
+  // V13 未分组行星：合成沙盒聚合键——名字词典化（「未分组」），不走目录名。
+  if (wsPath === UNGROUPED_WS_KEY) return '未分组'
   const parts = wsPath.split(/[\\/]+/).filter(p => p.length > 0)
   return parts.length > 0 ? parts[parts.length - 1]! : wsPath
 }
@@ -255,6 +258,22 @@ export function attemptPhaseOf(verb: string | null, paused: boolean): 'battle' |
 }
 
 export interface WzLogFeedItem { readonly ts: string; readonly color: string; readonly text: string }
+
+/** V13 战线航迹的拾取/悬停节点（buildCard 消费；点击→根命令聚焦页）。 */
+export interface WzFrontNode {
+  kind: 'front'
+  id: number
+  rootId: string
+  rootCommandId: string
+  label: string
+  gens: number
+  live: boolean
+  settled: boolean
+  waiting: boolean
+  failed: boolean
+  battlefields: number
+  hueSlot: number
+}
 
 /** 战况日志（纯）：命令下达（琥珀）+ attempt 结算（凯旋蓝/败红/报琥珀）按时间倒序，30 封顶。 */
 export function warLogOf(items: readonly WzLogFeedItem[]): WzLogEntry[] {
@@ -735,6 +754,13 @@ export class WarzoneScene {
   private hqVariant: 'ship' | 'fortress' | null = null
   private hqProxy: THREE.Mesh | null = null
   private lastBridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> } | null = null
+  /** V13 战线航迹层：链色管道串起各代战场 + 代际标记（兼拾取代理）+ 活体端点辉光。
+   * 重建时机=行星谱变化/战线谱变化/主题翻转（链色随 CSS）。 */
+  private readonly frontGroup = new THREE.Group()
+  private readonly frontPickables: THREE.Mesh[] = []
+  private frontSeq = 0
+  private frontKey = ''
+  private lastFronts: ReadonlyArray<WzBridgeFrontLite> = []
   /** V12.2 语义令牌视图：CSS 是色源（--war-wz- 系列、--war-tac- 系列、--war-log- 系列），
    * applyTheme 时整组刷新；headless/主题错位由 war-tokens 回退同值基线。 */
   private tac: WarTacPalette = TAC_FALLBACK_DARK
@@ -797,6 +823,7 @@ export class WarzoneScene {
     this.hemiLight = hemi
     this.scene.add(hemi)
     this.scene.add(this.nebGroup, this.cloudGroup)
+    this.scene.add(this.frontGroup)
     this.buildClouds()
     this.disposables.push(this.shipHullMat, this.shipAccMat, this.shipEngMat)
     this.buildStars()
@@ -877,6 +904,7 @@ export class WarzoneScene {
     }
     surface.userData.ref = p
     proxy.userData.ref = p
+    this.addPlanetLabel(p)
     this.planets.push(p)
     return p
   }
@@ -968,6 +996,7 @@ export class WarzoneScene {
       seed: spec.seed, rot: spec.rotSpeed * 0.3, ring, pillar,
     }
     proxy.userData.ref = p
+    this.addPlanetLabel(p)
     this.planets.push(p)
     return p
   }
@@ -1413,10 +1442,10 @@ export class WarzoneScene {
   }
 
   /** 射线拾取（demo updateHover 3D 半边）：返回命中实体 ref 或 null。 */
-  pick(ndcX: number, ndcY: number): { kind: 'hq' | 'planet' | 'squad'; ref: unknown } | null {
+  pick(ndcX: number, ndcY: number): { kind: 'hq' | 'planet' | 'squad' | 'front'; ref: unknown } | null {
     this.raycaster.setFromCamera(_v2.set(ndcX, ndcY, 0) as unknown as THREE.Vector2, this.camera)
     const hits = this.raycaster.intersectObjects(this.pickables, false)
-    return hits.length ? (hits[0]!.object.userData.ref as { kind: 'hq' | 'planet' | 'squad'; ref: unknown }) : null
+    return hits.length ? (hits[0]!.object.userData.ref as { kind: 'hq' | 'planet' | 'squad' | 'front'; ref: unknown }) : null
   }
 
   /** 中键旋转（dYaw/dPitch 弧度，阻尼经 target）。 */
@@ -1483,6 +1512,8 @@ export class WarzoneScene {
     this.tac = readTacPalette(dark)
     this.logC = warLogColors(dark)
     this.cHl.set(this.tac.hl); this.cBattle.set(this.tac.battle); this.cHeld.set(this.tac.held); this.cWait.set(this.tac.wait)
+    // V13：链色随主题翻转（浅压深/深原亮）——航迹层整组重建。
+    if (this.lastFronts.length > 0) this.rebuildFrontLines(this.lastFronts)
     this.starGroup.visible = dark
     this.nebGroup.visible = dark
     this.cloudGroup.visible = !dark
@@ -1575,6 +1606,133 @@ export class WarzoneScene {
     this.rebuildHlLines()
   }
 
+  /** V13.4 常驻行星名牌（critique R3 P2：识别不该靠悬停换——行星是固定参照系
+   *  V11.5a，低透明度常驻不抢戏不破空间记忆；挂 mesh 子级随 applyTheme 重建换色）。 */
+  private addPlanetLabel(p: WzPlanet): void {
+    const cv = document.createElement('canvas')
+    let c2: CanvasRenderingContext2D | null = null
+    let w = 60
+    try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过名牌 */ }
+    if (c2 === null) return
+    c2.font = '600 30px system-ui, sans-serif'
+    w = Math.min(Math.ceil(c2.measureText(p.name).width) + 26, 340)
+    cv.width = w; cv.height = 44
+    c2 = cv.getContext('2d')
+    if (c2 === null) return
+    const dark = this.darkTheme !== false
+    c2.font = '600 30px system-ui, sans-serif'
+    c2.textAlign = 'center'; c2.textBaseline = 'middle'
+    c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
+    c2.fillText(p.name, w / 2, 23)
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.62 : 0.8, depthWrite: false, fog: false }))
+    // V13.5 常屏幕尺寸：目标像素高 + 画布宽高比记进 userData，update 逐帧按相机距离补偿。
+    sprite.userData.labelH = 19
+    sprite.userData.labelAspect = w / 44
+    sprite.scale.set((w / 44) * 3.0, 3.0, 1)
+    sprite.position.set(0, -(p.radius + 4.6), 0)
+    p.mesh.add(sprite)
+  }
+
+  /** V13 战线世代环（元首定案：战线=血脉∩战场，锚定单战场）：每条战线在其战场
+   *  行星外一圈链色环 + 世代标记沿环弧排布（末代放大发光，兼拾取代理）——跨行星
+   *  连线不存在（跨战场=新战线，见 front.ts 拆分规则）。收官战线降透明度留痕。
+   *  链色经 war-tokens 从 CSS --chain-hue 解析（主题翻转随动）。 */
+  private rebuildFrontLines(fronts: ReadonlyArray<WzBridgeFrontLite>): void {
+    for (const child of [...this.frontGroup.children]) {
+      this.frontGroup.remove(child)
+      const seen = new Set<THREE.Material | THREE.BufferGeometry>()
+      child.traverse(node => {
+        const m = (node as THREE.Mesh).material as THREE.Material | undefined
+        const g = (node as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
+        if (m !== undefined && !seen.has(m)) { seen.add(m); m.map?.dispose(); m.dispose() }
+        if (g !== undefined && !seen.has(g)) { seen.add(g); g.dispose() }
+      })
+    }
+    for (const fp of this.frontPickables) {
+      const pi = this.pickables.indexOf(fp)
+      if (pi >= 0) this.pickables.splice(pi, 1)
+    }
+    this.frontPickables.length = 0
+    this.lastFronts = fronts
+    this.frontSeq++
+    const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
+    fronts.forEach((f, fi) => {
+      const p = byWs.get(f.battlefield)
+      if (p === undefined) return
+      const hue = readChainHue(f.hueSlot)
+      const color = new THREE.Color(hue)
+      const group = new THREE.Group()
+      const center = p.mesh.position
+      const ringR = p.radius * 1.5
+      // V13.2 critique P2-4/5：标记要能数得清（1720×940 下 1.6/2.4 太小）；
+      // 浅色天空态环/标记整体加浓—— washed out 会让 V13 主视觉变贴图。
+      const light = !this.isDarkTheme
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(ringR, 0.8, 8, 42),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: (f.live ? 0.55 : 0.28) + (light ? 0.15 : 0), depthWrite: false, fog: false }),
+      )
+      ring.position.copy(center)
+      ring.rotation.x = Math.PI / 2.4
+      ring.rotation.y = det(`fr:${f.rootId}`, -0.5, 0.5)
+      group.add(ring)
+      // 世代标记：沿环顶弧排布（Ⅰ 在左、末代在右，末代=放大+辉光=「现在打到第 N 代」）
+      const n = Math.max(f.gens, 1)
+      const spread = Math.min(2.4, 0.55 * (n - 1))
+      for (let gi = 0; gi < n; gi++) {
+        const last = gi === n - 1
+        const theta = -Math.PI / 2 - spread / 2 + (n === 1 ? spread / 2 : (spread * gi) / (n - 1))
+        const marker = new THREE.Mesh(
+          new THREE.OctahedronGeometry(last ? 3.1 : 2.1),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: (f.live ? 0.95 : 0.4) + (light ? (f.live ? 0.05 : 0.2) : 0), fog: false }),
+        )
+        marker.position.set(
+          center.x + Math.cos(theta) * ringR * 1.02,
+          center.y + p.radius + 8 + (last ? 1.2 : 0),
+          center.z + Math.sin(theta) * ringR * 0.42,
+        )
+        marker.rotation.y = det(`fm:${f.rootId}:${gi}`, 0, Math.PI)
+        const node: WzFrontNode = {
+          kind: 'front', id: this.frontSeq * 1000 + fi * 12 + gi,
+          rootId: f.rootId, rootCommandId: f.rootCommandId, label: f.label,
+          gens: f.gens, live: f.live, settled: !f.live, waiting: false, failed: false,
+          battlefields: 1, hueSlot: f.hueSlot,
+        }
+        marker.userData.ref = node
+        this.pickables.push(marker)
+        this.frontPickables.push(marker)
+        group.add(marker)
+        if (f.live && last && this.glowTex !== undefined) {
+          const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color, transparent: true, opacity: 0.75, depthWrite: false, fog: false }))
+          glow.scale.setScalar(8.5)
+          glow.position.copy(marker.position)
+          group.add(glow)
+        }
+      }
+      // V13.3 世代徽牌：环顶「N 代」canvas sprite——远看即知深度，不依赖数八面体。
+      // V13.4（critique R3）：加大到默认缩放可读（13×6 世界单位，live 全不透明）。
+      if (f.gens > 1) {
+        const cv = document.createElement('canvas')
+        cv.width = 110; cv.height = 50
+        const c2 = cv.getContext('2d')
+        if (c2 !== null) {
+          c2.fillStyle = hue
+          c2.beginPath(); c2.roundRect(5, 5, 100, 40, 20); c2.fill()
+          c2.font = '600 26px system-ui, sans-serif'
+          c2.textAlign = 'center'; c2.textBaseline = 'middle'
+          c2.fillStyle = light ? '#ffffff' : '#15161a'
+          c2.fillText(`${f.gens} 代`, 55, 26)
+          const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: f.live ? 1 : 0.55, depthWrite: false, fog: false }))
+          badge.userData.labelH = 32
+          badge.userData.labelAspect = 110 / 50
+          badge.scale.set(13, 6, 1)
+          badge.position.set(center.x, center.y + p.radius + 17, center.z)
+          group.add(badge)
+        }
+      }
+      this.frontGroup.add(group)
+    })
+  }
+
   private rebuildHlLines(): void {
     for (const l of this.hlLines) { this.scene.remove(l); (l.material as THREE.Material).dispose(); l.geometry.dispose() }
     this.hlLines = []
@@ -1599,8 +1757,27 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
+  /** V13.5 常屏幕尺寸标签：屏幕高恒定（worldH ∝ 相机距离）——远行星 5-8px 字
+   *  读不了的根治（critique R4 P1-1）；近景上限防爆炸、远景下限防隐形。 */
+  private fitScreenLabel(s: THREE.Sprite): void {
+    s.getWorldPosition(_v1)
+    const dist = this.camera.position.distanceTo(_v1)
+    const worldH = ((s.userData.labelH as number) / Math.max(this.viewH, 1)) * 2 * Math.tan((55 * Math.PI) / 360) * dist
+    s.scale.set(worldH * (s.userData.labelAspect as number), worldH, 1)
+  }
+
   /** 帧推进（demo animate 的模拟半边）：母舰呼吸/星球轨道与状态/编队/特效/调度。 */
   update(dt: number, t: number): void {
+    for (const p of this.planets) {
+      for (const ch of p.mesh.children) {
+        if ((ch as THREE.Sprite).isSprite === true && ch.userData.labelH !== undefined) this.fitScreenLabel(ch as THREE.Sprite)
+      }
+    }
+    for (const g of this.frontGroup.children) {
+      for (const ch of g.children) {
+        if ((ch as THREE.Sprite).isSprite === true && ch.userData.labelH !== undefined) this.fitScreenLabel(ch as THREE.Sprite)
+      }
+    }
     this.simT += dt
     this.camCur = dampCam(this.camCur, this.camTar, dt, 9, this.camMinDist, this.camMaxDist)
     const hq = this.hqBeacon.parent as THREE.Group
@@ -1704,10 +1881,12 @@ export class WarzoneScene {
   /** 板同步（V11.5 连线正门）：星球集（wsPath 变更时整组重建，否则原地刷状态）
    * + 编队 diff（新会话=母舰起飞 / 消失=返航 / 相位迁移随板面）+ WAR LOG 整组
    * 替换 + HQ 战时开关。此后 demo 自驱永久旁路。 */
-  syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> }): void {
+  syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry>; fronts?: ReadonlyArray<WzBridgeFrontLite> }): void {
     this.bridged = true
     this.lastBridge = bridge
     this.hqActive = bridge.active
+    const fronts = bridge.fronts ?? []
+    const frontKey = fronts.map(f => `${f.rootId}:${f.gens}:${f.live ? 1 : 0}:${f.battlefield}`).join('|')
     const key = bridge.planets.map(p => p.wsPath).join('|')
     if (key !== this.planetKey) {
       for (const p of this.planets) {
@@ -1733,6 +1912,8 @@ export class WarzoneScene {
       }
       this.rebuildHlLines()
       this.recalcCamBounds()
+      this.rebuildFrontLines(fronts)
+      this.frontKey = frontKey
     } else {
       bridge.planets.forEach((b, i) => {
         const p = this.planets[i]
@@ -1742,6 +1923,10 @@ export class WarzoneScene {
         p.failing = b.failing
         p.inbound = b.inbound
       })
+      if (frontKey !== this.frontKey) {
+        this.frontKey = frontKey
+        this.rebuildFrontLines(fronts)
+      }
     }
     const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
     const live = new Set(bridge.squads.map(s => s.sessionId))
@@ -1799,6 +1984,7 @@ export class WarzoneScene {
 
   dispose(): void {
     for (const d of this.disposables) d.dispose()
+    this.rebuildFrontLines([]) // V13：航迹层材质/几何随清场释放
     this.composer.dispose()
     this.renderer.dispose()
   }

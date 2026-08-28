@@ -96,6 +96,10 @@ dcmd({"type": "directive_created", "ts": stamp(31), "directiveId": "cmd-seed-b1"
 approve("cmd-seed-b1", "T-B1", 27)
 dcmd({"type": "directive_created", "ts": stamp(3), "directiveId": "cmd-seed-b2", "text": "火线加测一键回滚脚本",
       "continuesFrom": "cmd-seed-b1", "continuationMode": "pivot"})
+# V13 未分组战线：合成沙盒任务（.warroom/tasks/ 路径 → 聚合「未分组」行星单代环）
+close("T-S1", "相机图片归档完成", r"C:\srv\harness\.warroom\tasks\t01-photos", 20)
+dcmd({"type": "directive_created", "ts": stamp(21), "directiveId": "cmd-seed-s1", "text": "把电脑里相机拍摄的图片都整理到相册文件夹"})
+approve("cmd-seed-s1", "T-S1", 19)
 time.sleep(2)
 print("seeded")
 
@@ -122,6 +126,7 @@ with sync_playwright() as p:
     assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
     grp = page.locator(".war-cmd-group[data-war-group]")
     assert grp.count() >= 1, "同链命令必须聚成卡牌组"
+    assert page.locator(".war-front-head").count() == 2, "两段多代战线应各挂组头（A 两代收官 / B 两代含成形）"
     g1 = grp.first
     face = g1.locator(".war-cmd-group-face .war-command-card")
     # V10.1 卡组三改：坞里只摆最新代卡面（叠缘 50px 露出机制退役）
@@ -185,6 +190,23 @@ with sync_playwright() as p:
     assert wz["n"] == ws_n, f"warzone 星球数应==去重 workspace 数 {ws_n}，got {wz['n']}"
     assert all(' · W-' in n for n in wz['names']), f"星球命名应=目录名·W-编号：{wz['names'][:2]}"
     assert wz["squads"] >= 1 and wz["log"] >= 1, f"编队/日志未跑起来：{wz}"
+    # V13 战线世代环：环==锚定战线（A alpha 两代收官 / B beta 两代在打 / S1 未分组单代）
+    fr = page.evaluate("""() => { const s = window.__wz.scene; const fronts = s.lastFronts || [];
+        const planetWs = new Set(s.planets.map(p => p.wsPath));
+        const anchored = fronts.filter(f => planetWs.has(f.battlefield));
+        let markers = 0, lastBig = 0, glows = 0;
+        for (const g of s.frontGroup.children) for (const m of g.children) {
+          if (m.geometry && m.geometry.type === 'OctahedronGeometry') { markers++; if (m.geometry.parameters.radius >= 2.4) lastBig++; }
+          if (m.isSprite && m.userData.labelH === undefined) glows++; }
+        const un = s.planets.find(p => p.wsPath === '__war_ungrouped__');
+        return { rings: s.frontGroup.children.length, anchored: anchored.length, markers,
+                 gens: anchored.reduce((n, f) => n + Math.max(f.gens, 1), 0), lastBig, glows,
+                 pick: s.frontPickables.length, ungrp: un ? un.name : null } }""")
+    assert fr["rings"] == fr["anchored"] == 3, f"世代环应==锚定战线 3：{fr}"
+    assert fr["markers"] == fr["gens"] == 5 and fr["lastBig"] == 3, f"标记应==代数和 5（各战线末代放大）：{fr}"
+    assert fr["glows"] == 1, f"末代辉光应只在 live 战线（B）：{fr}"
+    assert fr["pick"] == fr["markers"], f"世代标记应全部可拾取：{fr}"
+    assert fr["ungrp"] and "未分组" in fr["ungrp"], f"合成沙盒应聚合为未分组行星：{fr}"
     # V11.5f 执行中卡片覆盖层：live attempt 数 == 执行卡数（连线钉星球屏位）
     live_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return b.tasks.reduce((n, t) => n + (t.attemptLog ?? []).filter(a => a.outcome === null).length, 0) }")
     assert sf.locator(".war-wz-xcard").count() == live_n, f"执行卡数应==live attempts {live_n}，got {sf.locator('.war-wz-xcard').count()}"

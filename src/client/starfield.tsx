@@ -8,6 +8,7 @@
  */
 import { createElement, type ReactNode } from 'react'
 import type { BoardAttempt, BoardTask } from './data.ts'
+import { UNGROUPED_WS_KEY } from './front.ts'
 
 /** FNV-1a + murmur3 终结混叠 → [0,1)：相位/角度种子的唯一来源（同输入恒同输出）。
  * 终结混叠必须要有：裸 FNV-1a 对「只差末位一个字符的连续键」（星星 `key:0..N`）
@@ -181,18 +182,26 @@ export interface StarfieldProps {
   readonly ghosts?: ReadonlyArray<{ sessionId: string; xPct: number; yPct: number; outcome: 'failed' | 'reported' | 'succeeded' }>
   /** 光点无动词时的无障碍兜底标签。 */
   readonly orbIdleLabel?: string
-  /** V10.1 critique P1-1：行星可达——点击/回车跳该战区最近的源命令聚焦页。 */
+  /** V10.1 critique P1-1：行星可达——点击/回车跳该战场最近的源命令聚焦页。 */
   readonly onPlanetOpen?: (wsPath: string) => void
   /** V10.1 critique P3：地图就地微图例（正式图例仍在设置抽屉）。 */
   readonly mapLegend?: string
   /** 速报条无溯源时的词典化兜底（不再露会话号片段）。 */
   readonly untracedLabel?: string
+  /** V13 未分组行星的词典化标签（合成沙盒聚合星）。 */
+  readonly ungroupedLabel?: string
+  /** V13 战线世代环（2D 视觉层，pointer-events:none——行星/光点仍是交互层）；
+   *  战线锚定单战场（元首定案：血脉∩战场），环+世代点画在锚行星上。 */
+  readonly fronts?: ReadonlyArray<{ rootId: string; rootCommandId: string; label: string; battlefield: string; gens: number; live: boolean; hueSlot: number }>
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend, untracedLabel } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
+  // V13：未分组行星标签词典化（其余行星仍走目录名）。
+  const labelOf = (ws: string): string => ws === UNGROUPED_WS_KEY ? (ungroupedLabel ?? '未分组') : planetLabel(ws)
+  const posOf = new Map(planets.map(p => [p.spec.wsPath, p.spec] as const))
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -213,6 +222,36 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       role: 'img',
       'aria-label': active ? hqTitleLit : hqTitleDark,
     }, active ? '☀' : '☄'),
+    createElement('svg', { className: 'war-front-svg', viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
+      ...fronts.flatMap(f => {
+        const sp = posOf.get(f.battlefield)
+        if (sp === undefined) return []
+        const cls = `war-front-line war-chain-hue-${f.hueSlot}${f.live ? '' : ' settled'}`
+        const nodes: ReturnType<typeof createElement>[] = [createElement('circle', { key: `fr-${f.rootId}`, className: cls, cx: `${sp.xPct}%`, cy: `${sp.yPct}%`, r: 3.4 })]
+        // 世代点沿环弧排布（末代放大）——「这条战线打到第 N 代」一眼可读。
+        const n = Math.max(f.gens, 1)
+        for (let gi = 0; gi < n; gi++) {
+          const last = gi === n - 1
+          const theta = -Math.PI / 2 + (n === 1 ? 0 : (gi / (n - 1) - 0.5) * 2.4)
+          nodes.push(createElement('circle', {
+            key: `fr-${f.rootId}-n${gi}`,
+            className: `war-front-node war-chain-hue-${f.hueSlot}${f.live && last ? ' now' : ''}`,
+            cx: `${sp.xPct + Math.cos(theta) * 3.4}%`, cy: `${sp.yPct + Math.sin(theta) * 3.4}%`, r: last ? 1.15 : 0.75,
+          }))
+        }
+        return nodes
+      })),
+    // V13.4 2D 徽牌（critique R3 P3：回退不该丢核心信息——「N 代」直接报数）。
+    ...fronts.flatMap(f => {
+      const sp = posOf.get(f.battlefield)
+      if (sp === undefined || f.gens < 2) return []
+      return [createElement('span', {
+        key: `fb-${f.rootId}`,
+        className: `war-front-badge2d war-chain-hue-${f.hueSlot}${f.live ? '' : ' settled'}`,
+        style: { left: `${sp.xPct}%`, top: `${sp.yPct - 4.6}%` },
+        title: f.label,
+      }, `${f.gens} 代`)]
+    }),
     ...planets.map(({ spec, garrison }) =>
       createElement('button', {
         key: spec.wsPath,
@@ -221,13 +260,13 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-ws-index': String(spec.ring),
         'data-triumphs': String(garrison.triumphs),
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
-        title: `${planetLabel(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
-        'aria-label': `战区 ${planetLabel(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、凯旋 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
+        title: `${labelOf(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
+        'aria-label': `战场 ${labelOf(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、凯旋 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
         onClick: () => { onPlanetOpen?.(spec.wsPath) },
         onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanetOpen?.(spec.wsPath) } },
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
-      createElement('span', { className: 'war-planet-label' }, `${planetLabel(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
+      createElement('span', { className: 'war-planet-label' }, `${labelOf(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
       garrison.orbs.length + garrison.awaiting + garrison.failing > 0
         ? createElement('span', { className: `war-planet-stats${garrison.awaiting > 0 ? ' wait' : ''}${garrison.failing > 0 ? ' fail' : ''}` },
             `${garrison.orbs.length > 0 ? `活跃${garrison.orbs.length}` : ''}${garrison.awaiting > 0 ? ` 待发${garrison.awaiting}` : ''}${garrison.failing > 0 ? ` 败${garrison.failing}` : ''}`.trim())
@@ -268,7 +307,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
             createElement('span', { className: 'war-legend-dot dot-wait' }),
             createElement('span', { className: 'war-legend-dot dot-done' }),
             createElement('span', { className: 'war-legend-dot dot-fail' }),
-            createElement('span', { className: 'war-map-legend-text' }, mapLegend))
+            // V13.2：图例按 ｜ 分行（critique：8 概念挤一行无层级）
+            ...mapLegend.split(' ｜ ').map((part, i) => createElement('span', { key: `lg-${i}`, className: 'war-map-legend-text' }, part)))
         : null),
     ...ghosts.map(g =>
       createElement('div', {

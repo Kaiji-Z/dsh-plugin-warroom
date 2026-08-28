@@ -274,6 +274,14 @@ gate('bundle', () => {
     [client, '--war-log-order', 'speedlog semantic colors (kind-based)'],
     [client, 'data-war-skin', 'skin hook attribute on war-root (visual skins remap --war-* only)'],
     [client, 'readTacPalette', 'TS-side token reader (CSS is the single color source)'],
+    // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（战场/战区）。
+    [client, 'frontsOf', 'V13 front aggregation pure function (zero backend, foldChains-derived)'],
+    [client, 'rebuildFrontLines', '3D front trajectory layer (chain-hue tubes + generation markers)'],
+    [client, 'readChainHue', 'chain hue CSS reader with same-value fallback'],
+    [client, 'war-front-head', 'front group header styles (task column)'],
+    [client, 'war-front-line', '2D front trajectory SVG styles'],
+    [client, '未分组', 'ungrouped planet lexicon (synthetic sandbox aggregation)'],
+    [client, '每片战场一颗星', 'workspace renamed to battlefield in map copy'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '参谋·', 'per-command staff session title'],

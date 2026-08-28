@@ -9,9 +9,10 @@
  * @module dsh-plugin-warroom/client/starfield3d
  */
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'
-import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
+import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
+import type { WzBridgeFrontLite } from './front.ts'
 
-type WzEntityRef = { kind: 'hq' } | WzPlanet | WzSquad
+type WzEntityRef = { kind: 'hq' } | WzPlanet | WzSquad | WzFrontNode
 
 const statusChip = (st: string): string =>
   `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '作战中' ? 'st-battle' : 'st-held'}">${st}</span>`
@@ -22,20 +23,28 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
     const st = hqStats(scene.planets, scene.squads)
     return `<div class="tt-head"><span class="dot"></span>
       <span class="tt-name">HEADQUARTERS</span><span class="tt-tag">元首 · 指挥中枢</span></div>
-      <div class="tt-desc">作战室旗舰「太空总部」——你的全部战区与执行编队由此投送调度。</div>
-      <div class="tt-row"><span>战区</span><b>${scene.planets.length} 个</b></div>
+      <div class="tt-desc">作战室旗舰「太空总部」——你的全部战场与执行编队由此投送调度。</div>
+      <div class="tt-row"><span>战场</span><b>${scene.planets.length} 个</b></div>
       <div class="tt-row"><span>起飞编队</span><b>${st.inbound} 支</b></div>
       <div class="tt-row"><span>执行中编队</span><b>${st.battle} 支</b></div>
       <div class="tt-row"><span>驻泊编队</span><b>${st.deployed} 支</b></div>
       <div class="tt-row"><span>活跃会话</span><b>${st.ships} 个</b></div>
       <div class="tt-row"><span>累计凯旋</span><b>${st.garrison} 仗</b></div>`
   }
+  if (ent.kind === 'front') {
+    const state = ent.live ? '推进中' : '已收官'
+    return `<div class="tt-head"><span class="dot chain war-chain-hue-${ent.hueSlot}"></span>
+      <span class="tt-name">战线 · ${ent.gens} 代</span><span class="tt-tag">${state}</span></div>
+      <div class="tt-desc">${ent.label}</div>
+      <div class="tt-row"><span>世代</span><b>${ent.gens} 代</b></div>
+      <div class="tt-row"><span>世代环</span><b class="tt-emph">点击查看这条战线</b></div>`
+  }
   if (ent.kind === 'planet') {
-    const clsName = ent.cls === 'large' ? '主力战区' : ent.cls === 'medium' ? '活跃战区' : '前沿战区'
+    const clsName = ent.cls === 'large' ? '主力战场' : ent.cls === 'medium' ? '活跃战场' : '前沿战场'
     return `<div class="tt-head"><span class="dot" style="background:#${ent.baseGlow.getHexString()}"></span>
       <span class="tt-name">${ent.name}</span><span class="tt-tag">${clsName}</span></div>
-      <div class="tt-desc">workspace 战区 · ${ent.wsPath}</div>
-      <div class="tt-row"><span>战区等级</span><b>LV.${ent.level} · ${clsName}</b></div>
+      <div class="tt-desc">workspace 战场 · ${ent.wsPath}</div>
+      <div class="tt-row"><span>战场等级</span><b>LV.${ent.level} · ${clsName}</b></div>
       <div class="tt-row"><span>活跃会话</span><b>${scene.squads.filter(q => q.target === ent && q.phase !== 'return').length} 个</b></div>
       <div class="tt-row"><span>待发命令</span><b>${ent.inbound} 条</b></div>
       <div class="tt-row"><span>凯旋 / 败</span><b>${ent.garrison} / ${ent.failing}</b></div>
@@ -52,7 +61,7 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
     <span class="tt-name">${s.cname}</span><span class="tt-tag">执行编队 ${s.code}</span></div>
     <div class="tt-desc">执行会话 ${s.sessionId ?? ''}</div>
     <div class="tt-row"><span>源命令</span><b>${s.sourceLabel ?? '未溯源'}</b></div>
-    <div class="tt-row"><span>目标战区</span><b>${tgt}</b></div>
+    <div class="tt-row"><span>目标战场</span><b>${tgt}</b></div>
     <div class="tt-row"><span>行军状态</span><b class="tt-emph">${stTxt}</b></div>`
 }
 
@@ -63,6 +72,8 @@ export interface WarzoneProps {
   readonly planets: ReadonlyArray<WzBridgePlanet>
   readonly squads: ReadonlyArray<WzBridgeSquad>
   readonly log: ReadonlyArray<WzLogEntry>
+  /** V13 战线航迹：每条战线一条链色管道串起各代战场（含未分组键）。 */
+  readonly fronts: ReadonlyArray<WzBridgeFrontLite>
   /** V11.5f：悬停/聚焦命令卡 → 高亮对应战区（星球名+HQ↔星球轨迹）。 */
   readonly highlightWs: ReadonlyArray<string>
   /** 执行卡点击 → 跳源命令聚焦页。 */
@@ -74,7 +85,7 @@ export interface WarzoneProps {
 }
 
 export function Warzone(props: WarzoneProps): ReactNode {
-  const { ariaLabel, active, planets, squads, log, highlightWs, onOpenCommand, orbIdleLabel, onUnavailable } = props
+  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, orbIdleLabel, onUnavailable } = props
   const rootRef = useRef<HTMLDivElement | null>(null)
   const c3dRef = useRef<HTMLCanvasElement | null>(null)
   const c2dRef = useRef<HTMLCanvasElement | null>(null)
@@ -172,6 +183,18 @@ export function Warzone(props: WarzoneProps): ReactNode {
       else scene.panByPx(dx, dy, root.clientHeight)
     }
     const onPointerUp = (e: PointerEvent): void => { camDrag = null; try { root.releasePointerCapture(e.pointerId) } catch { /* 已释放 */ } }
+    // V13 战线航迹点击：纯点击（位移 <6px）拾取 front 节点 → 开根命令聚焦页；
+    // 与相机拖拽/执行卡点击互斥（拖过即不算点击；卡走自己的 onClick）。
+    let dragDist = 0
+    const onDownDist = (): void => { dragDist = 0 }
+    const onMoveDist = (e: PointerEvent): void => { dragDist += Math.abs(e.movementX) + Math.abs(e.movementY) }
+    const onClickRoot = (e: MouseEvent): void => {
+      if (dragDist > 6) return
+      if ((e.target as HTMLElement).closest('button') !== null) return
+      const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
+      if (hit !== null && hit.kind === 'front') onOpenCommand?.((hit as WzFrontNode).rootCommandId)
+    }
+    const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }
     const onMouseDownCam = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
     const onDbl = (): void => { if (mode === '3d') scene.resetCam() }
     // V11.5g（元首令）：2D 态执行卡可自由拖放——委托在卡容器上（React 重渲染不丢
@@ -230,6 +253,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
     root.addEventListener('pointercancel', onPointerUp)
     root.addEventListener('mousedown', onMouseDownCam)
     root.addEventListener('dblclick', onDbl)
+    root.addEventListener('pointerdown', onDownDist)
+    root.addEventListener('pointermove', onMoveDist)
+    root.addEventListener('click', onClickRoot)
     window.addEventListener('keydown', onKey)
     for (const b of Array.from(root.querySelectorAll<HTMLElement>('[data-wz-mode]'))) b.addEventListener('click', onBtn)
     // 主循环
@@ -400,6 +426,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       root.removeEventListener('pointercancel', onPointerUp)
       root.removeEventListener('mousedown', onMouseDownCam)
       root.removeEventListener('dblclick', onDbl)
+      root.removeEventListener('pointerdown', onDownDist)
+      root.removeEventListener('pointermove', onMoveDist)
+      root.removeEventListener('click', onClickRoot)
       cardsEl?.removeEventListener('pointerdown', onCardDown)
       cardsEl?.removeEventListener('pointermove', onCardMove)
       cardsEl?.removeEventListener('pointerup', onCardUp)
@@ -416,12 +445,12 @@ export function Warzone(props: WarzoneProps): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 数据面：板真值 → 引擎（星球谱/编队谱/日志/HQ 战时）+ 覆盖层引用。
+  // 数据面：板真值 → 引擎（星球谱/编队谱/日志/HQ 战时/战线航迹）+ 覆盖层引用。
   useEffect(() => {
     squadsRef.current = squads
     hlWsRef.current = highlightWs
-    sceneRef.current?.syncBoard({ active, planets, squads, log })
-  }, [active, planets, squads, log, highlightWs])
+    sceneRef.current?.syncBoard({ active, planets, squads, log, fronts })
+  }, [active, planets, squads, log, fronts, highlightWs])
 
   if (failed) return null
   return createElement('div', {
@@ -461,7 +490,8 @@ export function Warzone(props: WarzoneProps): ReactNode {
         createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
         createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
         createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
-        createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹')),
+        createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
+        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（点=世代·同色=同血脉）')),
       createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
   )

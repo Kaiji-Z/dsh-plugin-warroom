@@ -82,6 +82,23 @@ with sync_playwright() as p:
     ok('相位词汇合法', all(ph in ('outbound', 'battle', 'deployed', 'holding', 'return') for ph in wz['phases']), str(set(wz['phases'])))
     ok('WAR LOG 非空（真实事件流）', wz['log'] > 0, f"log={wz['log']}")
 
+    # V13 战线世代环：环数==锚定战场星球的战线数；标记数==代数和；标记皆可拾取。
+    fr = page.evaluate("""() => { const s = window.__wz.scene; const fronts = s.lastFronts || [];
+      const planetWs = new Set(s.planets.map(p => p.wsPath));
+      const anchored = fronts.filter(f => planetWs.has(f.battlefield));
+      let markers = 0, lastBig = 0;
+      for (const g of s.frontGroup.children) for (const m of g.children)
+        if (m.geometry && m.geometry.type === 'OctahedronGeometry') { markers++; if (m.geometry.parameters.radius >= 2.4) lastBig++; }
+      const un = s.planets.find(p => p.wsPath === '__war_ungrouped__');
+      return { fronts: fronts.length, anchored: anchored.length, rings: s.frontGroup.children.length,
+               markers, gens: anchored.reduce((n, f) => n + Math.max(f.gens, 1), 0), lastBig,
+               pick: s.frontPickables.length, ungrp: un ? un.name : null } }""")
+    ok('战线环条数==锚定战场的战线数', fr['rings'] == fr['anchored'] and fr['rings'] >= 1, str(fr))
+    ok('世代标记数==各战线代数和', fr['markers'] == fr['gens'], str(fr))
+    ok('世代标记皆入拾取表（点击→聚焦页）', fr['pick'] == fr['markers'], str(fr))
+    syn = any('.warroom' in w and ('/tasks/' in w or '\\\\tasks\\\\' in w or '/instances/' in w or '\\\\instances\\\\' in w) for w in ws_set)
+    ok('合成沙盒聚合为未分组行星', (not syn) or (fr['ungrp'] is not None and '未分组' in fr['ungrp']), f'synthetic={syn} ungrp={fr["ungrp"]}')
+
     # 板面状态一致性：作战中 ⇔ 有 live 编队进驻（reported 驻泊编队可停在非交战星
     # 球——待验收≠作战中，不算状态说谎）
     board_status = page.evaluate("""(wsSet) => { const s = window.__wz.scene; const out = [];
@@ -166,7 +183,7 @@ with sync_playwright() as p:
     page.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2)
     page.wait_for_timeout(700)
     tip = page.locator('.war-wz-tip')
-    ok('HQ 信息卡（真实战力行）', tip.is_visible() and '战区' in tip.inner_text() and '凯旋' in tip.inner_text(), tip.inner_text().split('\n')[0][:24] if tip.is_visible() else '-')
+    ok('HQ 信息卡（真实战力行）', tip.is_visible() and '战场' in tip.inner_text() and '凯旋' in tip.inner_text(), tip.inner_text().split('\n')[0][:24] if tip.is_visible() else '-')
     page.mouse.move(8, 8)
     ctx.close()
 

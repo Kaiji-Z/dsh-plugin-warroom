@@ -13,7 +13,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { WAR_CSS } from '../src/client/styles.ts'
-import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, TAC_FALLBACK_LIGHT, type WzLogKind } from '../src/client/war-tokens.ts'
+import { readTacPalette, warLogColors, readChainHue, CHAIN_HUE_FALLBACK, TAC_FALLBACK_DARK, TAC_FALLBACK_LIGHT, type WzLogKind } from '../src/client/war-tokens.ts'
 
 /** JS 运行时注入的动态变量（带回退引用，无静态定义） */
 const RUNTIME_VARS = new Set(['--war-panel-rows'])
@@ -126,4 +126,20 @@ test('war-tokens: 日志色 kind 化——回退与 CSS 令牌双向锁值', () 
     assert.equal(tokenValue(WAR_CSS, `--war-log-${k}`, false), warLogColors(false)[k], `浅色日志回退漂移: ${k}`)
     assert.equal(tokenValue(WAR_CSS, `--war-log-${k}`, true), warLogColors(true)[k], `深色日志回退漂移: ${k}`)
   }
+})
+
+test('war-tokens: 链色回退哨兵——CHAIN_HUE_FALLBACK 与 CSS 八相槽双向锁值（V13）', () => {
+  const chainHue = (slot: number, dark: boolean): string | null => {
+    const re = dark
+      ? new RegExp(`body\\[data-ds-dark-theme\\] \\.war-root \\.war-chain-hue-${slot}\\{--chain-hue:([^;}]+)`)
+      : new RegExp(`(?<!dark-theme\\] \\.war-root )\\.war-chain-hue-${slot}\\{--chain-hue:([^;}]+)`)
+    const m = WAR_CSS.match(re)
+    return m === null ? null : m[1]!.trim()
+  }
+  for (let slot = 0; slot < 8; slot++) {
+    assert.equal(chainHue(slot, false), CHAIN_HUE_FALLBACK[slot]!.light, `浅色链槽 ${slot} 回退漂移`)
+    assert.equal(chainHue(slot, true), CHAIN_HUE_FALLBACK[slot]!.dark, `深色链槽 ${slot} 回退漂移`)
+  }
+  // headless 环境守卫：无 DOM 时按宿主主题回退（浅）
+  assert.equal(readChainHue(0), CHAIN_HUE_FALLBACK[0]!.light)
 })

@@ -152,3 +152,32 @@ export function warLogColors(dark: boolean): Readonly<Record<WzLogKind, string>>
   for (const kind of Object.keys(LOG_FALLBACK) as WzLogKind[]) out[kind] = dark ? LOG_FALLBACK[kind].dark : LOG_FALLBACK[kind].light
   return out
 }
+
+/** 链八相回退（与 styles.ts .war-chain-hue-N 令牌同值；哨兵双向锁死）——
+ * V13 战线航迹的 3D 侧色源（CSS 读取优先，headless/主题错位走此回退）。 */
+export const CHAIN_HUE_FALLBACK: Readonly<Record<number, { readonly light: string; readonly dark: string }>> = {
+  0: { light: '#6f5bd6', dark: '#ab9df2' }, 1: { light: '#0e7f76', dark: '#63d8cd' },
+  2: { light: '#4c8f3f', dark: '#93d47f' }, 3: { light: '#9a6b1f', dark: '#e3b566' },
+  4: { light: '#b04a3c', dark: '#ef9083' }, 5: { light: '#a83d84', dark: '#eb97d5' },
+  6: { light: '#3465b8', dark: '#8fb2f2' }, 7: { light: '#5d6b7a', dark: '#adc0d1' },
+}
+
+/** 战线链色（V13）：按槽位从 CSS --chain-hue（.war-chain-hue-N 类持有）解析。
+ * 用探针元素读 computed（类选择器任意元素可挂）；环境不符走同值回退。 */
+export function readChainHue(slot: number): string {
+  const el = warRootEl()
+  if (el !== null && typeof document !== 'undefined') {
+    const probe = document.createElement('div')
+    probe.className = `war-chain-hue-${((slot % 8) + 8) % 8}`
+    probe.style.display = 'none'
+    el.appendChild(probe)
+    try {
+      const v = getComputedStyle(probe).getPropertyValue('--chain-hue').trim()
+      if (v !== '') return v
+    } finally {
+      el.removeChild(probe)
+    }
+  }
+  const fb = CHAIN_HUE_FALLBACK[((slot % 8) + 8) % 8]!
+  return hostThemeIsDark() ? fb.dark : fb.light
+}

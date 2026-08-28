@@ -120,14 +120,27 @@ dev({"type": "directive_approved", "ts": ts(15), "directiveId": g5, "taskId": tg
 dev({"type": "directive_created", "ts": ts(2), "directiveId": g6, "text": "顺手把 compose 用法写进 projC README", "continuesFrom": g5, "continuationMode": "deepen"})
 dev({"type": "directive_received", "ts": ts(1.5), "directiveId": g6, "staffSessionId": "sec-g6"})
 
+# Ⅶ 未分组战线：跨全电脑的宽域命令 → 任务落在 warRoot 合成沙盒（非项目文件夹），
+# 星域聚合进「未分组」行星（V13 血脉∩战场：合成沙盒也算一个战场键）。
+WS_SYN = "D:/smoke/.warroom/tasks/t20260828-01-organize-photos"
+g7, tg7 = "cmd-20260823-0800-a707", "task-20260823-0807"
+cev(tg7, {"type": "task_created", "ts": ts(12), "campaignId": tg7, "title": "整理相机图片进相册文件夹", "brief": "背景：全盘扫描相机导入目录。执行指引：按年月归档 + 去重。", "acceptance": "相册按年月分层，无重复", "priority": "normal", "publishedBy": "sec-g7"})
+cev(tg7, {"type": "task_published", "ts": ts(11.8), "campaignId": tg7, "workspacePath": WS_SYN, "publishedBy": "sec-g7"})
+cev(tg7, {"type": "task_claimed", "ts": ts(11), "campaignId": tg7, "claimedBy": "cmd-g7-session", "attemptId": "7e8f9a0b-0001-4b5c-8d9e-f0a1b2c3d4e5", "attempt": 1})
+cev(tg7, {"type": "unit_deployed", "ts": ts(10), "campaignId": tg7, "childId": "u-g7", "unitName": "engineer", "label": "工程兵", "mission": "全盘扫描并归档相机图片", "front": f"{WS_SYN}/scan", "writes": True})
+dev({"type": "directive_created", "ts": ts(12.5), "directiveId": g7, "text": "把电脑里相机拍摄的图片都整理到相册文件夹"})
+dev({"type": "directive_received", "ts": ts(12.2), "directiveId": g7, "staffSessionId": "sec-g7"})
+dev({"type": "directive_triaged", "ts": ts(12), "directiveId": g7, "grade": "L0", "reason": "归档活，直接做", "confidence": 0.86})
+dev({"type": "directive_approved", "ts": ts(11.8), "directiveId": g7, "taskId": tg7})
+
 manifest.update({
     "sec-g1": "参谋·部署脚本", "sec-g2": "参谋·Windows 再战", "sec-g3": "参谋·容器方案调研",
-    "sec-g4": "参谋·compose 环境", "sec-g5": "参谋·健康检查回滚", "sec-g6": "参谋·部署 README",
+    "sec-g4": "参谋·compose 环境", "sec-g5": "参谋·健康检查回滚", "sec-g6": "参谋·部署 README", "sec-g7": "参谋·相册整理",
     "cmd-g1-session": "指挥官·部署 v1", "cmd-g2-session": "指挥官·Windows 再战",
-    "cmd-g4-session": "指挥官·compose", "cmd-g5-session": "指挥官·健康检查",
+    "cmd-g4-session": "指挥官·compose", "cmd-g5-session": "指挥官·健康检查", "cmd-g7-session": "指挥官·相册整理",
 })
 manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 n = sum(1 for _ in open(STATE / "directives.jsonl", encoding="utf-8"))
-print(f"playground seeded: {n} directive events (smoke board + L1 plan-pending + 6-gen chain)")
+print(f"playground seeded: {n} directive events (smoke board + L1 plan-pending + 6-gen chain + ungrouped sandbox front)")
 print("now start the smoke server (see AGENTS.md 本地起服) and refresh the board")

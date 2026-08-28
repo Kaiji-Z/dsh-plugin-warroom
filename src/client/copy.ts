@@ -25,7 +25,9 @@ export interface WarCopy {
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
-  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string; controls: string }
+  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string; controls: string; ungrouped: string }
+  /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
+  front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string; segActive: string; segSettled: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
@@ -342,7 +344,7 @@ export const warCopy: WarCopy = {
     tasks: { title: '任务', note: '等·指挥官 · 进行 · 待翻阅——未终局任务' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
-  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）', segActive: '进行中', segSettled: '已收官' },
+  dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到战区——每片战场一颗星，战线环串起世代', viewBackHint: '回列表视图（三列局势墙）', segActive: '进行中', segSettled: '已收官' },
   commandBand: {
     title: '等你发落',
     quiet: '无需发落——此命令在自动推进中',
@@ -372,10 +374,10 @@ export const warCopy: WarCopy = {
     behaviorSection: '看板行为',
     hoverFamily: '悬停族系高亮',
     hoverFamilyHint: '悬停任一张卡，同命令的卡高亮、其余压暗',
-    viewMap: '星域战场视图',
-    viewMapHint: '开=星域为底、任务/战报浮舱压图；关=三列局势墙（窄于 900px 自动回列表）',
+    viewMap: '战区视图',
+    viewMapHint: '开=战区为底、任务/战报浮舱压图；关=三列局势墙（窄于 900px 自动回列表）',
     viewSection: '视图',
-    narrowNote: '窗口窄于 900px，星域暂回列表——放宽窗口自动恢复',
+    narrowNote: '窗口窄于 900px，战区暂回列表——放宽窗口自动恢复',
     autoScroll: '悬停自动滚动',
     autoScrollHint: '高亮的卡不在视野内时，自动滚到眼前',
     connSection: '连接',
@@ -464,6 +466,7 @@ export const warCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
+      ['◌', '战线环：同一战场上的世代链（点=世代，末代发光）；同色=同血脉——续接跨战场自成新战线，靠战场名分辨兄弟段'],
       ['！', '新悬赏挂出，等待指挥官领取'],
       ['？', '战报已呈递，等你翻阅收菜'],
       ['◎', '聚焦：只亮这条命令的族系（任务+会话），Esc 退出'],
@@ -537,15 +540,17 @@ export const warCopy: WarCopy = {
     panelAria: n => `战线前史共 ${n} 代（最新一代就在坞上）：上/下键选代，回车打开详情`,
   },
   starfield: {
-    aria: '星域战场：每片战区一颗星，执行中的部队绕星而行',
+    aria: '战区：每片战场一颗星，战线环串起同战场的世代，执行部队绕星而行',
     hqOn: '司令部在线——战时状态，全局开关亮着',
     hqOff: '停战状态——司令部熄灯',
     orbIdle: '执行中',
-    mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战区（内环=最老）· ✓凯旋 · 呼吸光点=作战中',
-    mapHintToast: '🪐 战区不止一个——试试星域战场视图（点此开启，⚙ 设置里随时可关）',
+    mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战场（内环=最老）· 环=战线（点=世代）· ✓凯旋 · 呼吸光点=作战中',
+    mapHintToast: '🪐 战场不止一个——试试战区视图（点此开启，⚙ 设置里随时可关）',
     controls: '左键拖拽平移 · 中键旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
     untraced: '未溯源执行',
+    ungrouped: '未分组',
   },
+  front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（元首改档 ${n} 次）`,
@@ -823,6 +828,7 @@ export const plainCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
+      ['◌', '圆环：同一个项目的多轮任务（点=第几轮）；同色=同一条线——换个项目续接会另起一条新线'],
       ['！', '新任务，等待执行者领取'],
       ['？', '结果已提交，等待你验收'],
       ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
@@ -900,11 +906,13 @@ export const plainCopy: WarCopy = {
     hqOn: '作战状态中——总部亮着',
     hqOff: '当前没有激活的战线',
     orbIdle: '进行中',
-    mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· ✓完成数 · 亮点=进行中',
+    mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· 环=同一条线（点=第几轮）· ✓完成数 · 亮点=进行中',
     mapHintToast: '🪐 项目不止一个——试试全景图视图（点这里打开，⚙ 设置里可以关掉）',
     controls: '左键拖动平移 · 中键转视角 · 滚轮缩放 · 双击或 R 回正 · 悬停亮点查看关联',
     untraced: '还没关联命令',
+    ungrouped: '杂项',
   },
+  front: { genN: n => `${n} 代`, taskN: n => `${n} 件事`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（改档 ${n} 次）`,

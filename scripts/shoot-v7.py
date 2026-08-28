@@ -57,6 +57,8 @@ with sync_playwright() as p:
     def open_board():
         page.goto(BASE)
         page.wait_for_load_state("domcontentloaded")
+        page.evaluate("() => document.body.removeAttribute('data-ds-dark-theme')")  # V13.5 加固：宿主缺省可能被写回 dark
+        page.wait_for_timeout(400)
         page.wait_for_selector("[data-dsh-warroom-entry]", timeout=20000).click()
         page.wait_for_timeout(1200)
 

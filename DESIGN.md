@@ -495,3 +495,42 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 ### V12.2.1 「让图例失业」（2026-08-28，元首令，critique 遗留 P2 当场定案）
 
 等待对象后缀化：`接令/待领`（plain `待分诊/待领`）→ **`等·参谋`/`等·指挥官`**——等待对象进词本身，词表自消歧，两皮图例的「待×3」消歧行删除（图例失业）。同族对齐：坞 pill titleLine/segLine、任务列注、taskStatus.published（`待领取`→`等·指挥官领取`）。散文语境（参谋接令分诊/部队待领令）不动——它们本就自明。**坑**：岛计数染色渲染按 `·` 切段会把词内的 `等·参谋` 也切开（渲染成 `等 · 参谋`，琥珀判定失灵）——段分隔必须切带空格的 `' · '`，live 复核当场抓获。
+
+## V13 战线一等公民（2026-08-28，元首范式升格：血脉∩战场 + 未分组行星 + 世代环）
+
+**范式定案（元首本体论，多轮对话收敛）**：命令（一次意志；生命线本体=事件账本，会话只是演员——每命令 1 参谋会话 + 每尝试 1 执行会话）→ **战线（一等公民）** → 战场（=workspace=真实项目文件夹）→ 战区（=星域视图整体）。用户三活动：①下达命令（已满足）②查看进行中/等待中的战线 + 回复（查看主入口=战区视图，回复主入口=灵动岛）③复盘（聚焦页）。**视觉理解一等公民从「会话」换成「战线」**——老 coding 用户的 workspace-session 心智被范式替换：board 把卡片和战场用战线串起来。
+
+**血脉 ≠ 战线（实现中途元首纠正，本轮最重要定案）**：血脉（chain/continuesFrom/rootId，族谱层）**永不拆分**——聚焦页族谱面包屑、六代链面板、hover 族系高亮仍是全血脉；**战线 = 血脉 ∩ 战场**（视图分组层）——Ⅰ 命令落定战场后，ⅡⅢⅣ 后继必须跟随；**续代跨战场 = 新 Ⅰ 命令 = 新战线**（不是同一条线拐弯）。`frontsOf`（src/client/front.ts）按「父相对 run 拆分」实现：某代任务战场 ≠ 父代战场 → 该代自立段头开新段；成形代（无任务）继承父段；Ⅳ 离开 Q 回 P **不并回** P 上的旧段（段一旦离开不回头）。同 rootId 拆出的多段**同链色**（血脉同色=「同源的两场仗」，视觉自然）。段键=`rootId/段头 commandId`，视图一律按 commandId 索引战线（`cmdFront` Map——按 rootId 索引会在拆分后互相覆盖，本轮实抓）。
+
+**workspace 物理模型（与宿主对齐钉死）**：宿主 workspace 实体=记账（uuid+realpath+title）；**物理写边界=(会话 cwd × SandboxMode)**，指挥官被宿主围栏钉死在任务 workspace（KillCredit 越界一票否决，tools.ts）。**未分组=合成沙盒聚合**：warRoot 下 `tasks/<id>`/`instances/<id>` 非项目文件夹，纯客户端路径启发式（`.warroom` 段 + tasks/instances 段对）聚合为一颗中性「未分组」行星（词典化：war 未分组/plain 杂项），bound 项目=战场行星。已知局限（挂账）：config 改 warRoot 名或 auto 任务建 worktree-of-P 时误判（误当项目行星，视觉无害）；正解=投影加 `workspaceKind` 字段（未来后端小增量）。
+
+**视图落点（纯前端零后端，数据全部来自板投影现成字段）**：
+- **任务列战线分组**：多代战线一组（`war-front-group` + 链色 `war-front-head`：链色点+段头命令原文+N代 chip+聚合态 warn/err/done），成形卡归组首；单代/孤儿维持原扁平心智；组与扁平项按战线 lastActivity 交错。组头是列内行不是卡——V10.1 五行恒高卡规格不破。
+- **调度坞按段分组**：`dispatchGroups` 组键从 rootId 换成段键——跨战场续代不再同叠一组：老段照常入收官区（faceActive=段内任一活跃，原 cards[0]=最老代判定在分段后语义漂移），新段另起组面。
+- **星域世代环（3D）**：`rebuildFrontLines` 单战场锚定——战线在其战场行星外一圈链色 torus 环 + 世代八面体标记沿顶弧排布（Ⅰ 左→末代右，末代放大、live 加辉光 sprite），收官战线降透明度留痕；跨行星连线不存在（跨战场=新战线）。标记兼拾取代理：pick→front→源命令聚焦页。链色经 `readChainHue`（war-tokens.ts）从 CSS `--chain-hue-N` 运行时读取 + 同值回退（哨兵测试双向锁死，V12.2 纪律）。2D 回退同源：`.war-front-svg` 圆环+代点（viewBox 100×100）。
+- **收件箱战线分组头**：动作仍命令/任务粒度（板只读红线不动），渲染层 `war-inbox-front` 组头（多代战线才显示）。
+- **族系高亮重定向收敛到段内**：坞面卡点亮条件从「同血脉」改「同战线」（hover 旧代光点只点亮该段代表卡；全血脉 hover 高亮其余通道不变）。
+
+**词面迁移**：workspace 语境「战区」→「战场」（HQ 信息卡/星球 tooltip 6 处/aria）；「星域战场」→「战区」（视图名）；图例补「环=战线（点=世代）」行。plain 皮肤同步。
+
+**V13.1 升格为配套必需（原挂账①，升格理由：无写侧引导战线会持续无谓拆分——参谋续接时不绑父 workspace，跨战场成为常态而非例外）**：①起草法/参谋提示注入「续接跟随父任务 workspace」约束；②`chainNoteFor` 知识连续性——Ⅱ 代参谋会话只拿到 18 字档案行的断供问题，注入上代报告摘要+关键产物路径。另两条挂账维持：跨域命令能力通路（「全电脑」宽域 workspace 路由 + full-access 对接）、投影 workspaceKind 字段。
+
+**坑（本轮入账）**：①**TDZ 第三案**——巨组件中把调用点前移（战线分组装配期即调 taskCardOf）会踩声明滞后的 `openTaskVia`（build 不查运行时，板整树白屏；解法=声明整体上移，视图.tsx 内 const 声明序审查新增检查项）；②**pick() 返回实体本身**（`userData.ref` 即 WzFrontNode），不是 `{kind, ref}` 包装——探针脚本按包装取 `hit.ref.rootCommandId` 会 TypeError；③**会话续传回放陈旧 Read**——system-reminder 重放的 views.tsx 片段可能是整改前内容，Edit 前一律现读（既有记忆重申，本轮再中一次：按回放以为还是 battlefields 数组）；④**深色 `.war-fail` 对比度 4.25:1**——红基色天生暗于琥珀/绿，同档 58/86% 混色在 well 底上差临门一脚；深色 86%→75% 混白实测 4.86:1，`.war-fail` 入 shoot-theme 机检对（11×2）。
+
+**验证**：verify **235 测** PASS（frontsOf 重写为单战场规则：血脉∩战场拆分/Ⅳ 不并回/成形继承/pivot 任务去重/沙盒判定/commandTasks 迁移平权）+ verify.mjs V13 针脚（frontsOf/rebuildFrontLines/readChainHue/war-front-head/war-front-line/未分组/每片战场一颗星）+ **shoot-v13 12 断言全绿**（拆段双证：同血脉 a101 两卡组分列 + 任务列两段头各自带队；未分组行星 W-09；环==锚定战线数/标记==代数和/pick 可达；2D 回退 SVG 环）+ probe-warzone **40/40**（fps 60.3）+ shoot-theme **11×2** + shoot-v7 + shoot-v10（新增组头/世代环断言）+ playground 种子补 Ⅶ 未分组战线（相机图片归档，`.warroom/tasks/` 沙盒）。取证 `.goal/evidence/v13/`（7 图）。
+
+### V13.2 critique 整改（2026-08-28，双子代理 Round1 28/40 → 整改批）
+
+**采纳并修复**：①**P1-1 链色撞槽**（hueSlot=FNV(rootId)%8 无消解，演示板实抓 9 处 chain-hue 全落槽 7=灰——战线唯一身份线全灭）→ `greedyRootHues` 纯函数（front.ts）：血脉按最近活动降序贪心挑最少占用槽、平手保哈希槽；≤8 血脉零撞、同血脉恒同色；frontsOf 内部 + views 全消费点（世代徽标/续接 chip/族谱条）统一 `chainHueOf`（模块级查表 WarView 每渲染刷新——消费点散在模块级组件工厂，props 打穿成本>单板单例）；**纯客户端重映射，服务器投影不动**。②**P1-2 组头低于知觉阈值**（视觉复检 3 个只识别 1 个）→ tint 7→13%、border 3→4px、dot 9px+外环光晕、title 13px、组间距 7px、chip 补任务数「N 代 · N 任务」（双皮肤 taskN 词典）。③**P2-4 世代环标记数不清**→八面体 1.6→2.1/末代 2.4→3.1/辉光 7→8.5。④**P2-5 浅色天空态环被洗白**→浅色环透明度 +0.15/标记 +0.05~0.2。⑤B 实测 `.war-track-seg` 3.5:1（text-3）→ text-2（5.46/10.49 双绿）。⑥杂项：死 CSS `.war-dispatch-view` 清除、`.war-wz-xdot` 补 prefers-reduced-motion、2D 图例按 ｜ 分行、inbox-front text-2→text-1。
+
+**驳回（有案可稽）**：P1-3「战区开关挪回坞上」——V10.1 元首定案开关在设置抽屉+坞上按钮退役有 shoot 负断言，勿翻烧饼（m 快捷键+mapHint 已在）；B pulsing-dot ERROR=四档状态呼吸语言既定设计（reduced-motion 补齐）；聚焦页嵌套卡=V9.9 定案构图；三区顶彩带=V9.13 语义设计。**误报勘误**：A「无等最久徽标」——agingLeader 词典/样式在场（渲染条件=err 档存在）；B text-occlusion 多为检测器自身 overlay 标签被插件 chrome 盖住。
+
+**验证**：verify **237 测** PASS（新增 greedyRootHues 两测：撞槽互异/同血脉同色/超 8 回绕均衡）+ shoot-v13 12 断言 + theme 11×2 + probe 40/40 复跑全绿；live 实证 hue 分色 0/7、组头 chip「3 代 · 2 任务」。快照 `.impeccable/critique/2026-08-28T05-39-39Z__src-client-views-tsx.md`（Round1）。
+
+### V13.3 critique 二轮整改（R2 27/40 后——组围合/战场名 chip/世代徽牌）
+
+**采纳并修复**：①**R2-P1 组头与卡同解剖学**（「压扁的卡」——两次独立视觉复检都把组头误读为卡）→ `.war-front-group` 升格**围合容器**（chain 4% 淡染底 + 22% 边框 + r-lg 圆角），组头降为容器内标题行（撤自带 border-left/背景）——分组从 proximity 读法变 containment 读法。②**R2-P2 同血脉兄弟段不可辨**（同色同 chip）→ 头加**战场名 chip**（`war-front-bf`：dirName / 未分组词典；tooltip 补战场行）——拆段身份有了第二编码通道；收件箱组标签 `title.slice(12)`→`首8字·战场名`（12 字截断无法识别组）。③**R2-P2 环深不可测**（八面体数不清=装饰）→ 环顶 **「N 代」canvas 徽牌 sprite**（主题自适应字色、settled 半透明、纹理随组析构 dispose）；settled 环透明度 0.18→0.28（星空里近乎隐形）；3D 图例行扩「点=世代·同色=同血脉」。
+
+**驳回/挂账**：「段=血脉头下子行」重构——与元首当日拆分定案相反，记开放问题；3D 行星常驻名牌（性能/布局量级）→ backlog；四套状态词表收敛（island/front/warzone/starfield）→ 独立设计轮 backlog；「2D 当默认」——与 V11.5 雷达值班+3D 战略定案相反，驳回。
+
+**验证**：verify PASS（237 测）+ shoot-v13 12 断言 + theme 11×2 + probe 40/40 全绿复跑。快照 `.impeccable/critique/`（R2 2026-08-28T06-02-24Z）。

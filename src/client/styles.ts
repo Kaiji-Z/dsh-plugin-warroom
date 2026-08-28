@@ -154,7 +154,7 @@ body[data-ds-dark-theme] .war-root{
   --war-run-strong: var(--dsw-alias-state-business-primary);
   --war-wait: var(--dsw-alias-state-warn-primary);
   --war-done: var(--dsw-alias-state-success-primary);
-  --war-fail: color-mix(in srgb, var(--dsw-alias-state-error-primary) 86%, #fff);
+  --war-fail: color-mix(in srgb, var(--dsw-alias-state-error-primary) 75%, #fff); /* V13：红基色天生暗于琥珀/绿，86% 白档在 well 底仅 4.29:1——败因行 12px 正文要 4.5+ */
   --war-action-bg: color-mix(in srgb, var(--dsw-alias-state-business-primary) 70%, #000);
   --war-run-tint: color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent);
   --war-wait-tint: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
@@ -273,7 +273,7 @@ body[data-ds-dark-theme] .war-root{
 .war-dispatch .war-command-card{flex:0 0 320px;min-width:0}
 /* V12.2 critique P1：调度轨道分段铭牌——竖排小路标（活跃段 | 收官段），
  * 扫读不用整轨滚完；单段在场时视图层不挂牌。 */
-.war-track-seg{flex:0 0 auto;align-self:center;writing-mode:vertical-rl;padding:10px 5px;border-radius:var(--war-r-sm);font-size:12px;font-weight:600;letter-spacing:.14em;color:var(--war-text-3);border:1px dashed var(--war-border);user-select:none;white-space:nowrap}
+.war-track-seg{flex:0 0 auto;align-self:center;writing-mode:vertical-rl;padding:10px 5px;border-radius:var(--war-r-sm);font-size:12px;font-weight:600;letter-spacing:.14em;color:var(--war-text-2);border:1px dashed var(--war-border);user-select:none;white-space:nowrap}/* V13.2：text-3 实测 3.5:1（critique B 抓）——分段铭牌是 12px 正文级 */
 
 /* --- cards ------------------------------------------------------------------ */
 .war-card{border:1px solid var(--war-border);border-radius:var(--war-r-md);background:var(--war-card-bg);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,opacity .15s ease}
@@ -637,9 +637,6 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-orb.clickable{cursor:pointer}
 .war-orb:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px;border-radius:var(--war-r-sm)}
 .war-orb-verb{position:absolute;top:-4px;left:50%;transform:translate(-50%,-100%);font-size:12px;color:var(--war-text-1);white-space:nowrap;background:color-mix(in srgb, var(--war-card-bg) 88%, transparent);padding:1px 6px;border-radius:6px;border:1px solid var(--war-border-soft);pointer-events:none}
-.war-dispatch-view{cursor:pointer;align-self:center;font-size:12px;line-height:18px;padding:2px 10px;margin-right:4px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;font-family:var(--war-font);white-space:nowrap}
-.war-dispatch-view.on{border-style:solid;border-color:color-mix(in srgb, var(--war-run-border) 55%, transparent);color:var(--war-run-strong);background:var(--war-run-tint)}
-.war-dispatch-view:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 .war-planet-stats{font-size:12px;line-height:14px;color:var(--war-text-3);letter-spacing:.02em}
 .war-planet-stats.wait{color:var(--war-wait)}
 .war-planet-stats.fail{color:var(--war-fail)}
@@ -736,6 +733,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 }
 @media (prefers-reduced-motion: reduce){
   .war-orb-body{animation:none}
+  .war-wz-xdot{animation:none;box-shadow:none}
   .war-planet.busy .war-planet-ball{box-shadow:none}
   .war-cmd-group .war-command-card{transition:none}
   .war-cmd-group .war-command-card:hover{transform:none}
@@ -797,7 +795,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-gen-pip.st-fail{color:var(--war-fail)}
 .war-gen-pip.st-idle{color:var(--war-text-3)}
 .war-gen-pip.now{width:10px;height:10px;outline:1.5px solid currentColor;outline-offset:2px} /* 卡面=最新代：放大+描环 */
-.war-gen-pip.more{font-size:11px;width:auto;height:16px;background:none;color:var(--war-text-3);font-weight:600;padding:0 1px} /* >4 代截头标记 */
+.war-gen-pip.more{font-size:12px;width:auto;height:16px;background:none;color:var(--war-text-2);font-weight:600;padding:0 2px} /* >4 代截头=总代数 chip（V13.5：12px 底线+精确深度） */
 /* 组展开面板（Mac 下载栈式，元首定）：无边框无底色无内衬——历代卡直接自卡面
  * 上方生长（最新前代贴底，更老依次向上），最高 4 行滚轮翻看；fixed 从卡面实测
  * 坐标落位（轨道横滚容器会裁剪绝对定位子元素），translateY(-100%) 底缘贴卡面 */
@@ -868,8 +866,37 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-activity-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--war-run-border);animation:war-act-pulse 1.6s ease-in-out infinite}
 .war-activity-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @keyframes war-act-pulse{0%,100%{opacity:.35}50%{opacity:1}}
-
+/* --- V13 战线一等公民：战线头（任务列）/ 航迹（2D SVG）/ 未分组 / 3D 图例 ------ */
+.war-front-group{display:flex;flex-direction:column;gap:8px}
+/* V13.3 组=围合容器（critique R2 P1）+ V13.4 浅色提浓（critique R3 P1：4%/22%
+ * 在白底上 1.03/1.3:1 低于知觉阈值——浅色基线 8%/42%，深色维持淡雅）。 */
+.war-front-group{margin-top:7px;padding:4px 4px 6px;border-radius:var(--war-r-lg);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);border:1px solid color-mix(in srgb,var(--chain-hue,#888) 42%,transparent);border-left:3px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent)}
+body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb,var(--chain-hue,#888) 9%,transparent);border-color:color-mix(in srgb,var(--chain-hue,#888) 24%,transparent);border-left:3px solid color-mix(in srgb,var(--chain-hue,#888) 50%,transparent)}
+.war-front-group.settled{opacity:.78}
+.war-front-head{display:flex;align-items:center;gap:6px;padding:3px 6px 5px;min-width:0}
+.war-front-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--chain-hue,#888);box-shadow:0 0 0 2px color-mix(in srgb,var(--chain-hue,#888) 25%,transparent)}
+.war-front-title{font-size:13px;font-weight:600;color:var(--war-text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
+.war-front-gen{flex:0 0 auto}
+.war-front-bf{flex:0 0 auto;font-size:12px;color:var(--war-text-2);padding:1px 7px;border-radius:var(--war-r-pill);border:1px solid color-mix(in srgb,var(--chain-hue,#888) 45%,transparent)}
+.war-front-state{font-size:12px;flex:0 0 auto;color:var(--war-text-2)}
+.war-front-state.warn{color:var(--war-wait);font-weight:600}
+.war-front-state.err{color:var(--war-fail)}
+.war-front-state.done{color:var(--war-done)}
+.war-inbox-front{display:flex;align-items:center;gap:6px;padding:4px 10px 2px;border-left:3px solid var(--chain-hue,#888)}
+.war-inbox-front-text{font-size:12px;font-weight:600;color:var(--war-text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 2D 星域战线航迹（SVG viewBox 0 0 100 100 非等比——描边 vector-effect 防拉伸变形） */
+.war-front-badge2d{position:absolute;transform:translate(-50%,-50%);z-index:1;font-size:12px;font-weight:600;line-height:1;padding:2px 7px;border-radius:var(--war-r-pill);color:var(--war-text-1);background:color-mix(in srgb,var(--chain-hue,#888) 30%,var(--war-pop-bg));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent);pointer-events:none}
+.war-front-badge2d.settled{opacity:.55}
+.war-front-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}
+.war-front-line{fill:none;stroke:var(--chain-hue,#888);stroke-width:1.6;stroke-opacity:.65;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.war-front-line.settled{stroke-dasharray:5 4;stroke-opacity:.32}
+.war-front-node{fill:var(--chain-hue,#888)}
+.war-front-node.now{stroke:var(--war-card-bg);stroke-width:1}
+/* 3D 图例 lg-front + 战线信息卡链色点 */
+.war-wz-legend .lg-front{background:linear-gradient(90deg,var(--war-run-strong),var(--war-done))}
+.war-wz-tip .dot.chain{background:var(--chain-hue,#888)}
 `
+
 
 const STYLE_ID = 'data-dsh-plugin-warroom'
 
