@@ -907,10 +907,8 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-name-input:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
 .war-cp-note{font-size:12px;color:var(--war-text-2);margin-top:4px;line-height:1.5}
 .war-front-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}
-.war-front-line{fill:none;stroke:var(--chain-hue,#888);stroke-width:1.6;stroke-opacity:.65;vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.war-front-line.settled{stroke-dasharray:5 4;stroke-opacity:.32}
-.war-front-node{fill:var(--chain-hue,#888)}
-.war-front-node.now{stroke:var(--war-card-bg);stroke-width:1}
+/* V15.2 分段环（一星球一环，段数=战线数）：中性色不编码链色身份 */
+.war-front-line{fill:none;stroke:var(--war-text-2);stroke-width:1.6;stroke-opacity:.7;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 /* 3D 图例 lg-front + 战线信息卡链色点 */
 .war-wz-legend .lg-front{background:linear-gradient(90deg,var(--war-run-strong),var(--war-done))}
 .war-wz-tip .dot.chain{background:var(--chain-hue,#888)}

@@ -501,7 +501,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
         createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
         createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
         createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
-        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（点=世代·一色=一条战线）')),
+        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（分段=战线数）')),
       createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
     ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '战场战线清单' },

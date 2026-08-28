@@ -1,4 +1,4 @@
-"""v13 evidence shooter — 战线一等公民（血脉∩战场拆分 / 未分组行星 / 世代环）.
+"""v13 evidence shooter — 战线一等公民（血脉∩战场拆分 / 未分组行星 / 战线环）.
 
 Usage: python scripts/shoot-v13.py [outDir] [baseUrl]
 Assumes: smoke-overlay server running on BASE, board seeded via seed-playground.py
@@ -7,9 +7,9 @@ Phases:
   L 列表态：六代链按「血脉∩战场」新规拆两段——两个战线组头（Ⅰ 文本与
     Ⅳ 文本各自带队 = 同血脉不同战线的活证）；调度坞同血脉两卡组分列
     （data-war-group=血脉/段头键）；未分组战线任务卡在场。
-  M 战区 3D：世代环锚定单战场（环数==锚定战线数、标记==代数和、末代放大）、
-    未分组行星在场、世代标记 pick→front→rootCommandId 可达。
-  F 2D 回退：WebGL 掐灭 → SVG 战线环层（circle 环 + 代点）。
+  M 战区 3D（V15.2 语义）：一星球一环、分段=战线数——环组数==锚定战场数、
+    分段和==锚定战线数、世代八面体清零（退役）、未分组行星在场。
+  F 2D 回退：WebGL 掐灭 → SVG 分段环（一星球一 circle + dasharray 切段）。
   T 双主题目检截图（深/浅 × 列表/战区，落 evidence/v13/）。
 """
 import sys
@@ -81,23 +81,18 @@ with sync_playwright() as p:
     fr = page.evaluate("""() => { const s = window.__wz.scene; const fronts = s.lastFronts || [];
       const planetWs = new Set(s.planets.map(p => p.wsPath));
       const anchored = fronts.filter(f => planetWs.has(f.battlefield));
-      let markers = 0, lastBig = 0;
-      for (const g of s.frontGroup.children) for (const m of g.children)
-        if (m.geometry && m.geometry.type === 'OctahedronGeometry') { markers++; if (m.geometry.parameters.radius >= 2.4) lastBig++; }
+      let groups = 0, segs = 0, octa = 0;
+      for (const g of s.frontGroup.children) { groups++; segs += g.children.length;
+        for (const m of g.children) if (m.geometry && m.geometry.type === 'OctahedronGeometry') octa++; }
+      const byBf = new Map();
+      for (const f of anchored) byBf.set(f.battlefield, (byBf.get(f.battlefield) || 0) + 1);
       const un = s.planets.find(p => p.wsPath === '__war_ungrouped__');
-      let pickFront = null;
-      if (s.frontPickables.length > 0) {
-        const m = s.frontPickables[s.frontPickables.length - 1];
-        const v = m.position.clone().project(s.camera);
-        const hit = s.pick(v.x, v.y);
-        pickFront = hit && hit.kind === 'front' ? hit.rootCommandId : null; }
-      return { fronts: fronts.length, anchored: anchored.length, rings: s.frontGroup.children.length,
-               markers, gens: anchored.reduce((n, f) => n + Math.max(f.gens, 1), 0), lastBig,
-               pick: s.frontPickables.length, ungrp: un ? un.name : null, pickFront } }""")
-    ok("M1 世代环条数==锚定战场的战线数（单战场锚定）", fr["rings"] == fr["anchored"] and fr["rings"] >= 3, str(fr))
-    ok("M2 世代标记==代数和（末代放大在场）", fr["markers"] == fr["gens"] and fr["lastBig"] >= 1, str(fr))
+      return { fronts: fronts.length, anchored: anchored.length, groups, segs, octa,
+               battlefields: byBf.size, ungrp: un ? un.name : null } }""")
+    ok("M1 一星球一环（环组数==锚定战场数）", fr["groups"] == fr["battlefields"] and fr["groups"] >= 1, str(fr))
+    ok("M2 分段==战线数（段和==锚定战线数）", fr["segs"] == fr["anchored"] and fr["anchored"] >= 3, str(fr))
     ok("M3 未分组行星在场（合成沙盒聚合）", fr["ungrp"] is not None and "未分组" in fr["ungrp"], str(fr["ungrp"]))
-    ok("M4 世代标记可拾取（pick→front→源命令）", fr["pick"] == fr["markers"] and fr["pickFront"] is not None, str(fr))
+    ok("M4 世代标记退役（八面体清零）", fr["octa"] == 0, str(fr))
     page.screenshot(path=str(OUT / "v13-warzone-dark.png"))
     page.evaluate("() => document.body.removeAttribute('data-ds-dark-theme')")
     page.wait_for_timeout(1800)
@@ -122,8 +117,9 @@ with sync_playwright() as p:
     pg2.wait_for_timeout(1800)
     sf = pg2.locator(".war-starfield")
     ok("F1 WebGL 掐灭→2D 回退画布", sf.count() == 1 and sf.get_attribute("data-war-3d") != "1")
-    rings2d = pg2.locator(".war-front-svg circle").count()
-    ok("F2 SVG 战线环在场（环+代点）", rings2d >= 3, f"circles={rings2d}")
+    fr2 = pg2.evaluate("""() => { const cs = [...document.querySelectorAll('.war-front-svg .war-front-line')];
+      return { n: cs.length, dash: cs.every(c => (c.getAttribute('stroke-dasharray') || '').trim().length > 0) } }""")
+    ok("F2 分段环在场（一星球一 circle + dasharray 切段）", fr2["n"] >= 1 and fr2["dash"], str(fr2))
     ok("F3 未分组标签在场（2D 回退同语义）", sf.inner_text().count("未分组") >= 1)
     pg2.screenshot(path=str(OUT / "v13-2d-fallback.png"))
     ctx2.close()

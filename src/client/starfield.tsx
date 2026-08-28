@@ -224,35 +224,26 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
       'aria-label': active ? hqTitleLit : hqTitleDark,
     }, active ? '☀' : '☄'),
     createElement('svg', { className: 'war-front-svg', viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
-      ...fronts.flatMap(f => {
-        const sp = posOf.get(f.battlefield)
-        if (sp === undefined) return []
-        const cls = `war-front-line war-chain-hue-${f.hueSlot}${f.live ? '' : ' settled'}`
-        const nodes: ReturnType<typeof createElement>[] = [createElement('circle', { key: `fr-${f.rootId}`, className: cls, cx: `${sp.xPct}%`, cy: `${sp.yPct}%`, r: 3.4 })]
-        // 世代点沿环弧排布（末代放大）——「这条战线打到第 N 代」一眼可读。
-        const n = Math.max(f.gens, 1)
-        for (let gi = 0; gi < n; gi++) {
-          const last = gi === n - 1
-          const theta = -Math.PI / 2 + (n === 1 ? 0 : (gi / (n - 1) - 0.5) * 2.4)
-          nodes.push(createElement('circle', {
-            key: `fr-${f.rootId}-n${gi}`,
-            className: `war-front-node war-chain-hue-${f.hueSlot}${f.live && last ? ' now' : ''}`,
-            cx: `${sp.xPct + Math.cos(theta) * 3.4}%`, cy: `${sp.yPct + Math.sin(theta) * 3.4}%`, r: last ? 1.15 : 0.75,
+      ...(() => {
+        // V15.2 语义重铸（元首定案，与 3D 同构）：一星球一环、分段=战线数
+        // （dasharray 切段）；世代点/链色/「N 代」牌退役——代数去卡片读。
+        const counts = new Map<string, number>()
+        for (const f of fronts) counts.set(f.battlefield, (counts.get(f.battlefield) ?? 0) + 1)
+        const out: ReturnType<typeof createElement>[] = []
+        for (const [ws, count] of counts) {
+          const sp = posOf.get(ws)
+          if (sp === undefined) continue
+          const r = 3.4
+          const c = 2 * Math.PI * r
+          const seg = c / Math.max(count, 1) - 0.9
+          out.push(createElement('circle', {
+            key: `fr-${ws}`, className: 'war-front-line',
+            cx: `${sp.xPct}%`, cy: `${sp.yPct}%`, r,
+            strokeDasharray: `${seg} ${c - seg}`, strokeDashoffset: seg / 2,
           }))
         }
-        return nodes
-      })),
-    // V13.4 2D 徽牌（critique R3 P3：回退不该丢核心信息——「N 代」直接报数）。
-    ...fronts.flatMap(f => {
-      const sp = posOf.get(f.battlefield)
-      if (sp === undefined || f.gens < 2) return []
-      return [createElement('span', {
-        key: `fb-${f.rootId}`,
-        className: `war-front-badge2d war-chain-hue-${f.hueSlot}${f.live ? '' : ' settled'}`,
-        style: { left: `${sp.xPct}%`, top: `${sp.yPct - 4.6}%` },
-        title: f.label,
-      }, `${f.gens} 代`)]
-    }),
+        return out
+      })()),
     ...planets.map(({ spec, garrison }) =>
       createElement('button', {
         key: spec.wsPath,

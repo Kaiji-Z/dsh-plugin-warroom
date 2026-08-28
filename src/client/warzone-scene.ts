@@ -15,7 +15,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { hash01 } from './starfield.tsx'
-import { readTacPalette, warLogColors, readChainHue, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
+import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
 import { UNGROUPED_WS_KEY, type WzBridgeFrontLite } from './front.ts'
 
 /* ================================================================
@@ -1655,64 +1655,38 @@ export class WarzoneScene {
     this.frontPickables.length = 0
     this.lastFronts = fronts
     this.frontSeq++
+    // V15.2 语义重铸（元首定案）：一星球一环、分段=战线数。旧语义（每战线一条
+    // 链色环+世代点+末代辉光）在多战线星球退化成密环叠罗汉——战线数改由分段数
+    // 编码，不区分链色；环色取星球自身辉光底色（每星球确定性一套色系）。
+    // 世代点退役：代数是卡片层信息（悬停 tooltip/战场面板/任务列组头）。
     const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
-    fronts.forEach((f, fi) => {
-      const p = byWs.get(f.battlefield)
-      if (p === undefined) return
-      const hue = readChainHue(f.hueSlot)
-      const color = new THREE.Color(hue)
+    const counts = new Map<string, number>()
+    for (const f of fronts) {
+      if (!byWs.has(f.battlefield)) continue
+      counts.set(f.battlefield, (counts.get(f.battlefield) ?? 0) + 1)
+    }
+    const light = !this.isDarkTheme
+    for (const [ws, count] of counts) {
+      const p = byWs.get(ws)!
       const group = new THREE.Group()
-      const center = p.mesh.position
-      const ringR = p.radius * 1.5
-      // V13.2 critique P2-4/5：标记要能数得清（1720×940 下 1.6/2.4 太小）；
-      // 浅色天空态环/标记整体加浓—— washed out 会让 V13 主视觉变贴图。
-      const light = !this.isDarkTheme
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(ringR, 0.8, 8, 42),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: (f.live ? 0.55 : 0.28) + (light ? 0.15 : 0), depthWrite: false, fog: false }),
-      )
-      ring.position.copy(center)
-      ring.rotation.x = Math.PI / 2.4
-      ring.rotation.y = det(`fr:${f.rootId}`, -0.5, 0.5)
-      group.add(ring)
-      // 世代标记：沿环顶弧排布（Ⅰ 在左、末代在右，末代=放大+辉光=「现在打到第 N 代」）
-      const n = Math.max(f.gens, 1)
-      const spread = Math.min(2.4, 0.55 * (n - 1))
-      for (let gi = 0; gi < n; gi++) {
-        const last = gi === n - 1
-        const theta = -Math.PI / 2 - spread / 2 + (n === 1 ? spread / 2 : (spread * gi) / (n - 1))
-        const marker = new THREE.Mesh(
-          new THREE.OctahedronGeometry(last ? 3.1 : 2.1),
-          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: (f.live ? 0.95 : 0.4) + (light ? (f.live ? 0.05 : 0.2) : 0), fog: false }),
+      group.position.copy(p.mesh.position)
+      group.rotation.x = Math.PI / 2.4
+      group.rotation.y = det(`fr:${ws}`, -0.5, 0.5)
+      const color = p.baseGlow.clone().lerp(new THREE.Color(light ? '#304050' : '#e8ecf2'), light ? 0.45 : 0.35)
+      const segs = Math.max(count, 1)
+      const gap = 0.24
+      const arc = (Math.PI * 2) / segs - gap
+      const tubular = Math.max(6, Math.round(48 / segs))
+      for (let i = 0; i < segs; i++) {
+        const seg = new THREE.Mesh(
+          new THREE.TorusGeometry(p.radius * 1.5, 0.8, 8, tubular, arc),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: light ? 0.6 : 0.45, depthWrite: false, fog: false }),
         )
-        marker.position.set(
-          center.x + Math.cos(theta) * ringR * 1.02,
-          center.y + p.radius + 8 + (last ? 1.2 : 0),
-          center.z + Math.sin(theta) * ringR * 0.42,
-        )
-        marker.rotation.y = det(`fm:${f.rootId}:${gi}`, 0, Math.PI)
-        const node: WzFrontNode = {
-          kind: 'front', id: this.frontSeq * 1000 + fi * 12 + gi,
-          rootId: f.rootId, rootCommandId: f.rootCommandId, label: f.label,
-          gens: f.gens, live: f.live, settled: !f.live, waiting: false, failed: false,
-          battlefields: 1, hueSlot: f.hueSlot,
-        }
-        marker.userData.ref = node
-        this.pickables.push(marker)
-        this.frontPickables.push(marker)
-        group.add(marker)
-        if (f.live && last && this.glowTex !== undefined) {
-          const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color, transparent: true, opacity: 0.75, depthWrite: false, fog: false }))
-          glow.scale.setScalar(8.5)
-          glow.position.copy(marker.position)
-          group.add(glow)
-        }
+        seg.rotation.z = ((Math.PI * 2) / segs) * i
+        group.add(seg)
       }
-      // V15.2 世代徽牌退役（元首定案）：环+世代点（末代放大+辉光）已编码代数，
-      // 精确值走悬停 tooltip/战场面板/任务列组头；canvas 牌 opacity 1.0 喂 bloom
-      // 是星球过曝主源，拆除回到 V13 干净基线。
       this.frontGroup.add(group)
-    })
+    }
   }
 
   private rebuildHlLines(): void {
@@ -1784,8 +1758,6 @@ export class WarzoneScene {
         if (p.status === '作战中') {
           _c1.copy(this.cBattle)
           op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
-          p.ringT -= dt
-          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, this.cBattle); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
         } else if (p.status === '已占领') {
           _c1.lerp(_c2.copy(this.cHeld), 0.4)
           op = 0.34
@@ -1805,8 +1777,6 @@ export class WarzoneScene {
             p.pillar.visible = true
             ;(p.pillar.material as THREE.MeshBasicMaterial).opacity = 0.26 + 0.1 * Math.sin(t * 3.2 + p.seed)
           }
-          p.ringT -= dt
-          if (p.ringT <= 0) { this.spawnRing(p.mesh.position, p.radius * 1.15, this.cBattle); p.ringT = det(`rt:${p.id}:${Math.floor(t * 2)}`, 0.8, 1.6) }
         } else {
           if (p.pillar !== null) p.pillar.visible = false
           if (p.status === '已占领') { rm.color.copy(this.cHeld); rm.opacity = 0.45 }
