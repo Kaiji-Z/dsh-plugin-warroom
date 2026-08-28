@@ -122,7 +122,7 @@ function createConscriptor(deps: {
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
     const dossier = task.workspacePath !== undefined && bound
       ? readDossier(deps.stateDir, task.workspacePath)
-      : '（新战区，尚无历史档案。）'
+      : '（新星域，尚无历史档案。）'
     // V15 续接闭环：本任务若出自续接命令，外勤任务简报带上链摘要（末代结论+产物+任务回报，
     // cap 600）。在 conscriptTask 内反查 taskId→命令——publish/收官接力/补征入口一处覆盖。
     let chainBrief = ''
@@ -149,7 +149,7 @@ function createConscriptor(deps: {
       conscriptBriefing({ taskId: task.campaignId, title: task.title ?? task.intent, workspacePath: task.workspacePath, acceptance: task.acceptance ?? '', dossier }),
       ...(chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${chainBrief}`] : []),
       '',
-      '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（战区写工作区内相对路径）。',
+      '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（星域写工作区内相对路径）。',
     ].join('\n')
     const prompted = await relay.prompt({ rpcId: rpc(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: order }] } })
     if (!prompted.result.ok) return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}` }

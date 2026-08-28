@@ -711,7 +711,7 @@ export const warCopy: WarCopy = {
  */
 export const plainCopy: WarCopy = {
   head: {
-    title: '作战室',
+    title: '工作台',
     subActive: '命令 → 任务 → 执行 → 结果 · 左区下达 · 右区看结果',
     subIdle: '未启用（/war 启用）',
   },
@@ -727,14 +727,14 @@ export const plainCopy: WarCopy = {
   commandBand: {
     title: '等你处理',
     quiet: '不用管——这条命令在自己推进',
-    planHint: '参谋给了方案，点头就照做（夜里也不停）',
-    clarifyHint: '参谋在等你回话',
+    planHint: '助理给了方案，点头就照做（夜里也不停）',
+    clarifyHint: '助理在等你回话',
     clarifyBtn: '去对话',
     reviewHint: '结果已核好，等你过目',
     reviewBtn: '去看结果',
     retryHint: '有失败的，等你定',
     retryBtn: '去看失败',
-    scheduledHint: time => `定时 · ${time} 自动开始（到点前不转给参谋）`,
+    scheduledHint: time => `定时 · ${time} 自动开始（到点前不转给助理）`,
     noGrade: '还没分诊',
     noBattle: '等人接手',
     battleLine: n => `执行 ${n} 次`,
@@ -768,11 +768,11 @@ export const plainCopy: WarCopy = {
   },
   scheduleChip: {
     chip: time => `⏰ ${time}`,
-    cardTitle: time => `定时命令：${time} 自动下达（到点前不转给参谋）`,
+    cardTitle: time => `定时命令：${time} 自动下达（到点前不转给助理）`,
   },
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
-    tasks: { title: '任务', empty: '等参谋发布第一个任务' },
+    tasks: { title: '任务', empty: '等助理发布第一个任务' },
     live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里' },
     done: { title: '已完成', empty: '这里还空着——完成和失败都会落在这里' },
     failed: { title: '已失败', empty: '暂无失败会话' },
@@ -780,7 +780,7 @@ export const plainCopy: WarCopy = {
   lifecycle: {
     stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
     waitingClarify: '等你回答',
-    waitingStaff: '参谋接收中',
+    waitingStaff: '助理接收中',
     approvedAwaitingPublish: '任务待发布',
     planPending: '方案待你批',
     formingDrafting: '成形中',
@@ -819,10 +819,10 @@ export const plainCopy: WarCopy = {
   preflight: {
     hint: '需要你批准方案后才会继续——夜里没人处理会一直停着',
     toDirect: '改为直接执行',
-    title: '标记为 L1/L2 的任务要等你批准方案才会继续，夜里没人处理就一直停着。可改为直接执行（参谋直接发布），或保持等你批。',
+    title: '标记为 L1/L2 的任务要等你批准方案才会继续，夜里没人处理就一直停着。可改为直接执行（助理直接发布），或保持等你批。',
   },
   onboard: {
-    title: '作战室 · 把意图说成一句话',
+    title: '工作台 · 把意图说成一句话',
     lead: '你用大白话下命令，系统接令、拆解成任务并在隔离工作区执行，完成后带着证据与结果回来。',
     steps: [
       '① 下达命令：一句大白话写清你想要什么',
@@ -842,8 +842,8 @@ export const plainCopy: WarCopy = {
     title: '看板图例——符号与标记',
     rows: [
       ['●', '状态四档：蓝 = 机器在动', 'dot-run'],
-      ['●', '琥珀 = 等你发落', 'dot-wait'],
-      ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
+      ['●', '琥珀 = 等你处理', 'dot-wait'],
+      ['●', '绿 = 完成（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
       ['◌', '圆环：同一个项目的多轮任务（点=第几轮）；一色=一条线，换个项目续接会另起一条新线'],
       ['！', '新任务，等待执行者领取'],
@@ -851,7 +851,7 @@ export const plainCopy: WarCopy = {
       ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
       ['↩', '来源 chip：点它跳回源命令的详情'],
       ['⌁', '会话号前缀（执行/外部挂载的会话）'],
-      ['呼吸描边', '新命令正被参谋接收（约 15 秒），不用操作'],
+      ['呼吸描边', '新命令正被助理接收（约 15 秒），不用操作'],
       ['!! / ??', '命令前缀标记：!!直接做（L0）· ??先看方案（L2）'],
       ['L0/L1/L2', '自主度档位：直接执行 / 先审方案 / 先问清楚'],
       ['四段条', '下达→任务→执行→结果 的进度'],
@@ -861,7 +861,7 @@ export const plainCopy: WarCopy = {
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
-    published: '等·指挥官领取',
+    published: '等·干员领取',
     in_progress: '执行中',
     reported: '待验收',
     draft: '草稿',
@@ -880,8 +880,8 @@ export const plainCopy: WarCopy = {
   depLock: { prefix: '⏳ 前置未完成：', list: ids => ids.join('、') },
   qualityTitle: '复杂度分级',
   commandStatus: {
-    draft: { label: '已下达', hint: '参谋接收中（约 15 秒内）' },
-    received: { label: '已接收', hint: '参谋在等回答：点击进入对话回答提问（点卡片本身看全生命周期）' },
+    draft: { label: '已下达', hint: '助理接收中（约 15 秒内）' },
+    received: { label: '已接收', hint: '助理在等回答：点击进入对话回答提问（点卡片本身看全生命周期）' },
     talking: { label: '对话中' },
     approved: { label: '已发布', hint: '任务已发布，点击查看对应任务卡' },
     cancelled: { label: '已取消' },
@@ -898,11 +898,11 @@ export const plainCopy: WarCopy = {
     attemptN: n => `第 ${n} 次尝试`,
     attemptNTitle: '含自动重派的尝试次数',
     failReason: e => `失败原因：${e}`,
-    failTitle: '重试已用尽，等参谋重新立案',
-    handleReview: '去验收 · 参谋会话',
-    handleReviewTitle: '翻阅战报在本页；验收通过或驳回，结论到参谋会话说',
-    handleRetry: '去下重试令 · 参谋会话',
-    handleRetryTitle: '重试授权在参谋会话说——板是只读的，发令走参谋',
+    failTitle: '重试已用尽，等助理重新立案',
+    handleReview: '去验收 · 助理会话',
+    handleReviewTitle: '翻阅汇报在本页；验收通过或驳回，结论到助理会话说',
+    handleRetry: '去下重试令 · 助理会话',
+    handleRetryTitle: '重试授权在助理会话说——板是只读的，发令走助理',
   },
   grade: { L0: 'L0 直发', L1: 'L1 呈批', L2: 'L2 澄清' },
   chain: {
@@ -920,7 +920,7 @@ export const plainCopy: WarCopy = {
   },
   starfield: {
     aria: '项目全景：每个项目一颗星球，正在干活的任务绕圈转',
-    hqOn: '作战状态中——总部亮着',
+    hqOn: '干活状态中——总部亮着',
     hqOff: '当前没有激活的战线',
     orbIdle: '进行中',
     mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· 环=同一条线（点=第几轮）· ✓完成数 · 亮点=进行中',
@@ -948,35 +948,35 @@ export const plainCopy: WarCopy = {
     configTimingNext: (cron, next) => `定时 · cron「${cron}」· 下次 ${next}（到点自动开始，一次有效）`,
     configTimingFired: (cron, at) => `定时 · cron「${cron}」· 已于 ${at} 自动下达`,
     configAutonomy: '自主度',
-    configAutonomyAuto: '让参谋定（未覆写）',
+    configAutonomyAuto: '让助理定（未覆写）',
     configText: '命令原文',
     configRegrade: '改档',
     planTitle: '最终计划',
-    planPending: '正在计划中——参谋还在写这份计划，进任务会话可以追问或补充。',
+    planPending: '正在计划中——助理还在写这份计划，进任务会话可以追问或补充。',
     planEnterSession: '进入任务会话',
     taskGhostPlanning: '正在计划中——点开看待批的计划原文',
     taskGhostApproved: '计划已批准，任务马上发布——点开看计划原文',
-    taskAwaitingPublish: '任务待发布——已批准，等参谋挂出任务卡',
-    taskScheduledHint: time => `⏰ 定时待发——${time} 出发后才转给参谋`,
-    taskRelaying: '转给参谋中——接令后这里变成起草卡',
+    taskAwaitingPublish: '任务待发布——已批准，等助理挂出任务卡',
+    taskScheduledHint: time => `⏰ 定时待发——${time} 出发后才转给助理`,
+    taskRelaying: '转给助理中——接令后这里变成起草卡',
     taskCancelled: '命令已取消——没有后续',
-    draftingGhostTitle: '参谋正在写任务说明',
-    draftingGhostCard: '参谋正在写任务说明——点开看分诊结果',
+    draftingGhostTitle: '助理正在写任务说明',
+    draftingGhostCard: '助理正在写任务说明——点开看分诊结果',
     triageLabel: '分诊',
-    triagePending: '参谋还没分诊',
-    talkingGhostTitle: '参谋在等你回答',
-    talkingGhostCard: '参谋在等你回答——点开进对话',
-    talkingGhostNote: '任务卡要等你的回答才能成形——进对话说一句，参谋就能继续。',
+    triagePending: '助理还没分诊',
+    talkingGhostTitle: '助理在等你回答',
+    talkingGhostCard: '助理在等你回答——点开进对话',
+    talkingGhostNote: '任务卡要等你的回答才能成形——进对话说一句，助理就能继续。',
     talkingEnterBtn: '进入对话回答',
     taskBrief: '任务说明',
     taskAcceptance: '验收标准',
-    briefMissing: '（参谋没附任务说明）',
+    briefMissing: '（助理没附任务说明）',
     acceptanceMissing: '（未声明）',
     lootLabel: '交付',
     attemptsSection: '历次执行',
     battleLive: n => `${n} 个执行进行中`,
     battleDone: '已执行完成——没有正在进行的会话',
-    battleNone: '还没开始执行——等指挥官领取任务',
+    battleNone: '还没开始执行——等干员领取任务',
     reportVerdict: '收官结论',
     reportLatest: '最新汇报',
     reportNone: '还没有汇报——收官后这里给结论原文',
@@ -985,23 +985,23 @@ export const plainCopy: WarCopy = {
     reportSettledSoon: '上一轮已结束，结果整理后会放在这里',
     taskSessionBtn: '任务会话',
     execSessionBtn: '执行会话',
-    taskSessionHint: '参谋会话还没建立——命令转给参谋后出现',
-    execSessionHint: '执行会话还没建立——指挥官领取任务后出现',
+    taskSessionHint: '助理会话还没建立——命令转给助理后出现',
+    execSessionHint: '执行会话还没建立——干员领取任务后出现',
   },
   composer: {
     title: '下命令',
-    lead: '一句话写下你要的结果，参谋会接手安排。下面选好放权多少、什么时候开始。',
+    lead: '一句话写下你要的结果，助理会接手安排。下面选好放权多少、什么时候开始。',
     placeholder: '例：帮我做个记账小工具，每天记一句，能翻回看',
     cancel: '取消',
     busy: '下达中…',
     submit: '立即下达',
     submitScheduled: '定时下达',
     gradeSection: '自主度',
-    gradeAuto: { name: '让参谋定', hint: '默认。小改动直接做，大改动先给方案' },
+    gradeAuto: { name: '让助理定', hint: '默认。小改动直接做，大改动先给方案' },
     gradeL0: { name: '!! 直接做', hint: '不等确认一路做完，适合有把握的小事' },
     gradeL2: { name: '?? 先看方案', hint: '先给方案等你点头，适合大动作' },
     scheduleSection: '开始时间',
-    schedNow: { name: '马上', hint: '下达就转给参谋' },
+    schedNow: { name: '马上', hint: '下达就转给助理' },
     schedCron: { name: '定时', hint: '到点自动下达（一次有效）' },
     cronLabel: '触发时间（cron：分 时 日 月 周）',
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
@@ -1019,7 +1019,7 @@ export const plainCopy: WarCopy = {
     namePlaceholder: '不填则用命令原文当代线名（≤24 字）',
     bfSection: '工作区（可选）：这件事在哪个项目里做？',
     bfAuto: '自动',
-    bfAutoHint: '不指定——参谋按任务性质选择项目',
+    bfAutoHint: '不指定——助理按任务性质选择项目',
     bfContNote: '跟进默认在原事项的项目里；改选即在别的项目另起一条新线',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
@@ -1052,7 +1052,7 @@ export const plainCopy: WarCopy = {
   },
   island: {
     counts: c =>
-      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
+      [c.pending > 0 ? `等·助理 ${c.pending}` : '', c.waiting > 0 ? `等·干员 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     inboxBadge: n => `✉ ${n}`,
     visitMini: (closed, failed, commands) =>
@@ -1061,12 +1061,12 @@ export const plainCopy: WarCopy = {
     pin: '钉住展开（再点收起）',
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',
-    announceInbox: n => `作战室新增 ${n} 件待处理`,
+    announceInbox: n => `工作台新增 ${n} 件待处理`,
   },
   dock: {
-    label: '作战室',
-    titleLine: c => `等·参谋 ${c.pending} · 等·指挥官 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
-    segLine: c => `作战室${c.pending > 0 ? ` 等·参谋${c.pending}` : ''} 等·指挥官${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
+    label: '工作台',
+    titleLine: c => `等·助理 ${c.pending} · 等·干员 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到工作台`,
+    segLine: c => `工作台${c.pending > 0 ? ` 等·助理${c.pending}` : ''} 等·干员${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
     unread: n => `${n} 新`,
   },
 }
@@ -1087,6 +1087,13 @@ const TREK_LEXICON: ReadonlyArray<readonly [string, string]> = [
   ['战报', '任务回报'],
   ['母舰', '星舰'],
   ['作战室', '舰桥'],
+  ['作战', '执行'],
+  ['战区', '星域'],
+  ['折戟', '挫败'],
+  ['收菜', '收获'],
+  ['善终', '圆满'],
+  ['发落', '定夺'],
+  ['退役', '休眠'],
   ['战场', '星球'],
   ['元首', '舰长'],
   ['参谋', '大副'],
@@ -1117,6 +1124,12 @@ function trekifyText(value: string): string {
 function trekifyCopy(source: WarCopy): WarCopy {
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string') return trekifyText(v)
+    // 函数字段（genN/originChip/failed 计数等模板串）：包一层让**返回值**也过
+    // 词表——v7 实锤：`折戟 ${n}` 藏在函数体里，纯字符串遍历漏派生。
+    if (typeof v === 'function') {
+      const fn = v as (...args: unknown[]) => unknown
+      return (...args: unknown[]) => walk(fn(...args))
+    }
     if (Array.isArray(v)) return v.map(walk)
     if (typeof v === 'object' && v !== null) {
       const out: Record<string, unknown> = {}

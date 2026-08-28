@@ -32,7 +32,7 @@ export interface BoardComment { ts: string; from: string; text: string }
 export interface BoardDeliverable { kind: string; summary: string; detail: string | null; ts: string }
 export type BoardQuality = 'common' | 'fine' | 'rare' | 'epic' | 'legendary'
 
-/** One commander attempt (作战会话) — the unit of the 进行中/已完成/已失败 columns. */
+/** One commander attempt (执行会话) — the unit of the 进行中/已完成/已失败 columns. */
 export interface BoardAttempt {
   id: string
   n: number

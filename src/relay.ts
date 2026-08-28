@@ -130,7 +130,7 @@ export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; 
   if (task.status === 'failed') return `败退${task.lastError !== undefined && task.lastError !== '' ? `——败因：${task.lastError}` : ''}`
   switch (task.status) {
     case 'reported': return '已交稿，待舰长验收'
-    case 'in_progress': return '作战进行中'
+    case 'in_progress': return '执行进行中'
     case 'published': return '已发布，待外勤小队领令'
     default: return '草稿中'
   }
@@ -141,7 +141,7 @@ export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; 
 export function pivotPromptFor(parentText: string, directiveId: string, text: string, chainSlice = ''): string {
   return `【续战令·转向】${directiveId}（续自「${brief(parentText, 16)}」）
 ${chainSlice === '' ? '' : `\n${chainSlice}\n`}
-外勤小队：舰长在作战进行中插播指令——
+外勤小队：舰长在执行进行中插播指令——
 
 ${text}
 

@@ -9,7 +9,7 @@
 import type { CampaignState, TaskStatus, UnitRecord } from './types.ts'
 
 /**
- * Normalize a front (战区) to a comparable directory-prefix form: POSIX
+ * Normalize a front (星域) to a comparable directory-prefix form: POSIX
  * slashes, no leading './' or '/', no trailing '/', '' and '.' → '.' (root).
  */
 export function normalizeFront(front: string): string {
@@ -73,7 +73,7 @@ export function checkDeployment(campaign: CampaignState, opts: {
   if (opts.writes) {
     const clash = active.find(u => u.writes && frontsOverlap(u.front, opts.front))
     if (clash !== undefined) {
-      return { ok: false, reason: `战线冲突：战区「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的战区「${clash.front}」重叠。有写权限的外勤组员不得挤同一条战线——请重新划线或分目录加派组员。` }
+      return { ok: false, reason: `战线冲突：星域「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的星域「${clash.front}」重叠。有写权限的外勤组员不得挤同一条战线——请重新划线或分目录加派组员。` }
     }
   }
   return { ok: true }
@@ -207,7 +207,7 @@ export function checkClaim(campaign: CampaignState, blockedDeps: ReadonlyArray<s
     return { ok: false, reason: `前置任务未完成，任务令尚未解锁：${blockedDeps.join('、')}。请先完成前置，或让大副调整任务链。` }
   }
   if (busyWith !== undefined) {
-    return { ok: false, reason: `工作区正被占用：任务 ${busyWith} 正在该工作区作战。同工作区的任务排队执行（避免互相踩踏）——请稍后重新领取，或先领取其他工作区的任务。` }
+    return { ok: false, reason: `工作区正被占用：任务 ${busyWith} 正在该工作区执行。同工作区的任务排队执行（避免互相踩踏）——请稍后重新领取，或先领取其他工作区的任务。` }
   }
   return { ok: true }
 }

@@ -117,11 +117,11 @@ with sync_playwright() as p:
 
     open_board()
 
-    # --- P1 列表缺省 + 坞按钮退役（开关迁设置抽屉）------------------------------
+    # --- P1 列表缺省 + 坞按钮休眠（开关迁设置抽屉）------------------------------
     assert page.locator(".war-ops:not(.war-mapmode)").count() == 1, "列表视图应为缺省（war-mapmode 不挂）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "三列布局必须原样在场"
     assert page.locator(".war-starfield").count() == 0, "列表态不应渲染星域"
-    assert page.locator("[data-war-view-toggle]").count() == 0, "坞上切换按钮必须退役（V10.1 迁设置）"
+    assert page.locator("[data-war-view-toggle]").count() == 0, "坞上切换按钮必须休眠（V10.1 迁设置）"
     n_badge = page.locator('.war-dispatch .war-gen-badge[data-war-gen="2"]').count()
     assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
     grp = page.locator(".war-cmd-group[data-war-group]")
@@ -129,11 +129,11 @@ with sync_playwright() as p:
     assert page.locator(".war-front-head").count() == 2, "两段多代战线应各挂组头（A 两代收官 / B 两代含成形）"
     g1 = grp.first
     face = g1.locator(".war-cmd-group-face .war-command-card")
-    # V10.1 卡组三改：坞里只摆最新代卡面（叠缘 50px 露出机制退役）
+    # V10.1 卡组三改：坞里只摆最新代卡面（叠缘 50px 露出机制休眠）
     assert face.count() == 1, "组内只应有最新代卡面"
     assert g1.locator(".war-command-card").count() == 1, "未展开时历代卡不应渲染"
     gb = g1.bounding_box(); fb = face.bounding_box()
-    assert abs(gb["width"] - fb["width"]) <= 6, f"组宽应≈卡宽（叠缘已退役）：group_w={gb['width']:.0f} card_w={fb['width']:.0f}"
+    assert abs(gb["width"] - fb["width"]) <= 6, f"组宽应≈卡宽（叠缘已休眠）：group_w={gb['width']:.0f} card_w={fb['width']:.0f}"
     # 历代状态 pip：Ⅰ/Ⅱ 两枚（罗马数字=代数），最新代带 now 标记
     pips = g1.locator(".war-gen-pips .war-gen-pip")
     assert pips.count() == 2, f"卡面应挂 2 枚历代状态圆点，got {pips.count()}"
@@ -178,7 +178,7 @@ with sync_playwright() as p:
     assert sf.locator(".war-wz-3d").count() == 1 and page.evaluate("() => document.querySelector('.war-wz-3d').width > 0"), "warzone 3D canvas 未渲染"
     assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
     assert not page.locator(".war-zone.war-field").is_visible(), "地图态星球列必须隐退（CSS 隐藏）"
-    # V11.5f 舰长令：HUD（DEEP SPACE WARZONE 标题块）撤除；面板族已在引擎退役。
+    # V11.5f 舰长令：HUD（DEEP SPACE WARZONE 标题块）撤除；面板族已在引擎休眠。
     assert sf.locator(".war-wz-hud").count() == 0, "HUD 应已撤除（V11.5f）"
     for sel, name in [(".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
         assert sf.locator(sel).count() == 1, f"warzone {name} 件缺席"

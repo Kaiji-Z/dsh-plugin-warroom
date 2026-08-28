@@ -1,6 +1,6 @@
 /**
  * The war map (三列局势墙 + 调度条) — the warroom's V9 operating surface.
- * Three monitor columns (任务 / 作战中+外部 / 任务回报) plus the bottom command
+ * Three monitor columns (任务 / 执行中+外部 / 任务回报) plus the bottom command
  * dispatch strip. V9.9 wiring discipline: clicking ANY card opens the source
  * command's focus page (聚焦页 — a lifecycle tour that pulls the main-UI
  * cards into one window); there are no per-task/per-session detail modals
@@ -78,7 +78,7 @@ function staffSessionFor(taskId: string, commands: BoardCommand[], hqSessionId: 
   return own?.staffSessionId ?? hqSessionId
 }
 
-/** 地图标记：「！」新任务令待领取，「？」任务回报可收菜（分区时代的残留信号灯）。 */
+/** 地图标记：「！」新任务令待领取，「？」任务回报可收获（分区时代的残留信号灯）。 */
 function statusMark(task: BoardTask): ReactNode {
   const m = activeCopy().statusMark[task.status]
   if (m === undefined) return null
@@ -224,7 +224,7 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[], reportSeenAt?: numbe
     const terminal = chain.find(t => t.status === 'closed') ?? chain.find(t => t.status === 'failed') ?? chain.find(t => t.status === 'reported')
     const label = terminal !== undefined ? activeCopy().taskStatus[terminal.status] : ''
     // V12.2 critique P2：败局状态行同染红（与生命条红终局同源）——灰字全绿条
-    // 曾让折戟读起来像善终。
+    // 曾让挫败读起来像圆满。
     const failTone = terminal !== undefined && terminal.status === 'failed' ? 'err' as const : '' as const
     const seen = reportSeenAt !== undefined && reportSeenAt >= latestSettleMs(chain)
     return seen
@@ -251,8 +251,8 @@ function formingVariantOf(cmd: BoardCommand, chain: BoardTask[]): 'plan' | 'talk
 function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   const copy = activeCopy().lifecycle
   const life = lifecycleOf(cmd, chain, reportSeenAtOf(cmd.commandId))
-  // V12.2 critique P2：链终局=failed 时报告段红收尾——绿严格=善终（图例契约），
-  // 折戟不许再以全绿条示人（cancelled 的 err 终局此前比 failed 更红，倒挂）。
+  // V12.2 critique P2：链终局=failed 时报告段红收尾——绿严格=圆满（图例契约），
+  // 挫败不许再以全绿条示人（cancelled 的 err 终局此前比 failed 更红，倒挂）。
   const failTerminus = life.reached.report && chain.some(t => t.status === 'failed')
   const stages: Array<{ key: LifeStage; label: string }> = [
     { key: 'command', label: copy.stages.command },
@@ -396,7 +396,7 @@ function genBadge(cmd: BoardCommand): ReactNode {
 }
 
 /** V10.1 战线历代状态 pip（舰长复评定形=纯圆点）：一点一代，颜色=该代战线
- * 状态——蓝=机器在动/琥珀=等你/绿=善终/红=败/灰=未战而终；最新代点放大描环
+ * 状态——蓝=机器在动/琥珀=等你/绿=圆满/红=败/灰=未战而终；最新代点放大描环
  * （卡面=此代）。代数罗马数字只在悬停 title/aria 里讲（圆点不背字）。 */
 type PipStatus = 'run' | 'wait' | 'done' | 'fail' | 'idle'
 function pipLabel(generation: number): string {
@@ -834,7 +834,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 点卡在卡下原地展开子详情（命令→下达配置；任务→最终计划原文，计划中给进
  * 任务会话钮；任务回报→收官结论原文），执行卡点击直接跳原生会话窗口。底部两颗
  * 会话跳钮（任务会话=大副计划会话 / 执行会话=外勤小队实施会话）代替旧 footer
- * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
+ * 全部按钮，未形成给禁用占位。顶部标题与「等你定夺」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
 function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin'] }): ReactNode {
   const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin } = props
@@ -843,7 +843,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 任务回报结论。
   const [open, setOpen] = useState<{ kind: 'config' } | { kind: 'plan'; taskId: string } | { kind: 'report' } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
-  // 分段直达：打开即滚到需要舰长发落的环节（plan/chain→任务段，report→任务回报段）。
+  // 分段直达：打开即滚到需要舰长定夺的环节（plan/chain→任务段，report→任务回报段）。
   useEffect(() => {
     if (focusSegment === null) return
     const stage = focusSegment === 'report' ? 'report' : 'task'
@@ -884,7 +884,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       io.disconnect()
     }
   }, [cmd.commandId])
-  // 滚动高亮随 V9.10 导航钮一起退役：四段本身不长，滚动即读，无需段落指示。
+  // 滚动高亮随 V9.10 导航钮一起休眠：四段本身不长，滚动即读，无需段落指示。
   const GRADE_LABEL = activeCopy().grade
   const copy = activeCopy().commandDetail
   const fp = activeCopy().focusPage
@@ -976,7 +976,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       createElement('summary', null, summary),
       ...children,
     )
-  // V9.10 段头去编号（①②③④随导航钮退役）：静态「阶段名+结论」，不跳转。
+  // V9.10 段头去编号（①②③④随导航钮休眠）：静态「阶段名+结论」，不跳转。
   const stageHead = (key: 'command' | 'task' | 'battle' | 'report', conclusion: string): ReactNode =>
     createElement('div', { className: 'war-cd-stage-head' },
       createElement('span', { className: 'war-cd-stage-name' }, stages[key]),
@@ -1218,7 +1218,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                   verdictTask !== undefined && verdictTask.closedVerdict !== null ? subRow(fp.reportVerdict, verdictTask.closedVerdict) : null,
                   lastReport !== undefined ? subRow(fp.reportLatest, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`) : null,
                   evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)]) : null,
-                  // V9.10 收菜三件：任务产出/交付物 + 历次作战会话（逐次可跳）+ 待发落动作
+                  // V9.10 收获三件：任务产出/交付物 + 历次执行会话（逐次可跳）+ 待定夺动作
                   // （V9.12 正名：reported 链→去验收 / 败链→去下重试令，都落大副会话）。
                   reportHost !== undefined && reportHost.deliverables.length > 0
                     ? subRow(fp.lootLabel, createElement('span', { className: 'war-loot' },
@@ -1483,7 +1483,7 @@ function Zone(key: string, title: string, count: number, empty: string, children
   )
 }
 
-/** V7-① 等你发落收件箱：四类需要舰长的动作（答澄清/批计划/翻任务回报/决重试）
+/** V7-① 等你定夺收件箱：四类需要舰长的动作（答澄清/批计划/翻任务回报/决重试）
  * 聚合成一条队列，带等待时长与 aging 警示；点击直达动作发生地（进会话/开
  * 决策卡/开任务详情）——板子只导航，不长任务写操作（红线）。 */
 /** V13 战线头（任务列分组）：围合容器内的标题行——链色圆点+根命令原文+代数/任务
@@ -1547,7 +1547,7 @@ function InboxStrip(items: InboxItem[], onAct: (item: InboxItem) => void, frontO
   )
 }
 
-/** V7-② 到访摘要横幅：自上次看过以来——收官/折戟/新命令/等你发落，点段跳
+/** V7-② 到访摘要横幅：自上次看过以来——收官/挫败/新命令/等你定夺，点段跳
  * 对应区。lastSeen 是挂载快照（关板时由 shell-entry 落），到访期间数字不跳。 */
 function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNode {
   if (!delta.any) return null
@@ -1575,7 +1575,7 @@ function VisitBanner(delta: VisitDelta, lastSeen: number, now: number): ReactNod
 
 /** V9.2 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要收进顶部一颗
  * 胶囊；hover 展开（浮层盖列区，列纹丝不动）、点击钉住常驻。操作件只剩 ⚙
- * 设置（下达 ✚ 在调度条左端常驻，挂载入口退役）；聚焦不再撑开岛——只在
+ * 设置（下达 ✚ 在调度条左端常驻，挂载入口休眠）；聚焦不再撑开岛——只在
  * 胶囊中间显示「聚焦中」chip（点击即退出），看板本体始终可见（审查 P1-3
  * 修复：hover 面板不得在到访第一屏挡住列区/吸附点击）。操作钮冒泡阻断。 */
 function WarIsland(props: {
@@ -1600,7 +1600,7 @@ function WarIsland(props: {
   const [pinned, setPinned] = useState(false)
   const copy = activeCopy().island
   // V10.1 审查（通知可达性）：收件箱净增时经视觉隐藏 live 区礼貌播报——
-  // 「新增 N 件等你发落」是该打断舰长的级别；减少/持平不播（防噪音）。
+  // 「新增 N 件等你定夺」是该打断舰长的级别；减少/持平不播（防噪音）。
   const [announce, setAnnounce] = useState<string | null>(null)
   const prevInbox = useRef<number | null>(null)
   useEffect(() => {
@@ -1713,7 +1713,7 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 的圆角容器、物种差保留——主色淡染凹槽）；左端 ＝ ＋ 下达瓦片（容器的
  * 一部分，幽灵虚线态）；命令卡全部进 .war-dispatch-track 轨道横滚（滚轮
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
- * 退役（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
+ * 休眠（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
 function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
   const { onCompose, children } = props
@@ -1794,7 +1794,7 @@ function SettingsDrawer(props: {
   onToggleAutoScroll: (v: boolean) => void
   connected: boolean
   onRefresh: () => void
-  /** V10.1 星球视图开关（从调度坞退役迁此——坞只管卡，设置管模式）。 */
+  /** V10.1 星球视图开关（从调度坞休眠迁此——坞只管卡，设置管模式）。 */
   viewMap: boolean
   onToggleViewMap: (v: boolean) => void
   /** 偏好为地图但窗口过窄被强制回列表——开关旁给诚实说明（critique P2-5）。 */
@@ -1895,7 +1895,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       window.addEventListener('resize', on)
       return () => window.removeEventListener('resize', on)
     }, [])
-    // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/任务回报）。
+    // V9 分段直达：打开聚焦页时滚到需要定夺的环节（计划/任务链/任务回报）。
     const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
     const [lastSeenSnapshot] = useState<number>(() => {
@@ -2000,7 +2000,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const cmdFront = new Map<string, WarFront>()
     for (const f of fronts) for (const c of f.generations) cmdFront.set(c.commandId, f)
     boardFrontByCmd = cmdFront
-    // V9.9 打开聚焦页（唯一详情叙事面）；segment=需要发落的环节（收件箱/上方卡直达）。
+    // V9.9 打开聚焦页（唯一详情叙事面）；segment=需要定夺的环节（收件箱/上方卡直达）。
     const openCommand = (commandId: string, segment: 'plan' | 'chain' | 'report' | null = null): void => {
       setDetailSegment(segment)
       setDetailCommandId(commandId)
@@ -2019,7 +2019,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const last = t !== undefined ? (t.attemptLog ?? []).at(-1) : undefined
       if (last !== undefined) services.sessions?.open(last.sessionId)
     }
-    // 会话卡：作战中→聚焦页执行段，任务回报列→聚焦页任务回报段；孤儿直跳原生会话。
+    // 会话卡：执行中→聚焦页执行段，任务回报列→聚焦页任务回报段；孤儿直跳原生会话。
     const openSessionVia = (t: BoardTask, a: BoardAttempt, segment: 'battle' | 'report'): void => {
       const lc = lineageOf(t.taskId)
       if (lc !== null) openCommand(lc.commandId, segment)
@@ -2048,7 +2048,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const ch = chainOf(c)
       return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed'))
     }
-    // V10.1 critique P2-1：主打视图藏在 ⚙ 里——≥3 战区时一次性指路 toast（点击即开）。
+    // V10.1 critique P2-1：主打视图藏在 ⚙ 里——≥3 星域时一次性指路 toast（点击即开）。
     const [mapHint, setMapHint] = useState(false)
     useEffect(() => {
       try {
@@ -2188,7 +2188,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       return {
         wsPath: ws,
         activity: tasks.filter(t => wsKeyOf(t.workspacePath) === ws).length,
-        status: g.orbs.length > 0 ? '作战中' : g.triumphs > 0 ? '已占领' : '待进攻',
+        status: g.orbs.length > 0 ? '执行中' : g.triumphs > 0 ? '已占领' : '待进攻',
         garrison: g.triumphs,
         failing: g.failing,
         inbound: g.awaiting,
@@ -2238,7 +2238,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       }
     }
     const wzLog = warLogOf(wzLogFeed)
-    // V11.5f 高亮联动：悬停/聚焦战线的全部战区（去重）→ 对应星球亮起+名签+HQ 轨迹线。
+    // V11.5f 高亮联动：悬停/聚焦战线的全部星域（去重）→ 对应星球亮起+名签+HQ 轨迹线。
     const highlightWs = familyCmdIds.size > 0
       ? [...new Set(tasks
           .filter(t => familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))

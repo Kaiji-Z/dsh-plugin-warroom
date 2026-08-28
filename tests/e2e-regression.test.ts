@@ -31,7 +31,7 @@ function replayEightStep(dir: string): { commandId: string; taskId: string } {
   appendEvent(dir, { type: 'task_created', ts: 't4', campaignId: taskId, title: '给日常工具箱加「每日格言」小工具', brief: 'b', acceptance: 'node motto.js today 退出码 0', priority: 'normal', publishedBy: 'sec-staff-reg' })
   appendEvent(dir, { type: 'task_published', ts: 't5', campaignId: taskId, workspacePath: 'C:/reg/daily-toolbox', publishedBy: 'sec-staff-reg' })
   appendDirectiveEvent(dir, { type: 'directive_approved', ts: 't6', directiveId: commandId, taskId })
-  // 步5: 外勤小队持令牌领取 → 作战。
+  // 步5: 外勤小队持令牌领取 → 执行。
   appendEvent(dir, { type: 'task_claimed', ts: 't7', campaignId: taskId, claimedBy: 'cmd-commander-reg', attemptId: 'tok-reg-1', attempt: 1 })
   // 步6: 外勤小队 war_submit 带 KillCredit 证据 → 待翻阅。
   appendEvent(dir, {
@@ -50,7 +50,7 @@ function replayEightStep(dir: string): { commandId: string; taskId: string } {
   return { commandId, taskId }
 }
 
-test('P0-2 八步回归：命令→会话→批准→落栏→作战→待阅→收官 的折叠终态', () => {
+test('P0-2 八步回归：命令→会话→批准→落栏→执行→待阅→收官 的折叠终态', () => {
   const dir = tmpStateDir()
   try {
     const { commandId, taskId } = replayEightStep(dir)

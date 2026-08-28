@@ -391,7 +391,7 @@ export function warTools(deps: WarToolsDeps) {
       deps: { type: 'array', items: { type: 'string' }, description: '前置任务 id 列表（任务链）：全部收官后本任务令才解锁可领取。' },
       cron: { type: 'string', description: '日常任务令的 cron 表达式（5 段，如 "0 9 * * *" 每天 9 点）：到点自动重开一轮；错过不补跑。' },
       repo: { type: 'string', description: '源码仓库路径（git checkout）；声明则任务工作区为其 worktree，省略则普通目录。仅当未指定 workspace 时生效。' },
-      workspace: { type: 'string', description: '任务绑定的现有工作区绝对路径（同工作区任务排队执行、跨工作区并行作战）；或 "@new:<名字>" 新开一个带 git 的副本目录；省略则自动建隔离任务目录。' },
+      workspace: { type: 'string', description: '任务绑定的现有工作区绝对路径（同工作区任务排队执行、跨工作区并行执行）；或 "@new:<名字>" 新开一个带 git 的副本目录；省略则自动建隔离任务目录。' },
       commandId: { type: 'string', description: '本任务书来源的命令 id（命令区卡片编号）——发布后命令卡会标记已批准并链接到本任务。' },
     },
     output: {
@@ -577,7 +577,7 @@ export function warTools(deps: WarToolsDeps) {
           acceptance: { type: 'string' },
         },
       },
-      render: (_args, value) => [{ type: 'text', text: `已领取 ${value.taskId}（第 ${value.attempt} 次尝试，令牌 ${value.attemptId.slice(0, 8)}…）。任务书与验收标准已附上；工作区：${value.workspacePath ?? '（未建）'}。开始作战。` }],
+      render: (_args, value) => [{ type: 'text', text: `已领取 ${value.taskId}（第 ${value.attempt} 次尝试，令牌 ${value.attemptId.slice(0, 8)}…）。任务书与验收标准已附上；工作区：${value.workspacePath ?? '（未建）'}。开始执行。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -593,7 +593,7 @@ export function warTools(deps: WarToolsDeps) {
       appendEvent(deps.stateDir, { type: 'task_claimed', ts: new Date().toISOString(), campaignId: args.task_id, claimedBy: commander.id, attemptId, attempt })
       // V5-R3（flag staff-goal）：领取即武装外勤小队 goal——「任务 X 验收全过」
       // 交给宿主 round driver 驱动。残留 armed goal 先自愈（K15）；服务缺席
-      // 或失败 → 诚实降级（无 goal 也不碍作战），账本只在成功时入账。
+      // 或失败 → 诚实降级（无 goal 也不碍执行），账本只在成功时入账。
       if (featureEnabled(deps.flags, 'staff-goal')) {
         const face = deps.goals?.()
         const armed = await armGoalForTask(face, commander, args.task_id, { maxGoalRounds: 30, title: task.title ?? task.intent })
@@ -745,7 +745,7 @@ export function warTools(deps: WarToolsDeps) {
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: { taskId: { type: 'string', required: true }, childId: { type: 'string', required: true } } },
-      render: (_args, value) => [{ type: 'text', text: `外勤小队已应征 ${value.taskId}（会话 ${value.childId}），将自动 war_claim 领取作战。` }],
+      render: (_args, value) => [{ type: 'text', text: `外勤小队已应征 ${value.taskId}（会话 ${value.childId}），将自动 war_claim 领取执行。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -815,12 +815,12 @@ export function warTools(deps: WarToolsDeps) {
 
   const warDeployUnit = defineTool({
     name: 'war_deploy_unit',
-    description: '加派组员：按组员派一支外勤组员到任务工作区内的指定战区执行任务（后台 continuable 子代理）。硬规则：任务已领取、编制未满、有写权限外勤组员战区不得重叠。front 写任务工作区内的相对路径。',
+    description: '加派组员：按组员派一支外勤组员到任务工作区内的指定星域执行任务（后台 continuable 子代理）。硬规则：任务已领取、编制未满、有写权限外勤组员星域不得重叠。front 写任务工作区内的相对路径。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       unit: { type: 'string', required: true, description: '组员代号：recon / engineer / medic / scribe（或自定义组员）。' },
       mission: { type: 'string', required: true, description: '这支外勤组员的明确任务，一段话。' },
-      front: { type: 'string', required: true, description: '战区：任务工作区内的目录前缀（如 src/api）。"." 表示整个任务工作区。' },
+      front: { type: 'string', required: true, description: '星域：任务工作区内的目录前缀（如 src/api）。"." 表示整个任务工作区。' },
     },
     output: {
       schema: {
@@ -833,7 +833,7 @@ export function warTools(deps: WarToolsDeps) {
           front: { type: 'string', required: true },
         },
       },
-      render: (_args, value) => [{ type: 'text', text: `${value.label}（${value.unit}）已出动 → 战区 ${value.front}，外勤组员编号 ${value.childId}。任务回报与收队通知将自动到达。` }],
+      render: (_args, value) => [{ type: 'text', text: `${value.label}（${value.unit}）已出动 → 星域 ${value.front}，外勤组员编号 ${value.childId}。任务回报与收队通知将自动到达。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -866,7 +866,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warOrders = defineTool({
     name: 'war_orders',
-    description: '追加命令：向一支在役外勤组员追加作战命令（增援、改令、补充要求）。已收队/撤编的外勤组员不可追加。',
+    description: '追加命令：向一支在役外勤组员追加执行命令（增援、改令、补充要求）。已收队/撤编的外勤组员不可追加。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       child_id: { type: 'string', required: true, description: '外勤组员编号（war_deploy_unit 返回的 childId）。' },
@@ -934,7 +934,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warStatus = defineTool({
     name: 'war_status',
-    description: '战况：单任务详情——任务书、外勤组员的组员/战区/状态（行动中/待命/已收队/已收编）与最近任务回报，或省略 task_id 查看全局任务栏摘要。',
+    description: '战况：单任务详情——任务书、外勤组员的组员/星域/状态（行动中/待命/已收队/已收编）与最近任务回报，或省略 task_id 查看全局任务栏摘要。',
     parameters: {
       task_id: { type: 'string', description: '任务 id；省略则返回任务栏摘要。' },
     },
@@ -995,7 +995,7 @@ export function warTools(deps: WarToolsDeps) {
         },
       },
       render: (_args, value) => [
-        { type: 'text', text: value.taskId !== undefined ? `任务「${value.intent}」（${value.taskId}）\n${value.units.map(u => `- ${u.label} ${u.childId} [${u.status}] 战区 ${u.front}${u.lastReport !== undefined ? ` · 最近任务回报：${u.lastReport.slice(0, 100)}` : ''}`).join('\n')}\n在役 ${value.counts.active}/${value.counts.total}。` : `任务栏：\n${value.board.map(t => `- ${String(t.status)} ${String(t.taskId)} ${String(t.title)}`).join('\n')}` },
+        { type: 'text', text: value.taskId !== undefined ? `任务「${value.intent}」（${value.taskId}）\n${value.units.map(u => `- ${u.label} ${u.childId} [${u.status}] 星域 ${u.front}${u.lastReport !== undefined ? ` · 最近任务回报：${u.lastReport.slice(0, 100)}` : ''}`).join('\n')}\n在役 ${value.counts.active}/${value.counts.total}。` : `任务栏：\n${value.board.map(t => `- ${String(t.status)} ${String(t.taskId)} ${String(t.title)}`).join('\n')}` },
       ],
     },
     async execute(args, rawExec) {
@@ -1381,12 +1381,12 @@ export function warTools(deps: WarToolsDeps) {
       if (task.status !== 'in_progress') throw new Error(`任务 ${args.task_id} 状态为 ${task.status}，只有进行中任务可换发 goal。`)
       if (task.claimedBy === undefined) throw new Error(`任务 ${args.task_id} 无在役外勤小队（未被领取）。`)
       const face = deps.goals?.()
-      if (face === undefined) throw new Error('goal 服务不可用（宿主面未注入）——换发降级为不可用，作战不受影响。')
+      if (face === undefined) throw new Error('goal 服务不可用（宿主面未注入）——换发降级为不可用，执行不受影响。')
       const agent = deps.resolveAgent?.(task.claimedBy)
       if (agent === undefined) throw new Error(`外勤小队会话 ${task.claimedBy} 无活体 agent（可能已离线）——请稍后重试。`)
       const extra = typeof args.objective_extra === 'string' && args.objective_extra.trim() !== '' ? `；附加：${args.objective_extra.trim()}` : ''
       const armed = await armGoalForTask(face, agent, args.task_id, { maxGoalRounds: typeof args.max_goal_rounds === 'number' && args.max_goal_rounds > 0 ? args.max_goal_rounds : 30, title: `${task.title ?? task.intent}${extra}` })
-      if (armed === undefined) throw new Error('goal 服务调用失败（武装未成）——任务作战不受影响，可稍后重试。')
+      if (armed === undefined) throw new Error('goal 服务调用失败（武装未成）——任务执行不受影响，可稍后重试。')
       appendEvent(deps.stateDir, {
         type: 'commander_goal_armed', ts: new Date().toISOString(), campaignId: args.task_id,
         goalId: armed.goalId, sessionId: task.claimedBy, ...(armed.healed !== undefined ? { healedGoalId: armed.healed } : {}),
@@ -1470,7 +1470,7 @@ export async function kickIdleTroops(deps: WarToolsDeps, campaignId: string, sig
     appendEvent(deps.stateDir, { type: 'subtask_claimed', ts: new Date().toISOString(), campaignId, subtaskId: ready.subtaskId, claimedBy: d.id, attemptId, attempt })
     const brief = [
       `【队内调度】你已自动认领队内子任务 ${ready.subtaskId}「${ready.title}」${ready.detail !== undefined ? `：${ready.detail}` : ''}`,
-      `直接开工（战区边界照旧）；完成或受阻用 war_troop_update 回报（subtask_id=${ready.subtaskId}，attempt_id=${attemptId}，status=completed/blocked）。`,
+      `直接开工（星域边界照旧）；完成或受阻用 war_troop_update 回报（subtask_id=${ready.subtaskId}，attempt_id=${attemptId}，status=completed/blocked）。`,
       '陈旧令牌报错 = 所有权已变，停止该子任务。',
     ].join('\n')
     try {

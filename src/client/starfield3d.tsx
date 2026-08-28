@@ -22,7 +22,7 @@ const dirLabel = (wsPath: string): string => {
 }
 
 const statusChip = (st: string): string =>
-  `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '作战中' ? 'st-battle' : 'st-held'}">${st}</span>`
+  `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '执行中' ? 'st-battle' : 'st-held'}">${st}</span>`
 
 /** 信息卡（三卡结构承 demo，字段全为板面真值）。 */
 function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
@@ -55,7 +55,7 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
       <div class="tt-row"><span>活跃会话</span><b>${scene.squads.filter(q => q.target === ent && q.phase !== 'return').length} 个</b></div>
       <div class="tt-row"><span>待发命令</span><b>${ent.inbound} 条</b></div>
       <div class="tt-row"><span>达成 / 败</span><b>${ent.garrison} / ${ent.failing}</b></div>
-      <div class="tt-row"><span>作战状态</span>${statusChip(ent.status)}</div>`
+      <div class="tt-row"><span>执行状态</span>${statusChip(ent.status)}</div>`
   }
   const s = ent as WzSquad
   const tgt = s.phase === 'return' ? '返航 → 星舰' : s.target.name
@@ -81,7 +81,7 @@ export interface WarzoneProps {
   readonly log: ReadonlyArray<WzLogEntry>
   /** V13 战线航迹：每条战线一条链色管道串起各代星球（含未分组键）。 */
   readonly fronts: ReadonlyArray<WzBridgeFrontLite>
-  /** V11.5f：悬停/聚焦命令卡 → 高亮对应战区（星球名+HQ↔星球轨迹）。 */
+  /** V11.5f：悬停/聚焦命令卡 → 高亮对应星域（星球名+HQ↔星球轨迹）。 */
   readonly highlightWs: ReadonlyArray<string>
   /** 执行卡点击 → 跳源命令聚焦页。 */
   readonly onOpenCommand?: (commandId: string) => void
@@ -209,7 +209,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
     const onDbl = (): void => { if (mode === '3d') scene.resetCam() }
     // V11.5g（舰长令）：2D 态执行卡可自由拖放——委托在卡容器上（React 重渲染不丢
     // 手柄），只记 offset；卡位=安全区锚+offset，实线索引线永连星球。拖拽期间点亮
-    // 该战区高亮（与悬停同路）。3D 态卡钉星球投影不可拖（手势让位相机）。
+    // 该星域高亮（与悬停同路）。3D 态卡钉星球投影不可拖（手势让位相机）。
     const cardOff = cardOffRef.current
     let dragSid: string | null = null
     let dragPx = 0, dragPy = 0, dragOx = 0, dragOy = 0
@@ -498,7 +498,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
     createElement('div', { className: 'war-wz-foot', 'aria-hidden': 'true' },
       createElement('div', { className: 'war-wz-legend' },
         createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
-        createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
+        createElement('span', null, createElement('i', { className: 'lg-battle' }), '执行中'),
         createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
         createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
         createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（分段=战线数）')),

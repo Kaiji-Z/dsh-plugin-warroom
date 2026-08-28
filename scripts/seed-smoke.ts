@@ -31,7 +31,7 @@ const ts = (i: number): string => new Date(Date.now() - (60 - i) * 60_000).toISO
 const t0 = '20260823-alpha', t1 = '20260823-bravo', t2 = '20260823-charlie', t3 = '20260823-delta', t4 = '20260823-echo', t5 = '20260823-foxtrot', t6 = '20260823-golf'
 const WS_A = 'D:/smoke/projA', WS_B = 'D:/smoke/projB'
 
-// t5：进行中的作战会话（进行中区会话卡）——projA 被它占着
+// t5：进行中的执行会话（进行中区会话卡）——projA 被它占着
 appendEvent(dir, { type: 'task_created', ts: ts(55), campaignId: t5, title: '给 projA 加健康检查端点', brief: '背景：运维需要探活。执行指引：加 /healthz 返回 JSON。', acceptance: 'curl /healthz 返回 200；npm test 退出码 0', priority: 'normal', quality: 'rare', publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_published', ts: ts(55), campaignId: t5, workspacePath: WS_A, publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_claimed', ts: ts(54), campaignId: t5, claimedBy: 'cmd-foxtrot-session', attemptId: 'b7c8d9e0-f1a2-3456-7890abcdef123456', attempt: 1 })

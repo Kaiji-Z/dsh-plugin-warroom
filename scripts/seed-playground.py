@@ -8,7 +8,7 @@ Protocol（必须按序，否则运行中的服务器会用内存旧态把种子
   3. 起服（cordis.smoke.yml overlay）
 与 shoot-v7.py 的 Phase 0+C 完全同源：清隔离态 → seed-smoke.ts 全要素
 演示板（五状态命令/史诗任务令/进行中会话/打赢+失败任务回报/依赖锁链/每日任务令）
-→ 追加一条 L1 计划待批命令（收件箱「等你发落」+ 夜间预检演示）。
+→ 追加一条 L1 计划待批命令（收件箱「等你定夺」+ 夜间预检演示）。
 """
 import json
 import shutil
@@ -50,7 +50,7 @@ manifest["sec-d5"] = "大副·多本账本"
 
 # --- 六代战线「projC 部署」（舰长要体验卡组全机制）---------------------------
 # 一条链走完三种续接模式 + 五档状态色：Ⅰ 绿(收官)/Ⅱ 红(再战败)/Ⅲ 灰(转向后
-# 取消)/Ⅳ 琥珀(报待发落)/Ⅴ 蓝(在打·改档演示)/Ⅵ 蓝(最新=分诊中呼吸卡面)。
+# 取消)/Ⅳ 琥珀(报待定夺)/Ⅴ 蓝(在打·改档演示)/Ⅵ 蓝(最新=分诊中呼吸卡面)。
 # pip 恰好 >4 触发「…+最新4」截头；面板 5 张历史卡 > 4 行上限触发滚轮翻看。
 CAM = STATE / "campaigns"
 CAM.mkdir(parents=True, exist_ok=True)
@@ -95,7 +95,7 @@ dev({"type": "directive_created", "ts": ts(41), "directiveId": g3, "text": "看�
 dev({"type": "directive_received", "ts": ts(40.5), "directiveId": g3, "staffSessionId": "sec-g3"})
 dev({"type": "directive_cancelled", "ts": ts(38), "directiveId": g3, "reason": "比了改造成本，还是回到脚本路线自己写"})
 
-# Ⅳ 转向容器化：报待发落（琥珀）——收件箱「任务回报待阅」第二件。
+# Ⅳ 转向容器化：报待定夺（琥珀）——收件箱「任务回报待阅」第二件。
 cev(tg4, {"type": "task_created", "ts": ts(34), "campaignId": tg4, "title": "docker compose 测试环境", "brief": "背景：脚本路线受跨平台拖累。执行指引：compose 编排起测试环境。", "acceptance": "docker compose up 后探活 200", "priority": "normal", "publishedBy": "sec-g4"})
 cev(tg4, {"type": "task_published", "ts": ts(34), "campaignId": tg4, "workspacePath": WS_C2, "publishedBy": "sec-g4", "workspaceKind": "bound"})
 cev(tg4, {"type": "task_claimed", "ts": ts(33), "campaignId": tg4, "claimedBy": "cmd-g4-session", "attemptId": "3c4d5e6f-0003-4a5b-8c6d-e0f1a2b3c4d5", "attempt": 1})

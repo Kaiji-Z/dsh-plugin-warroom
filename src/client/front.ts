@@ -74,9 +74,9 @@ export function commandTasks(cmd: BoardCommand, tasks: BoardTask[]): BoardTask[]
 
 /** 战线聚合态（扫视层一句话的来源；与岛计数四桶语义对齐不混用）。 */
 export interface FrontAgg {
-  /** 有任何未终局的代（成形中/等领/作战/待验收）——调度条活跃段同语义。 */
+  /** 有任何未终局的代（成形中/等领/执行/待验收）——调度条活跃段同语义。 */
   readonly live: boolean
-  /** 有等你发落的代（talking/plan 待批/published 任务）。 */
+  /** 有等你定夺的代（talking/plan 待批/published 任务）。 */
   readonly waiting: boolean
   /** 任一代任务终败。 */
   readonly failed: boolean

@@ -1,6 +1,6 @@
 /**
  * V7-② 到访摘要——「自上次看过以来」的增量计算（纯函数，node 直测）。
- * 晨间到访第一眼：夜里收官了几单、折了几单、新下几道命令、现在几件等发落。
+ * 晨间到访第一眼：夜里收官了几单、折了几单、新下几道命令、现在几件等定夺。
  * lastSeen 由 shell-entry 关板时写入（warroom-last-seen）；本模块只读不写，
  * WarView 挂载时取一次快照——到访期间数字不跳动。
  * @module dsh-plugin-warroom/client/visit
@@ -15,7 +15,7 @@ export interface VisitDelta {
   failed: number
   /** 自 lastSeen 起新下达的命令数。 */
   commands: number
-  /** 当前等你发落件数（现状，非增量）。 */
+  /** 当前等你定夺件数（现状，非增量）。 */
   pending: number
   /** 是否值得显示横幅（任一数字 > 0）。 */
   any: boolean

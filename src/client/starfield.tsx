@@ -119,7 +119,7 @@ export function workspaceCreationOrder(tasks: ReadonlyArray<Pick<BoardTask, 'wor
 export interface PlanetGarrison {
   readonly orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>
   readonly triumphs: number
-  /** V10.1 critique P1-2：行星升格战区仪表——待领令数（琥珀信号）与败数（红信号）。 */
+  /** V10.1 critique P1-2：行星升格星域仪表——待领令数（琥珀信号）与败数（红信号）。 */
   readonly awaiting: number
   readonly failing: number
 }
@@ -226,7 +226,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
     createElement('svg', { className: 'war-front-svg', viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
       ...(() => {
         // V15.2 语义重铸（舰长定案，与 3D 同构）：一星球一环、分段=战线数
-        // （dasharray 切段）；世代点/链色/「N 代」牌退役——代数去卡片读。
+        // （dasharray 切段）；世代点/链色/「N 代」牌休眠——代数去卡片读。
         const counts = new Map<string, number>()
         for (const f of fronts) counts.set(f.battlefield, (counts.get(f.battlefield) ?? 0) + 1)
         const out: ReturnType<typeof createElement>[] = []

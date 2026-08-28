@@ -129,8 +129,8 @@ with sync_playwright() as p:
     assert visit.count() == 1, "visit digest banner missing"
     banner = visit.inner_text()
     assert "收官 1" in banner, f"visit banner closed delta wrong: {banner!r}"
-    assert "折戟 1" in banner, f"visit banner failed delta wrong: {banner!r}"
-    assert "新令" in banner and "等你发落" in banner, f"visit banner segments missing: {banner!r}"  # V10.1 与到访迷你条同词（✚新令）
+    assert "挫败 1" in banner, f"visit banner failed delta wrong: {banner!r}"
+    assert "新令" in banner and "等你定夺" in banner, f"visit banner segments missing: {banner!r}"  # V10.1 与到访迷你条同词（✚新令）
     print(f"visit banner (in island): {banner.splitlines()[0]!r}")
 
     hints = page.locator(".war-waithint").all_inner_texts()
@@ -167,7 +167,7 @@ with sync_playwright() as p:
     )
     assert sl > 0, f"mouse wheel must scroll the dispatch strip horizontally, scrollLeft={sl}"
     # V9.1 视觉断言：铭牌在场 + 坞带底色与三列底色拉开（物种差可机检）。
-    # V9.4 容器化：铭牌退役；＋ 瓦片在场；卡片进 track 轨道；动态 can-scroll mask。
+    # V9.4 容器化：铭牌休眠；＋ 瓦片在场；卡片进 track 轨道；动态 can-scroll mask。
     assert page.locator(".war-dispatch-tag").count() == 0, "placard must be gone (V9.4 containerized)"
     assert page.locator(".war-dispatch-track").count() == 1, "dispatch card track missing"
     assert page.evaluate("() => document.querySelector('.war-dispatch-track').classList.contains('can-scroll')"), "dynamic can-scroll mask not set while overflow exists"
@@ -238,7 +238,7 @@ with sync_playwright() as p:
     assert "done" in (rep_label2.get_attribute("class") or ""), "viewed report stage must turn green (done)"
     page.screenshot(path=f"{OUT}/v9-ledger.png")
 
-    # --- V9.12 R2: seen 收紧三通道 + 待发落动作正名（去验收/去下重试令分野）。 ---
+    # --- V9.12 R2: seen 收紧三通道 + 待定夺动作正名（去验收/去下重试令分野）。 ---
     # 时序断言（视口无关——任务回报段是否初始可见不影响判定）：
     #   扫一眼（<800ms）不许转绿（旧 0.35 即绿判定的回归位）；
     #   点任务回报卡展开 → <800ms 内即绿（通道②）；
@@ -586,7 +586,7 @@ with sync_playwright() as p:
     # 非零收件箱 = 岛的主导信号（胶囊染警示）。
     assert page.locator(".war-island-pill.has-inbox").count() == 1, "island pill must wear has-inbox tint when inbox non-empty"
 
-    # V9.8 决策带 + 阶段导航：计划待批的详情顶部即是「等你发落」带（后果一句话
+    # V9.8 决策带 + 阶段导航：计划待批的详情顶部即是「等你定夺」带（后果一句话
     # + 批准/驳回），下方四段导航在位；标题=命令原话（不再是 cmd- 机码开头）。
     leave_island()
     page.wait_for_timeout(300)
@@ -639,7 +639,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
     # V9.9/V9.10 全生命周期导览（approved→t1 已呈报）：任务卡展开=计划+任务书+验收
-    # +去验收（V9.12 正名）；执行段无 live 只给提示行；任务回报卡展开=最新任务回报+任务产出+历次作战；双跳钮可点。
+    # +去验收（V9.12 正名）；执行段无 live 只给提示行；任务回报卡展开=最新任务回报+任务产出+历次执行；双跳钮可点。
     page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must show the chain task card"
@@ -659,7 +659,7 @@ with sync_playwright() as p:
     assert rep.count() == 1 and "最新任务回报" in rep.inner_text(), "report card click must expand the report panel"
     rep_text = rep.inner_text()
     assert "任务产出" in rep_text and "npm test 8/8 全绿" in rep_text, "report panel must carry the deliverables row"
-    assert "历次作战" in rep_text, "report panel must carry the attempts section"
+    assert "历次执行" in rep_text, "report panel must carry the attempts section"
     assert page.locator(".war-modal .war-sub-attempts .war-cd-session").count() == 1, "t1 has exactly one attempt session row"
     assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去验收 · 大副会话").count() == 1, "reported command report panel must offer the review action"
     jumps2 = page.locator(".war-modal .war-tour-jumps .war-jump-btn")

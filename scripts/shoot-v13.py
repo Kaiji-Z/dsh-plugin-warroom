@@ -7,10 +7,10 @@ Phases:
   L 列表态：六代链按「血脉∩星球」新规拆两段——两个战线组头（Ⅰ 文本与
     Ⅳ 文本各自带队 = 同血脉不同战线的活证）；调度坞同血脉两卡组分列
     （data-war-group=血脉/段头键）；未分组战线任务卡在场。
-  M 战区 3D（V15.2 语义）：一星球一环、分段=战线数——环组数==锚定星球数、
-    分段和==锚定战线数、世代八面体清零（退役）、未分组行星在场。
+  M 星域 3D（V15.2 语义）：一星球一环、分段=战线数——环组数==锚定星球数、
+    分段和==锚定战线数、世代八面体清零（休眠）、未分组行星在场。
   F 2D 回退：WebGL 掐灭 → SVG 分段环（一星球一 circle + dasharray 切段）。
-  T 双主题目检截图（深/浅 × 列表/战区，落 evidence/v13/）。
+  T 双主题目检截图（深/浅 × 列表/星域，落 evidence/v13/）。
 """
 import sys
 from pathlib import Path
@@ -69,7 +69,7 @@ with sync_playwright() as p:
        or page.locator(".war-command-card", has_text=G7_TEXT).count() >= 1)
     page.screenshot(path=str(OUT / "v13-list-dark.png"))
 
-    # --- M 战区 3D：世代环 + 未分组行星 -----------------------------------------
+    # --- M 星域 3D：世代环 + 未分组行星 -----------------------------------------
     page.evaluate("() => localStorage.setItem('warroom-cfg-view','map')")
     page.goto(BASE, wait_until="domcontentloaded")
     page.wait_for_selector("[data-dsh-warroom-entry]", timeout=20000).click()
@@ -92,7 +92,7 @@ with sync_playwright() as p:
     ok("M1 一星球一环（环组数==锚定星球数）", fr["groups"] == fr["battlefields"] and fr["groups"] >= 1, str(fr))
     ok("M2 分段==战线数（段和==锚定战线数）", fr["segs"] == fr["anchored"] and fr["anchored"] >= 3, str(fr))
     ok("M3 未分组行星在场（合成沙盒聚合）", fr["ungrp"] is not None and "未分组" in fr["ungrp"], str(fr["ungrp"]))
-    ok("M4 世代标记退役（八面体清零）", fr["octa"] == 0, str(fr))
+    ok("M4 世代标记休眠（八面体清零）", fr["octa"] == 0, str(fr))
     page.screenshot(path=str(OUT / "v13-warzone-dark.png"))
     page.evaluate("() => document.body.removeAttribute('data-ds-dark-theme')")
     page.wait_for_timeout(1800)

@@ -98,7 +98,7 @@ gate('bundle', () => {
     [client, 'commandTasks', 'command→chain deps closure (lifecycle tracing core)'],
     [client, 'war-lineage', 'task/session lineage chip back to source command'],
     [client, 'war-tour-cards', 'focus tour: per-stage card stack (main-UI cards pulled in)'],
-    // V7-① 等你发落收件箱（到访式工作流）。
+    // V7-① 等你定夺收件箱（到访式工作流）。
     [client, 'collectInbox', 'inbox four-kind aggregation (pure)'],
     [client, 'war-inbox', 'inbox strip styles + container'],
     // V7-② 到访摘要（自上次看过以来的增量横幅）。
@@ -221,7 +221,7 @@ gate('bundle', () => {
     [client, '执行会话', 'focus tour: commander-session jump button (both skins)'],
     [client, 'war-tour-ghost', 'planning ghost card (task-forming workshop entry)'],
     [client, '去处理', 'reported/failed staff-jump button'],
-    // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、任务产出/历次作战。
+    // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、任务产出/历次执行。
     [client, '进入对话回答', 'talking ghost: answer-in-dialog action (both skins)'],
     [client, 'war-btn-warn', 'warn-styled primary for the talking answer action'],
     [client, 'taskScheduledHint', 'scheduled-not-dispatched task hint (state-split copy key)'],
@@ -247,7 +247,7 @@ gate('bundle', () => {
     // V9.12 R1 事件流复活：任务回报自动记账解析抽纯函数 + 活动表最旧 ts 驱逐。
     [host, 'parseUnitReportEvent', 'report-capture parsing extracted (nested .data first)'],
     [host, 'Background subagent', 'unit-report child-id regex survives in the parser'],
-    // V9.12 R2 ① 待发落动作正名：reported 链去验收 / 败链去下重试令。
+    // V9.12 R2 ① 待定夺动作正名：reported 链去验收 / 败链去下重试令。
     [client, '去验收 · 参谋会话', 'review action copy (reported chains; V16 词典源=军事串，trek 皮肤运行时派生)'],
     [client, '去下重试令 · 参谋会话', 'retry-order action copy (failed chains; 词典源=军事串)'],
     // V9.12 R2 ⑥ 跳转无操作反馈。
@@ -274,7 +274,7 @@ gate('bundle', () => {
     [client, '--war-log-order', 'speedlog semantic colors (kind-based)'],
     [client, 'data-war-skin', 'skin hook attribute on war-root (visual skins remap --war-* only)'],
     [client, 'readTacPalette', 'TS-side token reader (CSS is the single color source)'],
-    // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（星球/战区）。
+    // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（星球/星域）。
     [client, 'frontsOf', 'V13 front aggregation pure function (zero backend, foldChains-derived)'],
     // V14 战线范式收口：本地计代/origin 溯源/composer 星球/星球战线清单/写侧引导。
     [client, 'localGenOf', 'V14 front-local generation numbering'],
@@ -409,13 +409,13 @@ gate('bundle', () => {
     // V9.9 negative face：任务/会话详情模态裁撤——详情面只剩聚焦页。
     { ok: !client.includes('查看任务'), label: 'V9.9: view-task footer button stays retired (jumps own navigation)' },
     { ok: !client.includes('进入会话复盘'), label: 'V9.9: session-detail modal stays retired (focus page owns details)' },
-    // V9.10 negative face：1234 阶段跳转导航钮退役（段头只剩静态标签）。
+    // V9.10 negative face：1234 阶段跳转导航钮休眠（段头只剩静态标签）。
     { ok: !client.includes('war-cd-step'), label: 'V9.10: stage jump-nav buttons stay retired (no war-cd-step anywhere)' },
     // 生命条状态行只描述状态；进对话动作归卡上 chip/聚焦页 ghost，点卡指示不许回流。
     { ok: !client.includes('点卡进对话'), label: 'V9.10: lifecycle status stays instruction-free (no 点卡进对话)' },
     // V9.11 R1 negative face：任务列不再按终局过滤（台账全量在列）。
     { ok: !client.includes('openTasks'), label: 'V9.11: task ledger is no longer filtered to open tasks' },
-    // V9.12 R2 ① negative face：旧「去处理」一刀切文案退役——语义分野成正名后的两词。
+    // V9.12 R2 ① negative face：旧「去处理」一刀切文案休眠——语义分野成正名后的两词。
     { ok: !client.includes('去处理 · 大副会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))

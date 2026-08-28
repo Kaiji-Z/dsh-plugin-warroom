@@ -12,11 +12,11 @@ test('皮肤基础：plainCopy 与 warCopy 在关键字段上确实换词（角�
   assert.equal(plainCopy.outcome.reported.label, '待验收')
   assert.equal(plainCopy.taskStatus.reported, '待验收')
   assert.equal(plainCopy.taskStatus.closed, '已完成')
-  // 军事词典保留旧词表（V16 词表派生的源）：战利品/作战室/元首原样。
+  // 军事词典保留旧词表（V16 词表派生的源）：任务产出/舰桥/舰长原样。
   assert.equal(warCopy.focusPage.lootLabel, '战利品')
   assert.equal(warCopy.head.title, '作战室')
   assert.equal(plainCopy.focusPage.lootLabel, '交付')
-  assert.equal(plainCopy.head.title, '作战室')
+  assert.equal(plainCopy.head.title, '工作台')
 })
 
 test('V16 词表派生：trekCopy 全面换用星际迷航词（舰长/大副/外勤小队/星球/任务令/舰桥）', () => {
@@ -26,7 +26,7 @@ test('V16 词表派生：trekCopy 全面换用星际迷航词（舰长/大副/�
   const stale: string[] = []
   const walk = (v: unknown): void => {
     if (typeof v === 'string') {
-      for (const w of ['元首', '参谋', '指挥官', '悬赏', '战报', '战利品', '母舰', '作战室', '战场']) {
+      for (const w of ['元首', '参谋', '指挥官', '悬赏', '战报', '战利品', '母舰', '作战室', '战场', '作战', '战区', '折戟', '收菜', '善终', '发落', '退役']) {
         if (v.includes(w)) stale.push(`${w}: ${v.slice(0, 40)}`)
       }
     } else if (Array.isArray(v)) v.forEach(walk)

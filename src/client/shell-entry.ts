@@ -104,7 +104,7 @@ export function mountWarroomShell(view: () => ReactNode, dom?: SidebarMountDeps)
   row.setAttribute('data-dsh-plugin', 'warroom')
   row.setAttribute('data-dsh-part', 'sidebar-entry')
   row.className = 'war-sidebar-row'
-  // V16 术语随皮肤：标签取词典（trek=舰桥/军事=作战室），订阅切换即时换词。
+  // V16 术语随皮肤：标签取词典（trek=舰桥/军事=舰桥），订阅切换即时换词。
   const paintRow = (): void => {
     const label = activeCopy().head.title
     row.setAttribute('aria-label', label)

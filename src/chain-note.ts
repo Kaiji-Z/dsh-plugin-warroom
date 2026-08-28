@@ -29,7 +29,7 @@ function outcomeOf(camp?: CampaignState): string {
   if (camp.status === 'failed') return `败退${camp.lastError !== undefined && camp.lastError !== '' ? `——败因：${brief(camp.lastError, 120)}` : ''}`
   switch (camp.status) {
     case 'reported': return '已交稿，待舰长验收'
-    case 'in_progress': return '作战进行中'
+    case 'in_progress': return '执行进行中'
     case 'published': return '已发布，待外勤小队领令'
     default: return '草稿中'
   }

@@ -110,7 +110,7 @@ async function deployOnce(dir: string, unit: UnitSpec, flags: FeatureFlags, fron
 test('V4-R1 回归：war_deploy_unit 透传 agentOptions 仅当 flag ON 且组员带路由', async () => {
   const dir = taskDir()
   try {
-    // 三次加派组员各占一条战线——同任务写权限战区互斥是铁律，测试不得绕。
+    // 三次加派组员各占一条战线——同任务写权限星域互斥是铁律，测试不得绕。
     const off = await deployOnce(dir, routedUnit, FLAG_OFF, 'src')
     assert.equal(off.request.agentOptions, undefined, 'flag off 必须与改前字节等价（无 agentOptions）')
     const on = await deployOnce(dir, routedUnit, FLAG_ON, 'docs')

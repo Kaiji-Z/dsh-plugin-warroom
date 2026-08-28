@@ -51,7 +51,7 @@ export interface UnitRecord {
   settled?: { stopReason: string; ts: string }
 }
 
-/** One commander attempt (作战会话) on a task — the unit the board's
+/** One commander attempt (执行会话) on a task — the unit the board's
  * 进行中/已完成/已失败 columns are made of. `sessionId` is the commander's
  * conversation (claimedBy at claim time); clicking the card opens it. */
 export interface AttemptRecord {

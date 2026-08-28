@@ -1,6 +1,6 @@
 /**
- * V11.4 战区引擎：space-warzone.html 全要素 1:1 移植（舰长令「完全一比一」）。
- * 世界是 demo 自己的——16 星球战争模拟（待进攻→作战中→已占领→失守反转，永不
+ * V11.4 星域引擎：space-warzone.html 全要素 1:1 移植（舰长令「完全一比一」）。
+ * 世界是 demo 自己的——16 星球战争模拟（待进攻→执行中→已占领→失守反转，永不
  * 落幕）、编队出征/接敌/攻占/返航、2D 指挥室战术视图、战况日志。与项目后端的
  * 数据连线是下一个独立阶段，本模块暂不消费任何板数据。
  *
@@ -82,7 +82,7 @@ export function qbez(a: { x: number; y: number; z: number }, c: { x: number; y: 
  * ================================================================ */
 
 export type WzClass = 'large' | 'medium' | 'small'
-export type WzStatus = '待进攻' | '作战中' | '已占领'
+export type WzStatus = '待进攻' | '执行中' | '已占领'
 
 export interface WzPlanetSpec {
   readonly index: number
@@ -171,7 +171,7 @@ export interface WzBridgePlanet {
   readonly wsPath: string
   /** 历史任务量（大小分级依据：多仗=大星）。 */
   readonly activity: number
-  readonly status: '待进攻' | '作战中' | '已占领'
+  readonly status: '待进攻' | '执行中' | '已占领'
   /** 达成数（驻军弧）。 */
   readonly garrison: number
   readonly failing: number
@@ -303,7 +303,7 @@ export interface WzPlanet {
   radius: number
   mesh: THREE.Group
   cloud: THREE.Mesh | null
-  /** V12 浅色态状态件：基座环+作战光柱（深色态为 null，halo 承担语义）。 */
+  /** V12 浅色态状态件：基座环+执行光柱（深色态为 null，halo 承担语义）。 */
   ring: THREE.Mesh | null
   pillar: THREE.Mesh | null
   halo: THREE.Sprite
@@ -387,7 +387,7 @@ export function archetypeOf(wsPath: string): PlanetArchetype {
 /** 大气临边辉色（null=无大气壳）：水星型灰星免（无可感大气）。 */
 const ATMO_COLOR: Record<PlanetArchetype, number | null> = { gas: 0xe8c9a0, icegas: 0x7f9fd4, rust: 0xd9a075, gray: null, ice: 0xbcd8ff, terra: 0x7fb3ff }
 
-/** 原型中性辉光底色（halo=状态语义载体：作战中橙红/占领蓝/高亮青在 update 覆盖）。 */
+/** 原型中性辉光底色（halo=状态语义载体：执行中橙红/占领蓝/高亮青在 update 覆盖）。 */
 const ARCH_GLOW: Record<PlanetArchetype, number> = { gas: 0xc9b795, icegas: 0x9db4d8, rust: 0xc08a66, gray: 0x8d8d92, ice: 0xc4d8ee, terra: 0x7fa8d8 }
 
 /* --- 确定性值噪声：lattice 预生成 Float32Array，逐像素零字符串拼接（512x256 性能护栏） --- */
@@ -667,7 +667,7 @@ function ringTexture(wsPath: string): THREE.CanvasTexture {
 }
 
 /** 大气临边辉（BackSide fresnel 薄壳）：真实行星照片的标志——轮廓外圈一圈
- * 大气色，接棒退役的 halo 光球。 */
+ * 大气色，接棒休眠的 halo 光球。 */
 function makeAtmoMaterial(hex: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: { uColor: { value: new THREE.Color(hex) }, uK: { value: 0.18 } },
@@ -692,7 +692,7 @@ export function hqStats(planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3()
 const _c1 = new THREE.Color(), _c2 = new THREE.Color()
 
-/** 战区 3D 引擎（demo §1-§9 全量）：渲染栈/灯光/星海/星云/碎石带/星舰/16 星/
+/** 星域 3D 引擎（demo §1-§9 全量）：渲染栈/灯光/星海/星云/碎石带/星舰/16 星/
  * 编队模拟/冲击波环/加派组员循环。 */
 export class WarzoneScene {
   readonly renderer: THREE.WebGLRenderer
@@ -725,7 +725,7 @@ export class WarzoneScene {
   private hqActive = true
   private planetKey = ''
   private readonly squadBySession = new Map<string, WzSquad>()
-  /** 悬停/聚焦高亮战区（V11.5f 舰长令）：光晕增亮 + HQ↔星球虚线轨迹。 */
+  /** 悬停/聚焦高亮星域（V11.5f 舰长令）：光晕增亮 + HQ↔星球虚线轨迹。 */
   private readonly hlWs = new Set<string>()
   private hlLines: THREE.Line[] = []
   /** 三键相机态：cur 阻尼趋近 target；center=屏幕锚（平移推动它，旋转绕它）。 */
@@ -781,7 +781,7 @@ export class WarzoneScene {
     this.camera = new THREE.PerspectiveCamera(55, width / Math.max(height, 1), 0.1, 5000)
     this.viewH = height
     this.camera.position.set(64, 108, 252)
-    // V11.5b 三键相机（OrbitControls 退役）：左平移/中旋转（绕屏幕中心 center）/
+    // V11.5b 三键相机（OrbitControls 休眠）：左平移/中旋转（绕屏幕中心 center）/
     // 滚轮缩放；阻尼在 update() 内推进，render() 落位。
     const rt = this.renderer.getDrawingBufferSize(new THREE.Vector2())
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(rt.x, rt.y, { samples: 4 }))
@@ -837,7 +837,7 @@ export class WarzoneScene {
     this.scene.add(new THREE.PointLight(0x66ccff, 1400, 200, 2).translateY(36)) // V12.1：上方冷补光 900→1400（提亮舰体上表面）
     // V12：主题应用必须在 HQ/星球工厂可用的最后一步——浅色宿主开机即天空范式
     this.applyTheme(document.body.hasAttribute('data-ds-dark-theme'))
-    // V11.5：星球/编队不再自建（demo 自驱退役）——挂载后由 syncBoard 真实数据落子。
+    // V11.5：星球/编队不再自建（demo 自驱休眠）——挂载后由 syncBoard 真实数据落子。
   }
 
   /** 单星球落子（V11.5h NASA 自然色）：Group = 表面 + 云壳（terra/rust）+ 大气
@@ -887,7 +887,7 @@ export class WarzoneScene {
       ring.rotation.x = Math.PI / 2 - det(`rt:${wsPath}`, 0.18, 0.42)
       group.add(ring)
     }
-    // halo=状态语义载体（作战中橙红脉冲/占领偏蓝/高亮青）——底色取原型中性辉光。
+    // halo=状态语义载体（执行中橙红脉冲/占领偏蓝/高亮青）——底色取原型中性辉光。
     const baseGlow = new THREE.Color(ARCH_GLOW[arch])
     const halo = this.glowSprite(baseGlow.clone(), spec.radius * 3.0, 0.32)
     group.add(halo)
@@ -911,7 +911,7 @@ export class WarzoneScene {
 
   /** 浅色浮空岛（V12 舰长定案：王国之泪层岩为主+纳格兰垂坠石点缀）——workspace=岛。
    * 语义物理化（选型红利）：LV2+长建筑=打过仗、层级/建筑密度=任务量、达成史=
-   * 发光达成碑、状态=基座环色+作战光柱（白天辉光失效的正解）。全 hash 确定性。 */
+   * 发光达成碑、状态=基座环色+执行光柱（白天辉光失效的正解）。全 hash 确定性。 */
   private addSkyIsland(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
     const k = `isl:${wsPath}`
     const R = spec.radius
@@ -967,7 +967,7 @@ export class WarzoneScene {
       const mo = add(new THREE.BoxGeometry(R * 0.06, R * 0.3, R * 0.06), new THREE.MeshBasicMaterial({ color: 0x35a8e8 }), R * 0.2 + R * 0.15)
       mo.position.x = Math.cos(a) * dr; mo.position.z = Math.sin(a) * dr
     }
-    // 状态件：基座环（水线位）+ 作战光柱（王国之泪光柱语言）
+    // 状态件：基座环（水线位）+ 执行光柱（王国之泪光柱语言）
     const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 1.08, Math.max(0.5, R * 0.05), 6, 42), new THREE.MeshBasicMaterial({ color: 0xb07800, transparent: true, opacity: 0.3, depthWrite: false }))
     ring.rotation.x = Math.PI / 2
     ring.position.y = R * 0.08
@@ -979,7 +979,7 @@ export class WarzoneScene {
     pillar.position.y = R * 0.2 + 31
     pillar.visible = false
     group.add(pillar)
-    // halo 语义退役（浅色态隐藏，环+柱接班）；代理同太空版
+    // halo 语义休眠（浅色态隐藏，环+柱接班）；代理同太空版
     const baseGlow = new THREE.Color(0x7fae6b)
     const halo = this.glowSprite(baseGlow.clone(), R * 2.4, 0.001)
     halo.visible = false
@@ -1336,7 +1336,7 @@ export class WarzoneScene {
       return
     }
     if (p.status === '待进攻') {
-      p.status = '作战中'
+      p.status = '执行中'
       s.phase = 'battle'
       s.battleT = p.battleT = det(`bt:${s.id}`, 6, 14)
       s.orbitSpd = det(`osb:${s.id}`, 1.8, 2.6)
@@ -1599,7 +1599,7 @@ export class WarzoneScene {
     }
   }
 
-  /** 高亮战区集合（板卡悬停/聚焦/执行卡悬停共入口）；星球静态，轨迹线重建即可。 */
+  /** 高亮星域集合（板卡悬停/聚焦/执行卡悬停共入口）；星球静态，轨迹线重建即可。 */
   setHighlight(ws: ReadonlyArray<string>): void {
     this.hlWs.clear()
     for (const w of ws) this.hlWs.add(w)
@@ -1658,7 +1658,7 @@ export class WarzoneScene {
     // V15.2 语义重铸（舰长定案）：一星球一环、分段=战线数。旧语义（每战线一条
     // 链色环+世代点+末代辉光）在多战线星球退化成密环叠罗汉——战线数改由分段数
     // 编码，不区分链色；环色取星球自身辉光底色（每星球确定性一套色系）。
-    // 世代点退役：代数是卡片层信息（悬停 tooltip/星球面板/任务列组头）。
+    // 世代点休眠：代数是卡片层信息（悬停 tooltip/星球面板/任务列组头）。
     const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
     const counts = new Map<string, number>()
     for (const f of fronts) {
@@ -1755,7 +1755,7 @@ export class WarzoneScene {
       if (this.isDarkTheme) {
         _c1.copy(p.baseGlow)
         let op = 0.3
-        if (p.status === '作战中') {
+        if (p.status === '执行中') {
           _c1.copy(this.cBattle)
           op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
         } else if (p.status === '已占领') {
@@ -1768,9 +1768,9 @@ export class WarzoneScene {
         const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
         p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
       } else if (p.ring !== null) {
-        // V12 浅色：辉光失效——基座环+作战光柱接班状态语义（光柱=王国之泪语言）
+        // V12 浅色：辉光失效——基座环+执行光柱接班状态语义（光柱=王国之泪语言）
         const rm = p.ring.material as THREE.MeshBasicMaterial
-        if (p.status === '作战中') {
+        if (p.status === '执行中') {
           rm.color.copy(this.cBattle)
           rm.opacity = 0.5 + 0.25 * Math.sin(t * 7 + p.seed * 6)
           if (p.pillar !== null) {
@@ -1945,7 +1945,7 @@ export class WarzoneScene {
 /* ================================================================
  * 指挥室 2D 战术视图（V11.5f 按令去面板）：雷达盘/HQ 八角/星球符号（含高亮
  * 虚线轨迹+名签）/编队三角+虚线航迹/CRT 静态扫描线；名册/态势/速报面板族与
- * 扫描波束动画已随「指挥室屏幕=围合中央自由区」定案退役。
+ * 扫描波束动画已随「指挥室屏幕=围合中央自由区」定案休眠。
  * ================================================================ */
 
 export interface TacHit { x: number; y: number; r: number; ref: unknown }
@@ -1991,7 +1991,7 @@ export class WarzoneTactical {
 
 
   /** 帧绘制（V11.5f 舰长令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
-   * 文字全部退役——只剩盘+符号+高亮；扫描波束动态动画此前已退役。 */
+   * 文字全部休眠——只剩盘+符号+高亮；扫描波束动态动画此前已休眠。 */
   draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>): void {
     const g = this.g
     const w = this.w, h = this.h
@@ -2065,7 +2065,7 @@ export class WarzoneTactical {
     // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹）
     planets.forEach(p => {
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
-      const col = p.status === '作战中' ? P.stBattle : p.status === '已占领' ? P.stHeld : P.stWait
+      const col = p.status === '执行中' ? P.stBattle : p.status === '已占领' ? P.stHeld : P.stWait
       const rr = Math.max(7, p.radius * 0.9)
       const isHl = hl !== undefined && hl.has(p.wsPath)
       if (isHl) {
@@ -2074,7 +2074,7 @@ export class WarzoneTactical {
         g.strokeStyle = P.hlLine; g.lineWidth = 1.4; g.stroke()
         g.setLineDash([])
       }
-      if (p.status === '作战中') {
+      if (p.status === '执行中') {
         const k = (t * 1.4 + p.seed) % 1
         g.beginPath(); g.arc(s1.x, s1.y, rr + 4 + k * 16, 0, PI2)
         g.strokeStyle = `rgba(${P.battlePulse},${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()
@@ -2123,13 +2123,13 @@ export class WarzoneTactical {
       g.restore()
       hits.push({ x: s1.x, y: s1.y, r: 12, ref: s })
     })
-    // V11.5f（舰长令）：名册/态势/速报/顶底栏文字全部退役——只剩盘+符号+高亮。
+    // V11.5f（舰长令）：名册/态势/速报/顶底栏文字全部休眠——只剩盘+符号+高亮。
     const B = 26, M = 14
     ;([[S.x + M, S.y + M, 1, 1], [S.x + S.w - M, S.y + M, -1, 1], [S.x + M, S.y + S.h - M, 1, -1], [S.x + S.w - M, S.y + S.h - M, -1, -1]] as const).forEach(c => {
       g.strokeStyle = P.corner; g.lineWidth = 2
       g.beginPath(); g.moveTo(c[0] + c[2] * B, c[1]); g.lineTo(c[0], c[1]); g.lineTo(c[0], c[1] + c[3] * B); g.stroke()
     })
-    // CRT 静态扫描线（动态闪线按令退役；纸面态无扫描纹理——白纸干净）
+    // CRT 静态扫描线（动态闪线按令休眠；纸面态无扫描纹理——白纸干净）
     if (P.scan && this.scanPat) { g.fillStyle = this.scanPat; g.fillRect(0, 0, w, h) }
   }
 }

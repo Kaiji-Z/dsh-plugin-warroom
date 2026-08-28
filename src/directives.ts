@@ -319,7 +319,7 @@ export function deriveContinuation(
   if (task.lastOutcome === 'failed' || task.status === 'failed') return { mode: 'retry' }
   if (task.status === 'closed' || task.lastOutcome === 'succeeded' || task.lastOutcome === 'reported') return { mode: 'deepen' }
   if (task.liveAttemptSessionId !== undefined) return { mode: 'pivot', targetSessionId: task.liveAttemptSessionId }
-  return { error: '作战正在排队（外勤小队尚未领令接火），此刻无可转向的执行会话。' }
+  return { error: '执行正在排队（外勤小队尚未领令接火），此刻无可转向的执行会话。' }
 }
 
 /** Load all directives from disk (read + fold), oldest first. */

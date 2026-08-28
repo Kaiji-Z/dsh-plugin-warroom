@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { agingLeader, agingTone, collectInbox, formatWait, inboxGrowthAnnounce, INBOX_ERR_MS, INBOX_WARN_MS, type InboxItem } from '../src/client/inbox.ts'
 import type { BoardCommand, BoardTask } from '../src/client/data.ts'
 
-/** V7-① 等你发落收件箱——纯聚合层（不引 react/node 专属 API），node 直测。
+/** V7-① 等你定夺收件箱——纯聚合层（不引 react/node 专属 API），node 直测。
  * 红线相伴：本模块只算导航数据，板上不长任务写操作。 */
 
 const NOW = Date.parse('2026-08-25T12:00:00Z')

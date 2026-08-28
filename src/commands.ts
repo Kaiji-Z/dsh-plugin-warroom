@@ -98,7 +98,7 @@ export function registerPeaceCommand(commands: CommandsServiceFace, deps: WarCom
         deps.store.save()
         deps.onActiveChange(false)
       }
-      return { kind: 'success', text: '舰桥已退役（在役外勤组员与会话保留，可 /war 重新启用）/ War room stood down.' }
+      return { kind: 'success', text: '舰桥已休眠（在役外勤组员与会话保留，可 /war 重新启用）/ War room stood down.' }
     },
   })
 }

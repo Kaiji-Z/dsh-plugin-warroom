@@ -266,7 +266,7 @@ body[data-ds-dark-theme] .war-root{
  * 调强度）+ 内阴影；命令卡在坞里浮起一层投影。
  * V9.4 容器化（舰长定）：整坞一个大容器（与三区同语言的圆角容器，物种差
  * 保留——主色淡染凹槽坞）；左端 ＋ 下达瓦片（容器一部分，幽灵虚线态）；
- * 命令卡全部进 .war-dispatch-track 轨道横滚；「命令调度」铭牌退役。 */
+ * 命令卡全部进 .war-dispatch-track 轨道横滚；「命令调度」铭牌休眠。 */
 .war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;margin:0 10px 10px;padding:10px;border:1px solid var(--war-border);border-radius:var(--war-r-lg);background:var(--war-dock-bg);box-shadow:var(--war-dock-inset)}
 .war-dispatch-track{flex:1 1 auto;min-width:0;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
 .war-dispatch-track.can-scroll{mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35));-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35))}
@@ -290,7 +290,7 @@ body[data-ds-dark-theme] .war-root{
 
 /* status chip colors —— 状态语义四色 + 中性：
  * 蓝=机器在动（进行/直发档/定时）、琥珀=等你（对话/呈批/等待警示）、
- * 绿=善终（收官/打赢/已阅）、红=败（失败/错误/高危）、中性灰=待你翻阅
+ * 绿=圆满（收官/打赢/已阅）、红=败（失败/错误/高危）、中性灰=待你翻阅
  * （reported——事实已定，动作是你翻，不给惊扰色）。 */
 .war-chip.st-published{color:var(--war-wait);border-color:var(--war-wait-border);background:var(--war-wait-tint)}
 .war-chip.st-in_progress,.war-chip.oc-live{color:var(--war-run);border-color:var(--war-run-border)}
@@ -341,7 +341,7 @@ body[data-ds-dark-theme] .war-root{
 .war-life-stage{display:flex;flex-direction:column;gap:3px;min-width:0}
 .war-life-bar{height:3px;border-radius:2px;background:var(--war-border);transition:background .2s ease}
 .war-life-bar.done{background:var(--war-done-border)}
-.war-life-bar.err{background:var(--war-fail-border)} /* V12.2 critique P2：败局终站红——绿严格=善终（图例契约），折戟的报告段红收尾 */
+.war-life-bar.err{background:var(--war-fail-border)} /* V12.2 critique P2：败局终站红——绿严格=圆满（图例契约），挫败的报告段红收尾 */
 .war-life-bar.now{background:var(--war-run-border);animation:war-life-breath 2.4s ease-in-out infinite}
 @keyframes war-life-breath{0%,100%{opacity:1}50%{opacity:.45}}
 @media (prefers-reduced-motion: reduce){.war-life-bar.now{animation:none}}
@@ -357,7 +357,7 @@ body[data-ds-dark-theme] .war-root{
 .war-chip.war-lineage{cursor:pointer}
 .war-chip.war-lineage:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 
-/* --- V7-① 等你发落收件箱（指挥中心头部聚合队列） ------------------------------- */
+/* --- V7-① 等你定夺收件箱（指挥中心头部聚合队列） ------------------------------- */
 .war-inbox{flex:0 0 auto;margin:8px 14px 0;border:1px solid var(--war-border);border-radius:var(--war-r-md);background:var(--war-card-bg)}
 .war-inbox-head{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--war-border-soft)}
 .war-inbox-title{font-size:12px;font-weight:700;color:var(--war-text-2);letter-spacing:.04em}
@@ -490,6 +490,10 @@ body[data-ds-dark-theme] .war-root{
 .war-sidebar-row[data-active="true"]{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-weight:600}
 .war-sidebar-icon{display:inline-flex;align-items:center;flex:0 0 auto;color:currentColor}
 .war-sidebar-label{white-space:nowrap}
+/* V16 宿主侧栏收起（rail 态，祖先类 *_collapsed 后缀稳定）：藏文字只留图标，
+ * 35px 轨道内图标居中（padding 收零，与宿主原生 rail 行对齐）。 */
+[class*="_collapsed"] .war-sidebar-row{justify-content:center;padding:7px 0;gap:0}
+[class*="_collapsed"] .war-sidebar-label{display:none}
 .war-shell-view{display:none}
 html[data-dsh-warroom-active] .war-shell-view{display:flex;flex-direction:column;height:100%}
 html[data-dsh-warroom-active] [data-pane='conversation'] > :not([data-dsh-warroom-view]),
@@ -698,7 +702,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-chip.st-wait{color:var(--war-wz-chip-wait-text);background:var(--war-wz-chip-wait-bg);border:1px solid var(--war-wz-chip-wait-border)}
 .war-wz-chip.st-battle{color:var(--war-wz-chip-battle-text);background:var(--war-wz-chip-battle-bg);border:1px solid var(--war-wz-chip-battle-border)}
 .war-wz-chip.st-held{color:var(--war-wz-chip-held-text);background:var(--war-wz-chip-held-bg);border:1px solid var(--war-wz-chip-held-border)}
-/* V11.5：雷达=值班默认态，浮舱/坞是操作面恒在场（原 wz-cmd 全屏让位退役） */
+/* V11.5：雷达=值班默认态，浮舱/坞是操作面恒在场（原 wz-cmd 全屏让位休眠） */
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}
 .war-s3d-overlay .war-planet,.war-s3d-overlay .war-orb{position:absolute;left:0;top:0;pointer-events:auto;will-change:transform}
@@ -738,7 +742,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
   .war-cmd-group .war-command-card{transition:none}
   .war-cmd-group .war-command-card:hover{transform:none}
 }
-/* V10.1 昔日阵地 ghost：hover 族链时显形的已结算 attempt——空心静止，绿=善终/红=败 */
+/* V10.1 昔日阵地 ghost：hover 族链时显形的已结算 attempt——空心静止，绿=圆满/红=败 */
 .war-orb-ghost{position:absolute;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;border:2px solid var(--war-done);background:transparent;opacity:.6;pointer-events:none}
 .war-orb-ghost.fail{border-color:var(--war-fail)}
 /* --- V10-R3b 星域态悬浮舱：中列让位恒星系后，左右两列窄幅半透明浮起 ---------- */
@@ -847,7 +851,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-tour-jumps{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--war-border-soft)}
 .war-jump-btn{flex:1 1 0;justify-content:center;display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
 .war-jump-btn:disabled{cursor:not-allowed;opacity:.55}
-/* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 任务产出+历次作战行 --- */
+/* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 任务产出+历次执行行 --- */
 .war-tour-ghost.warn{border-color:color-mix(in srgb, var(--war-wait-border) 55%, var(--war-border));background:var(--war-wait-tint)}
 .war-tour-ghost.warn .war-tour-ghost-icon{color:var(--war-wait)}
 .war-btn.war-btn-warn{border-color:var(--war-wait-border);color:var(--war-wait);background:color-mix(in srgb, var(--war-wait-border) 8%, var(--war-card-bg))}

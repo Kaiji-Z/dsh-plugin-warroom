@@ -140,7 +140,7 @@ function seedChain(dir: string, mode: 'deepen' | 'retry' | 'pivot'): void {
 test('V10 pivot 分路：指令直插活体执行会话队列，一穿五态挂父任务；不开新大副会话', async () => {
   const dir = tmpStateDir()
   try {
-    // 活体 attempt：claimedBy 即执行会话号（endedAt 空 = 作战中）。
+    // 活体 attempt：claimedBy 即执行会话号（endedAt 空 = 执行中）。
     appendEvent(dir, { type: 'task_claimed', ts: isoAt(2), campaignId: 'T-9', claimedBy: 'cmd-live-1' })
     seedChain(dir, 'pivot')
     const sessions = fakeSessions()

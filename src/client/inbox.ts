@@ -1,5 +1,5 @@
 /**
- * V7-① 「等你发落」收件箱——纯客户端聚合，零后端。
+ * V7-① 「等你定夺」收件箱——纯客户端聚合，零后端。
  * 把散落三处、需要舰长动作的时刻聚成一条队列：答澄清（talking 命令）、
  * 批计划（plan pending）、翻任务回报（reported 任务）、决重试（failed 任务）。
  * 红线：收件箱只导航到动作发生地，板上不长任务写操作。
@@ -46,7 +46,7 @@ function mkItem(kind: InboxKind, refId: string, title: string, since: string, no
   return { kind, refId, title, since, waitMs, tone: agingTone(waitMs) }
 }
 
-/** 聚合四类待发落动作；等得最久的排最前（aging 视觉强调对齐）。 */
+/** 聚合四类待定夺动作；等得最久的排最前（aging 视觉强调对齐）。 */
 export function collectInbox(commands: BoardCommand[], tasks: BoardTask[], now: number = Date.now()): InboxItem[] {
   const items: InboxItem[] = []
   for (const c of commands) {
