@@ -579,6 +579,6 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 
 **考题抓出三真 bug 全修**：①war_publish 悬空批准死锁——旧序先落 directive_approved(taskId) 再绑工作区，绑定失败即死锁（重试被终态守卫拒，参谋只能改账本——第一轮考题参谋真的去做了外科手术，被元首叫停）；修=工作区路由前置，失败零写入。②引信双开竞态——下令立即 tickNow 与 15s 周期 tick 撞车双读到 draft，一代双参谋会话（第二个空转自判无需处理）；修=fuse 在途守卫。③参谋会话裸 cwd 无工作区身份（元首定案**选项2：参谋绑 warRoot 工作区**——星域语义不变 warRoot 本就是未分组行星，宿主侧栏从幽灵变居民，与指挥官征召同构）——relay 改走 workspace.create(幂等)+workspaceId，落地实证侧栏现 war 工作区、参谋自检身份合规。④jumpSession try/catch 接 select 抛错走 onJumpMiss 警示（原来 UI 无动作一声闷响）。
 
-**上游发现挂账**：宿主 web 客户端冷会话列表失效（重启后所有工作区组不列 cold 会话、select 抛 unknown）——跳参谋会话最后一段被宿主挡住，修复在 harness 仓库，证据 r15-exam.md。
+**上游发现（更正）**：初判「宿主冷会话列表失效」系误诊——真相是**冷列表起服后首次扫描慢**（412 会话头约 10-15s），早期采样全在扫描完成前（元首肉眼反证：study-area 会话一直可见；复测 t+15s 老会话齐现）。跳转在列表就绪后正常；war 组下 4 条参谋会话行可见（修2 实证，r15-jump-final.png）。
 
 **坑**：poll 谓词返回布尔=「非 None 即成功」首轮即退（received 拍终态）；审批应答 POST /api/respond 需 client-response 信封+wire rpcId（mux approval/requested 帧取，与审计 approvalId 两个 id 空间）；沙盒审批等待期参谋 turn 冻结（考题环境准备下令前做）。
