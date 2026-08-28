@@ -339,7 +339,7 @@ export const warCopy: WarCopy = {
     unreachable: err => `任务栏不可达：${err}`,
   },
   zones: {
-    tasks: { title: '任务', note: '待领 · 进行 · 待翻阅——未终局任务' },
+    tasks: { title: '任务', note: '等·指挥官 · 进行 · 待翻阅——未终局任务' },
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
   dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到星域战场——每片战区一颗星', viewBackHint: '回列表视图（三列局势墙）', segActive: '进行中', segSettled: '已收官' },
@@ -464,7 +464,6 @@ export const warCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
-      ['待×3', '三个等待对象不同：待接=命令到参谋 · 待领=任务等指挥官 · 待发=战区有仗要打'],
       ['！', '新悬赏挂出，等待指挥官领取'],
       ['？', '战报已呈递，等你翻阅收菜'],
       ['◎', '聚焦：只亮这条命令的族系（任务+会话），Esc 退出'],
@@ -480,7 +479,7 @@ export const warCopy: WarCopy = {
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '挂载一个外部会话上战场', newTitle: '新建命令' },
   taskStatus: {
-    published: '待领取',
+    published: '等·指挥官领取',
     in_progress: '进行中',
     reported: '待翻阅',
     draft: '草稿',
@@ -662,10 +661,10 @@ export const warCopy: WarCopy = {
     lineageLabel: '源自命令',
   },
   island: {
-    // V10.1 审查：零段折叠（三个 0 是胶囊噪音）；「待接」与「待领」一字之差
-    // 语义撞车——参谋侧未成形命令正名「接令」（分诊/对话都在接令中）。
+    // V10.1 审查：零段折叠（三个 0 是胶囊噪音）。V12.2 元首令「让图例失业」：
+    // 等待对象后缀化（等·参谋/等·指挥官）——词本身自消歧，图例 待×3 行删除。
     counts: c =>
-      [c.pending > 0 ? `接令 ${c.pending}` : '', c.waiting > 0 ? `待领 ${c.waiting}` : '', c.active > 0 ? `作战 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
+      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `作战 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     inboxBadge: n => `✉ ${n}`,
     // V10.1 审查：▲收官→✓收官（善终语义，与凯旋印记同符）。
@@ -679,8 +678,8 @@ export const warCopy: WarCopy = {
   },
   dock: {
     label: '作战室',
-    titleLine: c => `接令中 ${c.pending} · 待领取 ${c.waiting} · 进行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
-    segLine: c => `作战室${c.pending > 0 ? ` 命令${c.pending}` : ''} 待领${c.waiting} 进行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
+    titleLine: c => `等·参谋 ${c.pending} · 等·指挥官 ${c.waiting} · 进行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
+    segLine: c => `作战室${c.pending > 0 ? ` 等·参谋${c.pending}` : ''} 等·指挥官${c.waiting} 进行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
     unread: n => `${n} 新`,
   },
 }
@@ -824,7 +823,6 @@ export const plainCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
-      ['待×3', '三种等待：待接=命令 · 待领=任务 · 待发=战区（对象不同）'],
       ['！', '新任务，等待执行者领取'],
       ['？', '结果已提交，等待你验收'],
       ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
@@ -840,7 +838,7 @@ export const plainCopy: WarCopy = {
   },
   colActions: { attachLabel: '⌁ 挂载', attachTitle: '把一个外部会话挂上看板', newTitle: '新建命令' },
   taskStatus: {
-    published: '待领取',
+    published: '等·指挥官领取',
     in_progress: '执行中',
     reported: '待验收',
     draft: '草稿',
@@ -1023,7 +1021,7 @@ export const plainCopy: WarCopy = {
   },
   island: {
     counts: c =>
-      [c.pending > 0 ? `待分诊 ${c.pending}` : '', c.waiting > 0 ? `待领 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
+      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     inboxBadge: n => `✉ ${n}`,
     visitMini: (closed, failed, commands) =>
@@ -1036,8 +1034,8 @@ export const plainCopy: WarCopy = {
   },
   dock: {
     label: '作战室',
-    titleLine: c => `待分诊 ${c.pending} · 待领取 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
-    segLine: c => `作战室${c.pending > 0 ? ` 命令${c.pending}` : ''} 待领${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
+    titleLine: c => `等·参谋 ${c.pending} · 等·指挥官 ${c.waiting} · 执行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
+    segLine: c => `作战室${c.pending > 0 ? ` 等·参谋${c.pending}` : ''} 等·指挥官${c.waiting} 执行${c.active}${c.failed > 0 ? ` 失败${c.failed}` : ''}`,
     unread: n => `${n} 新`,
   },
 }

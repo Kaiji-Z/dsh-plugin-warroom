@@ -491,3 +491,7 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **坑（本轮新增入账）**：①**块注释内 `*/` 序列提前终止注释**——`（--war-wz-*/--war-tac-*）` 一写就把后面内容当代码，esbuild 报「Expected identifier but found --」，注释里禁止 token 通配写法；②**对象字面量保留字键**（`return:`）需引号；③**critique 快照同秒同名互相覆盖**——多轮落盘必须隔秒；④**双子代理复审方差**——fresh 代理每轮会发现新 P2/P3 且有 ~2 条/轮误报率，父级必须源码复核再入整改单（本轮拦下「无 aria-live」「无方向键」「hover 宽度跳变」三条误报）。
 
 **验证**：verify **228 测** PASS（新增 war-tokens 五测：闭合/纯净/钩子在场/回退哨兵×2——哨兵首跑即抓到本人 held #5fc4ff vs 令牌 #66d4ff 漂移，机制自证有效）+ verify.mjs 六新针脚 + shoot-theme **20/20** + shoot-v10 五相位 + shoot-v7 + probe-warzone **36/36** + 双主题 3D 令牌 computed 实证（浅 #b07800→深 #ffc24d 全组翻转）+ 像素统计（浅 lum242/深 lum26）+ 12px 底线浏览器复扫 0 违规。取证 `.goal/evidence/v12/`：v122-3d-light/dark、v122-fix-dispatch/narrow/3d-light、v122-final-map-light/dark。
+
+### V12.2.1 「让图例失业」（2026-08-28，元首令，critique 遗留 P2 当场定案）
+
+等待对象后缀化：`接令/待领`（plain `待分诊/待领`）→ **`等·参谋`/`等·指挥官`**——等待对象进词本身，词表自消歧，两皮图例的「待×3」消歧行删除（图例失业）。同族对齐：坞 pill titleLine/segLine、任务列注、taskStatus.published（`待领取`→`等·指挥官领取`）。散文语境（参谋接令分诊/部队待领令）不动——它们本就自明。**坑**：岛计数染色渲染按 `·` 切段会把词内的 `等·参谋` 也切开（渲染成 `等 · 参谋`，琥珀判定失灵）——段分隔必须切带空格的 `' · '`，live 复核当场抓获。

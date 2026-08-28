@@ -1565,11 +1565,13 @@ function WarIsland(props: {
     createElement('span', { className: 'war-island-title' }, activeCopy().head.title),
     // V12.2 critique P3 整改：计数数字上权重（13px/600）——岛计数是全板第一眼
     // 信息，此前 12px/400 比任何卡标题都弱（层级倒挂）。数字 <b> 化，标签保持弱灰；
-    // 「待领」段（琥珀=等你——四数中唯一行动信号）加主从：非零时数字染琥珀。
+    // 「等·指挥官」段（琥珀=等你——四数中唯一行动信号）加主从：非零时数字染琥珀。
+    // 段分隔必须切带空格的 ' · '——词内的 等·参谋 之 · 无空格，不能当分隔符吃掉
+    // （首版 split('·') 把词切开、琥珀判定随之失灵，live 复核当场抓获）。
     // aria-live=polite：SSE 计数跃迁对读屏可闻（收件箱增量播报之外的轻量覆盖）。
     createElement('span', { className: 'war-island-counts', 'aria-label': countsText, 'aria-live': 'polite' },
-      ...countsText.split('·').flatMap((part, pi): ReactNode[] => {
-        const isWait = part.trim().startsWith('待领')
+      ...(countsText === '' ? [] : countsText.split(' · ')).flatMap((part, pi): ReactNode[] => {
+        const isWait = part.trim().startsWith('等·指挥官')
         return (pi > 0 ? [' · '] : []).concat([...part.split(/(\d+)/)].map((segText, i) => /^\d+$/.test(segText)
           ? createElement('b', { key: `n${pi}-${i}`, className: `war-island-num${isWait ? ' wait' : ''}` }, segText)
           : segText))
