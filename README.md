@@ -111,6 +111,7 @@ pnpm dsh --profile web --patch D:/.../dsh-plugin-warroom/cordis.dev.yml --port 3
 | V12-V12.2 | 浅色范式（天空/浮空岛）→ 语义 token 化全项目重铸（三层令牌 + war-tokens.ts 唯一色源 + critique 35/40） | 228 测 + theme 20/20 |
 | **V13 战线一等公民** | **血脉≠战线（战线=血脉∩战场，续代跨战场=新战线）** / 任务列战线分组 / 调度坞按段分组 / 星域世代环+未分组行星 / 纯前端零后端 | **235 测 + shoot-v13 12 断言（拆段双证）+ probe 40/40** |
 | **V14 战线范式收口** | **血脉除名——战场⊃战线⊃命令** / 聚焦页本地计代+溯源 chip / 链色绑战线 / composer 显式战场选择（续接带父战场）/ 点战场看战线清单 / 写侧引导 | **239 测 + V14 七针脚 + 五 shooter 全绿** |
+| **V15 续接闭环+战场正名+战线命名** | 链档案三档注入（staff 1500/征召令 600/pivot 400：上代战报+产物路径+diffstat）/ workspaceKind 投影（kind 感知战场键，auto-worktree 归未分组治误判）/ 战线命名（下达时可选 ≤24 字，name??原文，本轮不可改） | **verify+V15 六针脚 + shoot-v13 命名断言 + 五 shooter 全绿** |
 
 **后续候选**：路由冷恢复桥、调度轮转优化、飞书遥控、git worktree 隔离、战绩/声望、多参谋、战场游戏化、npm 发布（release.mjs + OIDC）。
 

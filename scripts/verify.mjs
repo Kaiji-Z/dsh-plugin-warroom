@@ -283,6 +283,13 @@ gate('bundle', () => {
     [client, '【战场：', 'V14 battlefield protocol marker (cross-skin token)'],
     [client, 'war-wz-bfpanel', 'V14 battlefield fronts panel (click planet → front list)'],
     [client, 'war-bf-chip', 'V14.1 battlefield chip on flat (single-gen) task cards'],
+    // V15 needles：续接闭环 + workspaceKind + 战线命名。
+    [client, 'workspaceKind', 'V15 workspace binding kind (projection rides board, kind-aware wsKeyOf)'],
+    [client, 'namePlaceholder', 'V15 front-name composer input (dual-skin copy)'],
+    [host, 'buildChainNote', 'V15 chain knowledge continuity (staff relay archive)'],
+    [host, 'buildCommanderChainBrief', 'V15 commander conscription chain brief'],
+    [host, 'pivotChainSlice', 'V15 pivot insert parent slice'],
+    [host, 'workspaceKind', 'V15 write-side composeWorkspaceKind at both publish sites'],
     [client, '--war-dock-h', 'V14.1 wz-foot offset rides measured dock height (no magic number)'],
     [host, '战线跟着战场走', 'V14 skill workspace routing discipline + relay continuation binding'],
     [client, 'rebuildFrontLines', '3D front trajectory layer (chain-hue tubes + generation markers)'],

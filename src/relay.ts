@@ -16,6 +16,7 @@ import { featureEnabled, type FeatureFlags } from './flags.ts'
 import { bountyDraftingSkillContent } from './skill.ts'
 import { boardDigest } from './wake.ts'
 import { loadCampaign } from './events.ts'
+import { buildChainNote, pivotChainSlice, type ChainAncestor } from './chain-note.ts'
 import type { TaskStatus } from './types.ts'
 import type { WarStore } from './state.ts'
 
@@ -135,10 +136,11 @@ export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; 
   }
 }
 
-/** V10 pivot 转达文本（纯）：不进参谋对话——指令直插执行会话队列。 */
-export function pivotPromptFor(parentText: string, directiveId: string, text: string): string {
+/** V10 pivot 转达文本（纯）：不进参谋对话——指令直插执行会话队列。
+ * V15：可选父代速览（chain-note pivotChainSlice）——插播也带上代战况与产物。 */
+export function pivotPromptFor(parentText: string, directiveId: string, text: string, chainSlice = ''): string {
   return `【续战令·转向】${directiveId}（续自「${brief(parentText, 16)}」）
-
+${chainSlice === '' ? '' : `\n${chainSlice}\n`}
 指挥官：元首在作战进行中插播指令——
 
 ${text}
@@ -187,18 +189,14 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
     const gen = chains.generationOf.get(directive.id) ?? 1
     const rootId = chains.rootByCommand.get(directive.id) ?? directive.id
     const members = chains.membersOfRoot.get(rootId) ?? []
-    const steps = []
+    const ancestors: ChainAncestor[] = []
     for (let g = 1; g < gen && g <= members.length; g++) {
       const anc = byId.get(members[g - 1]!)
       if (anc === undefined) continue
-      const camp = campaignOf(anc.taskId)
-      steps.push({
-        generation: g,
-        text: anc.text,
-        outcome: chainOutcomeOf(camp === undefined ? undefined : { status: camp.status, lastError: camp.lastError, closedVerdict: camp.closedVerdict }),
-      })
+      ancestors.push({ generation: g, text: anc.text, campaign: campaignOf(anc.taskId) })
     }
-    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${chainDigest(steps)}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着战场走）；仅当命令明确要求换地点才换。`
+    // V15 知识连续性：详情代带战报摘要+关键产物路径（chain-note 纯模块，cap 1500）。
+    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${buildChainNote(ancestors, gen)}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着战场走）；仅当命令明确要求换地点才换。`
   }
   let relayed = 0
   for (const directive of pending) {
@@ -211,7 +209,9 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
       const camp = campaignOf(parent?.taskId)
       const live = camp?.attemptLog.filter(a => a.endedAt === undefined).at(-1)
       if (parent !== undefined && camp !== undefined && live !== undefined) {
-        const pushed = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId: live.sessionId, mode: 'queue', content: [{ type: 'text', text: pivotPromptFor(parent.text, directive.id, directive.text) }] } })
+        // V15：pivot 直插也带父代速览（结论+产物+战报，cap 400）。
+        const pivotSlice = pivotChainSlice({ generation: chains.generationOf.get(parent.id) ?? 1, text: parent.text, campaign: camp })
+        const pushed = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId: live.sessionId, mode: 'queue', content: [{ type: 'text', text: pivotPromptFor(parent.text, directive.id, directive.text, pivotSlice) }] } })
         if (!pushed.result.ok) continue // busy/shape drift：保持 draft，下一 tick 重投同一会话
         const now = new Date().toISOString()
         appendDirectiveEvent(deps.stateDir, { type: 'directive_received', ts: now, directiveId: directive.id, staffSessionId: live.sessionId })

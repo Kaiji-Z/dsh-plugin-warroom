@@ -49,6 +49,8 @@ export interface BoardAttempt {
 export interface BoardCommand {
   commandId: string
   text: string
+  /** V15 战线命名（元首下达时可选；null=旧命令/未命名，战线名回落命令原文）。 */
+  name?: string | null
   createdAt: string
   status: 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
   staffSessionId: string | null
@@ -80,6 +82,8 @@ export interface BoardTask {
   deps: string[]
   lastError: string | null
   workspacePath: string | null
+  /** V15：工作区绑定形态投影（null=旧任务，客户端回落路径启发式）。 */
+  workspaceKind: string | null
   claimedBy: string | null
   startedAt: string
   brief: string
@@ -130,11 +134,12 @@ export interface ContinueCandidate {
 }
 
 /** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交参谋）。 */
-export async function createCommand(text: string, cron?: string, continuesFrom?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; continuationMode?: 'deepen' | 'retry' | 'pivot'; error?: string }> {
+export async function createCommand(text: string, cron?: string, continuesFrom?: string, name?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; continuationMode?: 'deepen' | 'retry' | 'pivot'; error?: string }> {
   try {
     const payload: Record<string, string> = { text }
     if (cron !== undefined) payload.cron = cron
     if (continuesFrom !== undefined) payload.continuesFrom = continuesFrom
+    if (name !== undefined && name.trim() !== '') payload.name = name.trim().slice(0, 24)
     const res = await fetch('/warroom/api/commands', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

@@ -903,6 +903,8 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-bf-chip{flex:none;font-size:12px;line-height:18px;padding:0 7px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}
 .war-cd-origin:hover{color:var(--war-text-1);border-color:var(--war-border-hover,var(--war-border))}
+.war-name-input{width:100%;font-size:13px;line-height:20px;padding:6px 10px;border-radius:var(--war-r-md);border:1px solid var(--war-border);color:var(--war-text-1);background:var(--war-card-bg);font-family:var(--war-font);margin-bottom:2px}
+.war-name-input:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
 .war-cp-note{font-size:12px;color:var(--war-text-2);margin-top:4px;line-height:1.5}
 .war-front-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}
 .war-front-line{fill:none;stroke:var(--chain-hue,#888);stroke-width:1.6;stroke-opacity:.65;vector-effect:non-scaling-stroke;stroke-linejoin:round}

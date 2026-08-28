@@ -22,7 +22,8 @@ import { Config } from './config.ts'
 import { dueBounties, registerDashboard } from './dashboard.ts'
 import { registerPeaceCommand, registerWarCommand, type CommandsServiceFace } from './commands.ts'
 import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
-import { appendDirectiveEvent, dueScheduledDirectives, loadDirectives } from './directives.ts'
+import { appendDirectiveEvent, dueScheduledDirectives, foldChains, loadDirectives } from './directives.ts'
+import { buildCommanderChainBrief, type ChainAncestor } from './chain-note.ts'
 import { readDossier } from './dossier.ts'
 import { commanderPersonaText, conscriptBriefing, staffPersonaText } from './persona.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
@@ -122,10 +123,31 @@ function createConscriptor(deps: {
     const dossier = task.workspacePath !== undefined && bound
       ? readDossier(deps.stateDir, task.workspacePath)
       : '（新战区，尚无历史档案。）'
+    // V15 续接闭环：本任务若出自续接命令，征召令带上链摘要（末代结论+产物+战报，
+    // cap 600）。在 conscriptTask 内反查 taskId→命令——publish/收官接力/补征入口一处覆盖。
+    let chainBrief = ''
+    try {
+      const all = loadDirectives(deps.stateDir)
+      const cmd = all.find(d => d.taskId === task.campaignId && d.continuation !== undefined)
+      if (cmd !== undefined) {
+        const chains = foldChains(all)
+        const gen = chains.generationOf.get(cmd.id) ?? 1
+        const members = chains.membersOfRoot.get(chains.rootByCommand.get(cmd.id) ?? cmd.id) ?? []
+        const ancestors: ChainAncestor[] = []
+        for (let g = 1; g < gen && g <= members.length; g++) {
+          const anc = all.find(d => d.id === members[g - 1])
+          if (anc?.taskId === undefined) continue
+          const c = loadCampaign(deps.stateDir, anc.taskId)
+          ancestors.push({ generation: g, text: anc.text, campaign: c.startedAt === '' ? undefined : c })
+        }
+        chainBrief = buildCommanderChainBrief(ancestors, gen)
+      }
+    } catch { chainBrief = '' }
     const order = [
       commanderPersonaText(deps.maxUnits),
       '',
       conscriptBriefing({ taskId: task.campaignId, title: task.title ?? task.intent, workspacePath: task.workspacePath, acceptance: task.acceptance ?? '', dossier }),
+      ...(chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${chainBrief}`] : []),
       '',
       '你的写权限根就在本会话绑定的工作区——直接动手即可；确需分兵时用 war_deploy_unit（战区写工作区内相对路径）。',
     ].join('\n')

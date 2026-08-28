@@ -19,8 +19,8 @@
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { relative, resolve, isAbsolute } from 'node:path'
+import { existsSync, statSync } from 'node:fs'
+import { join, relative, resolve, isAbsolute } from 'node:path'
 import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, type DirectiveGrade } from './directives.ts'
 import { appendDossierEntry, dossierEntryFor } from './dossier.ts'
 import { appendEvent, foldCampaign, isActiveUnit, listCampaignIds, loadCampaign, readEvents } from './events.ts'
@@ -84,6 +84,22 @@ export type WorkspaceBinding =
   | { readonly kind: 'bound'; readonly path: string }
   | { readonly kind: 'instance'; readonly slug: string }
   | { readonly kind: 'auto' }
+
+/** V15：workspaceKind 组合（绑定形态 × 材质）。bound 分支探测 .git 是文件
+ *  （worktree 指针）→ bound-worktree——治「auto worktree-of-P 被当项目行星」误判。 */
+function composeWorkspaceKind(bindingKind: 'instance' | 'bound' | 'auto', ws: { kind: 'worktree' | 'dir' }, boundPath?: string): 'bound' | 'bound-worktree' | 'instance' | 'auto-worktree' | 'auto-dir' {
+  if (bindingKind === 'instance') return 'instance'
+  if (bindingKind === 'bound') {
+    if (boundPath !== undefined) {
+      try {
+        const gitPath = join(boundPath, '.git')
+        if (existsSync(gitPath) && statSync(gitPath).isFile()) return 'bound-worktree'
+      } catch { /* 探测失败=按普通 bound */ }
+    }
+    return 'bound'
+  }
+  return ws.kind === 'worktree' ? 'auto-worktree' : 'auto-dir'
+}
 
 export function parseWorkspaceArg(workspace: unknown): WorkspaceBinding {
   const ws = typeof workspace === 'string' ? workspace.trim() : ''
@@ -455,7 +471,7 @@ export function warTools(deps: WarToolsDeps) {
         type: 'task_created', ts: new Date().toISOString(), campaignId: taskId, title: args.title, brief: args.brief, acceptance: args.acceptance, priority, publishedBy: staff.id,
         ...(quality !== 'common' ? { quality } : {}), ...(depIds.length > 0 ? { deps: depIds } : {}),
       })
-      appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: taskId, workspacePath: ws.path, publishedBy: staff.id })
+      appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: taskId, workspacePath: ws.path, publishedBy: staff.id, workspaceKind: composeWorkspaceKind(binding.kind, ws, binding.kind === 'bound' ? resolve(binding.path) : undefined) })
       if (args.cron !== undefined && args.cron.trim() !== '') {
         appendEvent(deps.stateDir, { type: 'task_scheduled', ts: new Date().toISOString(), campaignId: taskId, cron: args.cron.trim(), enabled: true })
       }
@@ -1320,7 +1336,7 @@ export function warTools(deps: WarToolsDeps) {
           type: 'task_created', ts: new Date().toISOString(), campaignId: ids[i]!, title: spec.title, brief: spec.brief, acceptance: spec.acceptance, priority: 'normal', publishedBy: staff.id,
           ...(i > 0 ? { deps: [ids[i - 1]!] } : {}),
         })
-        appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: ids[i]!, workspacePath: ws.path, publishedBy: staff.id })
+        appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: ids[i]!, workspacePath: ws.path, publishedBy: staff.id, workspaceKind: composeWorkspaceKind(binding.kind, ws, binding.kind === 'bound' ? abs : undefined) })
       }
       // 命令卡链接链头（approved）；链尾收官即整条命令完成。
       appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: new Date().toISOString(), directiveId: directive.id, taskId: ids[0]! })

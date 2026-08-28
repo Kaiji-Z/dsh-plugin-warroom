@@ -70,7 +70,7 @@ tg1, tg2, tg4, tg5 = "20260823-hotel", "20260823-kilo", "20260823-lima", "202608
 
 # Ⅰ 部署脚本 v1：打赢收官（绿）。
 cev(tg1, {"type": "task_created", "ts": ts(54), "campaignId": tg1, "title": "projC 一键部署脚本 v1", "brief": "背景：手工起环境太繁琐。执行指引：写 deploy.sh 一键拉起测试环境。", "acceptance": "./deploy.sh 后 curl 探活返回 200", "priority": "normal", "quality": "fine", "publishedBy": "sec-g1"})
-cev(tg1, {"type": "task_published", "ts": ts(54), "campaignId": tg1, "workspacePath": WS_C1, "publishedBy": "sec-g1"})
+cev(tg1, {"type": "task_published", "ts": ts(54), "campaignId": tg1, "workspacePath": WS_C1, "publishedBy": "sec-g1", "workspaceKind": "bound"})
 cev(tg1, {"type": "task_claimed", "ts": ts(53), "campaignId": tg1, "claimedBy": "cmd-g1-session", "attemptId": "1a2b3c4d-0001-4a5b-8c6d-e0f1a2b3c4d5", "attempt": 1})
 cev(tg1, {"type": "task_submitted", "ts": ts(50), "campaignId": tg1, "report": "战报：deploy.sh 完成，探活 200，验收全过。", "from": "cmd-g1-session", "evidence": {"checks": [{"item": "./deploy.sh 后 curl 探活返回 200", "passed": True}], "tests": {"command": "npm test", "exitCode": 0, "passed": 6, "failed": 0}, "diffstat": "2 files changed, 88 insertions(+)"}})
 cev(tg1, {"type": "task_closed", "ts": ts(48), "campaignId": tg1, "verdict": "通过收官"})
@@ -81,7 +81,7 @@ dev({"type": "directive_approved", "ts": ts(53.5), "directiveId": g1, "taskId": 
 
 # Ⅱ 再战：Windows 兼容失败（红）——重试上限用尽。
 cev(tg2, {"type": "task_created", "ts": ts(46), "campaignId": tg2, "title": "部署脚本 Windows 兼容再战", "brief": "背景：v1 在 Windows 报路径错误。执行指引：跨平台路径处理并复测。", "acceptance": "Windows 上 ./deploy.sh 全绿", "priority": "normal", "publishedBy": "sec-g2"})
-cev(tg2, {"type": "task_published", "ts": ts(46), "campaignId": tg2, "workspacePath": WS_C1, "publishedBy": "sec-g2"})
+cev(tg2, {"type": "task_published", "ts": ts(46), "campaignId": tg2, "workspacePath": WS_C1, "publishedBy": "sec-g2", "workspaceKind": "bound"})
 cev(tg2, {"type": "task_claimed", "ts": ts(45), "campaignId": tg2, "claimedBy": "cmd-g2-session", "attemptId": "2b3c4d5e-0002-4a5b-8c6d-e0f1a2b3c4d5", "attempt": 1})
 cev(tg2, {"type": "task_attempt_failed", "ts": ts(43), "campaignId": tg2, "reason": "路径分隔符问题修了，但 shell 兼容层缺库", "from": "cmd-g2-session"})
 cev(tg2, {"type": "task_failed", "ts": ts(43), "campaignId": tg2, "reason": "第 1 次尝试失败：路径分隔符问题修了，但 shell 兼容层缺库（重试上限 1 已用尽）"})
@@ -97,17 +97,17 @@ dev({"type": "directive_cancelled", "ts": ts(38), "directiveId": g3, "reason": "
 
 # Ⅳ 转向容器化：报待发落（琥珀）——收件箱「战报待阅」第二件。
 cev(tg4, {"type": "task_created", "ts": ts(34), "campaignId": tg4, "title": "docker compose 测试环境", "brief": "背景：脚本路线受跨平台拖累。执行指引：compose 编排起测试环境。", "acceptance": "docker compose up 后探活 200", "priority": "normal", "publishedBy": "sec-g4"})
-cev(tg4, {"type": "task_published", "ts": ts(34), "campaignId": tg4, "workspacePath": WS_C2, "publishedBy": "sec-g4"})
+cev(tg4, {"type": "task_published", "ts": ts(34), "campaignId": tg4, "workspacePath": WS_C2, "publishedBy": "sec-g4", "workspaceKind": "bound"})
 cev(tg4, {"type": "task_claimed", "ts": ts(33), "campaignId": tg4, "claimedBy": "cmd-g4-session", "attemptId": "3c4d5e6f-0003-4a5b-8c6d-e0f1a2b3c4d5", "attempt": 1})
 cev(tg4, {"type": "task_submitted", "ts": ts(28), "campaignId": tg4, "report": "战报：compose 编排完成，探活 200。改动 docker-compose.yml 与 .env.example；遗留：回滚步骤待补。", "from": "cmd-g4-session", "evidence": {"checks": [{"item": "docker compose up 后探活 200", "passed": True}], "tests": {"command": "docker compose config", "exitCode": 0}, "diffstat": "2 files changed, 64 insertions(+)"}})
-dev({"type": "directive_created", "ts": ts(35), "directiveId": g4, "text": "转向：用 docker compose 管测试环境（续部署这条线）", "continuesFrom": g3, "continuationMode": "pivot"})
+dev({"type": "directive_created", "ts": ts(35), "directiveId": g4, "text": "转向：用 docker compose 管测试环境（续部署这条线）", "continuesFrom": g3, "continuationMode": "pivot", "name": "compose 迁移"})
 dev({"type": "directive_received", "ts": ts(34.5), "directiveId": g4, "staffSessionId": "sec-g4"})
 dev({"type": "directive_triaged", "ts": ts(34), "directiveId": g4, "grade": "L1", "reason": "换技术路线，先看编排方案", "confidence": 0.8})
 dev({"type": "directive_approved", "ts": ts(33.5), "directiveId": g4, "taskId": tg4})
 
 # Ⅴ 深化：在打（蓝·live 光点）——L1 分诊后元首改档 L0（改档 chip 演示）。
 cev(tg5, {"type": "task_created", "ts": ts(16), "campaignId": tg5, "title": "compose 环境补健康检查与回滚", "brief": "背景：遗留回滚步骤待补。执行指引：healthcheck + 回滚脚本。", "acceptance": "healthcheck 生效；回滚脚本幂等", "priority": "normal", "publishedBy": "sec-g5"})
-cev(tg5, {"type": "task_published", "ts": ts(16), "campaignId": tg5, "workspacePath": WS_C2, "publishedBy": "sec-g5"})
+cev(tg5, {"type": "task_published", "ts": ts(16), "campaignId": tg5, "workspacePath": WS_C2, "publishedBy": "sec-g5", "workspaceKind": "bound"})
 cev(tg5, {"type": "task_claimed", "ts": ts(15), "campaignId": tg5, "claimedBy": "cmd-g5-session", "attemptId": "4d5e6f7a-0004-4a5b-8c6d-e0f1a2b3c4d5", "attempt": 1})
 cev(tg5, {"type": "unit_deployed", "ts": ts(14), "campaignId": tg5, "childId": "u-g5", "unitName": "engineer", "label": "工程兵", "mission": "补 healthcheck 与回滚", "front": f"{WS_C2}/ops", "writes": True})
 dev({"type": "directive_created", "ts": ts(17), "directiveId": g5, "text": "给 compose 环境补上健康检查和一键回滚", "continuesFrom": g4, "continuationMode": "deepen"})
@@ -125,10 +125,10 @@ dev({"type": "directive_received", "ts": ts(1.5), "directiveId": g6, "staffSessi
 WS_SYN = "D:/smoke/.warroom/tasks/t20260828-01-organize-photos"
 g7, tg7 = "cmd-20260823-0800-a707", "task-20260823-0807"
 cev(tg7, {"type": "task_created", "ts": ts(12), "campaignId": tg7, "title": "整理相机图片进相册文件夹", "brief": "背景：全盘扫描相机导入目录。执行指引：按年月归档 + 去重。", "acceptance": "相册按年月分层，无重复", "priority": "normal", "publishedBy": "sec-g7"})
-cev(tg7, {"type": "task_published", "ts": ts(11.8), "campaignId": tg7, "workspacePath": WS_SYN, "publishedBy": "sec-g7"})
+cev(tg7, {"type": "task_published", "ts": ts(11.8), "campaignId": tg7, "workspacePath": WS_SYN, "publishedBy": "sec-g7", "workspaceKind": "auto-dir"})
 cev(tg7, {"type": "task_claimed", "ts": ts(11), "campaignId": tg7, "claimedBy": "cmd-g7-session", "attemptId": "7e8f9a0b-0001-4b5c-8d9e-f0a1b2c3d4e5", "attempt": 1})
 cev(tg7, {"type": "unit_deployed", "ts": ts(10), "campaignId": tg7, "childId": "u-g7", "unitName": "engineer", "label": "工程兵", "mission": "全盘扫描并归档相机图片", "front": f"{WS_SYN}/scan", "writes": True})
-dev({"type": "directive_created", "ts": ts(12.5), "directiveId": g7, "text": "把电脑里相机拍摄的图片都整理到相册文件夹"})
+dev({"type": "directive_created", "ts": ts(12.5), "directiveId": g7, "text": "把电脑里相机拍摄的图片都整理到相册文件夹", "name": "相册整理"})
 dev({"type": "directive_received", "ts": ts(12.2), "directiveId": g7, "staffSessionId": "sec-g7"})
 dev({"type": "directive_triaged", "ts": ts(12), "directiveId": g7, "grade": "L0", "reason": "归档活，直接做", "confidence": 0.86})
 dev({"type": "directive_approved", "ts": ts(11.8), "directiveId": g7, "taskId": tg7})

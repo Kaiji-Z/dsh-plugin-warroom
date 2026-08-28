@@ -94,6 +94,7 @@ export function foldCampaign(campaignId: string, events: ReadonlyArray<WarEvent>
       case 'task_published':
         state.status = 'published'
         state.workspacePath = event.workspacePath
+        if (event.workspaceKind !== undefined) state.workspaceKind = event.workspaceKind
         if (event.publishedBy !== undefined) state.publishedBy = event.publishedBy
         if (state.startedAt === '') state.startedAt = event.ts
         break

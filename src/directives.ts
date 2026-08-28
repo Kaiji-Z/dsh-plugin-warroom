@@ -65,13 +65,15 @@ export interface Directive {
   readonly continuesFrom?: string
   /** V10 续接意图（与 continuesFrom 同源冻结；pivot 的实际投递由引信分路）。 */
   readonly continuation?: { readonly mode: ContinuationMode; readonly parentId: string }
+  /** V15 战线命名：元首下达时可选（不填=命令原文当战线名）。 */
+  readonly name?: string
 }
 
 /** The directive log's entry union (one JSON line each). */
 export type DirectiveEvent =
   | { type: 'directive_created'; ts: string; directiveId: string; text: string; cron?: string;
       /** V10 战线续接：可选嫁接指针 + 冻结模式（旧日志无此字段照常 fold=初代）。 */
-      continuesFrom?: string; continuationMode?: ContinuationMode }
+      continuesFrom?: string; continuationMode?: ContinuationMode; /** V15 战线命名（可选，不填=命令原文当战线名）。 */ name?: string }
   | { type: 'directive_dispatched'; ts: string; directiveId: string }
   | { type: 'directive_session_opened'; ts: string; directiveId: string; staffSessionId: string }
   | { type: 'directive_received'; ts: string; directiveId: string; staffSessionId: string }
@@ -138,6 +140,7 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
       byId.set(event.directiveId, {
         id: event.directiveId, text: event.text, createdAt: event.ts, status: 'draft',
         ...(event.cron !== undefined ? { schedule: { cron: event.cron } } : {}),
+        ...(event.name !== undefined ? { name: event.name } : {}),
         ...(event.continuesFrom !== undefined
           ? {
               continuesFrom: event.continuesFrom,

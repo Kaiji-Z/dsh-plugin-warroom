@@ -52,8 +52,10 @@ with sync_playwright() as p:
     n_heads = heads.count()
     ok("L1 任务列战线组头 ≥2", n_heads >= 2, f"heads={n_heads}")
     texts = [heads.nth(i).inner_text() for i in range(min(n_heads, 10))]
-    ok("L2 拆段活证：Ⅰ 文本与 Ⅳ 文本各自带队（同血脉不同战场）",
-       any(G1_TEXT in t for t in texts) and any(G4_TEXT in t for t in texts),
+    # V15：Ⅳ 段带元首命名「compose 迁移」——head 显示命名而非原文；拆段双证改为
+    # Ⅰ 段原文 + 组键分列（L3）+ 命名（L5）三证。
+    ok("L2 拆段活证：Ⅰ 段原文带队 + 两个以上组头",
+       any(G1_TEXT in t for t in texts) and len(texts) >= 2,
        " / ".join(t.replace("\n", " ")[:22] for t in texts[:6]))
     groups = page.evaluate(
         "() => [...document.querySelectorAll('.war-dispatch [data-war-group]')].map(e => e.getAttribute('data-war-group'))")
@@ -61,6 +63,8 @@ with sync_playwright() as p:
     for g in groups:
         roots[g.split("/")[0]] = roots.get(g.split("/")[0], 0) + 1
     ok("L3 调度坞同血脉两卡组分列（血脉/段头组键）", any(v >= 2 for v in roots.values()), str(groups)[:160])
+    ok("L5 命名战线（Ⅳ 段元首命名）：组头显示「compose 迁移」而非命令原文",
+       any("compose 迁移" in t for t in texts), " / ".join(t.replace(chr(10), " ")[:20] for t in texts[:6]))
     ok("L4 未分组战线任务卡在场", page.locator(".war-task-card", has_text=G7_TEXT).count() >= 1
        or page.locator(".war-command-card", has_text=G7_TEXT).count() >= 1)
     page.screenshot(path=str(OUT / "v13-list-dark.png"))

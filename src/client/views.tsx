@@ -641,6 +641,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   const [cont, setCont] = useState<string | null>(initialContinueId)
   // V14 显式战场（null=参谋定）：续接选中时默认带父战线战场——改选即宣告新战线。
   const [bfPick, setBfPick] = useState<string | null>(null)
+  // V15 战线名（可选；不填=命令原文）。
+  const [name, setName] = useState('')
   const bfChoices = props.battlefields
   const pickCont = (id: string | null): void => {
     setCont(id)
@@ -673,7 +675,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     setBusy(true)
     setError(null)
     void (async () => {
-      const result = await createCommand(applyBattlefieldMarker(applyGradeMarker(text, grade), bfPick), sched === 'cron' ? cronExpr.trim() : undefined, cont ?? undefined)
+      const result = await createCommand(applyBattlefieldMarker(applyGradeMarker(text, grade), bfPick), sched === 'cron' ? cronExpr.trim() : undefined, cont ?? undefined, name)
       setBusy(false)
       if (result.ok) {
         try { localStorage.removeItem('warroom-draft') } catch { /* noop */ }
@@ -713,6 +715,12 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         ref: taRef,
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit() },
+      }),
+      createElement('div', { className: 'war-cp-section' }, copy.nameSection),
+      createElement('input', {
+        className: 'war-name-input', type: 'text', value: name, maxLength: 24,
+        placeholder: copy.namePlaceholder, 'aria-label': copy.nameSection,
+        onChange: e => { setName((e.target as HTMLInputElement).value) },
       }),
       createElement('div', { className: 'war-cp-section' }, copy.gradeSection),
       createElement('div', { className: 'war-grade-cards' },

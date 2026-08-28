@@ -71,6 +71,7 @@ export function bountyDraftingSkillContent(): string {
 
 ## 六、发布要点（war_publish）
 
+续接命令的任务书：brief 里点名链档案给出的上代关键产物路径（「基于 deploy/run.ps1 补 healthcheck」），让指挥官续在成果上而不是重做；
 acceptance 一律用「；」分隔检查项（指挥官会逐项变成 evidence.checks）；complexity 估不准就降一档（宁可小事办好）；跨天重复要做的挂 cron（错过不补跑，防烧钱）；有前置顺序的拆两条用 deps 串；来源是命令区的命令务必带 commandId（命令卡自动标记批准并链接到任务）。
 `
 }

@@ -86,6 +86,8 @@ export interface CampaignState {
   /** How many bounty rounds a cron re-trigger has opened (0 = never re-run). */
   rounds: number
   workspacePath?: string
+  /** V15：工作区绑定形态（投影字段=治 worktree/未分组误判；旧账本无此字段=undefined 走客户端路径启发式）。 */
+  workspaceKind?: 'bound' | 'bound-worktree' | 'instance' | 'auto-worktree' | 'auto-dir'
   status: TaskStatus
   claimedBy?: string
   publishedBy?: string
@@ -183,7 +185,7 @@ export interface TaskSchedule {
  * in v1.0 are optional so v0.2 logs keep folding unchanged. */
 export type WarEvent =
   | { type: 'task_created'; ts: string; campaignId: string; title: string; brief: string; acceptance: string; priority: 'normal' | 'high'; publishedBy?: string; quality?: QualityTier; deps?: string[] }
-  | { type: 'task_published'; ts: string; campaignId: string; workspacePath: string; publishedBy?: string }
+  | { type: 'task_published'; ts: string; campaignId: string; workspacePath: string; publishedBy?: string; workspaceKind?: 'bound' | 'bound-worktree' | 'instance' | 'auto-worktree' | 'auto-dir' }
   | { type: 'task_claimed'; ts: string; campaignId: string; claimedBy: string; attemptId?: string; attempt?: number }
   | { type: 'task_submitted'; ts: string; campaignId: string; report: string; from: string; evidence?: SubmissionEvidence; deliverables?: Deliverable[] }
   | { type: 'task_commented'; ts: string; campaignId: string; comment: string; from: string }

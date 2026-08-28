@@ -156,6 +156,7 @@ export function boardProjection(stateDir: string, activityOf?: (sessionId: strin
         deps: task.deps ?? [],
         lastError: task.lastError ?? null,
         workspacePath: task.workspacePath ?? null,
+        workspaceKind: task.workspaceKind ?? null,
         claimedBy: task.claimedBy ?? null,
         startedAt: task.startedAt,
         brief: task.brief ?? '',
@@ -247,6 +248,7 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
     return {
       commandId: d.id,
       text: d.text,
+      name: d.name ?? null,
       createdAt: d.createdAt,
       status: d.status,
       staffSessionId: d.staffSessionId ?? null,
@@ -311,8 +313,10 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         // cron = 定时下达（到点 tick 补 dispatched 后引信才取；一次性）。
         // V10: 可选 continuesFrom = 战线续接——父命令必须存在，续接模式按
         // 其当时状态冻结（嫁接是历史不是开关）；推导失败给明确拒绝理由。
-        const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown; continuesFrom?: unknown }
+        const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown; continuesFrom?: unknown; name?: unknown }
         const text = typeof body.text === 'string' ? body.text.trim() : ''
+        // V15 战线命名（可选，≤24 字；元首下达时给，不填=命令原文当战线名）。
+        const name = typeof body.name === 'string' ? body.name.trim().slice(0, 24) : ''
         if (text === '') {
           send(400, { ok: false, error: '命令内容为空：请用一句大白话写下元首的意图。' })
           return
@@ -378,6 +382,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           ...(cron !== undefined ? { cron } : {}),
           ...(continuesFrom !== undefined ? { continuesFrom } : {}),
           ...(continuationMode !== undefined ? { continuationMode } : {}),
+          ...(name !== '' ? { name } : {}),
         })
         // 定时命令不立即引信——到点 dispatched 后 15s 引信自会接手。
         if (cron === undefined) deps.onCommandCreated?.()

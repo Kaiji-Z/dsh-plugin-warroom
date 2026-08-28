@@ -560,3 +560,15 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **驳回**：「战场 picker 仅歧义时出现」（V14 显式选择是元首点名第 1 条）；雷达行星三层微文本（canvas 标签系统量级，backlog）。
 
 **验证**：verify PASS + shoot-v7 全绿（新机检 5.80:1）+ v13（操场板）/theme 11×2/v10/probe 40/40。快照 `.impeccable/critique/2026-08-28T12-12-34Z`。**运行纪律新增**：shoot 跑批会互相换板（v7 跑完板= v7 夹具），依赖特定板面的 shooter（shoot-v13 需操场板）前必须重播 `seed-playground.py`——本轮 v13 首跑 6 断言红全是板面错配非代码回归。
+
+## V15 续接闭环 + 战场正名 + 战线命名（2026-08-28，元首批准计划，三向同车）
+
+> 计划定案三问（推荐案全采）：战线名**元首下达时可选给**（composer「战线名（可选）」≤24 字；参谋不命名——名字只从命令通道进账本，读投影红线不动）；**本轮不可改名**（`directive_named` 事件挂账，regrade 先例在）；显示 `name ?? 锚命令原文`（frontsOf 单行，全消费点自动跟随）。
+
+**A 续接闭环（V13.1 收尾）**：现状实锤——relay `chainNoteFor` 只给「18 字→结局一行」，而**上代完整 CampaignState 早在 campaignOf 缓存里没用**（战报/战利品/evidence.files/diffstat 全躺着）；pivot 直插只带父代 16 字；征召令对续接代指挥官零链上下文。落法：①新纯模块 `src/chain-note.ts`——`buildChainNote`（最近 3 代详情：结论/败因+战报摘要≤160 字+产物路径≤5 条+diffstat；更老一代一行式；**cap 1500 尺寸纪律**——dossier 无上限的教训）/`buildCommanderChainBrief`（≤600）/`pivotChainSlice`（≤400）；②relay 接线（staff 链档案+pivot 父代速览）；③**征召令接线**（conscriptTask 内反查 taskId→续接命令——publish/收官接力/补征入口一处覆盖，不改 conscript op 签名），【战线前情】节嵌 dossier 后；④skill 起草法补「brief 点名上代产物路径，续在成果上不重做」。
+
+**B workspaceKind 投影**：`task_published` 可选字段（`bound|bound-worktree|instance|auto-worktree|auto-dir`）——写侧 `composeWorkspaceKind`（bound 分支探测 `.git` 是文件=worktree 指针；两发布点：war_publish+拆解链）；fold/投影/BoardTask 全链；**客户端 wsKeyOf kind 感知**（有真值按 kind 分键——auto worktree-of-P 归未分组治误判；kind 缺失回落路径启发式，append-only 无回填）。SSE 零影响（投影字段不入 revision 哈希，queueAhead 先例）。
+
+**C 战线命名**：POST `name`（trim+≤24）→ `directive_created.name`（cron 可选字段先例）→ fold → 投影 `name: d.name ?? null` → BoardCommand.name → `frontsOf` title。composer 双皮肤「战线名（可选）」输入。种子 Ⅳ 段命名「compose 迁移」+ Ⅶ「相册整理」演示。
+
+**验证**：verify PASS（chain-note 4 测：详情窗/空退化/三档 cap/指挥官末代详情；wsKeyOf kind 感知 6 断言含 bound-worktree=项目行星）+ V15 六针脚（buildChainNote/buildCommanderChainBrief/pivotChainSlice/workspaceKind×2/namePlaceholder）+ shoot-v13 增 L5 命名战线断言（组头显示「compose 迁移 3 代·2 任务」实锤）+ 板 API 冒烟（kind dist：bound 4+auto-dir 1+legacy 8 回落并存；named=compose 迁移/相册整理）+ theme 11×2/v7/v10/probe 40/40 全绿。critique 未跑（元首令）。取证 `.goal/evidence/v13/`。

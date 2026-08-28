@@ -25,9 +25,15 @@ export function isSyntheticWs(wsPath: string): boolean {
   return segs.slice(dotWarroom + 1).some(s => s === 'tasks' || s === 'instances')
 }
 
-/** workspace → 星域键：合成沙盒归未分组，bound 项目原样。 */
-export function wsKeyOf(wsPath: string | null): string | null {
+/** workspace → 星域键：合成沙盒归未分组，bound 项目原样。
+ *  V15 kind 感知：投影带 workspaceKind 时按真值分（instance/auto-*=未分组，
+ *  bound*=路径键）——治 auto worktree-of-P 被路径启发式误判成项目行星；
+ *  kind 缺失（旧账本任务）回落路径启发式（append-only 无回填）。 */
+export function wsKeyOf(wsPath: string | null, workspaceKind?: string | null): string | null {
   if (wsPath === null || wsPath === '') return null
+  if (workspaceKind !== undefined && workspaceKind !== null && workspaceKind !== '') {
+    return workspaceKind === 'bound' || workspaceKind === 'bound-worktree' ? wsPath : UNGROUPED_WS_KEY
+  }
   return isSyntheticWs(wsPath) ? UNGROUPED_WS_KEY : wsPath
 }
 
@@ -124,10 +130,11 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
     if (ts === undefined) { ts = commandTasks(c, tasks); taskClosure.set(c.commandId, ts) }
     return ts
   }
-  /** 代的战场键=其任务域（依赖序）首个 workspace 的映射键；无任务=null（成形代）。 */
+  /** 代的战场键=其任务域（依赖序）首个 workspace 的映射键；无任务=null（成形代）。
+   *  V15：优先吃投影 workspaceKind 真值（旧任务回落路径启发式）。 */
   const battlefieldOfGen = (c: BoardCommand): string | null => {
     for (const t of closureOf(c)) {
-      const key = wsKeyOf(t.workspacePath)
+      const key = wsKeyOf(t.workspacePath, t.workspaceKind)
       if (key !== null) return key
     }
     return null
@@ -174,7 +181,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
         rootId,
         rootCommandId: run.head.commandId,
         hueSlot: run.head.chain.hueSlot % 8, // 占位——下方按战线贪心重排
-        title: run.head.text,
+        title: run.head.name ?? run.head.text, // V15 战线命名：元首给名用名，否则命令原文
         generations: run.gens,
         tasks: union,
         battlefield: run.bf,

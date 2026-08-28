@@ -280,6 +280,9 @@ export interface WarCopy {
     /** V14 显式战场选择（类似宿主新对话选工作区）。 */
     bfSection: string
     bfAuto: string
+    /** V15 战线命名（可选输入）。 */
+    nameSection: string
+    namePlaceholder: string
     bfAutoHint: string
     bfContNote: string
     recentLabel: string
@@ -641,6 +644,8 @@ export const warCopy: WarCopy = {
     recentLabel: '最近命令（点击填入草稿）',
     continueSection: '战线续接（可选）：这道令接到哪条旧令后面？',
     continueNone: '新战线',
+    nameSection: '战线名（可选）',
+    namePlaceholder: '不填则用命令原文当代线名（≤24 字）',
     bfSection: '战场（可选）：这道令落在哪片战场？',
     bfAuto: '参谋定',
     bfAutoHint: '不指定——参谋按任务性质选择工作区',
@@ -1007,6 +1012,8 @@ export const plainCopy: WarCopy = {
     recentLabel: '最近命令（点击填入）',
     continueSection: '接着做（可选）：这次跟进接在哪件事后面？',
     continueNone: '全新事项',
+    nameSection: '事项线名（可选）',
+    namePlaceholder: '不填则用命令原文当代线名（≤24 字）',
     bfSection: '工作区（可选）：这件事在哪个项目里做？',
     bfAuto: '自动',
     bfAutoHint: '不指定——参谋按任务性质选择项目',
