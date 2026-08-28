@@ -80,33 +80,37 @@ export interface FrontAgg {
 
 export interface WarFront {
   readonly rootId: string
-  /** 本战线的锚命令（Ⅰ 代）commandId——航迹点击/聚焦的落点。跨战场拆分时=该段首代。 */
+  /** 本战线的锚命令（本地Ⅰ代）commandId——航迹点击/聚焦的落点。跨战场拆分时=该段首代。 */
   readonly rootCommandId: string
   readonly hueSlot: number
   /** 锚命令原文（战线名，纯派生不改名——账本化挂账未来）。 */
   readonly title: string
-  /** 世代升序（Ⅰ→…）。 */
+  /** 世代升序（本地Ⅰ→…）。 */
   readonly generations: BoardCommand[]
   /** 跨代任务并集（按 taskId 去重——pivot 与父代共享同一任务），依赖序。 */
   readonly tasks: BoardTask[]
-  /** 战线绑定的唯一战场键（元首定案：战线=血脉∩战场，锚定Ⅰ代战场；无任务=未锚定 null）。 */
+  /** 战线绑定的唯一战场键（V14 定案：战线绑定一个战场；无任务=未锚定 null）。 */
   readonly battlefield: string | null
   readonly agg: FrontAgg
   /** 最近活动时刻（ISO 字符串，命令 createdAt 与尝试结算的最大值）——排序键。 */
   readonly lastActivity: string
+  /** V14 溯源：锚的链代 >1（续接代自立战线）时指向源战线——「续接自 源战场·源战线」，
+   *  commandId=源战线锚（chip 点击跳源战线聚焦页）。 */
+  readonly origin: { readonly battlefield: string | null; readonly title: string; readonly fromGen: number; readonly commandId: string } | null
 }
 
 /**
- * 战线全量派生（纯）：**血脉 ∩ 战场**（元首定案 2026-08-28）。
- * 血脉（continuesFrom 链）永不拆——族谱/续接走血脉；战线是分组视图：按 chain.rootId
- * 分组后，**相对父代**做战场键拆分——某代任务落在与父代不同的战场（含未分组），
- * 该代即新战线的Ⅰ（它续的是「别处的新事」）。无任务的成形代继承父代所在战线。
+ * 战线全量派生（纯）：**V14 战线范式收口（元首定案）——战线=命令的聚合，绑定一个
+ * 战场（workspace）**；层级 战场 ⊃ 战线 ⊃ 命令。continuesFrom 链不再是独立概念
+ * （「血脉」除名）：跨战场的续接代自立新战线，链的痕迹收缩为战线的 `origin` 溯源
+ * （「续接自某战场·某战线」一枚可点的事实）+ 战线内本地计代（锚=本地Ⅰ）。
+ * 拆分规则：按 chain.rootId 分组后**相对父代**做战场键拆分——某代任务落在与父代
+ * 不同的战场（含未分组），该代即新战线的Ⅰ。无任务的成形代继承父代所在战线。
  * @param commands 板投影命令全量（含 cancelled）
  * @param tasks 板投影任务全量
  * @param commandIdOf 任务→源命令解析（views 的 lineageMap 同源；孤儿任务 null）
  */
 export function frontsOf(commands: readonly BoardCommand[], tasks: readonly BoardTask[], commandIdOf: (taskId: string) => string | null): WarFront[] {
-  const hueByRoot = greedyRootHues(commands)
   const groups = new Map<string, BoardCommand[]>()
   for (const c of commands) {
     let g = groups.get(c.chain.rootId)
@@ -169,43 +173,49 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
       fronts.push({
         rootId,
         rootCommandId: run.head.commandId,
-        hueSlot: hueByRoot.get(rootId) ?? run.head.chain.hueSlot,
+        hueSlot: run.head.chain.hueSlot % 8, // 占位——下方按战线贪心重排
         title: run.head.text,
         generations: run.gens,
         tasks: union,
         battlefield: run.bf,
         agg: { live: !settled, waiting, failed, settled },
         lastActivity,
-      })
+        origin: null,
+      } as WarFront)
     }
+  }
+  // V14 溯源：战线锚的链代 >1 时，找到前一代命令所属战线——「续接自 那个战场·那条战线」。
+  const frontOfCmd = new Map<string, WarFront>()
+  for (const f of fronts) for (const c of f.generations) frontOfCmd.set(c.commandId, f)
+  const genIndex = new Map<string, BoardCommand>()
+  for (const c of commands) {
+    const k = `${c.chain.rootId}#${c.chain.generation}`
+    const cur = genIndex.get(k)
+    if (cur === undefined || c.createdAt > cur.createdAt) genIndex.set(k, c)
+  }
+  for (const f of fronts) {
+    const headGen = f.generations[0]!.chain.generation
+    if (headGen <= 1) continue
+    const prev = genIndex.get(`${f.rootId}#${headGen - 1}`)
+    const pf = prev !== undefined ? frontOfCmd.get(prev.commandId) : undefined
+    if (pf !== undefined && pf !== f) {
+      ;(f as { origin: WarFront['origin'] }).origin = { battlefield: pf.battlefield, title: pf.title, fromGen: prev.chain.generation, commandId: pf.rootCommandId }
+    }
+  }
+  // V14 链色绑战线（不再绑血脉）：按战线最近活动降序贪心分配——兄弟段（同链跨
+  // 战场拆出的多条战线）天然异色，同一条战线恒一色。平手优先锚命令哈希槽。
+  const order = [...fronts].sort((a, b) => a.lastActivity < b.lastActivity ? 1 : a.lastActivity > b.lastActivity ? -1 : a.rootId < b.rootId ? -1 : 1)
+  const use = new Array<number>(8).fill(0)
+  for (const f of order) {
+    let min = 0
+    for (let s = 1; s < 8; s++) if (use[s] < use[min]) min = s
+    const hash = f.generations[0]!.chain.hueSlot % 8
+    const pick = use[hash] <= use[min] ? hash : min
+    ;(f as { hueSlot: number }).hueSlot = pick
+    use[pick]++
   }
   fronts.sort((a, b) => a.lastActivity < b.lastActivity ? 1 : a.lastActivity > b.lastActivity ? -1 : a.rootId < b.rootId ? -1 : 1)
   return fronts
-}
-
-/** 链色防撞（V13.2 critique P1-1）：hueSlot=哈希(rootId)%8 无消解，同屏 ≥3 条
- *  战线撞槽即全灰（演示板实抓：9 处 chain-hue 元素全落槽 7）。按血脉最近活动
- *  降序贪心挑当前占用最少的槽、平手优先哈希槽——同血脉恒同色、活跃战线必互异
- *  （≤8 条血脉时零撞）。纯客户端渲染层重映射，服务器投影不动（零后端红线）。 */
-export function greedyRootHues(commands: readonly BoardCommand[]): Map<string, number> {
-  const last = new Map<string, string>()
-  const hash = new Map<string, number>()
-  for (const c of commands) {
-    const r = c.chain.rootId
-    if (!hash.has(r)) hash.set(r, c.chain.hueSlot % 8)
-    if (!last.has(r) || c.createdAt > last.get(r)!) last.set(r, c.createdAt)
-  }
-  const order = [...last.keys()].sort((a, b) => last.get(b)! < last.get(a)! ? -1 : last.get(b)! > last.get(a)! ? 1 : a < b ? -1 : 1)
-  const use = new Array<number>(8).fill(0)
-  const out = new Map<string, number>()
-  for (const r of order) {
-    let min = 0
-    for (let s = 1; s < 8; s++) if (use[s] < use[min]) min = s
-    const pick = use[hash.get(r)!] <= use[min] ? hash.get(r)! : min
-    out.set(r, pick)
-    use[pick]++
-  }
-  return out
 }
 
 /** 战线在星域的桥数据（3D/2D 同构消费；hue 由调用方经 war-tokens 从 CSS 解析）。 */

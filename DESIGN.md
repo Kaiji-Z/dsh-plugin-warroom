@@ -534,3 +534,19 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **驳回/挂账**：「段=血脉头下子行」重构——与元首当日拆分定案相反，记开放问题；3D 行星常驻名牌（性能/布局量级）→ backlog；四套状态词表收敛（island/front/warzone/starfield）→ 独立设计轮 backlog；「2D 当默认」——与 V11.5 雷达值班+3D 战略定案相反，驳回。
 
 **验证**：verify PASS（237 测）+ shoot-v13 12 断言 + theme 11×2 + probe 40/40 全绿复跑。快照 `.impeccable/critique/`（R2 2026-08-28T06-02-24Z）。
+
+## V14 战线范式收口（2026-08-28，元首定案：血脉除名——战线=命令聚合，绑定一个战场）
+
+> 元首新本体论（盘逻辑对齐后全采）：**战场（workspace）⊃ 战线 ⊃ 命令**。下达时可显式选战场（类似宿主新对话选工作区）；workspace 就是溯源容器（原「血脉」职能）；一个战场可有多条战线；中途转向的战线不再是原战线（锚定Ⅰ的战场）；后续代落别的战场=不是后续代，是新战线；点战场能看到该战场全部战线。continuesFrom 从概念表除名，退回账本事实字段。
+
+**落点四件**：
+- **①血脉除名（词面+语义锚点）**：图例「同色=同血脉」→「一色=一条战线」；3D 图例同步；聚焦页族谱不再跨战场点名全链——**本地计代**（`localGenOf`：锚=本地Ⅰ，徽标/pips/族谱条全部战线内自序）+ **origin 溯源 chip**（`war-cd-origin`「续接自 源战场·源战线」，点跳源战线锚）——跨战场痕迹收缩为一条可点的事实。
+- **②链色绑战线**：贪心分配键从 rootId 换成战线（frontsOf 内联重排）——兄弟段天然异色（V13.2 critique「两段同色分不清」连根解）。`boardHueByRoot` 单例换 `boardFrontByCmd`（commandId→WarFront），链色/本地计代消费统一走这张表。
+- **③composer 显式战场选择器**：新节「战场（可选）」（bfSection 词典双皮肤）——「参谋定」缺省 + 现存战场 chips（wsOrder 创建序，选中键不在展示切片时保底附加）；**续接选中自动带父战线战场**（pickCont → cand.bf），改选即宣告新战线（bfContNote 一句话教学）。提交拼协议标记行 **`【战场：<路径>】`**（`applyBattlefieldMarker`，preflight.ts，幂等、跨皮肤同文、null 不拼）。
+- **④点战场看战线清单**：3D `war-wz-bfpanel`（点行星/星球 → 战场名标题 + 战线行[链色点+名+`N 代·状态`]，点行跳该战线聚焦页）+ 2D 同源（星球按钮直开面板，退役旧 onPlanetOpen 跳最近命令行为）。
+
+**写侧引导（原 V13.1 核心，收窄落地）**：skill.ts 工作区路由新第 1/2 条——战场标记行无条件遵守；续接默认绑父代任务工作区（仅命令明确要求换地点才换）。relay 战线档案注入补一行工作区纪律。
+
+**坑（本轮入账）**：①**composer 闭包变量名与 props 名不一致**（bfChoices vs props.battlefields）→ ReferenceError pageerror、composer 整树挂——注入代码后必须 live 验证（n 键开起草器抓 pageerror）；②**chip 选中判定用 className.includes('on')** 会命中 continue 里的子串——探针一律 classList.contains；③**color-mix 混 transparent 在 Chromium 产出 `oklab(...)` 计算值**——对比度解析器必须带 oklab→sRGB 换算分支（shoot-v7 两个测量器已补，6.27:1 实测过）；④**宿主 settings 被活界面持久化 dark 后 theme-presenter 异步写回**——对比度测量必须同 tick removeAttribute+读值；⑤展示切片（slice 8）与数据全集不一致时**选中项保底附加**。
+
+**验证**：verify PASS（239 测：V14 新测「链色绑战线兄弟段互异」「本地计代+origin 溯源」+7 条 V14 针脚 localGenOf/originChip/bfSection/【战场：/war-wz-bfpanel/战线跟着战场走×2）+ shoot-v13 12 断言 + shoot-v7（oklab 修复后全绿，4 组对比度 6.27-6.96:1）+ shoot-v10 + shoot-theme 11×2 + probe 40/40。live 验证：composer 8+1 chips/续接自动带 projA/聚焦页本地 Ⅰ Ⅱ Ⅲ+origin chip/3D 点行星面板 1 行零 pageerror。取证 `.goal/evidence/v13/`（V14 五图）。critique 未跑（元首令：改好即可，后续一起审）。

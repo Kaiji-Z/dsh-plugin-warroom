@@ -276,6 +276,13 @@ gate('bundle', () => {
     [client, 'readTacPalette', 'TS-side token reader (CSS is the single color source)'],
     // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（战场/战区）。
     [client, 'frontsOf', 'V13 front aggregation pure function (zero backend, foldChains-derived)'],
+    // V14 战线范式收口：本地计代/origin 溯源/composer 战场/战场战线清单/写侧引导。
+    [client, 'localGenOf', 'V14 front-local generation numbering'],
+    [client, 'originChip', 'V14 origin trace chip (续接自 源战场·源战线)'],
+    [client, 'bfSection', 'V14 composer explicit battlefield picker'],
+    [client, '【战场：', 'V14 battlefield protocol marker (cross-skin token)'],
+    [client, 'war-wz-bfpanel', 'V14 battlefield fronts panel (click planet → front list)'],
+    [host, '战线跟着战场走', 'V14 skill workspace routing discipline + relay continuation binding'],
     [client, 'rebuildFrontLines', '3D front trajectory layer (chain-hue tubes + generation markers)'],
     [client, 'readChainHue', 'chain hue CSS reader with same-value fallback'],
     [client, 'war-front-head', 'front group header styles (task column)'],

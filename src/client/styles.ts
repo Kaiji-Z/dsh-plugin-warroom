@@ -887,6 +887,22 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 /* 2D 星域战线航迹（SVG viewBox 0 0 100 100 非等比——描边 vector-effect 防拉伸变形） */
 .war-front-badge2d{position:absolute;transform:translate(-50%,-50%);z-index:1;font-size:12px;font-weight:600;line-height:1;padding:2px 7px;border-radius:var(--war-r-pill);color:var(--war-text-1);background:color-mix(in srgb,var(--chain-hue,#888) 30%,var(--war-pop-bg));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent);pointer-events:none}
 .war-front-badge2d.settled{opacity:.55}
+/* V14 点战场看战线：战场⊃战线 清单浮层（3D/2D 同类名同形） */
+.war-wz-bfpanel{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:6;min-width:340px;max-width:480px;padding:10px 12px;border-radius:var(--war-r-lg);background:var(--war-pop-bg);border:1px solid var(--war-border);box-shadow:0 12px 32px rgba(0,0,0,.22)}
+.war-wz-bfpanel-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.war-wz-bfpanel-title{font-size:13px;font-weight:600;color:var(--war-text-1);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-wz-bfpanel-x{flex:none;border:none;background:none;cursor:pointer;font-size:13px;color:var(--war-text-2);padding:2px 6px;border-radius:var(--war-r-sm)}
+.war-wz-bfpanel-x:hover{color:var(--war-text-1);background:var(--war-well-bg)}
+.war-wz-bfpanel-row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;margin:0 0 4px;border:1px solid transparent;border-left:3px solid var(--chain-hue,#888);border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 6%,transparent);cursor:pointer;font-family:var(--war-font);font-size:12px;color:var(--war-text-1)}
+.war-wz-bfpanel-row:hover{background:color-mix(in srgb,var(--chain-hue,#888) 14%,transparent)}
+.war-wz-bfpanel-row:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
+.war-wz-bfpanel-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.war-wz-bfpanel-meta{flex:none;color:var(--war-text-2)}
+.war-wz-bfpanel-empty{font-size:12px;color:var(--war-text-2);padding:4px 2px}
+/* V14 溯源 chip + 起草器战场注 */
+.war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}
+.war-cd-origin:hover{color:var(--war-text-1);border-color:var(--war-border-hover,var(--war-border))}
+.war-cp-note{font-size:12px;color:var(--war-text-2);margin-top:4px;line-height:1.5}
 .war-front-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}
 .war-front-line{fill:none;stroke:var(--chain-hue,#888);stroke-width:1.6;stroke-opacity:.65;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .war-front-line.settled{stroke-dasharray:5 4;stroke-opacity:.32}

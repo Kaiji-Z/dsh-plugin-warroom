@@ -198,7 +198,7 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
         outcome: chainOutcomeOf(camp === undefined ? undefined : { status: camp.status, lastError: camp.lastError, closedVerdict: camp.closedVerdict }),
       })
     }
-    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${chainDigest(steps)}`
+    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${chainDigest(steps)}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着战场走）；仅当命令明确要求换地点才换。`
   }
   let relayed = 0
   for (const directive of pending) {

@@ -125,6 +125,8 @@ export interface ContinueCandidate {
   generation: number
   hueSlot: number
   live: boolean
+  /** V14：候选所属战线的战场键（composer 战场选择器续接默认带出；null=未锚定）。 */
+  bf: string | null
 }
 
 /** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交参谋）。 */

@@ -14,6 +14,13 @@ import type { WzBridgeFrontLite } from './front.ts'
 
 type WzEntityRef = { kind: 'hq' } | WzPlanet | WzSquad | WzFrontNode
 
+/** V14 战场名（目录名；合成沙盒聚合键=未分组）。 */
+const dirLabel = (wsPath: string): string => {
+  if (wsPath === '__war_ungrouped__') return '未分组'
+  const parts = wsPath.split(/[\/]+/).filter(p => p.length > 0)
+  return parts.length > 0 ? parts[parts.length - 1]! : wsPath
+}
+
 const statusChip = (st: string): string =>
   `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '作战中' ? 'st-battle' : 'st-held'}">${st}</span>`
 
@@ -102,6 +109,8 @@ export function Warzone(props: WarzoneProps): ReactNode {
   const cardOffRef = useRef(new Map<string, { dx: number; dy: number }>())
   const [failed, setFailed] = useState(false)
   const [cmd, setCmd] = useState(true)
+  // V14 点战场看战线：被点行星的 wsPath（null=面板关）。
+  const [bfPanel, setBfPanel] = useState<string | null>(null)
 
   useEffect(() => {
     const root = rootRef.current
@@ -192,7 +201,8 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (dragDist > 6) return
       if ((e.target as HTMLElement).closest('button') !== null) return
       const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
-      if (hit !== null && hit.kind === 'front') onOpenCommand?.((hit as WzFrontNode).rootCommandId)
+      if (hit !== null && hit.kind === 'front') { onOpenCommand?.((hit as WzFrontNode).rootCommandId); return }
+      if (hit !== null && hit.kind === 'planet') setBfPanel((hit as { wsPath: string }).wsPath)
     }
     const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }
     const onMouseDownCam = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
@@ -491,8 +501,23 @@ export function Warzone(props: WarzoneProps): ReactNode {
         createElement('span', null, createElement('i', { className: 'lg-battle' }), '作战中'),
         createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
         createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
-        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（点=世代·同色=同血脉）')),
+        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（点=世代·一色=一条战线）')),
       createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
+    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '战场战线清单' },
+      createElement('div', { className: 'war-wz-bfpanel-head' },
+        createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),
+        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', onClick: () => setBfPanel(null) }, '✕')),
+      ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
+        key: f.rootCommandId, type: 'button',
+        className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,
+        onClick: () => { setBfPanel(null); onOpenCommand?.(f.rootCommandId) },
+      },
+        createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
+        createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
+        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? '推进中' : '已收官'}`))),
+      fronts.filter(f => f.battlefield === bfPanel).length === 0
+        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该战场暂无战线（任务待成形）')
+        : null)] : []),
   )
 }

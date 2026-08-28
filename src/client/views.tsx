@@ -17,7 +17,7 @@ import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, u
 import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
-import { applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
+import { applyBattlefieldMarker, applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
 import { galaxyLayout, garrisonOf, moonPos, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
 import { Warzone } from './starfield3d.tsx'
 import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type WzLogFeedItem, type WzFrontNode } from './warzone-scene.ts'
@@ -366,21 +366,31 @@ const GEN_ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', '
 function genLabel(generation: number): string {
   return generation < 2 ? '' : (GEN_ROMAN[generation] ?? `第${generation}代`)
 }
-/** V13.2 链色防撞的渲染层查表：WarView 每次渲染同步刷新（先于子元素创建，
- *  读取一致）。模块级单例是刻意取舍——链色消费点散落在模块级组件工厂
- *  （genBadge/族谱条/续接 chip），props 打穿成本大于单板单例的可控性。 */
-let boardHueByRoot: Map<string, number> | null = null
+/** V14 战线渲染期查表：WarView 每次渲染同步刷新（先于子元素创建，读取一致）。
+ *  模块级单例是刻意取舍——链色/本地计代消费点散落在模块级组件工厂
+ *  （genBadge/pips/族谱条/续接 chip），props 打穿成本大于单板单例的可控性。 */
+let boardFrontByCmd: Map<string, WarFront> | null = null
+/** 链色=战线色（V14：不再绑血脉——兄弟段天然异色）。 */
 function chainHueOf(c: BoardCommand): number {
-  return boardHueByRoot?.get(c.chain.rootId) ?? c.chain.hueSlot
+  const f = boardFrontByCmd?.get(c.commandId)
+  return f !== undefined ? f.hueSlot : c.chain.hueSlot
+}
+/** V14 战线内本地计代：锚=本地Ⅰ；脱离战线上下文（防御）退链代。 */
+function localGenOf(c: BoardCommand): number {
+  const f = boardFrontByCmd?.get(c.commandId)
+  if (f === undefined) return c.chain.generation
+  const i = f.generations.findIndex(g => g.commandId === c.commandId)
+  return i >= 0 ? i + 1 : c.chain.generation
 }
 
-/** 世代徽标（链色槽位着色；shoot 断言锚 data-war-gen）。 */
+/** 世代徽标（战线本地代序着色；shoot 断言锚 data-war-gen）。 */
 function genBadge(cmd: BoardCommand): ReactNode {
-  const label = genLabel(cmd.chain.generation)
+  const local = localGenOf(cmd)
+  const label = genLabel(local)
   if (label === '') return null
   return createElement('span', {
     className: `war-gen-badge war-chain-hue-${chainHueOf(cmd)}`,
-    'data-war-gen': String(cmd.chain.generation),
+    'data-war-gen': String(local),
     title: activeCopy().chain.genBadgeTitle(cmd.chain.length),
   }, label)
 }
@@ -405,7 +415,7 @@ function genPips(cards: BoardCommand[], tasksOf: (c: BoardCommand) => BoardTask[
   const copy = activeCopy().commandCard
   // aria 讲全史；卡面只摆最新 4 代（>4 前置总代数 chip）——与展开面板 4 行同口径，
   // R1 徽章行恒宽不被超长战线撑爆（更老各代仍可进面板滚看）。
-  const aria = cards.map(c => `${pipLabel(c.chain.generation)} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`).join('、')
+  const aria = cards.map(c => `${pipLabel(localGenOf(c))} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`).join('、')
   const shown = cards.length > 4 ? cards.slice(cards.length - 4) : cards
   return createElement('span', {
     className: 'war-gen-pips', title: copy.pipsTitle(cards.length), role: 'img',
@@ -413,7 +423,7 @@ function genPips(cards: BoardCommand[], tasksOf: (c: BoardCommand) => BoardTask[
   },
   cards.length > 4 ? createElement('span', { key: 'more', 'aria-hidden': 'true', className: 'war-gen-pip more' }, `${cards.length}代`) : null,
   ...shown.map(c => createElement('span', {
-    key: c.commandId, 'aria-hidden': 'true', title: `${pipLabel(c.chain.generation)} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`,
+    key: c.commandId, 'aria-hidden': 'true', title: `${pipLabel(localGenOf(c))} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`,
     className: `war-gen-pip st-${genPipStatus(c, tasksOf(c))}${c.commandId === latestId ? ' now' : ''}`,
   })))
 }
@@ -615,7 +625,7 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
  * 选项卡——自主度（放权多少）与发布时机（立即 / cron 定时，到点 tick 自动
  * 下达、一次有效）。档位标记仍拼入命令文本（机制不变）；Ctrl+Enter 提交。
  * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
-function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（战报卡「下续战令」播种）。 */ initialContinueId?: string | null }): ReactNode {
+function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（战报卡「下续战令」播种）。 */ initialContinueId?: string | null; /** V14 显式战场（现存战场清单；续接默认带父战线战场）。 */ battlefields?: Array<{ key: string; name: string }> }): ReactNode {
   const { recent, onClose, refresh, continueCandidates = [], initialContinueId = null } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
   // V10.1 critique P1-3：焦点直落 textarea（此前停在弹窗容器 DIV，多按一次 Tab）。
@@ -629,6 +639,14 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   const [cronExpr, setCronExpr] = useState('')
   // V10 战线续接：接到哪条旧令后面（null=开新战线）。
   const [cont, setCont] = useState<string | null>(initialContinueId)
+  // V14 显式战场（null=参谋定）：续接选中时默认带父战线战场——改选即宣告新战线。
+  const [bfPick, setBfPick] = useState<string | null>(null)
+  const bfChoices = props.battlefields
+  const pickCont = (id: string | null): void => {
+    setCont(id)
+    const cand = id !== null ? (props.continueCandidates ?? []).find(c => c.commandId === id) : undefined
+    setBfPick(cand?.bf ?? null)
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cronErr: string | null = useMemo(() => {
@@ -655,7 +673,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     setBusy(true)
     setError(null)
     void (async () => {
-      const result = await createCommand(applyGradeMarker(text, grade), sched === 'cron' ? cronExpr.trim() : undefined, cont ?? undefined)
+      const result = await createCommand(applyBattlefieldMarker(applyGradeMarker(text, grade), bfPick), sched === 'cron' ? cronExpr.trim() : undefined, cont ?? undefined)
       setBusy(false)
       if (result.ok) {
         try { localStorage.removeItem('warroom-draft') } catch { /* noop */ }
@@ -737,15 +755,43 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
           createElement('button', {
             key: 'cont-none', type: 'button',
             className: `war-continue-chip${cont === null ? ' on' : ''}`,
-            onClick: () => { setCont(null) },
+            onClick: () => { pickCont(null) },
           }, copy.continueNone),
           ...continueCandidates.map(c => createElement('button', {
             key: c.commandId, type: 'button',
             className: `war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
             title: `${c.text}（${c.live ? activeCopy().chain.tags.pivot : activeCopy().chain.tags.deepen}）`,
             'data-war-cont': c.commandId,
-            onClick: () => { setCont(cont === c.commandId ? null : c.commandId) },
+            onClick: () => { pickCont(cont === c.commandId ? null : c.commandId) },
           }, `${genLabel(c.generation) === '' ? 'Ⅰ' : genLabel(c.generation)}·${c.text.slice(0, 12)}${c.text.length > 12 ? '…' : ''}${c.live ? ' ⚡' : ''}`)),
+        )
+        : null,
+      bfChoices !== undefined && bfChoices.length > 0
+        ? createElement('div', { key: 'bf-section' },
+          createElement('div', { className: 'war-cp-section' }, copy.bfSection),
+          createElement('div', { className: 'war-continue-row' },
+            createElement('button', {
+              key: 'bf-auto', type: 'button',
+              className: `war-continue-chip${bfPick === null ? ' on' : ''}`,
+              title: copy.bfAutoHint,
+              onClick: () => { setBfPick(null) },
+            }, copy.bfAuto),
+            ...(bfChoices !== undefined
+              ? (() => { const shown = bfChoices.slice(0, 8)
+                  return bfPick !== null && !shown.some(x => x.key === bfPick)
+                    ? [...shown, { key: bfPick, name: bfNameOf(bfPick) }] // 选中键不在展示切片也要可见（如排序最老的战场）
+                    : shown })()
+              : []).map(b => createElement('button', {
+              key: b.key, type: 'button',
+              className: `war-continue-chip${bfPick === b.key ? ' on' : ''}`,
+              title: b.key,
+              'data-war-bf': b.key,
+              onClick: () => { setBfPick(bfPick === b.key ? null : b.key) },
+            }, b.name)),
+          ),
+          cont !== null
+            ? createElement('div', { className: 'war-cp-note' }, copy.bfContNote)
+            : null,
         )
         : null,
       recent.length > 0
@@ -782,8 +828,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin'] }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
@@ -998,10 +1044,17 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       createElement('button', { className: 'war-cd-x', type: 'button', 'aria-label': copy.close, title: copy.close, onClick: onClose }, '✕'),
       createElement('div', { className: 'war-modal-title war-cd-title', title: cmd.text }, `「${cmd.text.slice(0, 42)}${cmd.text.length > 42 ? '…' : ''}」`),
       createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${cmd.commandId} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}${cmd.continuation !== null ? ` · ${activeCopy().chain.tags[cmd.continuation.mode]}` : ''}`),
-      // V10 战线族谱：多代才显形——Ⅰ→…→本代逐级可跳（换窗到该代聚焦页）。
-      chainMembers.length > 1
+      // V14 战线族谱（本地计代）：本战线 Ⅰ→…→本代逐级可跳；跨战场溯源收缩为
+      // 一枚「续接自」chip（链的痕迹不占概念，点它回源战线）。
+      chainMembers.length > 1 || origin !== undefined && origin !== null
         ? createElement('div', { className: 'war-cd-chain', role: 'list', 'aria-label': activeCopy().chain.breadcrumbAria, 'data-war-chain-length': String(chainMembers.length) },
-          ...chainMembers.map(m =>
+          origin !== undefined && origin !== null
+            ? createElement('button', {
+              key: 'origin', type: 'button', className: 'war-cd-origin', title: origin.title,
+              onClick: () => onOpenCommand?.(origin.commandId),
+            }, activeCopy().front.originChip(origin.battlefield === null ? null : bfNameOf(origin.battlefield), origin.title.slice(0, 10)))
+            : null,
+          ...chainMembers.map((m, mi) =>
             createElement('button', {
               key: m.commandId,
               type: 'button',
@@ -1009,7 +1062,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
               className: `war-cd-chain-item war-chain-hue-${chainHueOf(m)}${m.commandId === cmd.commandId ? ' now' : ''}`,
               title: m.text,
               onClick: () => { if (m.commandId !== cmd.commandId) onOpenCommand?.(m.commandId) },
-            }, `${GEN_ROMAN[m.chain.generation] ?? `第${m.chain.generation}代`} ${m.text.slice(0, 10)}${m.text.length > 10 ? '…' : ''}`)))
+            }, `${GEN_ROMAN[mi + 1] ?? `第${mi + 1}代`} ${m.text.slice(0, 10)}${m.text.length > 10 ? '…' : ''}`)))
         : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
       // 决策带（置顶常驻）：有事给动作，无事给安神行。
@@ -1924,13 +1977,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V13 战线一等公民（纯派生零后端）：按 chain.rootId 聚合命令世代链——跨代任务
     // 并集（pivot 共享任务去重）、战场键序列（合成沙盒归未分组）、聚合态、排序键。
     const fronts = frontsOf(commands, tasks, tid => lineageMap.get(tid)?.commandId ?? null)
-    // V13.2 链色防撞：全链色消费统一走贪心重排（与 frontsOf 内部同源纯函数），
-    // 血脉恒同色、同屏活跃战线互异——世代徽标/续接 chip/族谱条/战线头/星域环一致。
-    boardHueByRoot = greedyRootHues(commands)
     const taskFront = frontOfTaskMap(fronts)
-    // 血脉拆段后同 rootId 可能对应多条战线——索引一律按 commandId（血脉归族谱，战线归视图）。
+    // V14 战线=命令聚合绑定战场（血脉除名）：索引一律按 commandId——链色/本地计代/
+    // 溯源消费统一走这张表（模块级单例 boardFrontByCmd 供组件工厂读取）。
     const cmdFront = new Map<string, WarFront>()
     for (const f of fronts) for (const c of f.generations) cmdFront.set(c.commandId, f)
+    boardFrontByCmd = cmdFront
     // V9.9 打开聚焦页（唯一详情叙事面）；segment=需要发落的环节（收件箱/上方卡直达）。
     const openCommand = (commandId: string, segment: 'plan' | 'chain' | 'report' | null = null): void => {
       setDetailSegment(segment)
@@ -2014,6 +2066,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         generation: c.chain.generation,
         hueSlot: chainHueOf(c),
         live: chainOf(c).some(t => t.attemptLog.some(a => a.endedAt === null)),
+        bf: cmdFront.get(c.commandId)?.battlefield ?? null,
       }))
     // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
     // 坐标全确定性推导——SSE revision 翻新零抖动。
@@ -2023,6 +2076,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const wsOrder = [...new Set(workspaceCreationOrder(tasks)
       .map(ws => wsKeyOf(ws))
       .filter((k): k is string => k !== null))]
+    // V14 composer 战场选择器选项（现存战场，创建序；名称=目录名/未分组）。
+    const bfChoices = wsOrder.map(k => ({ key: k, name: bfNameOf(k) }))
     // critique P0 根修：禁区百分比以【板宽】为分母（winW 是窗口宽——宿主侧栏吃掉
     // ~280px，1720 窗口板宽仅 1440，按窗口算低估舱占位 3%，行星照样被盖）。
     // 板宽/坞高改实测（resize 随动），星域布局随真实禁区落位。
@@ -2454,13 +2509,14 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             onClick: () => { setMapHint(false); setViewPref('map'); try { localStorage.setItem('warroom-cfg-view', 'map') } catch { /* noop */ } },
           }, activeCopy().starfield.mapHintToast)
         : null,
-      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
+      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
         chain: chainOf(detailCommand),
         // V10 战线族谱：同根全体按 createdAt 升序（Ⅰ→…）；跨代点击换窗。
-        chainMembers: commandsNewest.filter(c => c.chain.rootId === detailCommand.chain.rootId).sort((a, b) => a.chain.generation - b.chain.generation),
+        chainMembers: cmdFront.get(detailCommand.commandId)?.generations ?? [detailCommand],
+        origin: cmdFront.get(detailCommand.commandId)?.origin ?? null,
         onOpenCommand: id => { setDetailCommandId(id) },
         onContinue: () => { setContinueSeed(detailCommand.commandId); setComposerOpen(true) },
         statuses,

@@ -28,3 +28,14 @@ export function applyGradeMarker(text: string, grade: ComposerGrade): string {
   if (grade === 'L2') return body.startsWith('??先看方案') ? body : `??先看方案 ${body}`
   return body
 }
+
+/** V14 起草器战场选择 → 命令文本标记行（协议 token，跨皮肤同文；写侧 relay/skill
+ *  教参谋：任务必须发布到该 workspacePath；续接未带标记=沿用父代任务工作区）。
+ *  null（参谋定）不拼；幂等：正文已含同战场标记行不重复拼。 */
+export function applyBattlefieldMarker(text: string, bf: string | null): string {
+  const body = text.trim()
+  if (body === '' || bf === null) return body
+  const marker = `【战场：${bf}】`
+  return body.includes(marker) ? body : `${body}
+${marker}`
+}

@@ -27,7 +27,7 @@ export interface WarCopy {
   /** V10 星域战场。 */
   starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string; controls: string; ungrouped: string }
   /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
-  front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string }
+  front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string; originChip: (bf: string | null, title: string) => string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string; segActive: string; segSettled: string }
   /** V9.2 设置抽屉（岛 ⚙）：皮肤 / 图例 / 看板行为开关 / 连接状态。 */
   settings: {
@@ -277,6 +277,11 @@ export interface WarCopy {
     /** V10 战线续接排：接续目标候选区标题 / 「开新战线」chip。 */
     continueSection: string
     continueNone: string
+    /** V14 显式战场选择（类似宿主新对话选工作区）。 */
+    bfSection: string
+    bfAuto: string
+    bfAutoHint: string
+    bfContNote: string
     recentLabel: string
     kbdHint: string
   }
@@ -466,7 +471,7 @@ export const warCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
-      ['◌', '战线环：同一战场上的世代链（点=世代，末代发光）；同色=同血脉——续接跨战场自成新战线，靠战场名分辨兄弟段'],
+      ['◌', '战线环：同一战场上的世代链（点=世代，末代发光）；一色=一条战线，跨战场续接自成新战线'],
       ['！', '新悬赏挂出，等待指挥官领取'],
       ['？', '战报已呈递，等你翻阅收菜'],
       ['◎', '聚焦：只亮这条命令的族系（任务+会话），Esc 退出'],
@@ -550,7 +555,7 @@ export const warCopy: WarCopy = {
     untraced: '未溯源执行',
     ungrouped: '未分组',
   },
-  front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
+  front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, originChip: (bf, title) => `续接自 ${bf === null ? '别的战场' : bf}·${title}`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（元首改档 ${n} 次）`,
@@ -636,6 +641,10 @@ export const warCopy: WarCopy = {
     recentLabel: '最近命令（点击填入草稿）',
     continueSection: '战线续接（可选）：这道令接到哪条旧令后面？',
     continueNone: '新战线',
+    bfSection: '战场（可选）：这道令落在哪片战场？',
+    bfAuto: '参谋定',
+    bfAutoHint: '不指定——参谋按任务性质选择工作区',
+    bfContNote: '续接默认随父战线所在战场；改选即宣告另起新战线（原战线留在原战场）',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -828,7 +837,7 @@ export const plainCopy: WarCopy = {
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
       ['●', '红 = 败（终败/熔断）', 'dot-fail'],
-      ['◌', '圆环：同一个项目的多轮任务（点=第几轮）；同色=同一条线——换个项目续接会另起一条新线'],
+      ['◌', '圆环：同一个项目的多轮任务（点=第几轮）；一色=一条线，换个项目续接会另起一条新线'],
       ['！', '新任务，等待执行者领取'],
       ['？', '结果已提交，等待你验收'],
       ['◎', '只看这条：高亮相关任务与会话，其余变淡，Esc 退出'],
@@ -912,7 +921,7 @@ export const plainCopy: WarCopy = {
     untraced: '还没关联命令',
     ungrouped: '杂项',
   },
-  front: { genN: n => `${n} 代`, taskN: n => `${n} 件事`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
+  front: { genN: n => `${n} 代`, taskN: n => `${n} 件事`, originChip: (bf, title) => `来自 ${bf === null ? '别的项目' : bf}·${title}`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
     regradesNote: n => `（改档 ${n} 次）`,
@@ -998,6 +1007,10 @@ export const plainCopy: WarCopy = {
     recentLabel: '最近命令（点击填入）',
     continueSection: '接着做（可选）：这次跟进接在哪件事后面？',
     continueNone: '全新事项',
+    bfSection: '工作区（可选）：这件事在哪个项目里做？',
+    bfAuto: '自动',
+    bfAutoHint: '不指定——参谋按任务性质选择项目',
+    bfContNote: '跟进默认在原事项的项目里；改选即在别的项目另起一条新线',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {

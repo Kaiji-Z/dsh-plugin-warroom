@@ -6,7 +6,7 @@
  * 布局数学全是纯函数并单独出测（tests/starfield.test.ts）。
  * @module dsh-plugin-warroom/client/starfield
  */
-import { createElement, type ReactNode } from 'react'
+import { createElement, useState, type ReactNode } from 'react'
 import type { BoardAttempt, BoardTask } from './data.ts'
 import { UNGROUPED_WS_KEY } from './front.ts'
 
@@ -183,7 +183,6 @@ export interface StarfieldProps {
   /** 光点无动词时的无障碍兜底标签。 */
   readonly orbIdleLabel?: string
   /** V10.1 critique P1-1：行星可达——点击/回车跳该战场最近的源命令聚焦页。 */
-  readonly onPlanetOpen?: (wsPath: string) => void
   /** V10.1 critique P3：地图就地微图例（正式图例仍在设置抽屉）。 */
   readonly mapLegend?: string
   /** 速报条无溯源时的词典化兜底（不再露会话号片段）。 */
@@ -198,10 +197,12 @@ export interface StarfieldProps {
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', onPlanetOpen, mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
   // V13：未分组行星标签词典化（其余行星仍走目录名）。
   const labelOf = (ws: string): string => ws === UNGROUPED_WS_KEY ? (ungroupedLabel ?? '未分组') : planetLabel(ws)
   const posOf = new Map(planets.map(p => [p.spec.wsPath, p.spec] as const))
+  // V14 点战场看战线（2D 同源）：被点星球 wsPath。
+  const [bfPanel, setBfPanel] = useState<string | null>(null)
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -262,8 +263,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
         title: `${labelOf(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
         'aria-label': `战场 ${labelOf(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、凯旋 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
-        onClick: () => { onPlanetOpen?.(spec.wsPath) },
-        onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanetOpen?.(spec.wsPath) } },
+        onClick: () => { setBfPanel(spec.wsPath) },
+        onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBfPanel(spec.wsPath) } },
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
       createElement('span', { className: 'war-planet-label' }, `${labelOf(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
@@ -319,5 +320,21 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'aria-hidden': 'true',
       }),
     ),
+    // V14 点战场看战线（2D 同源）：战场⊃战线 清单浮层。
+    bfPanel !== null ? createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '战场战线清单' },
+      createElement('div', { className: 'war-wz-bfpanel-head' },
+        createElement('span', { className: 'war-wz-bfpanel-title' }, labelOf(bfPanel)),
+        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', onClick: () => setBfPanel(null) }, '✕')),
+      ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
+        key: f.rootCommandId, type: 'button',
+        className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,
+        onClick: () => { setBfPanel(null); onOpenCommand?.(f.rootCommandId) },
+      },
+        createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
+        createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
+        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? '推进中' : '已收官'}`))),
+      fronts.filter(f => f.battlefield === bfPanel).length === 0
+        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该战场暂无战线（任务待成形）')
+        : null) : null,
   )
 }

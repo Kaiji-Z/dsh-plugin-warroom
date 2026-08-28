@@ -6,7 +6,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { commandTasks, frontsOf, frontOfTaskMap, greedyRootHues, isSyntheticWs, wsKeyOf, UNGROUPED_WS_KEY } from '../src/client/front.ts'
+import { commandTasks, frontsOf, frontOfTaskMap, isSyntheticWs, wsKeyOf, UNGROUPED_WS_KEY } from '../src/client/front.ts'
 import type { BoardCommand, BoardTask } from '../src/client/data.ts'
 
 const cmd = (id: string, root: string, gen: number, taskId: string | null, createdAt: string, extra?: Partial<BoardCommand>): BoardCommand => ({
@@ -123,39 +123,43 @@ test('front: 孤儿任务不造战线；cancelled 全取消链=settled', () => {
   assert.equal(f.agg.settled, true)
 })
 
-test('front: greedyRootHues 链色防撞——同屏活跃血脉互异、同血脉恒同色', () => {
-  // 哈希撞槽无法直接构造（hueSlot 由 seed 定死）——用受控 hueSlot 直接验证贪心：
-  // 三个血脉全给槽 7（演示板实况），重排后必互异且活跃优先保位。
-  const mk = (id: string, root: string, slot: number, created: string) => cmd(id, root, 1, null, created, { chain: { generation: 1, rootId: root, length: 1, hueSlot: slot } })
+test('front: V14 链色绑战线——兄弟段（同链跨战场拆出）互异、同战线恒一色', () => {
+  const mk = (id, root, gen, taskId, created, ws) => cmd(id, root, gen, taskId, created,
+    taskId === null ? {} : {})
+  // c1(P)/c2(P) 同段；c3(Q) 跨场=兄弟段
+  const c1 = cmd('c1', 'r', 1, 't1', '2026-08-28T09:00:00Z')
+  const c2 = cmd('c2', 'r', 2, 't2', '2026-08-28T10:00:00Z', { continuesFromData: 0 } as never)
   const cmds = [
-    mk('x1', 'r1', 7, '2026-08-28T09:00:00Z'),
-    mk('x2', 'r2', 7, '2026-08-28T08:00:00Z'),
-    mk('x3', 'r3', 7, '2026-08-28T07:00:00Z'),
+    cmd('c1', 'r', 1, 't1', '2026-08-28T09:00:00Z'),
+    cmd('c2', 'r', 2, 't2', '2026-08-28T10:00:00Z'),
+    cmd('c3', 'r', 3, 't3', '2026-08-28T11:00:00Z'),
   ]
-  const hues = greedyRootHues(cmds)
-  assert.equal(hues.get('r1'), 7) // 最活跃保哈希槽
-  const slots = [...hues.values()].sort()
-  assert.equal(new Set(slots).size, 3, `三血脉应互异: ${slots}`)
-  // 同血脉多段（拆分出的两段）恒同色
-  const chain = [
-    cmd('a1', 'root', 1, 't1', '2026-08-28T09:00:00Z', { chain: { generation: 1, rootId: 'root', length: 2, hueSlot: 3 } }),
-    cmd('a2', 'root', 2, 't2', '2026-08-28T10:00:00Z', { chain: { generation: 2, rootId: 'root', length: 2, hueSlot: 3 } }),
+  const tasks = [
+    task('t1', 'closed', 'C:/p/a'),
+    task('t2', 'closed', 'C:/p/a'),
+    task('t3', 'closed', 'C:/q/b'),
   ]
-  const hues2 = greedyRootHues(chain)
-  assert.equal(hues2.get('root'), 3)
-  // frontsOf 输出用重排槽（不是服务器原槽）
-  const tasks = [task('t1', 'closed', 'C:/p/a'), task('t2', 'closed', 'C:/p/b')]
-  const fs2 = frontsOf(chain, tasks, tid => (tid === 't1' ? 'a1' : 'a2'))
-  assert.equal(new Set(fs2.map(f => f.hueSlot)).size, 1)
-  assert.equal(fs2[0]!.hueSlot, 3)
+  const byId = new Map(cmds.map(c => [c.commandId, c]))
+  const fs2 = frontsOf(cmds, tasks, tid => { for (const c of cmds) if (c.taskId === tid) return c.commandId; return null })
+  assert.equal(fs2.length, 2, '一场一段')
+  const slots = fs2.map(f => f.hueSlot)
+  assert.notEqual(slots[0], slots[1], '兄弟段异色')
 })
 
-test('front: 超过 8 条血脉时贪心回绕（不崩、槽位均衡）', () => {
-  const cmds = Array.from({ length: 10 }, (_, i) =>
-    cmd(`y${i}`, `r${i}`, 1, null, `2026-08-28T0${i}:00:00Z`, { chain: { generation: 1, rootId: `r${i}`, length: 1, hueSlot: 0 } }))
-  const hues = greedyRootHues(cmds)
-  assert.equal(hues.size, 10)
-  const counts = new Array(8).fill(0)
-  for (const v of hues.values()) counts[v]++
-  assert.ok(counts.every(c => c <= 2), `10 血脉 8 槽应 ≤2/槽: ${counts}`)
+test('front: V14 本地计代与 origin 溯源——跨场段的锚是本地Ⅰ、指向源战线', () => {
+  const cmds = [
+    cmd('a1', 'root', 1, 't1', '2026-08-28T09:00:00Z'),
+    cmd('a2', 'root', 2, 't2', '2026-08-28T10:00:00Z'),
+    cmd('a3', 'root', 3, 't3', '2026-08-28T11:00:00Z'),
+  ]
+  const tasks = [task('t1', 'closed', 'C:/p/a'), task('t2', 'closed', 'C:/p/a'), task('t3', 'closed', 'C:/q/b')]
+  const fs2 = frontsOf(cmds, tasks, tid => { for (const c of cmds) if (c.taskId === tid) return c.commandId; return null })
+  assert.equal(fs2.length, 2)
+  const front2 = fs2.find(f => f.rootCommandId === 'a3')!
+  assert.equal(front2.generations[0]!.commandId, 'a3', '跨场段锚=本地Ⅰ')
+  const front1 = fs2.find(f => f.rootCommandId === 'a1')!
+  assert.ok(front2.origin !== null, '跨场段带溯源')
+  assert.equal(front2.origin!.commandId, 'a1')
+  assert.equal(front2.origin!.battlefield, 'C:/p/a')
+  assert.equal(front1.origin, null, '原生段无溯源')
 })

@@ -453,15 +453,29 @@ with sync_playwright() as p:
     assert page.locator(".war-settings-drawer").count() == 0, "settings drawer did not close on Escape"
 
     # --- Phase G3: 对比度机检（审查 P1-2：语义色 chip 文本 ≥4.5:1）。 ---
+    # V14：同 tick 强制浅色（宿主 theme-presenter 会异步写回 dark——settings 曾被活界面
+    # 持久化 dark）；lum 补 oklab 分支（color-mix 混 transparent 在 Chromium 产 oklab 值）。
     contrast = page.evaluate(
         "() => {"
+        "  document.body.removeAttribute('data-ds-dark-theme');"
         "  const el = document.querySelector('.war-chip.st-published');"
         "  if (!el) return null;"
         "  const cs = getComputedStyle(el);"
         "  const lum = (spec) => {"
         "    let r, g, b, a = 1;"
-        # color-mix 计算值形如 color(srgb r g b / a)；用 split 解析，正则里不能带斜杠。
-        "    if (spec.startsWith('color(')) {"
+        # color-mix 计算值形如 color(srgb r g b / a) 或 oklab(L a b / a)；用 split 解析，正则里不能带斜杠。
+        "    if (spec.startsWith('oklab(')) {"
+        "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
+        "      const nums = body.replace(/[^0-9. -]/g, ' ').trim().split(/\\s+/).map(Number);"
+        "      const L = nums[0], A = nums[1], B2 = nums[2];"
+        "      const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B2, 3);"
+        "      const m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B2, 3);"
+        "      const s2 = Math.pow(L - 0.0894841775 * A - 1.291485548 * B2, 3);"
+        "      r = 255 * (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s2);"
+        "      g = 255 * (-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s2);"
+        "      b = 255 * (-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s2);"
+        "      if (nums.length > 3) a = nums[3];"
+        "    } else if (spec.startsWith('color(')) {"
         "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
         "      const nums = body.replace(/[^0-9. ]/g, ' ').trim().split(/\\s+/).map(Number);"
         "      r = nums[0] * 255; g = nums[1] * 255; b = nums[2] * 255;"
@@ -493,14 +507,27 @@ with sync_playwright() as p:
     # --- Phase G4: V9.3 整改机检（warn 文本对比度批 + Esc 层序 + dialog 语义 +
     #     has-inbox 染色 + 批准决策块）。 ---
     def contrast_of(sel: str):
+        # V14：同 tick 强制浅色 + oklab 解析（同 G3 大测量器）。
         return page.evaluate(
             "(sel) => {"
+            "  document.body.removeAttribute('data-ds-dark-theme');"
             "  const el = document.querySelector(sel);"
             "  if (!el) return null;"
             "  const cs = getComputedStyle(el);"
             "  const lum = (spec) => {"
             "    let r, g, b, a = 1;"
-            "    if (spec.startsWith('color(')) {"
+            "    if (spec.startsWith('oklab(')) {"
+            "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
+            "      const nums = body.replace(/[^0-9. -]/g, ' ').trim().split(/\\s+/).map(Number);"
+            "      const L = nums[0], A = nums[1], B2 = nums[2];"
+            "      const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B2, 3);"
+            "      const m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B2, 3);"
+            "      const s2 = Math.pow(L - 0.0894841775 * A - 1.291485548 * B2, 3);"
+            "      r = 255 * (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s2);"
+            "      g = 255 * (-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s2);"
+            "      b = 255 * (-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s2);"
+            "      if (nums.length > 3) a = nums[3];"
+            "    } else if (spec.startsWith('color(')) {"
             "      const body = spec.slice(spec.indexOf('(') + 1, spec.lastIndexOf(')'));"
             "      const nums = body.replace(/[^0-9. ]/g, ' ').trim().split(/\\s+/).map(Number);"
             "      r = nums[0] * 255; g = nums[1] * 255; b = nums[2] * 255;"
