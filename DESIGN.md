@@ -582,3 +582,7 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **上游发现（更正）**：初判「宿主冷会话列表失效」系误诊——真相是**冷列表起服后首次扫描慢**（412 会话头约 10-15s），早期采样全在扫描完成前（元首肉眼反证：study-area 会话一直可见；复测 t+15s 老会话齐现）。跳转在列表就绪后正常；war 组下 4 条参谋会话行可见（修2 实证，r15-jump-final.png）。
 
 **坑**：poll 谓词返回布尔=「非 None 即成功」首轮即退（received 拍终态）；审批应答 POST /api/respond 需 client-response 信封+wire rpcId（mux approval/requested 帧取，与审计 approvalId 两个 id 空间）；沙盒审批等待期参谋 turn 冻结（考题环境准备下令前做）。
+
+## V15.2 世代徽牌退役（2026-08-28，元首令）
+
+星球视图「N 代」canvas 徽牌（V13.3 加、V13.4 critique 加大）拆除——元首定案它冗余+过曝：代数已由世代环世代点（末代放大+辉光）编码，精确值走悬停 tooltip/战场面板/任务列组头；牌子 opacity 1.0 是全场唯一满亮 sprite，喂 bloom 成耀斑=星球过曝主源。拆除回到 V13 干净基线；2D 回退的「N 代」报数牌（DOM，无 bloom）保留。shoot-v13 回归 PASS。证据 r15-v152-3d.png。

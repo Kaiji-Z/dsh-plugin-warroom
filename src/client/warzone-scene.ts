@@ -1708,27 +1708,9 @@ export class WarzoneScene {
           group.add(glow)
         }
       }
-      // V13.3 世代徽牌：环顶「N 代」canvas sprite——远看即知深度，不依赖数八面体。
-      // V13.4（critique R3）：加大到默认缩放可读（13×6 世界单位，live 全不透明）。
-      if (f.gens > 1) {
-        const cv = document.createElement('canvas')
-        cv.width = 110; cv.height = 50
-        const c2 = cv.getContext('2d')
-        if (c2 !== null) {
-          c2.fillStyle = hue
-          c2.beginPath(); c2.roundRect(5, 5, 100, 40, 20); c2.fill()
-          c2.font = '600 26px system-ui, sans-serif'
-          c2.textAlign = 'center'; c2.textBaseline = 'middle'
-          c2.fillStyle = light ? '#ffffff' : '#15161a'
-          c2.fillText(`${f.gens} 代`, 55, 26)
-          const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: f.live ? 1 : 0.55, depthWrite: false, fog: false }))
-          badge.userData.labelH = 32
-          badge.userData.labelAspect = 110 / 50
-          badge.scale.set(13, 6, 1)
-          badge.position.set(center.x, center.y + p.radius + 17, center.z)
-          group.add(badge)
-        }
-      }
+      // V15.2 世代徽牌退役（元首定案）：环+世代点（末代放大+辉光）已编码代数，
+      // 精确值走悬停 tooltip/战场面板/任务列组头；canvas 牌 opacity 1.0 喂 bloom
+      // 是星球过曝主源，拆除回到 V13 干净基线。
       this.frontGroup.add(group)
     })
   }
