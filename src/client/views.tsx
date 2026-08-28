@@ -918,7 +918,14 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     // 警示（onJumpMiss 走 WarView 的 actionError 通道——本页 onClose 即卸载，
     // 提示必须活在板级）。
     const before = services.sessions?.list?.getSnapshot().current
-    services.sessions?.open(sessionId)
+    try {
+      services.sessions?.open(sessionId)
+    } catch {
+      // V15.1：目录外会话（宿主 summaries 没有它）select 直接抛 unknown——
+      // 不接住就是控制台一声闷响 + UI 无动作；接住走与落空同一警示通道。
+      onJumpMiss()
+      return
+    }
     onClose()
     if (services.sessions?.list !== undefined) {
       setTimeout(() => {

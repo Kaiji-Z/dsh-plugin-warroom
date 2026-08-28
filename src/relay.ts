@@ -159,7 +159,7 @@ ${text}
  * for tasks that predate the command flow. Idempotent per directive — a
  * relayed command is `received` and never picked up twice.
  */
-export async function relayPendingCommands(deps: CommandFuseDeps, sessions: SessionsApiFace | undefined): Promise<{ relayed: number; staffSessionId?: string }> {
+export async function relayPendingCommands(deps: CommandFuseDeps, sessions: SessionsApiFace | undefined, workspaces?: WorkspaceApiFace): Promise<{ relayed: number; staffSessionId?: string }> {
   const all = loadDirectives(deps.stateDir)
   const pending = pendingDirectives(all)
   if (pending.length === 0) return { relayed: 0 }
@@ -223,7 +223,20 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
     }
     let sessionId = directive.staffSessionId
     if (sessionId === undefined) {
-      const created = await sessions.create({ rpcId: rpcId(), payload: { cwd: deps.warRoot } })
+      // V15.1：参谋会话走 workspace.create（按路径幂等）+ workspaceId 绑定——
+      // 裸 cwd 建的会话没有工作区身份，进不了宿主会话目录，聚焦页跳钮 select
+      // 即 unknown（元首永远跳不进参谋对话）。与指挥官征召同构。
+      let workspaceId: string | undefined
+      if (workspaces !== undefined) {
+        const ws = await workspaces.create({ rpcId: rpcId(), payload: { path: deps.warRoot } }).catch(err => {
+          console.error(`[warroom] staff workspace create threw:`, err instanceof Error ? err.message : err)
+          return undefined
+        })
+        if (ws !== undefined && ws.result.ok) workspaceId = ws.result.value.workspace.workspaceId
+        else if (ws !== undefined) console.error(`[warroom] staff workspace create failed: ${ws.result.error.code}: ${ws.result.error.message}`)
+        else console.error('[warroom] staff workspace create: no workspace face result')
+      }
+      const created = await sessions.create({ rpcId: rpcId(), payload: workspaceId !== undefined ? { workspaceId } : { cwd: deps.warRoot } })
       console.log(`[warroom] staff session create → ok=${created.result.ok}${created.result.ok ? ` id=${created.result.value.sessionId}` : ` err=${created.result.error.code}`}`)
       if (!created.result.ok) throw new Error(`参谋会话创建失败：${created.result.error.code}: ${created.result.error.message}`)
       sessionId = created.result.value.sessionId
@@ -251,7 +264,7 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
 export interface CommandFuse {
   start(): void
   stop(): void
-  bind(sessions: SessionsApiFace): void
+  bind(sessions: SessionsApiFace, workspace?: WorkspaceApiFace): void
   tickNow(): Promise<void>
 }
 
@@ -265,17 +278,30 @@ export interface CommandFuse {
 export function createCommandFuse(deps: CommandFuseDeps): CommandFuse {
   let timer: NodeJS.Timeout | undefined
   let relay: SessionsApiFace | undefined
+  let workspaces: WorkspaceApiFace | undefined
+  // 在途守卫（V15.1 考题实锤）：下令回推的立即 tickNow 与 15s 周期 tick 撞车
+  // 时，两个 relay 读到同一 draft 态（session_opened 尚未落账）→ 各开一个参谋
+  // 会话、各投一次令。撞车方直接让路，漏掉的活由下一轮周期 tick 兜底。
+  let running = false
+  const tick = async (): Promise<void> => {
+    if (running) return
+    running = true
+    try {
+      await relayPendingCommands(deps, relay, workspaces)
+    } catch (err) {
+      console.error('[warroom] command fuse relay failed:', err instanceof Error ? err.message : err)
+    } finally {
+      running = false
+    }
+  }
   return {
-    bind(sessions) {
+    bind(sessions, workspace) {
       relay = sessions
+      workspaces = workspace
     },
     start(): void {
       if (timer !== undefined) return
-      timer = setInterval(() => {
-        void relayPendingCommands(deps, relay).catch(err => {
-          console.error('[warroom] command fuse relay failed:', err instanceof Error ? err.message : err)
-        })
-      }, 15_000)
+      timer = setInterval(() => { void tick() }, 15_000)
       timer.unref?.()
       console.log('[warroom] command fuse armed (15s)')
     },
@@ -285,9 +311,7 @@ export function createCommandFuse(deps: CommandFuseDeps): CommandFuse {
       console.log('[warroom] command fuse stopped')
     },
     async tickNow(): Promise<void> {
-      await relayPendingCommands(deps, relay).catch(err => {
-        console.error('[warroom] command fuse relay failed:', err instanceof Error ? err.message : err)
-      })
+      await tick()
     },
   }
 }

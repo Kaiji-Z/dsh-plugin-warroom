@@ -484,7 +484,7 @@ export function apply(ctx: Context, config: Config): void {
     const api = (apiCtx as unknown as { apiProxy: { sessions: SessionsApiFace; workspace: WorkspaceApiFace } }).apiProxy
     console.log('[warroom] apiProxy bound to fuse + patrol + conscriptor')
     commander.bindRelay(api.sessions, api.workspace)
-    commandFuse.bind(api.sessions)
+    commandFuse.bind(api.sessions, api.workspace)
     sessionsRef.face = api.sessions
     // V9.11 演示织换（config.demoWeave，smoke overlay 专用）：faces 就绪即把种子
     // 假会话号换成宿主真会话（建在当前工作区——web 跳转只认当前工作区会话表）。

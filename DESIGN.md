@@ -572,3 +572,13 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **C 战线命名**：POST `name`（trim+≤24）→ `directive_created.name`（cron 可选字段先例）→ fold → 投影 `name: d.name ?? null` → BoardCommand.name → `frontsOf` title。composer 双皮肤「战线名（可选）」输入。种子 Ⅳ 段命名「compose 迁移」+ Ⅶ「相册整理」演示。
 
 **验证**：verify PASS（chain-note 4 测：详情窗/空退化/三档 cap/指挥官末代详情；wsKeyOf kind 感知 6 断言含 bound-worktree=项目行星）+ V15 六针脚（buildChainNote/buildCommanderChainBrief/pivotChainSlice/workspaceKind×2/namePlaceholder）+ shoot-v13 增 L5 命名战线断言（组头显示「compose 迁移 3 代·2 任务」实锤）+ 板 API 冒烟（kind dist：bound 4+auto-dir 1+legacy 8 回落并存；named=compose 迁移/相册整理）+ theme 11×2/v7/v10/probe 40/40 全绿。critique 未跑（元首令）。取证 `.goal/evidence/v13/`。
+
+## V15.1 实弹考题轮（2026-08-28，元首令「做1」+两处临时加修）
+
+**考题**（`.goal/evidence/v15/r15-exam.md` 正本，assert-v15 15/15 PASS）：两代续接链真实 LLM 全链——代1指挥官现场随机生成 token（1c3568e9）落 manifest，代2 deepen 续接产出 summary 逐字引用 token。归因锁设计：token 不在任何命令原文里，下游出现它唯一通道=V15 链档案注入；机检抓双通道（参谋任务书✓指挥官战报✓）。workspaceKind=bound 真值上板双证。
+
+**考题抓出三真 bug 全修**：①war_publish 悬空批准死锁——旧序先落 directive_approved(taskId) 再绑工作区，绑定失败即死锁（重试被终态守卫拒，参谋只能改账本——第一轮考题参谋真的去做了外科手术，被元首叫停）；修=工作区路由前置，失败零写入。②引信双开竞态——下令立即 tickNow 与 15s 周期 tick 撞车双读到 draft，一代双参谋会话（第二个空转自判无需处理）；修=fuse 在途守卫。③参谋会话裸 cwd 无工作区身份（元首定案**选项2：参谋绑 warRoot 工作区**——星域语义不变 warRoot 本就是未分组行星，宿主侧栏从幽灵变居民，与指挥官征召同构）——relay 改走 workspace.create(幂等)+workspaceId，落地实证侧栏现 war 工作区、参谋自检身份合规。④jumpSession try/catch 接 select 抛错走 onJumpMiss 警示（原来 UI 无动作一声闷响）。
+
+**上游发现挂账**：宿主 web 客户端冷会话列表失效（重启后所有工作区组不列 cold 会话、select 抛 unknown）——跳参谋会话最后一段被宿主挡住，修复在 harness 仓库，证据 r15-exam.md。
+
+**坑**：poll 谓词返回布尔=「非 None 即成功」首轮即退（received 拍终态）；审批应答 POST /api/respond 需 client-response 信封+wire rpcId（mux approval/requested 帧取，与审计 approvalId 两个 id 空间）；沙盒审批等待期参谋 turn 冻结（考题环境准备下令前做）。

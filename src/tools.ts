@@ -428,6 +428,21 @@ export function warTools(deps: WarToolsDeps) {
         const unknown = depIds.filter(id => loadCampaign(deps.stateDir, id).startedAt === '')
         if (unknown.length > 0) throw new Error(`前置任务编号不存在：${unknown.join('、')}。请用 war_board 核对任务编号后再发布。`)
       }
+      // 工作区路由（V15.1 前置）：绑定既有目录 > 新副本 > v1.0 自动隔离目录。
+      // 必须先于 directive_approved 落账——绑定失败（目录不存在等）在此抛错时
+      // 账本零写入，参谋修好重发即可；旧序先落 approved 再绑区，失败即留
+      // 「已批准过任务」死锁（重试被终态守卫拒绝，参谋只能对账本做手术）。
+      const binding = parseWorkspaceArg(args.workspace)
+      let ws: { path: string; kind: 'worktree' | 'dir'; note?: string }
+      if (binding.kind === 'instance') {
+        ws = deps.workspace.materializeInstance(deps.warRoot, taskId, binding.slug)
+      } else if (binding.kind === 'bound') {
+        const abs = resolve(binding.path)
+        if (!existsSync(abs)) throw new Error(`工作区不存在：${abs}。请与元首核对路径（让元首在决策卡里选项目），或改用 @new:<名字> 新开副本。`)
+        ws = { path: abs, kind: 'dir', note: '绑定既有工作区（同工作区任务排队执行）' }
+      } else {
+        ws = deps.workspace.materialize(deps.warRoot, taskId, args.repo ?? '')
+      }
       // 命令溯源：本任务书若来自命令区，发布即把命令卡标记为已批准。
       let commandApproved = false
       const commandId = typeof args.commandId === 'string' ? args.commandId.trim() : ''
@@ -454,18 +469,6 @@ export function warTools(deps: WarToolsDeps) {
         }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: new Date().toISOString(), directiveId: directive.id, taskId })
         commandApproved = true
-      }
-      // 工作区路由：绑定既有目录 > 新副本 > v1.0 自动隔离目录。
-      const binding = parseWorkspaceArg(args.workspace)
-      let ws: { path: string; kind: 'worktree' | 'dir'; note?: string }
-      if (binding.kind === 'instance') {
-        ws = deps.workspace.materializeInstance(deps.warRoot, taskId, binding.slug)
-      } else if (binding.kind === 'bound') {
-        const abs = resolve(binding.path)
-        if (!existsSync(abs)) throw new Error(`工作区不存在：${abs}。请与元首核对路径（让元首在决策卡里选项目），或改用 @new:<名字> 新开副本。`)
-        ws = { path: abs, kind: 'dir', note: '绑定既有工作区（同工作区任务排队执行）' }
-      } else {
-        ws = deps.workspace.materialize(deps.warRoot, taskId, args.repo ?? '')
       }
       appendEvent(deps.stateDir, {
         type: 'task_created', ts: new Date().toISOString(), campaignId: taskId, title: args.title, brief: args.brief, acceptance: args.acceptance, priority, publishedBy: staff.id,
