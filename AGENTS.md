@@ -100,7 +100,8 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 | 确定性断言 | 有——node:test + assert/strict，tests/ 14 文件（fold/规则级 + 八步链路回归 + flag） | `tests/relay.test.ts:1,5` |
 | 回归命令 | 有——`pnpm verify` 三段式（tests+build+bundle 针脚含负断言） | `package.json` scripts、`scripts/verify.mjs` |
 | 端到端回归（确定性层） | **有（2026-08-24 整改）**——`tests/e2e-regression.test.ts`：八步事件链 fold 终态 + 终态守卫 + 幽灵提交反验收，进 verify 闭环 | `tests/e2e-regression.test.ts` |
-| LLM 监督层 | **有（2026-08-24 整改）**——promptfoo（`eval/`，裁判 glm-5.2+隔离提示词，三维≥7+一票否决）；门命令 `pnpm verify:eval`，无网关环境变量时**显式 SKIP** | `eval/README.md`、`scripts/run-eval.mjs` |
+| LLM 监督层 | **有（2026-08-24 整改）**——promptfoo（`eval/`，裁判 glm-5.2+隔离提示词，三维≥7+一票否决）；门命令 `pnpm verify:eval`，无网关环境变量时**显式 SKIP** |
+| 实弹考题端到端门 | **有（2026-08-29 V16.3）**——`pnpm verify:e2e`（run-e2e.mjs：五段驱动+assert-e2e 机检 C1-C8；真实 LLM 两代续接链；前置=smoke 服已起否则诚实 SKIP；tag 定位不清场；证据 .goal/evidence/e2e/ 不入 git） | `eval/README.md`、`scripts/run-eval.mjs` |
 | Feature flag | **有（2026-08-25 起：默认全开）**——`WARROOM_FEATURES` + `DEFAULT_ON_FLAGS`/`runtimeFlags`（开发期缺省全 on，`!name` 关闭；v5-spike opt-in）；单测走 `readFeatureFlags` 纯显式 | `src/flags.ts`、`tests/flags.test.ts` |
 
 ### 验证 backlog

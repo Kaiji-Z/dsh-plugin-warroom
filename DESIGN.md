@@ -618,3 +618,9 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 ## V16.2 平话语系二定（2026-08-29，元首令：符合 AI 工程师习惯）
 
 平话角色改为当下 AI agent 通行语：**用户 — 规划 Agent — 执行 Agent**（原 老板/助理/干员 43 处替换；会话=规划 Agent 会话/执行 Agent 会话）。其余平话词（工作台/项目/任务单/汇报/交付物/派工单/主控台）维持。verify PASS。
+
+## V16.3 verify:e2e 实弹考题回归门（2026-08-29，元首令「4」）
+
+exam-v15 范式常驻化：`pnpm verify:e2e` → scripts/run-e2e.mjs 编排（板面可达性前置→诚实 SKIP 同 promptfoo 纪律；五段驱动 issue/track1/issue2/track2/close → assert-e2e 机检 C1-C8）。**tag 定位不动既有板面**（可在操场直接跑，只追加两条 E2E 命令——考题不再要求清场）；证据落 `.goal/evidence/e2e/`（gitignore，历史考题证据冻结在 v15/ 不覆盖）；考场 ws=temp/e2e-exam-ws 每次清旧。机检泛化：exam-e2e.py/assert-e2e.py 从 v15 拷贝改 tag（E2E代1/代2考题）+名称（e2e战线）。
+
+**首跑结果（2026-08-29 02:00）**：门机械链全对（前置→五段→FAIL 退出码），实弹抓到真问题——**任务 task_published 后 25 分钟无 task_claimed**（征召器/patrol 静默跳过，server.log 零线索：conscriptTask 拒因不上日志）。现场保留（.smoke-state 20260829-020104-9061.jsonl 未清，操场勿重播）待下轮诊断：查 conscriptTask 各 return reason（工作区冲突/满编/spawned 集合泄漏）+ 给 patrol 拒因补日志。

@@ -15,7 +15,8 @@
     "build": "tsdown --config tsdown.config.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "verify": "node scripts/verify.mjs",
-    "verify:eval": "node scripts/run-eval.mjs"
+    "verify:eval": "node scripts/run-eval.mjs",
+    "verify:e2e": "node scripts/run-e2e.mjs"
   },
   "keywords": [
     "dsh-plugin",

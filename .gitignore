@@ -27,3 +27,4 @@ __pycache__/
 
 # ---- impeccable 运行痕迹（live-server 缓存，快照目录 .impeccable/critique 保留入库）----
 .impeccable/live/
+.goal/evidence/e2e/
