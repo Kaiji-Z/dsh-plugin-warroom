@@ -28,12 +28,12 @@ test('fold keeps creation order across multiple commands', () => {
   const state = foldDirectives([
     { type: 'directive_created', ts: 't0', directiveId: 'cmd-1', text: '一' },
     { type: 'directive_created', ts: 't1', directiveId: 'cmd-2', text: '二' },
-    { type: 'directive_cancelled', ts: 't2', directiveId: 'cmd-1', reason: '元首放弃' },
+    { type: 'directive_cancelled', ts: 't2', directiveId: 'cmd-1', reason: '舰长放弃' },
     { type: 'directive_received', ts: 't3', directiveId: 'cmd-2', staffSessionId: 'sec' },
   ])
   assert.deepEqual(state.map(d => d.id), ['cmd-1', 'cmd-2'])
   assert.equal(state[0]!.status, 'cancelled')
-  assert.equal(state[0]!.cancelledReason, '元首放弃')
+  assert.equal(state[0]!.cancelledReason, '舰长放弃')
   assert.equal(state[1]!.status, 'received')
 })
 
@@ -206,10 +206,10 @@ test('V10 foldChains 防御：悬挂指针按段根投影；手改环不抛错�
   assert.equal(deepFold.generationOf.size, 40)
 })
 
-test('V10 deriveContinuation：参谋未成形拒绝；败仗 retry；成功/closed deepen；活体 pivot；排队无火可转', () => {
+test('V10 deriveContinuation：大副未成形拒绝；败仗 retry；成功/closed deepen；活体 pivot；排队无火可转', () => {
   const say = (r: ReturnType<typeof deriveContinuation>): string => ('error' in r ? r.error : r.mode)
   assert.match(say(deriveContinuation({ status: 'cancelled' }, undefined)), /取消/)
-  assert.match(say(deriveContinuation({ status: 'talking' }, undefined)), /参谋对话/)
+  assert.match(say(deriveContinuation({ status: 'talking' }, undefined)), /大副对话/)
   assert.match(say(deriveContinuation({ status: 'approved' }, undefined)), /尚未发布成形/)
   // 败仗：lastOutcome failed 或任务 failed 都判 retry。
   assert.equal(say(deriveContinuation({ status: 'approved', taskId: 't1' }, { status: 'failed', lastOutcome: 'failed' })), 'retry')

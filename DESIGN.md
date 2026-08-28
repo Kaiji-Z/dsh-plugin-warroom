@@ -594,3 +594,18 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **落点**：3D rebuildFrontLines 按战场聚合计数→TorusGeometry 弧段×N（gap 0.24，per-planet 倾角 det(fr:ws)）；2D 一星球一 circle（strokeDasharray 切段，中性 --war-text-2 色）；世代八面体/末代辉光/badge2d/链色类全部退场；图例两处更新（战线环（分段=战线数））。
 **坑**：war-tokens 哨兵的 var() 回退豁免正则是 `[a-z-]+` 不认数字——`var(--war-text-2,#xxx)` 会判裸色（--war-text-2 含数字），令牌已无条件定义就别带回退；readChainHue 因此全仓无引用（tsdown tree-shake 掉）→ verify 针脚换成 strokeDasharray/分段语义。
 **验证**：verify PASS（新针脚）+ shoot-v13 重写 M/F 相位全绿（M1 环组==锚定战场数 9/9、M2 段和==战线数 10/10、M4 八面体清零、F2 dasharray 环在场）+ 双视图截图目检（r15-v152-2d-final/3d-final）。
+
+## V16 星际迷航语义统一（2026-08-29，元首定案）
+
+**动机**：星域概念既立，角色与全套词表统一到星际迷航语境；且术语必须能随皮肤变化。
+
+**定案词表**（元首六问：范围=全套、默认=trek、战线/星域/编队维持、HQ=星舰）：
+角色：元首→舰长（Captain）、参谋→大副（XO）、指挥官→外勤小队（Away-Team，会话标题前缀 `外勤·`）、部队/兵种→外勤组员。对象：作战室→舰桥、战场(workspace)→星球、悬赏→任务令、战报→任务回报、战利品→任务产出、凯旋→达成、征召令→外勤任务简报（动词征召→派遣）、母舰/HQ→星舰、战时/停战→出航/入坞、标记【战场：】→【星球：】（skill 教学双兼容，旧令有效）。维持：战线、星域、编队、命令、任务、世代、链色。
+
+**皮肤架构（核心决策）**：copy.ts 军事词典 warCopy 保持原文=单一源；`TREK_LEXICON`（17 条，最长优先）+ `TREK_FIXUPS`（语境修正：每片星球一颗星→每个项目一颗星、行星=星球→行星=项目）运行时深走派生 `trekCopy`；SkinId='trek'|'war'|'plain'，**默认 trek**（localStorage 旧值 war/plain 仍受尊重）；平话词典独立成篇不动。改一处词典 → 军事/星际迷航同步生效。设置抽屉三按钮（星际迷航/军事/平话）。
+
+**实施**：批变换脚本（纯 split/join 最长优先）扫 32 源文件+tests+scripts≈600 处；host 侧（persona/tools/skill/relay/index 等）用 trek 正典（LLM 与 UI 同词）；会话标题前缀 `大副·`/`外勤·`（旧会话 append-only 不动）；shell-entry 侧栏标签改词典驱动+订阅换肤（V6 以来两皮肤同名「作战室」掩盖的静态渲染 bug 顺带修复）。
+
+**坑**：①trekCopy 运行时派生 → bundle 只有军事源串+变换代码，**静态 needle 不能断言 trek 字面量**——词典类针脚指军事源串，另加 TREK_LEXICON/星际迷航/外勤任务简报机制针脚；②变换脚本别跑 copy.ts（词典源）；③shoot-v7 皮肤数断言 2→3；④「征召」动词跟「外勤小队」搭配改「派遣」（征召新外勤小队→派遣新外勤小队、补征召→补派遣），征召制=机制名保留注释。
+
+**验证**：verify PASS（含 skin.test 重写：trek 缺省/词表无残留深走断言/三皮肤切换）+ shoot-v13/v7/theme 全绿 + 三皮肤实测切换（舰桥↔作战室侧栏即时换词）。证据 `.goal/evidence/v16/`。

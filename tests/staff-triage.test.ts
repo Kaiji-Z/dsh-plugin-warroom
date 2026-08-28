@@ -56,14 +56,14 @@ test('fold：directive_triaged/regraded 入账，终态守卫仍有效', () => {
   const events: DirectiveEvent[] = [
     { type: 'directive_created', ts: 't0', directiveId: 'c1', text: 'x' },
     { type: 'directive_triaged', ts: 't1', directiveId: 'c1', grade: 'L0', reason: '一句话小事', confidence: 0.9 },
-    { type: 'directive_regraded', ts: 't2', directiveId: 'c1', grade: 'L1', reason: '元首要方案' },
+    { type: 'directive_regraded', ts: 't2', directiveId: 'c1', grade: 'L1', reason: '舰长要方案' },
     { type: 'directive_approved', ts: 't3', directiveId: 'c1', taskId: 't-1' },
     // 终态后的一切档位事件都被忽略。
     { type: 'directive_regraded', ts: 't4', directiveId: 'c1', grade: 'L0', reason: 'late' },
   ]
   const [d] = foldDirectives(events)
   assert.equal(d!.grade, 'L1')
-  assert.equal(d!.gradeReason, '元首要方案')
+  assert.equal(d!.gradeReason, '舰长要方案')
   assert.equal(d!.gradeConfidence, 0.9)
   assert.equal(d!.regrades, 1)
 })
@@ -85,7 +85,7 @@ test('war_triage：正常入账；重复分诊被拒；旗关不注册', async (
   }
 })
 
-test('war_triage：元首标记强制改档（建议入 suggested，生效走 override）', async () => {
+test('war_triage：舰长标记强制改档（建议入 suggested，生效走 override）', async () => {
   const dir = tmpDir()
   try {
     seedCommand(dir, 'cmd-b', '把依赖全升到最新 !!直接做')
@@ -96,7 +96,7 @@ test('war_triage：元首标记强制改档（建议入 suggested，生效走 ov
     const folded = loadDirectives(dir).find(d => d.id === 'cmd-b')!
     assert.equal(folded.grade, 'L0')
     assert.equal(folded.gradeReason, '涉及面广')
-    // 事件里 suggested/override 留痕（审计可回放「参谋原建议 vs 元首强制」）。
+    // 事件里 suggested/override 留痕（审计可回放「大副原建议 vs 舰长强制」）。
     const triaged = loadDirectivesEvents(dir).find(e => e.type === 'directive_triaged') as Extract<DirectiveEvent, { type: 'directive_triaged' }>
     assert.equal(triaged.suggested, 'L1')
     assert.equal(triaged.override, '!!')

@@ -51,10 +51,10 @@ test('v2.0: dossier read initializes the template; entries append and persist', 
   try {
     const first = readDossier(dir, '/srv/proj')
     assert.ok(first.includes('工作区履历档案'))
-    appendDossierEntry(dir, '/srv/proj', '任务一', '结果：收官（通过）。战利品：测试全绿。', '2026-08-23T10:00:00Z')
+    appendDossierEntry(dir, '/srv/proj', '任务一', '结果：收官（通过）。任务产出：测试全绿。', '2026-08-23T10:00:00Z')
     const second = readDossier(dir, '/srv/proj')
     assert.ok(second.includes('任务一'))
-    assert.ok(second.includes('战利品：测试全绿'))
+    assert.ok(second.includes('任务产出：测试全绿'))
     // A different workspace gets a different file.
     assert.notEqual(dossierPath(dir, '/srv/other'), dossierPath(dir, '/srv/proj'))
   } finally {

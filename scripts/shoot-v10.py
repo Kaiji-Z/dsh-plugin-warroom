@@ -1,13 +1,13 @@
-"""v10 evidence shooter — 战线续接（世代徽标/族谱面包屑/pivot 转向）+ 星域战场底版.
+"""v10 evidence shooter — 战线续接（世代徽标/族谱面包屑/pivot 转向）+ 星域星球底版.
 
 Usage: python scripts/shoot-v10.py [outDir] [baseUrl] [smokeStateDir]
 Assumes the smoke-overlay server is ALREADY running on BASE (isolated statePath,
 same convention as shoot-v7.py). Phases:
   0 clear smoke state → board drains
-  S file-level seed: 3 workspaces / 2 凯旋 closed 仗 / 1 live 执行会话 /
+  S file-level seed: 3 workspaces / 2 达成 closed 仗 / 1 live 执行会话 /
     Ⅱ 代链(deepen) / draft pivot 续战令（宿主 resume 对伪会话必败→留 draft）
   P1 列表视图缺省（三列齐在、星域不在场）
-  P2 切星域：开关置 .war-map；星球数==workspace 数；凯旋印记显形；
+  P2 切星域：开关置 .war-map；星球数==workspace 数；达成印记显形；
      hover 活体光点 → 调度条出现 war-rel-same 族链高亮
   P3 切回列表：星域卸载
   P4 世代徽标 + 聚焦页战线族谱（面包屑 length=2、续战令·深化副行）
@@ -158,7 +158,7 @@ with sync_playwright() as p:
     assert pb["y"] + pb["height"] <= fb["y"] + 2, "面板应整体悬于卡面上方（不遮卡面）"
     # 面板内滚轮不得横移轨道（原生 stopPropagation 拦截）
     sl0 = page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft")
-    panel.hover(); page.mouse.wheel(0, -200); page.wait_for_timeout(200)  # 从底往上翻（元首定：滚轮从底起步）
+    panel.hover(); page.mouse.wheel(0, -200); page.wait_for_timeout(200)  # 从底往上翻（舰长定：滚轮从底起步）
     assert page.evaluate("document.querySelector('.war-dispatch-track').scrollLeft") == sl0, "面板滚轮不得横移轨道"
     # 历史卡同形无 R5（过去的命令不再需要操作）；点 Ⅰ 代卡直达该代聚焦页
     assert panel.locator(".war-card-actions").count() == 0, "历史卡不应有 R5 操作行"
@@ -177,8 +177,8 @@ with sync_playwright() as p:
     # V11.4 warzone demo 全要素进驻：3D 引擎 canvas + demo DOM 件 + __wz 句柄
     assert sf.locator(".war-wz-3d").count() == 1 and page.evaluate("() => document.querySelector('.war-wz-3d').width > 0"), "warzone 3D canvas 未渲染"
     assert sf.get_attribute("data-war-3d") == "1", "3D 星域标记缺席（若为回落态则 WebGL 失败）"
-    assert not page.locator(".war-zone.war-field").is_visible(), "地图态战场列必须隐退（CSS 隐藏）"
-    # V11.5f 元首令：HUD（DEEP SPACE WARZONE 标题块）撤除；面板族已在引擎退役。
+    assert not page.locator(".war-zone.war-field").is_visible(), "地图态星球列必须隐退（CSS 隐藏）"
+    # V11.5f 舰长令：HUD（DEEP SPACE WARZONE 标题块）撤除；面板族已在引擎退役。
     assert sf.locator(".war-wz-hud").count() == 0, "HUD 应已撤除（V11.5f）"
     for sel, name in [(".war-wz-legend", "图例"), (".war-wz-hint", "提示"), (".war-wz-toggle", "视图切换")]:
         assert sf.locator(sel).count() == 1, f"warzone {name} 件缺席"
@@ -233,7 +233,7 @@ with sync_playwright() as p:
     isl = page.locator(".war-island").first.bounding_box()
     top_el = page.evaluate("() => { const b = document.querySelector('.war-island').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width/2, b.y + b.height/2)?.closest('.war-island') !== null }")
     assert top_el, "灵动岛必须浮于星域之上（岛中心命中岛自身）"
-    assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/战报浮舱必须压图在场"
+    assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-zone.war-report").is_visible(), "任务/任务回报浮舱必须压图在场"
     # V11.5 连线：雷达=值班默认态（挂载即 cmd、浮舱/坞恒在场）；V 双向切换
     assert page.locator(".war-wz-tac").is_visible(), "雷达值班默认态未生效（挂载应即指挥室）"
     assert page.locator(".war-zone.war-tasks").is_visible() and page.locator(".war-dispatch").is_visible(), "雷达态浮舱/坞必须在场（操作面恒在）"
@@ -246,7 +246,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(700)
     assert page.locator(".war-wz-tip").is_visible(), "悬停信息卡未现身（画面中心应命中 HQ 代理）"
     tip_txt = page.locator(".war-wz-tip").inner_text()
-    assert "HEADQUARTERS" in tip_txt and "凯旋" in tip_txt, f"HQ 卡应带真实战力行：{tip_txt[:40]}"
+    assert "HEADQUARTERS" in tip_txt and "达成" in tip_txt, f"HQ 卡应带真实战力行：{tip_txt[:40]}"
     page.mouse.move(8, 300)
     # V11.4 相机（demo OrbitControls 正案）：左键旋转/滚轮缩放（中键推拉）。
     spot = page.evaluate("""() => {
@@ -262,7 +262,7 @@ with sync_playwright() as p:
     assert spot is not None, "找不到空画布落点（拖拽起点）"
     def cam():
         return page.evaluate("() => window.__wz.scene.camInfo()")
-    # V11.5b 三键相机（元首定）：左平移（center 动）/ 中旋转（绕屏幕中心，yaw 动 center 不动）/
+    # V11.5b 三键相机（舰长定）：左平移（center 动）/ 中旋转（绕屏幕中心，yaw 动 center 不动）/
     # 滚轮缩放（dist 动）；双击复位含平移归零。
     c0 = cam()
     page.mouse.move(spot["x"], spot["y"]); page.mouse.down()
@@ -293,7 +293,7 @@ with sync_playwright() as p:
     page.evaluate("() => localStorage.setItem('warroom-cfg-view','list')")
     open_board()
     assert page.locator(".war-starfield").count() == 0, "回列表后星域应卸载"
-    assert page.locator(".war-zone.war-field").is_visible(), "回列表后战场列回归"
+    assert page.locator(".war-zone.war-field").is_visible(), "回列表后星球列回归"
     print("P3 back-to-list ok")
 
     # --- P4 聚焦页族谱 -----------------------------------------------------------

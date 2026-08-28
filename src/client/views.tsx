@@ -1,6 +1,6 @@
 /**
  * The war map (三列局势墙 + 调度条) — the warroom's V9 operating surface.
- * Three monitor columns (任务 / 作战中+外部 / 战报) plus the bottom command
+ * Three monitor columns (任务 / 作战中+外部 / 任务回报) plus the bottom command
  * dispatch strip. V9.9 wiring discipline: clicking ANY card opens the source
  * command's focus page (聚焦页 — a lifecycle tour that pulls the main-UI
  * cards into one window); there are no per-task/per-session detail modals
@@ -14,7 +14,7 @@ import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalSto
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
-import { activeCopy, setSkin, skinId, subscribeSkin } from './copy.ts'
+import { activeCopy, setSkin, skinId, subscribeSkin, type SkinId } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyBattlefieldMarker, applyGradeMarker, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
@@ -78,7 +78,7 @@ function staffSessionFor(taskId: string, commands: BoardCommand[], hqSessionId: 
   return own?.staffSessionId ?? hqSessionId
 }
 
-/** 地图标记：「！」新悬赏待领取，「？」战报可收菜（分区时代的残留信号灯）。 */
+/** 地图标记：「！」新任务令待领取，「？」任务回报可收菜（分区时代的残留信号灯）。 */
 function statusMark(task: BoardTask): ReactNode {
   const m = activeCopy().statusMark[task.status]
   if (m === undefined) return null
@@ -149,8 +149,8 @@ function qualityChip(quality: BoardQuality): ReactNode {
 
 type LifeStage = 'command' | 'task' | 'battle' | 'report'
 
-/** 战报已阅账本（localStorage，per 命令记「最近一次点开战报」时刻）：战报段
- * 由呼吸转绿的唯一依据——seen 必须晚于该命令最近一次定论（新战报会重新拉回
+/** 任务回报已阅账本（localStorage，per 命令记「最近一次点开任务回报」时刻）：任务回报段
+ * 由呼吸转绿的唯一依据——seen 必须晚于该命令最近一次定论（新任务回报会重新拉回
  * 呼吸态）。无 localStorage 环境（测试/隐身）静默降级为未读。 */
 const REPORT_SEEN_KEY = 'warroom-report-seen'
 function reportSeenAtOf(commandId: string): number | undefined {
@@ -168,12 +168,12 @@ function markReportSeen(commandId: string): void {
     m[commandId] = Date.now()
     localStorage.setItem(REPORT_SEEN_KEY, JSON.stringify(m))
   } catch {
-    // 静默降级：读投影不受影响，只是战报段不转绿。
+    // 静默降级：读投影不受影响，只是任务回报段不转绿。
   }
 }
 
-/** 链上最近一次「定论时刻」（战报/上报/失败尝试的末次时间）——战报已阅只在
- * 晚于它时才作数（驳回重跑出了新战报 → 呼吸态回归，等你再看）。 */
+/** 链上最近一次「定论时刻」（任务回报/上报/失败尝试的末次时间）——任务回报已阅只在
+ * 晚于它时才作数（驳回重跑出了新任务回报 → 呼吸态回归，等你再看）。 */
 function latestSettleMs(chain: BoardTask[]): number {
   let latest = 0
   for (const t of chain) {
@@ -191,9 +191,9 @@ function latestSettleMs(chain: BoardTask[]): number {
   return latest
 }
 
-/** 阶段条状态机（V9.11 指示器跟卡走，元首定案）：now 是当前关注位（呼吸条）。
+/** 阶段条状态机（V9.11 指示器跟卡走，舰长定案）：now 是当前关注位（呼吸条）。
  * 规则：卡进任务列（成形卡或任务书卡）前沿即到任务段——只有定时未出发/未被
- * 参谋接手的命令停在命令段；执行段认 live 尝试；战报到场先呼吸（等你点开），
+ * 大副接手的命令停在命令段；执行段认 live 尝试；任务回报到场先呼吸（等你点开），
  * 看过之后（seen 晚于最近定论）整条转绿收官。 */
 function lifecycleOf(cmd: BoardCommand, chain: BoardTask[], reportSeenAt?: number): { reached: Record<LifeStage, boolean>; now: LifeStage | null; status: string; tone: '' | 'warn' | 'err' } {
   const copy = activeCopy().lifecycle
@@ -212,11 +212,11 @@ function lifecycleOf(cmd: BoardCommand, chain: BoardTask[], reportSeenAt?: numbe
       const tone = cmd.status === 'talking' || planPending ? 'warn' : ''
       return { reached: { command: true, task: true, battle: false, report: false }, now: 'task', status, tone }
     }
-    // 未被参谋拿到 / 定时未出发：无任务卡可指，前沿停在命令段。
+    // 未被大副拿到 / 定时未出发：无任务卡可指，前沿停在命令段。
     return { reached: { command: true, task: false, battle: false, report: false }, now: 'command', status: copy.waitingStaff, tone: 'warn' }
   }
   const closed = chain.filter(t => t.status === 'closed').length
-  // V9.11：上报（reported）即进战报段——执行卡已平移到战报列，生命条不许停在
+  // V9.11：上报（reported）即进任务回报段——执行卡已平移到任务回报列，生命条不许停在
   // 执行段打架；状态标签优先级 定论(closed/failed) > 待验收(reported)。
   const reportDone = chain.some(t => t.status === 'closed' || t.status === 'failed' || t.status === 'reported')
   const chainPrefix = chain.length > 1 ? `${copy.chain(closed, chain.length)} · ` : ''
@@ -273,7 +273,7 @@ function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
 function gradeChip(cmd: BoardCommand): ReactNode {
   if (cmd.grade === null) return null
   const label = activeCopy().grade[cmd.grade]
-  const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（元首改档 ${cmd.regrades} 次）` : ''}`
+  const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（舰长改档 ${cmd.regrades} 次）` : ''}`
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
@@ -395,7 +395,7 @@ function genBadge(cmd: BoardCommand): ReactNode {
   }, label)
 }
 
-/** V10.1 战线历代状态 pip（元首复评定形=纯圆点）：一点一代，颜色=该代战线
+/** V10.1 战线历代状态 pip（舰长复评定形=纯圆点）：一点一代，颜色=该代战线
  * 状态——蓝=机器在动/琥珀=等你/绿=善终/红=败/灰=未战而终；最新代点放大描环
  * （卡面=此代）。代数罗马数字只在悬停 title/aria 里讲（圆点不背字）。 */
 type PipStatus = 'run' | 'wait' | 'done' | 'fail' | 'idle'
@@ -441,7 +441,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   // V9.9 tour 变体（聚焦页内嵌）：点击=展开下达配置，◎/进入对话收起（底部
   // 「任务会话」跳钮覆盖对话入口，窗口内不需要二次聚焦）。
   const conversational = !tour && (cmd.status === 'received' || cmd.status === 'talking')
-  // V10.1 五行卡规格（元首定）：R1 徽章行 / R2 命令原文一行截断 / R3 生命条 /
+  // V10.1 五行卡规格（舰长定）：R1 徽章行 / R2 命令原文一行截断 / R3 生命条 /
   // R4 通知行（预检提示·取消原因，空则留位）/ R5 快捷操作行（进入对话·改直
   // 发·◎ 聚焦；全空给「无快捷操作」占位）——行高恒定，坞内所有命令卡同尺寸。
   const preflight = stalledOnUserPlan(cmd)
@@ -482,7 +482,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     ? createElement('div', { className: 'war-command-text', title: cmd.text },
         createElement('span', { className: 'war-taskid' }, cmd.commandId))
     : createElement('div', { className: `war-command-text${cmd.status === 'cancelled' ? ' struck' : ''}`, title: cmd.text }, cmd.text),
-  // R3 全生命周期阶段条：命令不因发布而死卡——任务/执行/战报进度常驻卡上。
+  // R3 全生命周期阶段条：命令不因发布而死卡——任务/执行/任务回报进度常驻卡上。
   LifeStrip(cmd, chain),
   // R4 通知行：夜间预检后果提示 / 取消原因；空也保留行位（恒高）。
   createElement('div', {
@@ -522,7 +522,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   )
 }
 
-/** V10.1 卡牌组（元首复评定形）：坞里只摆最新一代卡面，组性走「叠纸影 +
+/** V10.1 卡牌组（舰长复评定形）：坞里只摆最新一代卡面，组性走「叠纸影 +
  * 历代状态圆点」；悬停 ~150ms 组面按 Mac 下载栈式向上展开——面板只摆【历代】
  * （最新一代=坞上卡面本体复用，不重复），最新前代贴卡面在上、更老依次向上，
  * 最高 4 行滚轮翻看，离开 ~200ms 收拢；聚焦组内任一卡同样展开——键鼠同权
@@ -565,7 +565,7 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
     window.addEventListener('resize', place)
     return () => { window.removeEventListener('resize', place) }
   }, [open])
-  // 元首定：滚轮从底起步——展开即见贴卡面的最新前代，往上翻才见更老（Mac
+  // 舰长定：滚轮从底起步——展开即见贴卡面的最新前代，往上翻才见更老（Mac
   // 下载栈同款直觉；底部=newest 与视觉堆叠方向一致）。依赖含 pos：open 先翻
   // 时 pos 尚 null、面板未挂载，坐标落位后才是真挂载时机。
   useEffect(() => {
@@ -625,7 +625,7 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
  * 选项卡——自主度（放权多少）与发布时机（立即 / cron 定时，到点 tick 自动
  * 下达、一次有效）。档位标记仍拼入命令文本（机制不变）；Ctrl+Enter 提交。
  * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
-function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（战报卡「下续战令」播种）。 */ initialContinueId?: string | null; /** V14 显式战场（现存战场清单；续接默认带父战线战场）。 */ battlefields?: Array<{ key: string; name: string }> }): ReactNode {
+function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（任务回报卡「下续战令」播种）。 */ initialContinueId?: string | null; /** V14 显式星球（现存星球清单；续接默认带父战线星球）。 */ battlefields?: Array<{ key: string; name: string }> }): ReactNode {
   const { recent, onClose, refresh, continueCandidates = [], initialContinueId = null } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
   // V10.1 critique P1-3：焦点直落 textarea（此前停在弹窗容器 DIV，多按一次 Tab）。
@@ -639,7 +639,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   const [cronExpr, setCronExpr] = useState('')
   // V10 战线续接：接到哪条旧令后面（null=开新战线）。
   const [cont, setCont] = useState<string | null>(initialContinueId)
-  // V14 显式战场（null=参谋定）：续接选中时默认带父战线战场——改选即宣告新战线。
+  // V14 显式星球（null=大副定）：续接选中时默认带父战线星球——改选即宣告新战线。
   const [bfPick, setBfPick] = useState<string | null>(null)
   // V15 战线名（可选；不填=命令原文）。
   const [name, setName] = useState('')
@@ -787,7 +787,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
             ...(bfChoices !== undefined
               ? (() => { const shown = bfChoices.slice(0, 8)
                   return bfPick !== null && !shown.some(x => x.key === bfPick)
-                    ? [...shown, { key: bfPick, name: bfNameOf(bfPick) }] // 选中键不在展示切片也要可见（如排序最老的战场）
+                    ? [...shown, { key: bfPick, name: bfNameOf(bfPick) }] // 选中键不在展示切片也要可见（如排序最老的星球）
                     : shown })()
               : []).map(b => createElement('button', {
               key: b.key, type: 'button',
@@ -828,30 +828,30 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   )
 }
 
-/** V9.9 聚焦页（元首定案）：主界面是所有卡片的全生命周期监控版；这里是一条
+/** V9.9 聚焦页（舰长定案）：主界面是所有卡片的全生命周期监控版；这里是一条
  * 命令的全生命周期聚焦导览——把主界面的卡片拉进这个窗口。四段各放真实在场
- * 的卡（①命令卡 / ②任务卡按链全列 / ③执行卡=仅进行中的会话 / ④战报卡），
+ * 的卡（①命令卡 / ②任务卡按链全列 / ③执行卡=仅进行中的会话 / ④任务回报卡），
  * 点卡在卡下原地展开子详情（命令→下达配置；任务→最终计划原文，计划中给进
- * 任务会话钮；战报→收官结论原文），执行卡点击直接跳原生会话窗口。底部两颗
- * 会话跳钮（任务会话=参谋计划会话 / 执行会话=指挥官实施会话）代替旧 footer
+ * 任务会话钮；任务回报→收官结论原文），执行卡点击直接跳原生会话窗口。底部两颗
+ * 会话跳钮（任务会话=大副计划会话 / 执行会话=外勤小队实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你发落」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
 function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin'] }): ReactNode {
   const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin } = props
   const layer = useModalLayer(onClose, `命令 ${cmd.text.slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
-  // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 战报结论。
+  // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 任务回报结论。
   const [open, setOpen] = useState<{ kind: 'config' } | { kind: 'plan'; taskId: string } | { kind: 'report' } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
-  // 分段直达：打开即滚到需要元首发落的环节（plan/chain→任务段，report→战报段）。
+  // 分段直达：打开即滚到需要舰长发落的环节（plan/chain→任务段，report→任务回报段）。
   useEffect(() => {
     if (focusSegment === null) return
     const stage = focusSegment === 'report' ? 'report' : 'task'
     document.querySelector(`.war-modal .war-cd-stage[data-stage='${stage}']`)?.scrollIntoView({ block: 'center' })
   }, [focusSegment])
-  // V9.11 战报已阅（元首定）→ V9.12 收紧为三条正经通道：①分段直达战报段＝看过
-  // ②战报卡点开展开详情＝看过 ③自行滚到战报段 ≥60% 可见且停留 ≥800ms＝看过
-  // ——生命条战报段由呼吸转绿。标记走 localStorage（seen 晚于最近定论才作数），
+  // V9.11 任务回报已阅（舰长定）→ V9.12 收紧为三条正经通道：①分段直达任务回报段＝看过
+  // ②任务回报卡点开展开详情＝看过 ③自行滚到任务回报段 ≥60% 可见且停留 ≥800ms＝看过
+  // ——生命条任务回报段由呼吸转绿。标记走 localStorage（seen 晚于最近定论才作数），
   // onReportSeen 让调度条立即重渲染。
   useEffect(() => {
     if (focusSegment === 'report') {
@@ -892,7 +892,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   const band = activeCopy().commandBand
   const life = lifecycleOf(cmd, chain)
   const closed = chain.filter(t => t.status === 'closed').length
-  // 最新战报：链上任一环的最新一条汇报（各环取末条，再按时间取最新）。
+  // 最新任务回报：链上任一环的最新一条汇报（各环取末条，再按时间取最新）。
   const lastReport = chain
     .flatMap(t => (t.reports.length > 0 ? [{ r: t.reports[t.reports.length - 1]!, t }] : []))
     .sort((a, b) => (a.r.ts < b.r.ts ? 1 : -1))[0]
@@ -900,14 +900,14 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   const execSessions = chain
     .flatMap(t => (t.attemptLog ?? []).map(a => ({ t, a })))
     .sort((x, y) => (x.a.startedAt < y.a.startedAt ? 1 : -1))
-  // 执行段只认「正在进行」的尝试（outcome===null）；战报卡的宿主=最新战报所在
-  // 环（无战报退到有收官判定的一环），取其末次尝试还原成主界面会话卡。
+  // 执行段只认「正在进行」的尝试（outcome===null）；任务回报卡的宿主=最新任务回报所在
+  // 环（无任务回报退到有收官判定的一环），取其末次尝试还原成主界面会话卡。
   const liveAttempts = execSessions.filter(({ a }) => a.outcome === null)
   const reportHost = lastReport?.t ?? verdictTask
   const reportEntry = reportHost !== undefined && (reportHost.attemptLog ?? []).length > 0
     ? { t: reportHost, a: reportHost.attemptLog[reportHost.attemptLog.length - 1]! }
     : null
-  // 底部两颗会话跳钮的目标：任务会话=参谋计划会话（无则 hq 兜底）；执行会话=
+  // 底部两颗会话跳钮的目标：任务会话=大副计划会话（无则 hq 兜底）；执行会话=
   // 进行中的那次尝试，无进行中退到最近一次尝试。
   const staffTarget = cmd.staffSessionId ?? hqSessionId
   // 跳原生会话 = 离开聚焦页：宿主切走会话，弹窗同时收起（不留在头顶挡路）。
@@ -937,7 +937,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   const execTarget = liveAttempts[0]?.a.sessionId ?? execSessions[0]?.a.sessionId ?? null
   const failedChain = chain.some(t => t.status === 'failed')
   const scheduled = cmd.schedule !== null && cmd.schedule.dispatchedAt === null
-  // V9.10 任务段状态机（空链时的卡片/提示分岔，元首定案）——变体判定与主界面
+  // V9.10 任务段状态机（空链时的卡片/提示分岔，舰长定案）——变体判定与主界面
   // 任务列成形卡同源（formingVariantOf），分岔口径永不分叉。
   const talking = cmd.status === 'talking'
   const ghostVariant = formingVariantOf(cmd, chain)
@@ -982,7 +982,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       createElement('span', { className: 'war-cd-stage-name' }, stages[key]),
       createElement('span', { className: 'war-cd-stage-conc' }, conclusion),
     )
-  // 子详情行（配置/计划/战报共用的「标签: 值」行，值可长文换行）。
+  // 子详情行（配置/计划/任务回报共用的「标签: 值」行，值可长文换行）。
   const subRow = (label: string, value: ReactNode): ReactNode =>
     createElement('div', { className: 'war-sub-row' },
       createElement('span', { className: 'war-sub-label' }, label),
@@ -992,7 +992,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     createElement('div', { className: 'war-modal-actions' }, ...children)
   // 空链 ghost 卡的展开（V9.10 按命令状态分岔）：计划（待批=原文+顺手批驳+进
   // 任务会话）/ 等你答问（进入对话回答=markTalking+跳）/ 已接令（分诊结果+进
-  // 任务会话）——任务成形的车间就是参谋会话，操作落在读到的位置。
+  // 任务会话）——任务成形的车间就是大副会话，操作落在读到的位置。
   const ghostPanel = (key?: string): ReactNode => {
     if (ghostVariant === 'plan') {
       const pending = cmd.plan?.status === 'pending'
@@ -1035,7 +1035,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     )
   }
   // 链上任务卡的展开（V9.10 补全）：命令级最终计划（若有）+ 该环任务书 + 验收
-  // 标准；reported/failed 环给「去处理」直达参谋会话（与主界面任务卡同动作）。
+  // 标准；reported/failed 环给「去处理」直达大副会话（与主界面任务卡同动作）。
   const taskPanel = (t: BoardTask, key?: string): ReactNode => createElement('div', { key, className: 'war-subdetail' },
     cmd.plan !== null
       ? createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[cmd.plan.status]}）`)
@@ -1059,7 +1059,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       createElement('button', { className: 'war-cd-x', type: 'button', 'aria-label': copy.close, title: copy.close, onClick: onClose }, '✕'),
       createElement('div', { className: 'war-modal-title war-cd-title', title: cmd.text }, `「${cmd.text.slice(0, 42)}${cmd.text.length > 42 ? '…' : ''}」`),
       createElement('div', { className: 'war-modal-sub' }, `${relTime(cmd.createdAt)} · ${cmd.commandId} · ${commandStatus(cmd.status).label}${cmd.grade !== null ? ` · ${GRADE_LABEL[cmd.grade]}${cmd.regrades > 0 ? copy.regradesNote(cmd.regrades) : ''}` : ''}${cmd.continuation !== null ? ` · ${activeCopy().chain.tags[cmd.continuation.mode]}` : ''}`),
-      // V14 战线族谱（本地计代）：本战线 Ⅰ→…→本代逐级可跳；跨战场溯源收缩为
+      // V14 战线族谱（本地计代）：本战线 Ⅰ→…→本代逐级可跳；跨星球溯源收缩为
       // 一枚「续接自」chip（链的痕迹不占概念，点它回源战线）。
       chainMembers.length > 1 || origin !== undefined && origin !== null
         ? createElement('div', { className: 'war-cd-chain', role: 'list', 'aria-label': activeCopy().chain.breadcrumbAria, 'data-war-chain-length': String(chainMembers.length) },
@@ -1195,8 +1195,8 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
               ...liveAttempts.map(({ t, a }) => SessionCard(t, a, (_t, a2) => { jumpSession(a2.sessionId) }, NO_TRACE)))
             : createElement('div', { className: 'war-tour-hint' }, execSessions.length > 0 ? fp.battleDone : fp.battleNone),
         ),
-        // ④ 战报 · 结果如何：战报卡（最新战报宿主环的末次会话卡）点开看收官
-        // 结论原文 + 最新战报 + 证据折叠；无战报只给提示行（段头不重复）。
+        // ④ 任务回报 · 结果如何：任务回报卡（最新任务回报宿主环的末次会话卡）点开看收官
+        // 结论原文 + 最新任务回报 + 证据折叠；无任务回报只给提示行（段头不重复）。
         createElement('section', { className: 'war-cd-stage war-cd-report', 'data-stage': 'report' },
           reportEntry !== null
             ? stageHead('report', verdictTask !== undefined && verdictTask.closedVerdict !== null
@@ -1206,7 +1206,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           reportEntry !== null
             ? createElement('div', { className: 'war-tour-cards' },
               SessionCard(reportEntry.t, reportEntry.a, () => {
-                // 点开展开＝正经看过战报（V9.12 seen 三通道之二）；再点收起不清标记。
+                // 点开展开＝正经看过任务回报（V9.12 seen 三通道之二）；再点收起不清标记。
                 if (open === null || open.kind !== 'report') {
                   markReportSeen(cmd.commandId)
                   onReportSeen()
@@ -1218,8 +1218,8 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                   verdictTask !== undefined && verdictTask.closedVerdict !== null ? subRow(fp.reportVerdict, verdictTask.closedVerdict) : null,
                   lastReport !== undefined ? subRow(fp.reportLatest, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`) : null,
                   evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)]) : null,
-                  // V9.10 收菜三件：战利品/交付物 + 历次作战会话（逐次可跳）+ 待发落动作
-                  // （V9.12 正名：reported 链→去验收 / 败链→去下重试令，都落参谋会话）。
+                  // V9.10 收菜三件：任务产出/交付物 + 历次作战会话（逐次可跳）+ 待发落动作
+                  // （V9.12 正名：reported 链→去验收 / 败链→去下重试令，都落大副会话）。
                   reportHost !== undefined && reportHost.deliverables.length > 0
                     ? subRow(fp.lootLabel, createElement('span', { className: 'war-loot' },
                       reportHost.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary))))
@@ -1242,7 +1242,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                         onClick: () => { jumpSession(staffTarget) },
                       }, failedChain ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview)])
                     : null,
-                  // V10 续接入口：战报读完即续——关展开、开起草器并预选本命令为母本。
+                  // V10 续接入口：任务回报读完即续——关展开、开起草器并预选本命令为母本。
                   onContinue !== undefined
                     ? subActions([createElement('button', {
                         className: 'war-btn',
@@ -1261,7 +1261,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                 : fp.reportNone),
         ),
       ),
-      // 底部两颗会话跳钮（V9.9 元首定案，代替旧 footer 全部按钮）：直跳原生会话
+      // 底部两颗会话跳钮（V9.9 舰长定案，代替旧 footer 全部按钮）：直跳原生会话
       // 窗口；未形成给同名禁用占位（title 说明何时会出现）。
       createElement('div', { className: 'war-tour-jumps' },
         createElement('button', {
@@ -1283,7 +1283,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
 
 // --- 任务区 ------------------------------------------------------------------
 
-// --- 成形卡（V9.11 任务列=参谋侧台账：任务书挂出前的占位形态，变体同聚焦页 ghost）---
+// --- 成形卡（V9.11 任务列=大副侧台账：任务书挂出前的占位形态，变体同聚焦页 ghost）---
 
 function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting', onOpen: () => void, trace: CardTrace): ReactNode {
   const lc = activeCopy().lifecycle
@@ -1318,7 +1318,7 @@ function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting'
   )
 }
 
-function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace, /** V14.1 单代战线战场身份（任务列传参；其他调用点不传不渲染）。 */ bf?: string | null): ReactNode {
+function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace, /** V14.1 单代战线星球身份（任务列传参；其他调用点不传不渲染）。 */ bf?: string | null): ReactNode {
   // V9.11 台账终局态：closed/failed 任务书卡常驻任务列但调暗；reported 是待验收
   // 动作态（收件箱有「去处理」），保持全亮不许被埋。
   const settled = task.status === 'closed' || task.status === 'failed'
@@ -1353,7 +1353,7 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
       task.attempts > 1 ? createElement('span', { className: 'war-chip', title: activeCopy().taskCard.attemptNTitle }, activeCopy().taskCard.attemptN(task.attempts)) : null,
       relTime(task.startedAt) !== '' ? createElement('span', { className: 'war-time' }, relTime(task.startedAt)) : null,
     ),
-    // V8 卡片保守瘦身：品质/高优先/依赖锁/cron/工作区/任务书/战利品挪进详情浮层；
+    // V8 卡片保守瘦身：品质/高优先/依赖锁/cron/工作区/任务书/任务产出挪进详情浮层；
     // 卡上只留 标记+状态+溯源+标题 与解释行（等待/败因）——一眼可扫。
     waitKindOf(task, statuses) === 'queued'
       ? createElement('div', { className: 'war-waithint' }, activeCopy().waitHint.queued(task.queueAhead ?? 0))
@@ -1391,7 +1391,7 @@ function EvidenceBlock(evidence: NonNullable<BoardTask['reports'][number]['evide
   return createElement('div', { className: 'war-evi' }, rows)
 }
 
-// --- 会话卡（战场：进行中/已完成/已失败，详情优先）---------------------------
+// --- 会话卡（星球：进行中/已完成/已失败，详情优先）---------------------------
 
 function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: BoardTask, attempt: BoardAttempt) => void, trace: CardTrace): ReactNode {
   const key = `${attempt.sessionId}:${attempt.startedAt}`
@@ -1414,7 +1414,7 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
     createElement('span', { className: 'war-time' }, relTime(attempt.startedAt)),
   ),
   createElement('div', { className: 'war-title' }, task.title),
-  // V8 卡片保守瘦身：品质/工作区/战利品摘要挪进会话详情；卡上留状态+尝试+时间。
+  // V8 卡片保守瘦身：品质/工作区/任务产出摘要挪进会话详情；卡上留状态+尝试+时间。
   createElement('div', { className: 'war-card-top' },
     createElement('span', { className: 'war-taskid', title: attempt.sessionId }, `⌁ ${attempt.sessionId.slice(0, 10)}…`),
   ),
@@ -1435,7 +1435,7 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   )
 }
 
-// --- 挂载 thread（v3：外部会话上战场）-----------------------------------------
+// --- 挂载 thread（v3：外部会话上星球）-----------------------------------------
 
 /** An externally-attached session: 「外部」badge, jump + detach only. */
 function ExternalThreadCard(thread: BoardThread, services: ClientServicesFace, onDetach: (sessionId: string) => void, trace: CardTrace): ReactNode {
@@ -1483,11 +1483,11 @@ function Zone(key: string, title: string, count: number, empty: string, children
   )
 }
 
-/** V7-① 等你发落收件箱：四类需要元首的动作（答澄清/批计划/翻战报/决重试）
+/** V7-① 等你发落收件箱：四类需要舰长的动作（答澄清/批计划/翻任务回报/决重试）
  * 聚合成一条队列，带等待时长与 aging 警示；点击直达动作发生地（进会话/开
  * 决策卡/开任务详情）——板子只导航，不长任务写操作（红线）。 */
 /** V13 战线头（任务列分组）：围合容器内的标题行——链色圆点+根命令原文+代数/任务
- * 数+战场名 chip+聚合态。战场名是拆段身份的关键（同血脉跨战场的兄弟段靠它分辨）。 */
+ * 数+星球名 chip+聚合态。星球名是拆段身份的关键（同血脉跨星球的兄弟段靠它分辨）。 */
 function bfNameOf(bf: string | null): string {
   if (bf === null) return ''
   if (bf === UNGROUPED_WS_KEY) return activeCopy().starfield.ungrouped
@@ -1498,7 +1498,7 @@ function FrontHead(f: WarFront): ReactNode {
   const fcopy = activeCopy().front
   const state = f.agg.waiting ? fcopy.stateWaiting : f.agg.failed ? fcopy.stateFailed : f.agg.settled ? fcopy.stateSettled : fcopy.stateLive
   const bf = bfNameOf(f.battlefield)
-  return createElement('div', { className: `war-front-head war-chain-hue-${f.hueSlot}`, title: `${f.title}\n战场：${bf}` },
+  return createElement('div', { className: `war-front-head war-chain-hue-${f.hueSlot}`, title: `${f.title}\n星球：${bf}` },
     createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
     createElement('span', { className: 'war-front-title' }, f.title),
     createElement('span', { className: 'war-chip war-front-gen' }, `${fcopy.genN(f.generations.length)} · ${fcopy.taskN(f.tasks.length)}`),
@@ -1600,7 +1600,7 @@ function WarIsland(props: {
   const [pinned, setPinned] = useState(false)
   const copy = activeCopy().island
   // V10.1 审查（通知可达性）：收件箱净增时经视觉隐藏 live 区礼貌播报——
-  // 「新增 N 件等你发落」是该打断元首的级别；减少/持平不播（防噪音）。
+  // 「新增 N 件等你发落」是该打断舰长的级别；减少/持平不播（防噪音）。
   const [announce, setAnnounce] = useState<string | null>(null)
   const prevInbox = useRef<number | null>(null)
   useEffect(() => {
@@ -1641,13 +1641,13 @@ function WarIsland(props: {
     createElement('span', { className: 'war-island-title' }, activeCopy().head.title),
     // V12.2 critique P3 整改：计数数字上权重（13px/600）——岛计数是全板第一眼
     // 信息，此前 12px/400 比任何卡标题都弱（层级倒挂）。数字 <b> 化，标签保持弱灰；
-    // 「等·指挥官」段（琥珀=等你——四数中唯一行动信号）加主从：非零时数字染琥珀。
-    // 段分隔必须切带空格的 ' · '——词内的 等·参谋 之 · 无空格，不能当分隔符吃掉
+    // 「等·外勤小队」段（琥珀=等你——四数中唯一行动信号）加主从：非零时数字染琥珀。
+    // 段分隔必须切带空格的 ' · '——词内的 等·大副 之 · 无空格，不能当分隔符吃掉
     // （首版 split('·') 把词切开、琥珀判定随之失灵，live 复核当场抓获）。
     // aria-live=polite：SSE 计数跃迁对读屏可闻（收件箱增量播报之外的轻量覆盖）。
     createElement('span', { className: 'war-island-counts', 'aria-label': countsText, 'aria-live': 'polite' },
       ...(countsText === '' ? [] : countsText.split(' · ')).flatMap((part, pi): ReactNode[] => {
-        const isWait = part.trim().startsWith('等·指挥官')
+        const isWait = part.trim().startsWith('等·外勤小队')
         return (pi > 0 ? [' · '] : []).concat([...part.split(/(\d+)/)].map((segText, i) => /^\d+$/.test(segText)
           ? createElement('b', { key: `n${pi}-${i}`, className: `war-island-num${isWait ? ' wait' : ''}` }, segText)
           : segText))
@@ -1709,11 +1709,11 @@ function OnboardPanel(onCompose: () => void): ReactNode {
   )
 }
 
-/** V9.4 底部命令调度坞（容器化，元首定案）：整坞一个大容器（与三区同语言
+/** V9.4 底部命令调度坞（容器化，舰长定案）：整坞一个大容器（与三区同语言
  * 的圆角容器、物种差保留——主色淡染凹槽）；左端 ＝ ＋ 下达瓦片（容器的
  * 一部分，幽灵虚线态）；命令卡全部进 .war-dispatch-track 轨道横滚（滚轮
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
- * 退役（元首：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
+ * 退役（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
 function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
   const { onCompose, children } = props
@@ -1794,7 +1794,7 @@ function SettingsDrawer(props: {
   onToggleAutoScroll: (v: boolean) => void
   connected: boolean
   onRefresh: () => void
-  /** V10.1 战场视图开关（从调度坞退役迁此——坞只管卡，设置管模式）。 */
+  /** V10.1 星球视图开关（从调度坞退役迁此——坞只管卡，设置管模式）。 */
   viewMap: boolean
   onToggleViewMap: (v: boolean) => void
   /** 偏好为地图但窗口过窄被强制回列表——开关旁给诚实说明（critique P2-5）。 */
@@ -1804,7 +1804,7 @@ function SettingsDrawer(props: {
   const copy = activeCopy().settings
   const [skin, setSkinState] = useState(skinId())
   const layer = useModalLayer(onClose, copy.title)
-  const skinBtn = (id: 'war' | 'plain', label: string): ReactNode =>
+  const skinBtn = (id: SkinId, label: string): ReactNode =>
     createElement('button', {
       key: id, type: 'button',
       className: `war-skin-opt${skin === id ? ' on' : ''}`,
@@ -1833,6 +1833,7 @@ function SettingsDrawer(props: {
       createElement('div', { className: 'war-settings-body' },
         createElement('div', { className: 'war-settings-section' }, copy.skinSection),
         createElement('div', { className: 'war-skin-row' },
+          skinBtn('trek', copy.skinTrek),
           skinBtn('war', copy.skinWar),
           skinBtn('plain', copy.skinPlain)),
         createElement('div', { className: 'war-settings-note' }, copy.skinHint),
@@ -1870,7 +1871,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const [composerOpen, setComposerOpen] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [detailCommandId, setDetailCommandId] = useState<string | null>(null)
-    // V10 续接播种：战报卡「下续战令」→ 预填起草器接续目标。
+    // V10 续接播种：任务回报卡「下续战令」→ 预填起草器接续目标。
     const [continueSeed, setContinueSeed] = useState<string | null>(null)
     // V10-R3a 星域/列表视图偏好（窄屏强制列表——中庭放不下恒星系）。
     const [viewPref, setViewPref] = useState<'list' | 'map'>(() => {
@@ -1894,7 +1895,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       window.addEventListener('resize', on)
       return () => window.removeEventListener('resize', on)
     }, [])
-    // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/战报）。
+    // V9 分段直达：打开聚焦页时滚到需要发落的环节（计划/任务链/任务回报）。
     const [detailSegment, setDetailSegment] = useState<'plan' | 'chain' | 'report' | null>(null)
     // V7-② 到访摘要：挂载时读一次 last-seen 快照（关板时写入）——到访期间不跳动。
     const [lastSeenSnapshot] = useState<number>(() => {
@@ -1908,7 +1909,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V9.2 设置抽屉的看板行为开关（纯展示层偏好，localStorage 持久化）。
     const [hoverFamilyOn, setHoverFamilyOn] = useState(() => localStorage.getItem('warroom-cfg-hover-family') !== '0')
     const [autoScrollOn, setAutoScrollOn] = useState(() => localStorage.getItem('warroom-cfg-auto-scroll') !== '0')
-    // V9.11 战报已阅：聚焦页战报段进视野时 bump——调度条生命条（战报呼吸→绿）
+    // V9.11 任务回报已阅：聚焦页任务回报段进视野时 bump——调度条生命条（任务回报呼吸→绿）
     // 读 localStorage 渲染，靠这次重渲染立即生效。
     const [, setReportSeenRev] = useState(0)
     useEscOnlyLayer(focusCommandId !== null, () => { setFocusCommandId(null) })
@@ -1930,7 +1931,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       document.addEventListener('keydown', onKey)
       return () => { document.removeEventListener('keydown', onKey) }
     }, [viewPref])
-    // V9.2 聚焦点空白即退（元首指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
+    // V9.2 聚焦点空白即退（舰长指令）：点到非卡片/非岛/非弹窗/非控件处退出聚焦。
     useEffect(() => {
       if (focusCommandId === null) return
       const onClick = (e: MouseEvent): void => {
@@ -1991,10 +1992,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const lineageOf = (taskId: string): BoardCommand | null => lineageMap.get(taskId) ?? null
     const chainOf = (c: BoardCommand): BoardTask[] => commandTasks(c, tasks)
     // V13 战线一等公民（纯派生零后端）：按 chain.rootId 聚合命令世代链——跨代任务
-    // 并集（pivot 共享任务去重）、战场键序列（合成沙盒归未分组）、聚合态、排序键。
+    // 并集（pivot 共享任务去重）、星球键序列（合成沙盒归未分组）、聚合态、排序键。
     const fronts = frontsOf(commands, tasks, tid => lineageMap.get(tid)?.commandId ?? null)
     const taskFront = frontOfTaskMap(fronts)
-    // V14 战线=命令聚合绑定战场（血脉除名）：索引一律按 commandId——链色/本地计代/
+    // V14 战线=命令聚合绑定星球（血脉除名）：索引一律按 commandId——链色/本地计代/
     // 溯源消费统一走这张表（模块级单例 boardFrontByCmd 供组件工厂读取）。
     const cmdFront = new Map<string, WarFront>()
     for (const f of fronts) for (const c of f.generations) cmdFront.set(c.commandId, f)
@@ -2008,7 +2009,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const target = staffFor(taskId)
       if (target !== null) services.sessions?.open(target)
     }
-    // V9.9 点击接线梳理（元首定案）：详情面只剩聚焦页——任务卡有溯源开聚焦页，
+    // V9.9 点击接线梳理（舰长定案）：详情面只剩聚焦页——任务卡有溯源开聚焦页，
     // 孤儿任务（真实流程不会出现）直跳其末次会话，不再进旧任务详情。
     // （V13 上移：taskCardOf 在战线分组装配期即被调用，TDZ 不许声明滞后。）
     const openTaskVia = (taskId: string): void => {
@@ -2018,7 +2019,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const last = t !== undefined ? (t.attemptLog ?? []).at(-1) : undefined
       if (last !== undefined) services.sessions?.open(last.sessionId)
     }
-    // 会话卡：作战中→聚焦页执行段，战报列→聚焦页战报段；孤儿直跳原生会话。
+    // 会话卡：作战中→聚焦页执行段，任务回报列→聚焦页任务回报段；孤儿直跳原生会话。
     const openSessionVia = (t: BoardTask, a: BoardAttempt, segment: 'battle' | 'report'): void => {
       const lc = lineageOf(t.taskId)
       if (lc !== null) openCommand(lc.commandId, segment)
@@ -2040,7 +2041,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const failed = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const commandsNewest = [...commands].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     const now = Date.now()
-    // V9 战报列：成功+失败合并、纯时间倒序（无按天分组——组头是单组时的噪音）。
+    // V9 任务回报列：成功+失败合并、纯时间倒序（无按天分组——组头是单组时的噪音）。
     const report = [...done, ...failed].sort((x, y) => byStart(x.a, y.a))
     // V9 底部调度条：全部命令，活跃优先（未取消且链未全终局）+ 新→旧——Dispatch 调度中心的一排英雄位。
     const cmdActive = (c: BoardCommand): boolean => {
@@ -2061,7 +2062,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }, [tasks.length])
     const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
     // V10.1 卡牌组：同链命令按链根聚拢成叠（调度坞上的「一副手牌」）。
-    // V13 调度组按战线分段（血脉∩战场）：跨战场续代不再同叠一组——老段照常入收官
+    // V13 调度组按战线分段（血脉∩星球）：跨星球续代不再同叠一组——老段照常入收官
     // 区，新段另起组面；全血脉族谱仍在聚焦页。组键=血脉/段头，对子代 command 唯一。
     const dispatchGroups: Array<{ rootId: string; cards: BoardCommand[] }> = []
     for (const c of dispatchCommands) {
@@ -2086,13 +2087,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       }))
     // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
     // 坐标全确定性推导——SSE revision 翻新零抖动。
-    // V13 战场键映射：bound 项目原样成行星；合成沙盒（warRoot tasks/instances）
+    // V13 星球键映射：bound 项目原样成行星；合成沙盒（warRoot tasks/instances）
     // 聚合为一颗「未分组」行星（首个合成任务的出现位）。warRoot 被 config 改名时
     // 启发式失效=当项目行星，无害（挂账：投影 workspaceKind 字段）。
     const wsOrder = [...new Set(workspaceCreationOrder(tasks)
       .map(ws => wsKeyOf(ws))
       .filter((k): k is string => k !== null))]
-    // V14 composer 战场选择器选项（现存战场，创建序；名称=目录名/未分组）。
+    // V14 composer 星球选择器选项（现存星球，创建序；名称=目录名/未分组）。
     const bfChoices = wsOrder.map(k => ({ key: k, name: bfNameOf(k) }))
     // critique P0 根修：禁区百分比以【板宽】为分母（winW 是窗口宽——宿主侧栏吃掉
     // ~280px，1720 窗口板宽仅 1440，按窗口算低估舱占位 3%，行星照样被盖）。
@@ -2116,7 +2117,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const sidePct = (330 / Math.max(boardBox.w, 1)) * 100
     const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
     const planetSpecs = galaxyLayout(wsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
-    // V13：garrison 按战场键聚合——未分组行星吃全部合成沙盒任务的切片。
+    // V13：garrison 按星球键聚合——未分组行星吃全部合成沙盒任务的切片。
     const garrisonOfKey = (key: string): { orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>; triumphs: number; awaiting: number; failing: number } => {
       let triumphs = 0, awaiting = 0, failing = 0
       const orbs: Array<{ sessionId: string; verbLabel: string | null; paused: boolean }> = []
@@ -2159,8 +2160,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     })
     const mapView = viewPref === 'map' && winW >= 900
     // V10.1 对抗审查 P0-2：hover/聚焦某战线时，其已结算 attempts 在星域显「昔日阵地」
-    // ghost（元首 V10 定案「凯旋印记 hover 显形」本体——平时不留常驻位，追问才显形）。
-    // V10.1 元首定：聚焦态下悬停族系高亮让位——聚焦是主导航态，悬停不该抢戏；
+    // ghost（舰长 V10 定案「达成印记 hover 显形」本体——平时不留常驻位，追问才显形）。
+    // V10.1 舰长定：聚焦态下悬停族系高亮让位——聚焦是主导航态，悬停不该抢戏；
     // 悬停只在无聚焦时工作（原 hoverFamily ?? focusCommandId 优先级翻转）。
     const ghostFamily = focusCommandId ?? hoverFamily
     // 族系解析升根级（与坞卡高亮同语义）：ghost 也按战线根聚合——hover 组面时
@@ -2181,7 +2182,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             })
         })
       : []
-    // V11.5 连线：warzone 桥数据（宇宙=元首+workspace；编队=agent 会话；雷达值班）。
+    // V11.5 连线：warzone 桥数据（宇宙=舰长+workspace；编队=agent 会话；雷达值班）。
     const wzPlanets: WzBridgePlanet[] = wsOrder.map(ws => {
       const g = garrisonOfKey(ws)
       return {
@@ -2193,7 +2194,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         inbound: g.awaiting,
       }
     })
-    // V13 战线世代环桥数据：已锚定战场的战线才上星域；上限 12 条防杂。
+    // V13 战线世代环桥数据：已锚定星球的战线才上星域；上限 12 条防杂。
     const wzFronts: WzBridgeFrontLite[] = fronts
       .filter(f => f.battlefield !== null)
       .slice(0, 12)
@@ -2231,9 +2232,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const src = commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? t.title.slice(0, 12)
       for (const a of t.attemptLog ?? []) {
         if (a.outcome === null || a.endedAt === null) continue
-        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: logTriumph, text: `凯旋 · ${src}` })
+        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: logTriumph, text: `达成 · ${src}` })
         else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: logRetreat, text: `败退 · ${src}` })
-        else wzLogFeed.push({ ts: a.endedAt, color: logReview, text: `战报待验收 · ${src}` })
+        else wzLogFeed.push({ ts: a.endedAt, color: logReview, text: `任务回报待验收 · ${src}` })
       }
     }
     const wzLog = warLogOf(wzLogFeed)
@@ -2246,11 +2247,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       : []
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = focusCommandId ?? hoverFamily
-    // V10.1 元首定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
+    // V10.1 舰长定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: id => { setFocusCommandId(cur => cur === id ? null : id) } })
     // V10.1 对抗审查 P0-1：外部挂载卡随 field 隐退会人间蒸发——地图态改驻任务舱尾（台账语义）。
     const threadCards = threads.map(th => ExternalThreadCard(th, services, sessionId => { void detachThread(sessionId).then(refresh) }, traceFor(null)))
-    // V9.11 任务列=参谋侧台账 + V13 Phase B 战线分组：多代战线一组（链色头+代数+
+    // V9.11 任务列=大副侧台账 + V13 Phase B 战线分组：多代战线一组（链色头+代数+
     // 聚合态，成形卡归组首），单代/孤儿保持原排序心智；组与扁平项按最近活动交错。
     const taskCardOf = (t: BoardTask): ReactNode => TaskCard(t, statuses, openTaskVia,
       (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
@@ -2313,7 +2314,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     entries.sort((a, b) => a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0)
     const taskColumnChildren = entries.map(e => e.node)
     const focusCmd = focusCommandId !== null ? commands.find(c => c.commandId === focusCommandId) : undefined
-    // V7-① 收件箱：聚合 + 点击导航（clarify 进参谋会话，plan 开决策卡，review/retry 开任务详情）。
+    // V7-① 收件箱：聚合 + 点击导航（clarify 进大副会话，plan 开决策卡，review/retry 开任务详情）。
     const inbox = collectInbox(commands, tasks, now)
     // V7-② 摘要：以挂载快照算增量（pending 用当前收件箱长度）。
     const visit = visitDelta(commands, tasks, inbox.length, lastSeenSnapshot, now)
@@ -2324,8 +2325,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       active: tasks.filter(t => t.status === 'in_progress').length,
       failed: tasks.filter(t => t.status === 'failed').length,
     }
-    // V9.9 收件箱路由：批计划→任务段；翻战报→战报段；决重试→任务链段；答澄清
-    // 仍是进会话对话。孤儿任务（无源命令，防御分支）退到参谋会话/末次会话直跳。
+    // V9.9 收件箱路由：批计划→任务段；翻任务回报→任务回报段；决重试→任务链段；答澄清
+    // 仍是进会话对话。孤儿任务（无源命令，防御分支）退到大副会话/末次会话直跳。
     const inboxAct = (it: InboxItem): void => {
       if (it.kind === 'clarify') {
         const cmd = commands.find(c => c.commandId === it.refId)
@@ -2379,8 +2380,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}`, style: { '--war-dock-h': `${boardBox.dockH}px` } as React.CSSProperties },
-          // V10.1 TITP 化（元首示意图定案）：星域=界面本体，board 级铺满为底；
-          // 任务/战报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
+          // V10.1 TITP 化（舰长示意图定案）：星域=界面本体，board 级铺满为底；
+          // 任务/任务回报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
           ...(mapView ? [no3d
             ? createElement(StarfieldMap, {
                 key: 'starfield',
@@ -2399,8 +2400,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 mapLegend: activeCopy().starfield.mapLegend,
                 untracedLabel: activeCopy().starfield.untraced,
                 onPlanetOpen: (wsPath: string) => {
-                  // critique P1-1：行星可达后的落点——该战场最新有仗的源命令聚焦页。
-                  // V13 未分组行星：按战场键匹配（合成沙盒任务都归这颗星）。
+                  // critique P1-1：行星可达后的落点——该星球最新有仗的源命令聚焦页。
+                  // V13 未分组行星：按星球键匹配（合成沙盒任务都归这颗星）。
                   const c = commandsNewest.find(cc => chainOf(cc).some(t => wsKeyOf(t.workspacePath) === wsPath))
                   if (c !== undefined) openCommand(c.commandId)
                 },
@@ -2422,9 +2423,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到
-          // 第 2 行第 1 列，宽度只剩一列（2026-08-25 元首抓到的真 bug）。
-          // V10-R3a 星域底版：中列「战场」换恒星系画布——任务列左、星域中、
-          // 战报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
+          // 第 2 行第 1 列，宽度只剩一列（2026-08-25 舰长抓到的真 bug）。
+          // V10-R3a 星域底版：中列「星球」换恒星系画布——任务列左、星域中、
+          // 任务回报列右天然成型（终态三浮舱在 R3b 收）；列表视图原样。
           // V10-R3b 星域态=悬浮舱：左右两列收窄半透明浮于星域之上，中列让位恒星系。
           createElement('div', {
             className: `war-ops${mapView ? ' war-mapmode' : ''}`,
@@ -2483,7 +2484,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 // （星域光点常溯源到 Ⅰ 代旧令），坞里代表这条战线的卡要点亮：
                 // 坞只摆最新代，exact-id 匹配会让旧代溯源高亮落空（shoot P2 实抓）。
                 // 单命令的 root=自身，行为不变。历史卡（面板内历代）无悬停无聚焦
-                // ——生命周期已从主界面退场，点开详情弹窗是唯一交互（元首定）。
+                // ——生命周期已从主界面退场，点开详情弹窗是唯一交互（舰长定）。
                 const trace = history ? NO_TRACE
                   : (() => {
                       const base = traceFor(c.commandId)

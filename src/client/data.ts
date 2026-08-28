@@ -49,7 +49,7 @@ export interface BoardAttempt {
 export interface BoardCommand {
   commandId: string
   text: string
-  /** V15 战线命名（元首下达时可选；null=旧命令/未命名，战线名回落命令原文）。 */
+  /** V15 战线命名（舰长下达时可选；null=旧命令/未命名，战线名回落命令原文）。 */
   name?: string | null
   createdAt: string
   status: 'draft' | 'received' | 'talking' | 'approved' | 'cancelled'
@@ -129,11 +129,11 @@ export interface ContinueCandidate {
   generation: number
   hueSlot: number
   live: boolean
-  /** V14：候选所属战线的战场键（composer 战场选择器续接默认带出；null=未锚定）。 */
+  /** V14：候选所属战线的星球键（composer 星球选择器续接默认带出；null=未锚定）。 */
   bf: string | null
 }
 
-/** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交参谋）。 */
+/** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交大副）。 */
 export async function createCommand(text: string, cron?: string, continuesFrom?: string, name?: string): Promise<{ ok: boolean; commandId?: string; scheduled?: boolean; continuationMode?: 'deepen' | 'retry' | 'pivot'; error?: string }> {
   try {
     const payload: Record<string, string> = { text }
@@ -152,7 +152,7 @@ export async function createCommand(text: string, cron?: string, continuesFrom?:
   }
 }
 
-/** 进入参谋会话时把 received 命令卡翻成 对话中。 */
+/** 进入大副会话时把 received 命令卡翻成 对话中。 */
 export async function markTalking(commandId: string): Promise<void> {
   try {
     await fetch('/warroom/api/commands/talking', {
@@ -165,7 +165,7 @@ export async function markTalking(commandId: string): Promise<void> {
   }
 }
 
-/** V5 档位账本：元首在命令卡上升降档（未分诊/旗关时服务端拒绝）。 */
+/** V5 档位账本：舰长在命令卡上升降档（未分诊/旗关时服务端拒绝）。 */
 export async function regradeCommand(commandId: string, grade: 'L0' | 'L1' | 'L2'): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/warroom/api/commands/regrade', {
@@ -180,7 +180,7 @@ export async function regradeCommand(commandId: string, grade: 'L0' | 'L1' | 'L2
   }
 }
 
-/** V5-R3 计划判定：元首批准/驳回待批计划。 */
+/** V5-R3 计划判定：舰长批准/驳回待批计划。 */
 export async function decidePlan(commandId: string, decision: 'approve' | 'reject', note?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/warroom/api/commands/plan', {

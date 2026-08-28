@@ -52,28 +52,28 @@ export function checkDeployment(campaign: CampaignState, opts: {
   maxUnits: number
 }): DeployCheck {
   if (campaign.status === 'closed') {
-    return { ok: false, reason: `任务已收官（${campaign.closedVerdict ?? ''}）；新需求请让参谋重新发布任务。` }
+    return { ok: false, reason: `任务已收官（${campaign.closedVerdict ?? ''}）；新需求请让大副重新发布任务。` }
   }
   if (campaign.status === 'failed') {
-    return { ok: false, reason: `任务已失败：${campaign.lastError ?? '原因未记录'}。重试次数已用完——请元首翻阅战报后，让参谋重新立案（可拆小一点再发）。` }
+    return { ok: false, reason: `任务已失败：${campaign.lastError ?? '原因未记录'}。重试次数已用完——请舰长翻阅任务回报后，让大副重新立案（可拆小一点再发）。` }
   }
   if (campaign.status === 'reported') {
-    return { ok: false, reason: '任务战报已呈递，正等元首翻阅。要继续动工请先等元首批复（war_close_task 或加批示），不要抢跑。' }
+    return { ok: false, reason: '任务任务回报已呈递，正等舰长翻阅。要继续动工请先等舰长批复（war_close_task 或加批示），不要抢跑。' }
   }
   if (campaign.status !== 'in_progress') {
-    return { ok: false, reason: '任务尚未领取：先用 war_claim 领取任务，才能派兵。' }
+    return { ok: false, reason: '任务尚未领取：先用 war_claim 领取任务，才能加派组员。' }
   }
   if (!opts.unitKnown) {
-    return { ok: false, reason: '未知兵种。请用 war_status 查看当前兵种编制。' }
+    return { ok: false, reason: '未知组员。请用 war_status 查看当前组员编制。' }
   }
   const active = activeUnits(campaign)
   if (active.length >= opts.maxUnits) {
-    return { ok: false, reason: `编制已满：在役部队 ${active.length}/${opts.maxUnits}。请先 war_recall 或等待部队收队。` }
+    return { ok: false, reason: `编制已满：在役外勤组员 ${active.length}/${opts.maxUnits}。请先 war_recall 或等待外勤组员收队。` }
   }
   if (opts.writes) {
     const clash = active.find(u => u.writes && frontsOverlap(u.front, opts.front))
     if (clash !== undefined) {
-      return { ok: false, reason: `战线冲突：战区「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的战区「${clash.front}」重叠。有写权限的部队不得挤同一条战线——请重新划线或分目录派兵。` }
+      return { ok: false, reason: `战线冲突：战区「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的战区「${clash.front}」重叠。有写权限的外勤组员不得挤同一条战线——请重新划线或分目录加派组员。` }
     }
   }
   return { ok: true }
@@ -81,7 +81,7 @@ export function checkDeployment(campaign: CampaignState, opts: {
 
 /**
  * Which declared deps are still unresolved? A dep counts as cleared only when
- * its folded status is `closed` (元首验收过才算数). Unknown dep ids count as
+ * its folded status is `closed` (舰长验收过才算数). Unknown dep ids count as
  * unresolved too — a typo must block, not silently pass.
  */
 export function depsUnsatisfied(deps: ReadonlyArray<string>, statusOf: (campaignId: string) => TaskStatus | undefined): string[] {
@@ -177,7 +177,7 @@ export function conscriptPlan(tasks: ReadonlyArray<ConscriptCandidate>): Conscri
 }
 
 /** V7-⑤「为什么还没动」：published 任务距「现在可被征召」还有几位。
- * 0 = 现在就可征召（征召令可发）；>0 = 同工作区被占（+1）和/或还有更优先
+ * 0 = 现在就可征召（外勤任务简报可发）；>0 = 同工作区被占（+1）和/或还有更优先
  * 的排队者（每位 +1）——互斥域内不并行。无工作区路径 = 独立域，恒 0。纯函数。 */
 export function queuePositionOf(task: ConscriptCandidate, all: ReadonlyArray<ConscriptCandidate>): number {
   if (task.workspacePath === undefined || task.workspacePath.trim() === '') return 0
@@ -197,14 +197,14 @@ export function checkClaim(campaign: CampaignState, blockedDeps: ReadonlyArray<s
     const where: Record<string, string> = {
       draft: '任务还在草稿，尚未发布到任务栏。',
       in_progress: '任务已被领取，正在执行中。',
-      reported: '任务战报已呈递，等元首翻阅。',
-      failed: '任务已失败且重试用尽，等元首让参谋重新立案。',
+      reported: '任务任务回报已呈递，等舰长翻阅。',
+      failed: '任务已失败且重试用尽，等舰长让大副重新立案。',
       closed: '任务已收官。',
     }
     return { ok: false, reason: `${where[campaign.status] ?? '当前状态不可领取。'}当前状态：${campaign.status}。` }
   }
   if (blockedDeps.length > 0) {
-    return { ok: false, reason: `前置任务未完成，悬赏尚未解锁：${blockedDeps.join('、')}。请先完成前置，或让参谋调整任务链。` }
+    return { ok: false, reason: `前置任务未完成，任务令尚未解锁：${blockedDeps.join('、')}。请先完成前置，或让大副调整任务链。` }
   }
   if (busyWith !== undefined) {
     return { ok: false, reason: `工作区正被占用：任务 ${busyWith} 正在该工作区作战。同工作区的任务排队执行（避免互相踩踏）——请稍后重新领取，或先领取其他工作区的任务。` }

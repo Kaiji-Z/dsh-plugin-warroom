@@ -17,7 +17,7 @@ test('fold derives the full task lifecycle from the append-only log', () => {
     { type: 'unit_deployed', ts: 't3', campaignId: 'c1', childId: 'u1', unitName: 'recon', label: '侦察兵', mission: '摸清地形', front: '/war/tasks/c1/src', writes: false },
     { type: 'order_sent', ts: 't4', campaignId: 'c1', childId: 'u1', order: '补充侦察 docs' },
     { type: 'report_received', ts: 't5', campaignId: 'c1', childId: 'u1', summary: '结构清晰' },
-    { type: 'task_commented', ts: 't6', campaignId: 'c1', comment: '元首：注意兼容', from: 'sec-1' },
+    { type: 'task_commented', ts: 't6', campaignId: 'c1', comment: '舰长：注意兼容', from: 'sec-1' },
     { type: 'unit_settled', ts: 't7', campaignId: 'c1', childId: 'u1', stopReason: 'completed' },
     { type: 'task_submitted', ts: 't8', campaignId: 'c1', report: '已完成，验收全过', from: 'cmd-1' },
     { type: 'task_closed', ts: 't9', campaignId: 'c1', verdict: '通过收官' },
@@ -140,7 +140,7 @@ test('v1.0: submission evidence and deliverables fold onto the report', () => {
     { type: 'task_created', ts: 't0', campaignId: 'e1', title: 'x', brief: 'b', acceptance: 'a1；a2', priority: 'normal' },
     { type: 'task_claimed', ts: 't1', campaignId: 'e1', claimedBy: 'cmd', attemptId: 'tok', attempt: 1 },
     {
-      type: 'task_submitted', ts: 't2', campaignId: 'e1', report: '战报：全部完成', from: 'cmd',
+      type: 'task_submitted', ts: 't2', campaignId: 'e1', report: '任务回报：全部完成', from: 'cmd',
       evidence: {
         checks: [{ item: 'a1', passed: true }, { item: 'a2', passed: true }],
         tests: { command: 'npm test', exitCode: 0, passed: 12, failed: 0 },
@@ -189,7 +189,7 @@ test('v2.0: attemptLog builds session cards — live, failed, reported, succeede
   // 第 1 次尝试失败 → 该 attempt 卡 outcome=failed；重派后第 2 次领取是新的 live 卡。
   const afterRequeue = foldCampaign('a1', [...base,
     { type: 'task_claimed', ts: 't2', campaignId: 'a1', claimedBy: 'cmd-A', attemptId: 'tok-A', attempt: 1 },
-    { type: 'task_requeued', ts: 't4', campaignId: 'a1', reason: '指挥官失联，恢复手术重派' },
+    { type: 'task_requeued', ts: 't4', campaignId: 'a1', reason: '外勤小队失联，恢复手术重派' },
     { type: 'task_claimed', ts: 't5', campaignId: 'a1', claimedBy: 'cmd-B', attemptId: 'tok-B', attempt: 2 },
   ] as const)
   // 重派即结算：没走 war_fail 的旧尝试也翻成 failed 卡，不留僵尸 live 卡。

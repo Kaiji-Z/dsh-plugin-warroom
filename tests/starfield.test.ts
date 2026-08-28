@@ -56,7 +56,7 @@ test('workspace 创建序：按最早任务出场顺序升序，空路径不入�
   assert.deepEqual(order, ['/ws/B', '/ws/A'])
 })
 
-test('驻军切片：活体 attempt 光点 + closed 凯旋计数；非本星任务不串门', () => {
+test('驻军切片：活体 attempt 光点 + closed 达成计数；非本星任务不串门', () => {
   const base = { priority: 'normal' as const, quality: 'common' as const, rounds: 1, attempts: 1, deps: [] as string[], lastError: null, claimedBy: null, brief: '', acceptance: '', schedule: null, troops: [], deliverables: [], reports: [], comments: [], closedVerdict: null }
   const tasks = [
     { ...base, taskId: 'T1', title: 't1', status: 'in_progress' as const, startedAt: 't0', workspacePath: '/ws/A',
@@ -78,5 +78,5 @@ test('星域名与旧链路回归：尾段截取；directives fold 链色槽仍�
   const dirs = foldDirectives([{ type: 'directive_created', ts: 't', directiveId: 'r', text: 'root' }])
   const chains = chainsFor(dirs)
   assert.ok(chainHueSlot(chains.rootByCommand.get('r')!) < 8)
-  assert.match((deriveContinuation({ status: 'draft' }, undefined) as { error: string }).error, /参谋对话/)
+  assert.match((deriveContinuation({ status: 'draft' }, undefined) as { error: string }).error, /大副对话/)
 })

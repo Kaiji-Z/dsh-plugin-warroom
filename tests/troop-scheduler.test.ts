@@ -96,7 +96,7 @@ test('V4-R3 flag 门：三个队内工具只在 troop-scheduler ON 注册', () =
   }
 })
 
-test('V4-R3 指挥官建子任务即触发调度：闲置部队被认领并唤起（followup 即达）', async () => {
+test('V4-R3 外勤小队建子任务即触发调度：闲置外勤组员被认领并唤起（followup 即达）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-sched-'))
   try {
     recruit(dir)
@@ -104,7 +104,7 @@ test('V4-R3 指挥官建子任务即触发调度：闲置部队被认领并唤�
     const deps = makeDeps(dir, fake.face, FLAG_ON, RESOLVE_CMD)
     const out = await execTool(deps, 'war_troop_task', { task_id: 'c1', title: '侦察依赖现状', detail: '列出用到的外部包' }, 'cmd-1') as { subtaskId: string; dispatched: number }
     assert.ok(out.subtaskId.startsWith('st-'))
-    assert.equal(out.dispatched, 1, '一支部队闲置即被自动认领唤起')
+    assert.equal(out.dispatched, 1, '一支外勤组员闲置即被自动认领唤起')
     assert.equal(fake.followups.length, 1)
     assert.ok(fake.followups[0]!.text.includes('【队内调度】'))
     const task = loadCampaign(dir, 'c1')
@@ -125,9 +125,9 @@ test('V4-R3 依赖门禁：前置未完成的子任务不被调度认领', async
     const first = await execTool(deps, 'war_troop_task', { task_id: 'c1', title: '第一步' }, 'cmd-1') as { subtaskId: string }
     // 第二步依赖第一步——第一步在役中，第二步不得被派发。
     const second = await execTool(deps, 'war_troop_task', { task_id: 'c1', title: '第二步', deps: [first.subtaskId] }, 'cmd-1') as { subtaskId: string; dispatched: number }
-    assert.equal(second.dispatched, 0, '两支部队一闲一被占，依赖未完成故零派发')
+    assert.equal(second.dispatched, 0, '两支外勤组员一闲一被占，依赖未完成故零派发')
     assert.equal(loadCampaign(dir, 'c1').subtasks.get(second.subtaskId)!.status, 'open')
-    // 第一步完成后，kick 应把第二步派给空出来的部队。
+    // 第一步完成后，kick 应把第二步派给空出来的外勤组员。
     const s1 = loadCampaign(dir, 'c1').subtasks.get(first.subtaskId)!
     const done = await execTool(deps, 'war_troop_update', { task_id: 'c1', subtask_id: first.subtaskId, attempt_id: s1.attempt!.id, status: 'completed' }, s1.claimedBy!) as { dispatched: number }
     assert.equal(done.dispatched, 1, '完成触发 kick，依赖解锁的下一步被派发')
@@ -142,7 +142,7 @@ test('V4-R3 自主认领与守卫：参战方限定、一户一役、陈旧令�
   const dir = mkdtempSync(join(tmpdir(), 'warroom-sched-'))
   try {
     recruit(dir)
-    // 手工造两个 open 子任务（不经 war_troop_task——指挥官建题会以自身为 parent 触发 kick 自动认领）。
+    // 手工造两个 open 子任务（不经 war_troop_task——外勤小队建题会以自身为 parent 触发 kick 自动认领）。
     appendEvent(dir, { type: 'subtask_created', ts: 't5', campaignId: 'c1', subtaskId: 'st-aaa', title: '甲', deps: [] })
     appendEvent(dir, { type: 'subtask_created', ts: 't6', campaignId: 'c1', subtaskId: 'st-bbb', title: '乙', deps: [] })
     const deps = makeDeps(dir, fakeSubagents().face, FLAG_ON, RESOLVE_CMD)
@@ -152,11 +152,11 @@ test('V4-R3 自主认领与守卫：参战方限定、一户一役、陈旧令�
     await assert.rejects(execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-bbb' }, 'child-a'), /在役/)
     // 陈旧令牌更新被拒。
     await assert.rejects(execTool(deps, 'war_troop_update', { task_id: 'c1', subtask_id: 'st-aaa', attempt_id: 'st-STALE', status: 'completed' }, 'child-a'), /令牌/)
-    // blocked → 回池并立刻转派给另一闲置部队（放弃者被排除，防单部队活锁）。
+    // blocked → 回池并立刻转派给另一闲置外勤组员（放弃者被排除，防单外勤组员活锁）。
     await execTool(deps, 'war_troop_update', { task_id: 'c1', subtask_id: 'st-aaa', attempt_id: claim.attemptId, status: 'blocked', note: '缺依赖' }, 'child-a')
     const aaa = loadCampaign(dir, 'c1').subtasks.get('st-aaa')!
     assert.equal(aaa.status, 'in_progress', '回池后 kick 立即转派')
-    assert.equal(aaa.claimedBy, 'child-b', '转派给另一闲置部队，而非放弃者')
+    assert.equal(aaa.claimedBy, 'child-b', '转派给另一闲置外勤组员，而非放弃者')
     // child-b 现持有甲 → 不得再认领乙（一户一役另一向）。
     await assert.rejects(execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-bbb' }, 'child-b'), /在役/)
     // 释放出来的 child-a 可认领乙。

@@ -1,6 +1,6 @@
 /**
  * The command relay (命令引信) — v2.0. A 15s host fuse that moves sovereign
- * commands from the board's 命令区 into the 参谋部 conversation: draft
+ * commands from the board's 命令区 into the 大副部 conversation: draft
  * directives get a staff session (created via the host apiProxy on first
  * need, cwd-bound to the war root, activated with `/war` so the persona and
  * war_* tools exist before the relay text reaches the model) and a relay
@@ -65,20 +65,20 @@ export function relayPromptFor(directive: Directive, flags?: FeatureFlags): stri
   const base = `【命令区】新命令 ${directive.id}
 ${directive.text}
 
-参谋：这是元首从作战室命令区下达的命令。按 warroom-bounty-drafting（悬赏令起草法）处理：
-- 听懂意图；需要澄清就用提问卡片问元首——元首看到命令卡亮起后会点进本会话来回答。
-- 能定案就呈任务书，经元首批准后 war_publish 发布，务必携带参数 commandId=${directive.id}（发布后命令卡自动标记「已批准」并链接到任务）。
-- 发布前按起草法定好工作区路由（元首点名 > 最近用过 > 当前打开 > 决策卡让元首选项目名）；全新无归属项目用 @new:<名字> 新开副本。
-- 确实无法成案（元首放弃/无法澄清）就 war_abandon_command 说明原因。`
+大副：这是舰长从舰桥命令区下达的命令。按 warroom-bounty-drafting（任务令令起草法）处理：
+- 听懂意图；需要澄清就用提问卡片问舰长——舰长看到命令卡亮起后会点进本会话来回答。
+- 能定案就呈任务书，经舰长批准后 war_publish 发布，务必携带参数 commandId=${directive.id}（发布后命令卡自动标记「已批准」并链接到任务）。
+- 发布前按起草法定好工作区路由（舰长点名 > 最近用过 > 当前打开 > 决策卡让舰长选项目名）；全新无归属项目用 @new:<名字> 新开副本。
+- 确实无法成案（舰长放弃/无法澄清）就 war_abandon_command 说明原因。`
   if (flags === undefined || !featureEnabled(flags, 'staff-triage')) return base
-  // V5-R3（staff-plan 旗）：L1/L2 走计划态——勘察后 war_plan 呈批，元首
+  // V5-R3（staff-plan 旗）：L1/L2 走计划态——勘察后 war_plan 呈批，舰长
   // 批准后 war_publish 才放行（发布硬门在工具侧拦）。旗关时维持 R2 的
-  // 现行呈批（完整任务书经元首批准）。
+  // 现行呈批（完整任务书经舰长批准）。
   const planDiscipline = featureEnabled(flags, 'staff-plan')
-    ? `- L1 复杂：先勘察（读相关工作区/依赖），再用 war_plan 呈一页纸计划（command_id=${directive.id}：目标、≤5 步骤、涉及工作区、风险与回退）；元首在命令卡上批准后才能 war_publish——没批前发布会被硬门拦下。驳回就按意见修订重呈。
-- L2 不明确：先用提问卡片向元首澄清收敛，能定案后按复杂度走 L0 或 L1。`
-    : `- L1 复杂：走现行呈批——完整任务书经元首批准后 war_publish。
-- L2 不明确：先用提问卡片向元首澄清收敛，能定案后再按复杂度走 L0/L1。`
+    ? `- L1 复杂：先勘察（读相关工作区/依赖），再用 war_plan 呈一页纸计划（command_id=${directive.id}：目标、≤5 步骤、涉及工作区、风险与回退）；舰长在命令卡上批准后才能 war_publish——没批前发布会被硬门拦下。驳回就按意见修订重呈。
+- L2 不明确：先用提问卡片向舰长澄清收敛，能定案后按复杂度走 L0 或 L1。`
+    : `- L1 复杂：走现行呈批——完整任务书经舰长批准后 war_publish。
+- L2 不明确：先用提问卡片向舰长澄清收敛，能定案后再按复杂度走 L0/L1。`
   // V5-R4（坑2 正解）：apiProxy 会话看不到编程注册技能——起草法全文内嵌
   // 提示词（单一事实源：与 skill.ts 同一函数）。板摘要注入在 relayPending
   // _Commands 侧拼（staff-wake 旗）——本函数保持纯。
@@ -86,14 +86,14 @@ ${directive.text}
   // V6 命令拆解（staff-decompose 旗）：大命令拆链纪律——呈批复用计划卡，
   // 成链发布落顺序 deps + 链级同一工作区。
   const decomposeDiscipline = featureEnabled(flags, 'staff-decompose')
-    ? `\n- 一步做不完的大命令：先勘察，再 war_decompose 呈拆解（command_id=${directive.id}：一页纸总计划 + ≥2 个子任务书，逐个过 lint）；元首在命令卡上批准后 war_publish_chain 成链发布（子任务同工作区顺序接力），不要再拆成多个独立命令。`
+    ? `\n- 一步做不完的大命令：先勘察，再 war_decompose 呈拆解（command_id=${directive.id}：一页纸总计划 + ≥2 个子任务书，逐个过 lint）；舰长在命令卡上批准后 war_publish_chain 成链发布（子任务同工作区顺序接力），不要再拆成多个独立命令。`
     : ''
   return `${base}
 
 【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
-- L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需元首批准。
+- L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需舰长批准。
 ${planDiscipline}${decomposeDiscipline}
-- 元首文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。
+- 舰长文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。
 - 发布前过系统 lint：标题 ≥4 字、正文 ≥10 字、验收用「；/、」列举或 ≥30 字明确完成定义——不可判定会被拦。
 
 【起草法全文】（内嵌——本会话看不到技能库）
@@ -129,30 +129,30 @@ export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; 
   if (task.status === 'closed') return `已收官：${task.closedVerdict ?? '验收通过'}`
   if (task.status === 'failed') return `败退${task.lastError !== undefined && task.lastError !== '' ? `——败因：${task.lastError}` : ''}`
   switch (task.status) {
-    case 'reported': return '已交稿，待元首验收'
+    case 'reported': return '已交稿，待舰长验收'
     case 'in_progress': return '作战进行中'
-    case 'published': return '已发布，待指挥官领令'
+    case 'published': return '已发布，待外勤小队领令'
     default: return '草稿中'
   }
 }
 
-/** V10 pivot 转达文本（纯）：不进参谋对话——指令直插执行会话队列。
+/** V10 pivot 转达文本（纯）：不进大副对话——指令直插执行会话队列。
  * V15：可选父代速览（chain-note pivotChainSlice）——插播也带上代战况与产物。 */
 export function pivotPromptFor(parentText: string, directiveId: string, text: string, chainSlice = ''): string {
   return `【续战令·转向】${directiveId}（续自「${brief(parentText, 16)}」）
 ${chainSlice === '' ? '' : `\n${chainSlice}\n`}
-指挥官：元首在作战进行中插播指令——
+外勤小队：舰长在作战进行中插播指令——
 
 ${text}
 
-按队列在本回合结束后送达；与本任务既定路线冲突时，以本条为准修订方向。确实无法转向就照常收束，由参谋另案处理。`
+按队列在本回合结束后送达；与本任务既定路线冲突时，以本条为准修订方向。确实无法转向就照常收束，由大副另案处理。`
 }
 
 /**
  * Run one fuse pass: relay every pending directive into ITS OWN staff
  * conversation (v3 每命令一会话 — one staff thread per command, topic-clean).
  * A directive without a session gets a fresh one (cwd-bound to the war root,
- * activated with `/war` in code, named `参谋·<命令摘要>`); the session id is
+ * activated with `/war` in code, named `大副·<命令摘要>`); the session id is
  * recorded as `directive_session_opened` BEFORE the relay text goes out, so a
  * failed prompt retries into the same conversation instead of leaking a new
  * one. `state.hqSessionId` degrades to a legacy fallback (first session wins)
@@ -195,21 +195,21 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
       if (anc === undefined) continue
       ancestors.push({ generation: g, text: anc.text, campaign: campaignOf(anc.taskId) })
     }
-    // V15 知识连续性：详情代带战报摘要+关键产物路径（chain-note 纯模块，cap 1500）。
-    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${buildChainNote(ancestors, gen)}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着战场走）；仅当命令明确要求换地点才换。`
+    // V15 知识连续性：详情代带任务回报摘要+关键产物路径（chain-note 纯模块，cap 1500）。
+    return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${buildChainNote(ancestors, gen)}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着星球走）；仅当命令明确要求换地点才换。`
   }
   let relayed = 0
   for (const directive of pending) {
     // V10 pivot 分路：指令直插父任务的执行会话队列，一穿五态即归档
-    // （received 记执行会话号 → approved 挂父任务号）；不开新参谋会话。
-    // 无活体 attempt（还在排队/已收官）落回常轨走参谋且带战线档案兜底。
+    // （received 记执行会话号 → approved 挂父任务号）；不开新大副会话。
+    // 无活体 attempt（还在排队/已收官）落回常轨走大副且带战线档案兜底。
     const cont = directive.continuation
     if (cont !== undefined && cont.mode === 'pivot') {
       const parent = byId.get(cont.parentId)
       const camp = campaignOf(parent?.taskId)
       const live = camp?.attemptLog.filter(a => a.endedAt === undefined).at(-1)
       if (parent !== undefined && camp !== undefined && live !== undefined) {
-        // V15：pivot 直插也带父代速览（结论+产物+战报，cap 400）。
+        // V15：pivot 直插也带父代速览（结论+产物+任务回报，cap 400）。
         const pivotSlice = pivotChainSlice({ generation: chains.generationOf.get(parent.id) ?? 1, text: parent.text, campaign: camp })
         const pushed = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId: live.sessionId, mode: 'queue', content: [{ type: 'text', text: pivotPromptFor(parent.text, directive.id, directive.text, pivotSlice) }] } })
         if (!pushed.result.ok) continue // busy/shape drift：保持 draft，下一 tick 重投同一会话
@@ -223,9 +223,9 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
     }
     let sessionId = directive.staffSessionId
     if (sessionId === undefined) {
-      // V15.1：参谋会话走 workspace.create（按路径幂等）+ workspaceId 绑定——
+      // V15.1：大副会话走 workspace.create（按路径幂等）+ workspaceId 绑定——
       // 裸 cwd 建的会话没有工作区身份，进不了宿主会话目录，聚焦页跳钮 select
-      // 即 unknown（元首永远跳不进参谋对话）。与指挥官征召同构。
+      // 即 unknown（舰长永远跳不进大副对话）。与外勤小队征召同构。
       let workspaceId: string | undefined
       if (workspaces !== undefined) {
         const ws = await workspaces.create({ rpcId: rpcId(), payload: { path: deps.warRoot } }).catch(err => {
@@ -238,10 +238,10 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
       }
       const created = await sessions.create({ rpcId: rpcId(), payload: workspaceId !== undefined ? { workspaceId } : { cwd: deps.warRoot } })
       console.log(`[warroom] staff session create → ok=${created.result.ok}${created.result.ok ? ` id=${created.result.value.sessionId}` : ` err=${created.result.error.code}`}`)
-      if (!created.result.ok) throw new Error(`参谋会话创建失败：${created.result.error.code}: ${created.result.error.message}`)
+      if (!created.result.ok) throw new Error(`大副会话创建失败：${created.result.error.code}: ${created.result.error.message}`)
       sessionId = created.result.value.sessionId
       appendDirectiveEvent(deps.stateDir, { type: 'directive_session_opened', ts: new Date().toISOString(), directiveId: directive.id, staffSessionId: sessionId })
-      void sessions.rename({ rpcId: rpcId(), payload: { sessionId, title: `参谋·${directive.text.slice(0, 12)}` } }).catch(() => undefined)
+      void sessions.rename({ rpcId: rpcId(), payload: { sessionId, title: `大副·${directive.text.slice(0, 12)}` } }).catch(() => undefined)
       const war = deps.store.get()
       if (war.hqSessionId === undefined) {
         war.hqSessionId = sessionId
@@ -280,7 +280,7 @@ export function createCommandFuse(deps: CommandFuseDeps): CommandFuse {
   let relay: SessionsApiFace | undefined
   let workspaces: WorkspaceApiFace | undefined
   // 在途守卫（V15.1 考题实锤）：下令回推的立即 tickNow 与 15s 周期 tick 撞车
-  // 时，两个 relay 读到同一 draft 态（session_opened 尚未落账）→ 各开一个参谋
+  // 时，两个 relay 读到同一 draft 态（session_opened 尚未落账）→ 各开一个大副
   // 会话、各投一次令。撞车方直接让路，漏掉的活由下一轮周期 tick 兜底。
   let running = false
   const tick = async (): Promise<void> => {

@@ -28,7 +28,7 @@ export function dossierPath(stateDir: string, workspacePath: string): string {
 const DOSSIER_TEMPLATE = [
   '# 工作区履历档案',
   '',
-  '本档案由作战室维护：任务收官/失败时自动追加一节。征召指挥官时会随征召令注入——新任指挥官应先读档案，避免重蹈覆辙。',
+  '本档案由舰桥维护：任务收官/失败时自动追加一节。征召外勤小队时会随外勤任务简报注入——新任外勤小队应先读档案，避免重蹈覆辙。',
   '',
 ].join('\n')
 
@@ -51,7 +51,7 @@ export function appendDossierEntry(stateDir: string, workspacePath: string, titl
 export function dossierEntryFor(task: CampaignState): string {
   const loot = task.deliverables.map(d => d.summary).join('；')
   if (task.status === 'closed') {
-    return `结果：收官（${task.closedVerdict ?? ''}）。${loot !== '' ? `战利品：${loot}。` : ''}尝试 ${task.attempts} 次。`
+    return `结果：收官（${task.closedVerdict ?? ''}）。${loot !== '' ? `任务产出：${loot}。` : ''}尝试 ${task.attempts} 次。`
   }
   if (task.status === 'failed') {
     return `结果：失败（重试用尽）。败因：${task.lastError ?? '未记录'}。尝试 ${task.attempts} 次。建议：拆小重发或补充上下文。`

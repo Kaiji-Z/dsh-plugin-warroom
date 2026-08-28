@@ -93,7 +93,7 @@ test('war_publish 硬门：L1 无计划/待批/被驳均拒；批准后放行；
     await assert.rejects(execTool(depsGate, 'war_publish', pub), /尚未呈报计划/)
     // 计划待批 → 拒。
     appendDirectiveEvent(dir, { type: 'directive_plan_opened', ts: 't3', directiveId: 'cmd-l1', plan: '目标收敛配置，步骤一二三，工作区主仓，风险回滚 git。' })
-    await assert.rejects(execTool(depsGate, 'war_publish', pub), /待元首批准/)
+    await assert.rejects(execTool(depsGate, 'war_publish', pub), /待舰长批准/)
     // 被驳 → 拒（提示修订重呈）。
     appendDirectiveEvent(dir, { type: 'directive_plan_rejected', ts: 't4', directiveId: 'cmd-l1', reason: '再拆小' })
     await assert.rejects(execTool(depsGate, 'war_publish', pub), /被驳回/)
@@ -153,7 +153,7 @@ test('计划判定路由：旗关 404；approve/reject 落事件；无待批计�
     // 无待批计划 → 400。
     await post(on.h!, { decision: 'approve' })
     assert.match(ended[ended.length - 1]!, /无待批计划/)
-    // 呈计划 → approve 落事件 + K17 回推（批准文案投给参谋会话）。
+    // 呈计划 → approve 落事件 + K17 回推（批准文案投给大副会话）。
     appendDirectiveEvent(dir, { type: 'directive_plan_opened', ts: 't2', directiveId: 'cmd-d', plan: '目标步骤工作区风险四要素齐的一页纸计划。' })
     await post(on.h!, { decision: 'approve', note: '可以' })
     assert.match(ended[ended.length - 1]!, /"ok":true/)

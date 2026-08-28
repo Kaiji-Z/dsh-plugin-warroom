@@ -33,6 +33,7 @@ export interface WarCopy {
   settings: {
     title: string
     skinSection: string
+    skinTrek: string
     skinWar: string
     skinPlain: string
     skinHint: string
@@ -375,6 +376,7 @@ export const warCopy: WarCopy = {
   settings: {
     title: '设置',
     skinSection: '皮肤（措辞词典）',
+    skinTrek: '星际迷航',
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换措辞，不改机制。更多皮肤在未来的迭代里来。',
@@ -552,7 +554,7 @@ export const warCopy: WarCopy = {
     hqOn: '司令部在线——战时状态，全局开关亮着',
     hqOff: '停战状态——司令部熄灯',
     orbIdle: '执行中',
-    mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战场（内环=最老）· 环=战线（点=世代）· ✓凯旋 · 呼吸光点=作战中',
+    mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战场（内环=最老）· 环=战线（分段=战线数）· ✓凯旋 · 呼吸光点=执行中',
     mapHintToast: '🪐 战场不止一个——试试战区视图（点此开启，⚙ 设置里随时可关）',
     controls: '左键拖拽平移 · 中键旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
     untraced: '未溯源执行',
@@ -744,6 +746,7 @@ export const plainCopy: WarCopy = {
   settings: {
     title: '设置',
     skinSection: '皮肤（用词风格）',
+    skinTrek: '星际迷航',
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换说法，不改功能。更多皮肤以后加。',
@@ -1070,17 +1073,76 @@ export const plainCopy: WarCopy = {
 
 // --- 皮肤 store（纯函数层，不引 react——node 测试可安全 import）-----------
 
-export type SkinId = 'war' | 'plain'
+/**
+ * V16 星际迷航词表（元首定案）：军事词 → 星际迷航词，最长/最具体优先。
+ * 星际迷航皮肤 = 军事词典整体过词表变换——词典单一源（warCopy），术语随皮肤
+ * 派生：改一处词典，军事/星际迷航两皮肤同步生效（平话词典独立成篇）。
+ * 词序即匹配序：征召令先于其余、部队→外勤组员先于兵种→组员（无交叉子串）。
+ */
+const TREK_LEXICON: ReadonlyArray<readonly [string, string]> = [
+  ['征召令', '外勤任务简报'],
+  ['指挥官', '外勤小队'],
+  ['战利品', '任务产出'],
+  ['悬赏', '任务令'],
+  ['战报', '任务回报'],
+  ['母舰', '星舰'],
+  ['作战室', '舰桥'],
+  ['战场', '星球'],
+  ['元首', '舰长'],
+  ['参谋', '大副'],
+  ['分兵', '加派组员'],
+  ['派兵', '加派组员'],
+  ['部队', '外勤组员'],
+  ['兵种', '组员'],
+  ['战时', '出航'],
+  ['停战', '入坞'],
+  ['凯旋', '达成'],
+]
+
+/** 词表换不掉的语境修正（作用于变换后的文本）：源串里「战场」与「星/行星」
+ * 邻接的表述，直译会得到「每片星球一颗星/行星=星球」这类赘语——按项目语义改写。 */
+const TREK_FIXUPS: ReadonlyArray<readonly [string, string]> = [
+  ['每片星球一颗星', '每个项目一颗星'],
+  ['行星=星球', '行星=项目'],
+]
+
+function trekifyText(value: string): string {
+  let out = value
+  for (const [from, to] of TREK_LEXICON) out = out.split(from).join(to)
+  for (const [from, to] of TREK_FIXUPS) out = out.split(from).join(to)
+  return out
+}
+
+/** 深走词典对象，字符串值全过词表（数组/嵌套对象递归；非字符串原样）。 */
+function trekifyCopy(source: WarCopy): WarCopy {
+  const walk = (v: unknown): unknown => {
+    if (typeof v === 'string') return trekifyText(v)
+    if (Array.isArray(v)) return v.map(walk)
+    if (typeof v === 'object' && v !== null) {
+      const out: Record<string, unknown> = {}
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val)
+      return out
+    }
+    return v
+  }
+  return walk(source) as WarCopy
+}
+
+/** 星际迷航皮肤（默认）：军事词典的词表派生。 */
+export const trekCopy: WarCopy = trekifyCopy(warCopy)
+
+export type SkinId = 'trek' | 'war' | 'plain'
 
 const SKIN_STORAGE_KEY = 'warroom-skin'
-const skins: Record<SkinId, WarCopy> = { war: warCopy, plain: plainCopy }
+const skins: Record<SkinId, WarCopy> = { trek: trekCopy, war: warCopy, plain: plainCopy }
 
 function storedSkin(): SkinId {
   try {
-    if (typeof localStorage === 'undefined') return 'war'
-    return localStorage.getItem(SKIN_STORAGE_KEY) === 'plain' ? 'plain' : 'war'
+    if (typeof localStorage === 'undefined') return 'trek'
+    const v = localStorage.getItem(SKIN_STORAGE_KEY)
+    return v === 'war' || v === 'plain' ? v : 'trek'
   } catch {
-    return 'war'
+    return 'trek'
   }
 }
 
@@ -1108,7 +1170,7 @@ export function setSkin(id: SkinId): void {
 }
 
 export function toggleSkin(): void {
-  setSkin(currentId === 'war' ? 'plain' : 'war')
+  setSkin(currentId === 'trek' ? 'war' : currentId === 'war' ? 'plain' : 'trek')
 }
 
 /** 皮肤切换订阅（views 经 useSyncExternalStore 接入触发重渲染）。 */

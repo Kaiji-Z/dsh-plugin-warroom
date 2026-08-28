@@ -1,5 +1,5 @@
 /**
- * Seed the board with representative v2.0 rows so the 五分区悬赏板 has every
+ * Seed the board with representative v2.0 rows so the 五分区任务令板 has every
  * element to render: command cards in all five statuses, an epic bounty
  * awaiting claim (！) queued behind a LIVE in_progress session card, a
  * reported card with KillCredit evidence + loot (？), a succeeded closed
@@ -37,16 +37,16 @@ appendEvent(dir, { type: 'task_published', ts: ts(55), campaignId: t5, workspace
 appendEvent(dir, { type: 'task_claimed', ts: ts(54), campaignId: t5, claimedBy: 'cmd-foxtrot-session', attemptId: 'b7c8d9e0-f1a2-3456-7890abcdef123456', attempt: 1 })
 appendEvent(dir, { type: 'unit_deployed', ts: ts(53), campaignId: t5, childId: 'u-smoke-5', unitName: 'engineer', label: '工程兵', mission: '实现 /healthz', front: `${WS_A}/src`, writes: true })
 
-// t0：史诗悬赏待领取（！+ 品质色）——同一工作区 projA，排在 t5 后面（互斥演示）
+// t0：史诗任务令待领取（！+ 品质色）——同一工作区 projA，排在 t5 后面（互斥演示）
 appendEvent(dir, { type: 'task_created', ts: ts(50), campaignId: t0, title: '重构认证模块为插件化架构', brief: '背景：现有认证硬编码……执行指引：先侦察再动工，保持对外行为不变。', acceptance: '全部现有测试退出码 0；新架构有插件接口文档；迁移清单写入 README', priority: 'high', quality: 'epic', publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_published', ts: ts(50), campaignId: t0, workspacePath: WS_A, publishedBy: 'sec-smoke' })
 
-// t1：已提交带证据与战利品（？+ 证据块 + 战利品行；已完成区的「待元首翻阅」会话卡）
+// t1：已提交带证据与任务产出（？+ 证据块 + 任务产出行；已完成区的「待舰长翻阅」会话卡）
 appendEvent(dir, { type: 'task_created', ts: ts(40), campaignId: t1, title: '做一个「每日一句」CLI 小工具', brief: 'Node 单包小工具；数据存本地 JSON；命令 add/list。', acceptance: 'add "今日晴" 退出码 0 且写入；list 输出含"今日晴"与当天日期；npm test 退出码 0', priority: 'normal', quality: 'fine', publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_published', ts: ts(40), campaignId: t1, workspacePath: `${WS_B}/daily`, publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_claimed', ts: ts(39), campaignId: t1, claimedBy: 'cmd-bravo-session', attemptId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', attempt: 1 })
 appendEvent(dir, { type: 'unit_deployed', ts: ts(38), campaignId: t1, childId: 'u-smoke-1', unitName: 'engineer', label: '工程兵', mission: '实现 CLI', front: `${WS_B}/daily`, writes: true })
-appendEvent(dir, { type: 'task_submitted', ts: ts(30), campaignId: t1, report: '战报：CLI 完成，验收全过。改动 cli.js 与测试；遗留：无。', from: 'cmd-bravo-session',
+appendEvent(dir, { type: 'task_submitted', ts: ts(30), campaignId: t1, report: '任务回报：CLI 完成，验收全过。改动 cli.js 与测试；遗留：无。', from: 'cmd-bravo-session',
   evidence: {
     checks: [{ item: 'add "今日晴" 退出码 0 且写入', passed: true }, { item: 'list 输出含"今日晴"与当天日期', passed: true }, { item: 'npm test 退出码 0', passed: true }],
     tests: { command: 'npm test', exitCode: 0, passed: 8, failed: 0 },
@@ -77,7 +77,7 @@ appendEvent(dir, { type: 'task_claimed', ts: ts(8), campaignId: t3, claimedBy: '
 appendEvent(dir, { type: 'task_attempt_failed', ts: ts(5), campaignId: t3, reason: '换思路后仍无法稳定复现', from: 'cmd-delta-2-session' })
 appendEvent(dir, { type: 'task_failed', ts: ts(5), campaignId: t3, reason: '第 2 次尝试失败：换思路后仍无法稳定复现（重试上限 2 已用尽）' })
 
-// t4：日常悬赏（cron 徽章）
+// t4：日常任务令（cron 徽章）
 appendEvent(dir, { type: 'task_created', ts: ts(3), campaignId: t4, title: '每日依赖安全巡检', brief: '跑 npm audit，有高危就汇报。', acceptance: '巡检结果上栏（无论是否有高危）', priority: 'normal', publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_published', ts: ts(3), campaignId: t4, workspacePath: 'D:/smoke/war/t4', publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_scheduled', ts: ts(3), campaignId: t4, cron: '0 9 * * *', enabled: true })
@@ -97,9 +97,9 @@ appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(41), directiveId: 
 appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(40.5), directiveId: d3, staffSessionId: 'sec-d3' })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(40), directiveId: d3, taskId: t1 })
 appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(59), directiveId: d4, text: '算了，先不要动 CI' })
-appendDirectiveEvent(dir, { type: 'directive_cancelled', ts: ts(57), directiveId: d4, reason: '元首改主意，CI 保持现状' })
+appendDirectiveEvent(dir, { type: 'directive_cancelled', ts: ts(57), directiveId: d4, reason: '舰长改主意，CI 保持现状' })
 
-// V9.11 demo 全状态补全（元首定案「所有状态都覆盖」）：批准待发布（任务书
+// V9.11 demo 全状态补全（舰长定案「所有状态都覆盖」）：批准待发布（任务书
 // 未挂出——juliet 只在命令上挂账）/ 命令级失败重试（t3 归属 d7，决策带+收件箱
 // 有「决重试」）/ 定时待发（cron 12 月 1 日——远期不到点）/ 多任务链第二环（india deps t1）。
 const d6 = 'cmd-20260823-0940-ab06', d7 = 'cmd-20260823-0945-cd07', d8 = 'cmd-20260823-0950-ef08'
@@ -113,7 +113,7 @@ appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(37), directiveId: 
 appendDirectiveEvent(dir, { type: 'directive_received', ts: ts(36.5), directiveId: d7, staffSessionId: 'sec-d7' })
 appendDirectiveEvent(dir, { type: 'directive_triaged', ts: ts(36), directiveId: d7, grade: 'L0', reason: '排查类，直接做', confidence: 0.9 })
 appendDirectiveEvent(dir, { type: 'directive_approved', ts: ts(35.5), directiveId: d7, taskId: t3 })
-appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(33), directiveId: d8, text: '12 月 1 日早上 9 点把上月战报整理成一段摘要发我', cron: '0 9 1 12 *' })
+appendDirectiveEvent(dir, { type: 'directive_created', ts: ts(33), directiveId: d8, text: '12 月 1 日早上 9 点把上月任务回报整理成一段摘要发我', cron: '0 9 1 12 *' })
 // V9.11 demo 全点击可达：孤儿任务卡（无源命令）的点击走「直跳会话」，而宿主
 // 会话目录只收打开过的会话——道具会话首跳不切。给 t0/t2/t4/t5/t6 各补一条源命令
 // （生产语义：任务书都来自某道命令），全部卡点击统一走聚焦页。
@@ -148,22 +148,22 @@ appendEvent(dir, { type: 'task_published', ts: ts(28), campaignId: '20260823-ind
 // 演示会话 manifest（demo-weave 开机按此把假会话号换成宿主真会话——演示板
 // 所有「直跳原生会话」的点击才有真实落点；smoke overlay demoWeave=true）。
 writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({
-  'sec-d0': '参谋·依赖升级',
-  'sec-d1': '参谋·每日一句查询',
-  'sec-d2': '参谋·csv 导出',
-  'sec-d3': '参谋·每日一句工具',
-  'sec-d6': '参谋·英文 README',
-  'sec-d7': '参谋·登录重定向排查',
-  'sec-d9': '参谋·认证重构',
-  'sec-d10': '参谋·迁移指南',
-  'sec-d11': '参谋·健康检查',
-  'sec-d12': '参谋·分页 bug',
-  'sec-d13': '参谋·依赖巡检',
-  'cmd-bravo-session': '指挥官·每日一句',
-  'cmd-foxtrot-session': '指挥官·健康检查',
-  'cmd-delta-1-session': '指挥官·flaky 一次',
-  'cmd-delta-2-session': '指挥官·flaky 二次',
-  'cmd-golf-session': '指挥官·分页修复',
+  'sec-d0': '大副·依赖升级',
+  'sec-d1': '大副·每日一句查询',
+  'sec-d2': '大副·csv 导出',
+  'sec-d3': '大副·每日一句工具',
+  'sec-d6': '大副·英文 README',
+  'sec-d7': '大副·登录重定向排查',
+  'sec-d9': '大副·认证重构',
+  'sec-d10': '大副·迁移指南',
+  'sec-d11': '大副·健康检查',
+  'sec-d12': '大副·分页 bug',
+  'sec-d13': '大副·依赖巡检',
+  'cmd-bravo-session': '外勤·每日一句',
+  'cmd-foxtrot-session': '外勤·健康检查',
+  'cmd-delta-1-session': '外勤·flaky 一次',
+  'cmd-delta-2-session': '外勤·flaky 二次',
+  'cmd-golf-session': '外勤·分页修复',
 }, null, 2))
 
 console.log(`seeded 7 smoke tasks + 5 command cards into ${dir}`)

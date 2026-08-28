@@ -42,7 +42,7 @@ test('V9.12 R1 畸形防御: 一切不符形状返 null，绝不抛', () => {
     {},
     { type: 'assistant/chunk' },
     { type: 'user/message' }, // 无 source
-    nested({ source: { kind: 'human' }, content: [{ type: 'text', text: 'hi' }] }), // 人话非战报
+    nested({ source: { kind: 'human' }, content: [{ type: 'text', text: 'hi' }] }), // 人话非任务回报
     nested({ source: { kind: 'subagent-report' }, content: [{ type: 'text', text: '没有子代理 id' }] }), // 文本无 id
     nested({ source: { kind: 'subagent-report' } }), // 无 content
     nested({ source: { kind: 'subagent-report' }, content: '不是数组' }),

@@ -41,7 +41,7 @@ export function featureEnabled(flags: FeatureFlags, name: string): boolean {
 }
 
 /**
- * 开发期政策（2026-08-25 元首定调）：**全部已交付特性旗默认 ON**——「我们还在
+ * 开发期政策（2026-08-25 舰长定调）：**全部已交付特性旗默认 ON**——「我们还在
  * 开发期，等正式版发布了再在新功能开发时用 flag 模式」。因此运行面默认即全量
  * 行为；`v5-spike` 是运维探针不是特性，仍 opt-in（默认 off）。
  *

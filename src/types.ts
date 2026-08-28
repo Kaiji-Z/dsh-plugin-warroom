@@ -1,5 +1,5 @@
 /**
- * Warroom domain types: unit specs (兵种), campaign events, folded campaign
+ * Warroom domain types: unit specs (组员), campaign events, folded campaign
  * state, and the small global war state. Shared by host modules and tests;
  * kept free of any harness imports so the fold/validation logic stays pure.
  * @module dsh-plugin-warroom/types
@@ -18,7 +18,7 @@ export interface UnitRoute {
   readonly model: string
 }
 
-/** A 兵种 definition — one agent-definition TOML file. */
+/** A 组员 definition — one agent-definition TOML file. */
 export interface UnitSpec {
   /** Stable code name used in war_deploy_unit (e.g. 'recon'). */
   readonly name: string
@@ -137,13 +137,13 @@ export interface SubtaskRecord {
 }
 
 /** Task lifecycle on the strategic board. `failed` is a terminal-for-humans
- * state: retries already exhausted, the 参谋 must re-file a new bounty. */
+ * state: retries already exhausted, the 大副 must re-file a new bounty. */
 export type TaskStatus = 'draft' | 'published' | 'in_progress' | 'reported' | 'failed' | 'closed'
 
 /** Bounty quality tier — the WoW rarity color language for task complexity. */
 export type QualityTier = 'common' | 'fine' | 'rare' | 'epic' | 'legendary'
 
-/** Tier registry the UI and the staff share (label = 悬赏板文案). */
+/** Tier registry the UI and the staff share (label = 任务令板文案). */
 export const QUALITY_TIERS: ReadonlyArray<{ readonly tier: QualityTier; readonly label: string; readonly colorVar: string }> = [
   { tier: 'common', label: '普通', colorVar: '--dsw-alias-label-secondary' },
   { tier: 'fine', label: '精良', colorVar: '--dsw-alias-state-success-label' },
@@ -214,12 +214,12 @@ export type WarEvent =
   /** V4-R4 (troop-park flag): an interrupted owner KEEPS its attempt and
    * token — parked, not revoked. Any valid token-carrying update unparks. */
   | { type: 'subtask_parked'; ts: string; campaignId: string; subtaskId: string; reason?: string }
-  /** V5-R3 (staff-goal flag): 指挥官 armed goal 开/收的账本痕迹（交接入账
+  /** V5-R3 (staff-goal flag): 外勤小队 armed goal 开/收的账本痕迹（交接入账
    * 红线）。healed = 结算掉的残留 goal（K15 自愈）；swept = 巡检补偿补武装
    * （V6 原子性补偿：领取时武装失败的缺口由扫描弥合）。 */
   | { type: 'commander_goal_armed'; ts: string; campaignId: string; goalId: string; sessionId: string; healedGoalId?: string; swept?: boolean }
   | { type: 'commander_goal_settled'; ts: string; campaignId: string; goalId: string; outcome: string }
-  /** V5-R4 (staff-wake flag): 参谋唤醒投递痕迹（含失败/跳过原因——可审计）。 */
+  /** V5-R4 (staff-wake flag): 大副唤醒投递痕迹（含失败/跳过原因——可审计）。 */
   | { type: 'staff_woken'; ts: string; campaignId: string; kind: 'reported' | 'failed'; sessionId: string; note?: string }
   /** V5-R4 (quota-recovery flag): 配额熔断原地暂停/恢复（不烧 maxAttempts、
    * 不换令牌——配额是环境问题不是任务失败）。 */
@@ -232,7 +232,7 @@ export interface WarGlobalState {
   version: 2
   /** War mode on/off — gates the staff persona and the war_* tool surface. */
   active: boolean
-  /** Session id of the 参谋部 (the conversation where /war first ran). */
+  /** Session id of the 大副部 (the conversation where /war first ran). */
   hqSessionId?: string
   /** The single durable commander child-session id (lazy-spawned on first publish). */
   commanderChildId?: string

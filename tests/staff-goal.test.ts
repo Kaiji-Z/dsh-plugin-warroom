@@ -98,7 +98,7 @@ function seedTask(dir: string, id: string): void {
   appendEvent(dir, { type: 'task_published', ts: 't1', campaignId: id, workspacePath: 'C:/reg/ws' })
 }
 
-test('goals 辅助：CAS 结算/武装/参谋 disarm 状态机（含残留自愈）', async () => {
+test('goals 辅助：CAS 结算/武装/大副 disarm 状态机（含残留自愈）', async () => {
   const gs = fakeGoals()
   assert.equal(usableGoals(gs), true)
   const agent = { id: 'cmd-9' }
@@ -114,9 +114,9 @@ test('goals 辅助：CAS 结算/武装/参谋 disarm 状态机（含残留自愈
   await armGoalForTask(gs, agent, 'c-77', { maxGoalRounds: 30, title: '修锁' })
   const re = await armGoalForTask(gs, agent, 'c-77', { maxGoalRounds: 30, title: '修锁' })
   assert.equal(re!.healed !== undefined, true)
-  // 清掉 c-77 活跃 goal（真服务按 agent 隔离；本假面是全局单活——先结算再演参谋线）。
+  // 清掉 c-77 活跃 goal（真服务按 agent 隔离；本假面是全局单活——先结算再演大副线）。
   await settleGoalMentioning(gs, agent, 'c-77')
-  // 参谋 disarm 状态机：create 后立即 disarm；同 directive 残留先结算。
+  // 大副 disarm 状态机：create 后立即 disarm；同 directive 残留先结算。
   await openDisarmedGoalForDirective(gs, agent, 'cmd-l2')
   const staffGoal = await openDisarmedGoalForDirective(gs, agent, 'cmd-l2')
   assert.ok(staffGoal !== undefined)
@@ -128,7 +128,7 @@ test('goals 辅助：CAS 结算/武装/参谋 disarm 状态机（含残留自愈
   assert.equal(await openDisarmedGoalForDirective(undefined, agent, 'd'), undefined)
 })
 
-test('war_claim 武装指挥官 goal + 收官/失败结算入账（commander_goal_* 事件）', async () => {
+test('war_claim 武装外勤小队 goal + 收官/失败结算入账（commander_goal_* 事件）', async () => {
   const dir = tmpDir()
   try {
     seedTask(dir, 'c-1')
@@ -183,7 +183,7 @@ test('war_fail 重试用尽结算 goal（failed）', async () => {
   }
 })
 
-test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点接力结算', async () => {
+test('war_triage L2 开大副 disarm goal（入账 disarmed:true）；发布点接力结算', async () => {
   const dir = tmpDir()
   try {
     appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: 'cmd-l2', text: '做个我不确定的东西' })
@@ -195,12 +195,12 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
     assert.match(raw, /directive_goal_opened/)
     assert.match(raw, /"disarmed":true/)
     assert.ok(gs.log.some(l => l.startsWith('disarm:')))
-    // 发布点接力：参谋 goal 随 war_publish(commandId) 结算。
+    // 发布点接力：大副 goal 随 war_publish(commandId) 结算。
     const depsPub = makeDeps(dir, FLAG_TRIAGE_GOAL, { goals: gs, resolveAgent: () => ({ id: 'sec-1' }) })
     await execTool(depsPub, 'war_publish', { title: '澄清后成案', brief: '背景与指引齐备的一句任务书', acceptance: 'npm test 退出码 0；功能可演示', commandId: 'cmd-l2' }, 'sec-1')
     assert.match(raw + (await import('node:fs')).readFileSync(join(dir, 'directives.jsonl'), 'utf8'), /directive_goal_settled/)
     assert.ok(gs.log.filter(l => l.startsWith('complete:')).length >= 1)
-    // L0 分诊不开参谋 goal。
+    // L0 分诊不开大副 goal。
     const dir0 = tmpDir()
     try {
       appendDirectiveEvent(dir0, { type: 'directive_created', ts: 't0', directiveId: 'cmd-l0', text: '小事' })
@@ -216,7 +216,7 @@ test('war_triage L2 开参谋 disarm goal（入账 disarmed:true）；发布点�
   }
 })
 
-test('war_set_goal：只许 in_progress + 在役指挥官；objective 绑定任务 id；面缺席诚实报错', async () => {
+test('war_set_goal：只许 in_progress + 在役外勤小队；objective 绑定任务 id；面缺席诚实报错', async () => {
   const dir = tmpDir()
   try {
     seedTask(dir, 'c-sg')

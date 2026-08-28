@@ -14,7 +14,7 @@ test('warzonePlanets: 16 星、大3 中6 小7、命名/编号齐全', () => {
   assert.equal(a[0]!.name, '克洛诺斯 · P-01')
   assert.equal(a[15]!.name, '恩底弥翁 · P-16')
   for (const p of a) {
-    // V11.5g（元首令）：星阶以 HQ 为锚整体上调——旧 LV4 大星档(9-13)降为小星档。
+    // V11.5g（舰长令）：星阶以 HQ 为锚整体上调——旧 LV4 大星档(9-13)降为小星档。
     if (p.cls === 'large') assert.ok(p.radius >= 19 && p.radius <= 24)
     else if (p.cls === 'medium') assert.ok(p.radius >= 14 && p.radius <= 18)
     else assert.ok(p.radius >= 9 && p.radius <= 13)
@@ -35,7 +35,7 @@ test('warzonePlanets: 24 次拒绝采样后任意两星间距 > 半径和（球�
     const d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
     assert.ok(d > a.radius + b.radius + 4, `${a.name}↔${b.name} d=${d.toFixed(1)}`)
   }
-  // 母舰净空：内圈轨道 r ≥60，初始位不进母舰 36 半径拾取域。
+  // 星舰净空：内圈轨道 r ≥60，初始位不进星舰 36 半径拾取域。
   for (const p of ps) assert.ok(Math.hypot(p.x, p.y, p.z) > 40, `${p.name} 距原点 ${Math.hypot(p.x, p.y, p.z).toFixed(0)}`)
 })
 
@@ -118,11 +118,11 @@ test('V11.5b 三键相机纯函数：clampCam 夹持/yaw 环绕；dampCam 趋近
   assert.ok(wrapStep.yaw > 6.15 && wrapStep.yaw < Math.PI * 2, `回绕边界应向前推进（+0.18 弧度方向），got ${wrapStep.yaw}`)
 })
 
-test('V11.5g wzCamBounds: 缩放界随星体/布局/视高实时限界（元首令）', () => {
+test('V11.5g wzCamBounds: 缩放界随星体/布局/视高实时限界（舰长令）', () => {
   // 近界防穿模：随最大星体抬升，且 HQ 船体（~15）打底。
   const b0 = wzCamBounds(9, 24, 334, 800)
   assert.ok(b0.min >= Math.max(24, 15) * 2.3, `近界≥max(星体,HQ)×2.3，got ${b0.min}`)
-  // 远界双卡：战场取景（(外沿+最大星)×2.6）与最小星可见性取小；不低于初始机位（复位永合法）。
+  // 远界双卡：星球取景（(外沿+最大星)×2.6）与最小星可见性取小；不低于初始机位（复位永合法）。
   assert.ok(b0.max <= (334 + 24) * 2.6 + 1 && b0.max >= WZ_CAM_HOME.dist, `远界∈[home, (外沿+最大星)×2.6]，got ${b0.max}`)
   // 视高越大（同星体），可见性界越远。
   const bTall = wzCamBounds(9, 24, 334, 1600)
@@ -130,9 +130,9 @@ test('V11.5g wzCamBounds: 缩放界随星体/布局/视高实时限界（元首�
   // 大布局允许拉得更远（取景卡随外沿扩张）。
   const bWide = wzCamBounds(9, 24, 800, 800)
   assert.ok(bWide.max > b0.max, '外沿↑远界↑')
-  // 小战场也有底线：max ≥ home、min < max。
+  // 小星球也有底线：max ≥ home、min < max。
   const bTiny = wzCamBounds(9, 13, 60, 600)
-  assert.ok(bTiny.max >= WZ_CAM_HOME.dist && bTiny.min < bTiny.max, `小战场界退化仍合法，got ${JSON.stringify(bTiny)}`)
+  assert.ok(bTiny.max >= WZ_CAM_HOME.dist && bTiny.min < bTiny.max, `小星球界退化仍合法，got ${JSON.stringify(bTiny)}`)
   // clampCam/dampCam 可选界参：动态界生效且兼容旧无参调用。
   assert.equal(clampCam({ yaw: 0, pitch: 0.5, dist: 5000 }, b0.min, b0.max).dist, b0.max)
   assert.equal(clampCam({ yaw: 0, pitch: 0.5, dist: 10 }, b0.min, b0.max).dist, b0.min)

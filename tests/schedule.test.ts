@@ -27,7 +27,7 @@ test('parseCron rejects bad shapes with the field hint', () => {
 })
 
 test('nextRunOf lands on the next matching wall-clock minute (strictly after)', () => {
-  // 2026-08-23 是周日。每天 9:00 的悬赏：周六 20:00 问 → 次日（周日）9:00。
+  // 2026-08-23 是周日。每天 9:00 的任务令：周六 20:00 问 → 次日（周日）9:00。
   const sat2000 = new Date(2026, 7, 22, 20, 0, 0).getTime()
   const next = nextRunOf('0 9 * * *', sat2000)
   assert.equal(next, new Date(2026, 7, 23, 9, 0, 0).getTime())

@@ -1,5 +1,5 @@
 /**
- * V11.4 战区引擎：space-warzone.html 全要素 1:1 移植（元首令「完全一比一」）。
+ * V11.4 战区引擎：space-warzone.html 全要素 1:1 移植（舰长令「完全一比一」）。
  * 世界是 demo 自己的——16 星球战争模拟（待进攻→作战中→已占领→失守反转，永不
  * 落幕）、编队出征/接敌/攻占/返航、2D 指挥室战术视图、战况日志。与项目后端的
  * 数据连线是下一个独立阶段，本模块暂不消费任何板数据。
@@ -19,7 +19,7 @@ import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, type WarTacPalette, ty
 import { UNGROUPED_WS_KEY, type WzBridgeFrontLite } from './front.ts'
 
 /* ================================================================
- * 三键相机（元首定 2026-08-27，V11.5b）：3D 软件范式——左键平移（即时跟手）/
+ * 三键相机（舰长定 2026-08-27，V11.5b）：3D 软件范式——左键平移（即时跟手）/
  * 中键旋转（阻尼，绕当前屏幕中心）/ 滚轮缩放（指数）；双击/R 复位含平移归零。
  * 旋转不再恒对准 HQ：center 是被lookAt的锚点，平移推动它——空间记忆由 V11.5a
  * 地形恒定保证，相机 center 与地形坐标解耦。纯函数导出单测。
@@ -33,8 +33,8 @@ export const WZ_CAM_HOME: WzCamState = { yaw: Math.atan2(64, 252), pitch: Math.a
 
 const wzClamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
-/** V11.5g（元首令）：缩放界随战场实时限界——近界防穿模（最大星体×2.3，HQ 船
- * 体半径 ~15 也入算），远界双卡：最小星可见性（viewH 下仍 ≥9px）与战场取景
+/** V11.5g（舰长令）：缩放界随星球实时限界——近界防穿模（最大星体×2.3，HQ 船
+ * 体半径 ~15 也入算），远界双卡：最小星可见性（viewH 下仍 ≥9px）与星球取景
  * （布局外沿×2.6）；再兜底不小于初始机位（复位永远合法）。纯函数导出单测。 */
 export function wzCamBounds(minR: number, maxR: number, extent: number, viewH: number): { min: number; max: number } {
   const min = Math.max(WZ_CAM_DIST_MIN, Math.max(maxR, 15) * 2.3)
@@ -50,7 +50,7 @@ export function clampCam(c: WzCamState, dMin = WZ_CAM_DIST_MIN, dMax = WZ_CAM_DI
 }
 
 /** 阻尼趋近（指数，k=9）；dt=0（reduced-motion/冻结帧）直接吸附目标。
- * yaw 必须走最短弧：线性插值在 2π→0 回绕边界会反向扫过近一整圈（元首实抓
+ * yaw 必须走最短弧：线性插值在 2π→0 回绕边界会反向扫过近一整圈（舰长实抓
  * 「快到 360° 瞬间反向转」）——先折算到 (-π,π] 再插值。 */
 export function dampCam(cur: WzCamState, target: WzCamState, dt: number, k = 9, dMin?: number, dMax?: number): WzCamState {
   if (dt <= 0) return clampCam(target, dMin, dMax)
@@ -112,7 +112,7 @@ export function warzonePlanets(seed = 'warzone'): WzPlanetSpec[] {
   const placed: Array<{ x: number; y: number; z: number; radius: number }> = []
   return classes.map((cls, i) => {
     const k = `${seed}:${i}`
-    // V11.5g（元首令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
+    // V11.5g（舰长令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
     // 降为 LV1 小星档，中/大按步进续推；拉远小星仍可见（旧 1.8-3 在 dist>500 时不足 4px）。
     const radius = cls === 'large' ? det(`r:${k}`, 19, 24) : cls === 'medium' ? det(`r:${k}`, 14, 18) : det(`r:${k}`, 9, 13)
     const orbit = {
@@ -156,7 +156,7 @@ export function warzonePlanets(seed = 'warzone'): WzPlanetSpec[] {
 }
 
 /* ================================================================
- * 板桥接（V11.5 连线）：宇宙 = 元首（HQ）+ workspace（星球）+ agent 会话（编队）。
+ * 板桥接（V11.5 连线）：宇宙 = 舰长（HQ）+ workspace（星球）+ agent 会话（编队）。
  * 以下纯函数导出单测钉死；demo 自驱模拟（trySpawn/失守反转）在 bridged 态旁路。
  * ================================================================ */
 
@@ -172,7 +172,7 @@ export interface WzBridgePlanet {
   /** 历史任务量（大小分级依据：多仗=大星）。 */
   readonly activity: number
   readonly status: '待进攻' | '作战中' | '已占领'
-  /** 凯旋数（驻军弧）。 */
+  /** 达成数（驻军弧）。 */
   readonly garrison: number
   readonly failing: number
   /** 待发（inbound 计数）。 */
@@ -206,10 +206,10 @@ export function warzoneLayoutFor(wsPaths: readonly string[], activity: readonly 
   return wsPaths.map((wsPath, i) => {
     const k = `${seed}:${wsPath}`
     const cls = clsOf.get(i) ?? 'small'
-    // V11.5g（元首令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
+    // V11.5g（舰长令）：星阶以 HQ（船体半径~15）为锚整体上调——旧 LV4 大星(9-13)
     // 降为 LV1 小星档，中/大按步进续推；拉远小星仍可见（旧 1.8-3 在 dist>500 时不足 4px）。
     const radius = cls === 'large' ? det(`r:${k}`, 19, 24) : cls === 'medium' ? det(`r:${k}`, 14, 18) : det(`r:${k}`, 9, 13)
-    // V11.5f（元首令）：排布尽可能分散——带宽外扩 + 拒绝间距 20→42 + 纵向展宽。
+    // V11.5f（舰长令）：排布尽可能分散——带宽外扩 + 拒绝间距 20→42 + 纵向展宽。
     const orbit = {
       r: cls === 'large' ? det(`or:${k}`, 200, 310) : cls === 'medium' ? det(`or:${k}`, 130, 240) : det(`or:${k}`, 90, 200),
       ecc: det(`oe:${k}`, 0.05, 0.22),
@@ -275,7 +275,7 @@ export interface WzFrontNode {
   hueSlot: number
 }
 
-/** 战况日志（纯）：命令下达（琥珀）+ attempt 结算（凯旋蓝/败红/报琥珀）按时间倒序，30 封顶。 */
+/** 战况日志（纯）：命令下达（琥珀）+ attempt 结算（达成蓝/败红/报琥珀）按时间倒序，30 封顶。 */
 export function warLogOf(items: readonly WzLogFeedItem[]): WzLogEntry[] {
   return items
     .slice()
@@ -692,8 +692,8 @@ export function hqStats(planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3()
 const _c1 = new THREE.Color(), _c2 = new THREE.Color()
 
-/** 战区 3D 引擎（demo §1-§9 全量）：渲染栈/灯光/星海/星云/碎石带/母舰/16 星/
- * 编队模拟/冲击波环/派兵循环。 */
+/** 战区 3D 引擎（demo §1-§9 全量）：渲染栈/灯光/星海/星云/碎石带/星舰/16 星/
+ * 编队模拟/冲击波环/加派组员循环。 */
 export class WarzoneScene {
   readonly renderer: THREE.WebGLRenderer
   readonly scene = new THREE.Scene()
@@ -725,7 +725,7 @@ export class WarzoneScene {
   private hqActive = true
   private planetKey = ''
   private readonly squadBySession = new Map<string, WzSquad>()
-  /** 悬停/聚焦高亮战区（V11.5f 元首令）：光晕增亮 + HQ↔星球虚线轨迹。 */
+  /** 悬停/聚焦高亮战区（V11.5f 舰长令）：光晕增亮 + HQ↔星球虚线轨迹。 */
   private readonly hlWs = new Set<string>()
   private hlLines: THREE.Line[] = []
   /** 三键相机态：cur 阻尼趋近 target；center=屏幕锚（平移推动它，旋转绕它）。 */
@@ -737,7 +737,7 @@ export class WarzoneScene {
   private viewH = 800
   private readonly camCenter = new THREE.Vector3(0, 0, 0)
   private readonly PAN_LIMIT = 340
-  /** V12（元首令·浅色范式=天空）：主题态——null=未初始化（首贴必生效）；
+  /** V12（舰长令·浅色范式=天空）：主题态——null=未初始化（首贴必生效）；
    * 深空件（星海/星云/bloom）与天空件（云层/暖阳）按主题切换可见性与配色。 */
   private darkTheme: boolean | null = null
   private readonly nebGroup = new THREE.Group()
@@ -754,7 +754,7 @@ export class WarzoneScene {
   private hqVariant: 'ship' | 'fortress' | null = null
   private hqProxy: THREE.Mesh | null = null
   private lastBridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> } | null = null
-  /** V13 战线航迹层：链色管道串起各代战场 + 代际标记（兼拾取代理）+ 活体端点辉光。
+  /** V13 战线航迹层：链色管道串起各代星球 + 代际标记（兼拾取代理）+ 活体端点辉光。
    * 重建时机=行星谱变化/战线谱变化/主题翻转（链色随 CSS）。 */
   private readonly frontGroup = new THREE.Group()
   private readonly frontPickables: THREE.Mesh[] = []
@@ -771,7 +771,7 @@ export class WarzoneScene {
   private readonly cWait = new THREE.Color('#b07800')
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
-    // alpha:true（元首定）：画布透明，容器 CSS 底透出。
+    // alpha:true（舰长定）：画布透明，容器 CSS 底透出。
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
     this.renderer.setSize(width, height, false)
@@ -792,12 +792,12 @@ export class WarzoneScene {
     const ambient = new THREE.AmbientLight(0x334466, 0.7)
     this.ambientLight = ambient
     this.scene.add(ambient)
-    // V11.5i（元首令）：可见太阳——主光方位同向、1200 单位外地平线上 16° 一颗
+    // V11.5i（舰长令）：可见太阳——主光方位同向、1200 单位外地平线上 16° 一颗
     // （自发光核+光晕 sprite，bloom 放大成耀斑；材质关雾防远距衰减；蓝白热星色
     // 与主光 0xaabbff 同谱，不重涂星球）+ 半球补光（天冷地暖，背光面 subtle tint）。
     // 仰角压到 16° 的硬理由：相机永远俯视原点（pitch 0.08-1.52 全向下），视图锥
     // 上缘仰角上限 ≈23°——高仰角太阳永远进不了画面（首版 52° 实测 proj.y=4.3 出锥）。
-    // 阴影不开：战场尺度（星距 90-310）星球影子无落点，纯付费零收益。
+    // 阴影不开：星球尺度（星距 90-310）星球影子无落点，纯付费零收益。
     // V11.2 教训随行：太阳只在远处当视觉锚，绝不让光路再逆光剪影。
     this.glowTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']])
     this.disposables.push(this.glowTex)
@@ -909,9 +909,9 @@ export class WarzoneScene {
     return p
   }
 
-  /** 浅色浮空岛（V12 元首定案：王国之泪层岩为主+纳格兰垂坠石点缀）——workspace=岛。
-   * 语义物理化（选型红利）：LV2+长建筑=打过仗、层级/建筑密度=任务量、凯旋史=
-   * 发光凯旋碑、状态=基座环色+作战光柱（白天辉光失效的正解）。全 hash 确定性。 */
+  /** 浅色浮空岛（V12 舰长定案：王国之泪层岩为主+纳格兰垂坠石点缀）——workspace=岛。
+   * 语义物理化（选型红利）：LV2+长建筑=打过仗、层级/建筑密度=任务量、达成史=
+   * 发光达成碑、状态=基座环色+作战光柱（白天辉光失效的正解）。全 hash 确定性。 */
   private addSkyIsland(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
     const k = `isl:${wsPath}`
     const R = spec.radius
@@ -960,7 +960,7 @@ export class WarzoneScene {
       const roof = add(new THREE.ConeGeometry(bw * 1.35, bh * 0.6, 4), roofMat, R * 0.2 + bh + bh * 0.3)
       roof.position.x = hut.position.x; roof.position.z = hut.position.z; roof.rotation.y = det(`br:${k}:${i}`, 0, 1.5)
     }
-    // 凯旋碑（凯旋史物理表达；亮蓝发光石，白天无需 bloom 也醒目）
+    // 达成碑（达成史物理表达；亮蓝发光石，白天无需 bloom 也醒目）
     const monoN = Math.min(3, garrison)
     for (let i = 0; i < monoN; i++) {
       const a = det(`ma:${k}:${i}`, 0, PI2), dr = det(`md:${k}:${i}`, R * 0.35, R * 0.8)
@@ -1002,10 +1002,10 @@ export class WarzoneScene {
   }
 
   /** 空中要塞（V12 浅色态 HQ）：八角石台+中央塔楼+角楼+停机坪环标+信标灯——
-   * 与母舰同契约（userData.beacon + hqEngines 脉动槽位），update 无需分支。 */
+   * 与星舰同契约（userData.beacon + hqEngines 脉动槽位），update 无需分支。 */
   private buildFortress(): THREE.Group {
     const hq = new THREE.Group()
-    // V12.1（元首令：浅色要塞也太暗淡）：石面提亮 + 金饰环/青光坪环/信标辉光/
+    // V12.1（舰长令：浅色要塞也太暗淡）：石面提亮 + 金饰环/青光坪环/信标辉光/
     // 塔顶天光柱——白天不需要 bloom 也能读出「这是中枢」。
     // 暖沙石 vs 青天=冷暖分离；底锥深石=悬浮剪影（白石对白天是白上白，首版实拍抓的根因）
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0xc9d2dd, flatShading: true, roughness: 0.82, metalness: 0.04 })
@@ -1159,11 +1159,11 @@ export class WarzoneScene {
     return im
   }
 
-  /** 母舰 Headquarters（demo §3 逐字）：八棱柱舰体/上层甲板/指挥塔/信标/传感
+  /** 星舰 Headquarters（demo §3 逐字）：八棱柱舰体/上层甲板/指挥塔/信标/传感
    * 球/环绕桁架/六连接梁/四引擎舱（光晕呼吸）/8 舷窗灯带。 */
   private buildHq(): THREE.Group {
     const hq = new THREE.Group()
-    // V12.1（元首令：HQ 太暗淡）：metalness 0.9 无环境贴图=黑铁——降反照金属度、
+    // V12.1（舰长令：HQ 太暗淡）：metalness 0.9 无环境贴图=黑铁——降反照金属度、
     // 提亮基色，发光细节全面加密（双层舷窗带+环缘航行灯+引擎洗涤光+更大信标）。
     const hullMat = new THREE.MeshStandardMaterial({ color: 0x9fb0c8, metalness: 0.6, roughness: 0.38, flatShading: true })
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x3d4a62, metalness: 0.6, roughness: 0.5, flatShading: true })
@@ -1464,7 +1464,7 @@ export class WarzoneScene {
     if (m > this.PAN_LIMIT) this.camCenter.multiplyScalar(this.PAN_LIMIT / m)
   }
 
-  /** 滚轮缩放（指数；往外拉=变大）——V11.5g 界随战场动态。 */
+  /** 滚轮缩放（指数；往外拉=变大）——V11.5g 界随星球动态。 */
   zoomBy(deltaY: number): void {
     this.camTar = clampCam({ ...this.camTar, dist: this.camTar.dist * Math.exp(deltaY * 0.0012) }, this.camMinDist, this.camMaxDist)
   }
@@ -1498,7 +1498,7 @@ export class WarzoneScene {
   }
 
   /** V12 主题热切换（壳 MutationObserver 驱动）：深空↔天空两套氛围件可见性/配色；
-   * R2 起还将触发星球（球体↔浮空岛）/HQ（母舰↔要塞）视觉工厂重建。 */
+   * R2 起还将触发星球（球体↔浮空岛）/HQ（星舰↔要塞）视觉工厂重建。 */
   setTheme(dark: boolean): void {
     if (this.darkTheme === dark) return
     this.applyTheme(dark)
@@ -1550,7 +1550,7 @@ export class WarzoneScene {
       if (dark) { s.glowMat.color.setRGB(2.2, 1.1, 0.45); s.glowMat.opacity = 0.85 }
       else { s.glowMat.color.setRGB(1.95, 1.95, 2.05); s.glowMat.opacity = 0.55 }
     }
-    // HQ 换皮：母舰 ↔ 空中要塞（同 beacon/engines/pick-proxy 契约；变体守卫防首贴空转）
+    // HQ 换皮：星舰 ↔ 空中要塞（同 beacon/engines/pick-proxy 契约；变体守卫防首贴空转）
     const wantHq: 'ship' | 'fortress' = dark ? 'ship' : 'fortress'
     if (this.hqGroup !== null && this.hqVariant !== wantHq) {
       this.scene.remove(this.hqGroup)
@@ -1583,7 +1583,7 @@ export class WarzoneScene {
     this.rebuildHlLines()
   }
 
-  /** 云层（浅色态氛围件）：确定性散布的宽软 sprite，极慢漂移（元首放行——
+  /** 云层（浅色态氛围件）：确定性散布的宽软 sprite，极慢漂移（舰长放行——
    * 云非地形，类似星闪呼吸感）；|x|>700 环回。 */
   private buildClouds(): void {
     for (let i = 0; i < 10; i++) {
@@ -1633,9 +1633,9 @@ export class WarzoneScene {
     p.mesh.add(sprite)
   }
 
-  /** V13 战线世代环（元首定案：战线=血脉∩战场，锚定单战场）：每条战线在其战场
+  /** V13 战线世代环（舰长定案：战线=血脉∩星球，锚定单星球）：每条战线在其星球
    *  行星外一圈链色环 + 世代标记沿环弧排布（末代放大发光，兼拾取代理）——跨行星
-   *  连线不存在（跨战场=新战线，见 front.ts 拆分规则）。收官战线降透明度留痕。
+   *  连线不存在（跨星球=新战线，见 front.ts 拆分规则）。收官战线降透明度留痕。
    *  链色经 war-tokens 从 CSS --chain-hue 解析（主题翻转随动）。 */
   private rebuildFrontLines(fronts: ReadonlyArray<WzBridgeFrontLite>): void {
     for (const child of [...this.frontGroup.children]) {
@@ -1655,10 +1655,10 @@ export class WarzoneScene {
     this.frontPickables.length = 0
     this.lastFronts = fronts
     this.frontSeq++
-    // V15.2 语义重铸（元首定案）：一星球一环、分段=战线数。旧语义（每战线一条
+    // V15.2 语义重铸（舰长定案）：一星球一环、分段=战线数。旧语义（每战线一条
     // 链色环+世代点+末代辉光）在多战线星球退化成密环叠罗汉——战线数改由分段数
     // 编码，不区分链色；环色取星球自身辉光底色（每星球确定性一套色系）。
-    // 世代点退役：代数是卡片层信息（悬停 tooltip/战场面板/任务列组头）。
+    // 世代点退役：代数是卡片层信息（悬停 tooltip/星球面板/任务列组头）。
     const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
     const counts = new Map<string, number>()
     for (const f of fronts) {
@@ -1722,7 +1722,7 @@ export class WarzoneScene {
     s.scale.set(worldH * (s.userData.labelAspect as number), worldH, 1)
   }
 
-  /** 帧推进（demo animate 的模拟半边）：母舰呼吸/星球轨道与状态/编队/特效/调度。 */
+  /** 帧推进（demo animate 的模拟半边）：星舰呼吸/星球轨道与状态/编队/特效/调度。 */
   update(dt: number, t: number): void {
     for (const p of this.planets) {
       for (const ch of p.mesh.children) {
@@ -1745,7 +1745,7 @@ export class WarzoneScene {
     ;(this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
     for (const p of this.planets) {
       const o = p.orbit
-      // V11.5a（元首定）：公转停——地形是固定参照系（空间记忆/拾取稳定/军图惯例），
+      // V11.5a（舰长定）：公转停——地形是固定参照系（空间记忆/拾取稳定/军图惯例），
       // 真实在动的只有单位（编队）；自转保留（不改位置）。demo 漂移仅非 bridged 态。
       if (!this.bridged) o.angle += o.speed * dt
       const rr = o.r * (1 + o.ecc * Math.sin(o.angle * 1.618 + o.phase))
@@ -1831,8 +1831,8 @@ export class WarzoneScene {
   }
 
   /** 板同步（V11.5 连线正门）：星球集（wsPath 变更时整组重建，否则原地刷状态）
-   * + 编队 diff（新会话=母舰起飞 / 消失=返航 / 相位迁移随板面）+ WAR LOG 整组
-   * 替换 + HQ 战时开关。此后 demo 自驱永久旁路。 */
+   * + 编队 diff（新会话=星舰起飞 / 消失=返航 / 相位迁移随板面）+ WAR LOG 整组
+   * 替换 + HQ 出航开关。此后 demo 自驱永久旁路。 */
   syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry>; fronts?: ReadonlyArray<WzBridgeFrontLite> }): void {
     this.bridged = true
     this.lastBridge = bridge
@@ -1954,7 +1954,7 @@ export class WarzoneTactical {
   private readonly g: CanvasRenderingContext2D
   private readonly canvas: HTMLCanvasElement
   private readonly scanPat: CanvasPattern | null
-  /** V12：2D 双皮——深色=战术雷达 / 浅色=蓝图纸面（白纸+青蓝制图线，元首定）。 */
+  /** V12：2D 双皮——深色=战术雷达 / 浅色=蓝图纸面（白纸+青蓝制图线，舰长定）。 */
   private dark = true
   /** V12.2：调色板经 war-tokens 从 CSS 令牌读取（setTheme 刷新；headless 回退）。 */
   private tac: WarTacPalette = TAC_FALLBACK_DARK
@@ -1990,7 +1990,7 @@ export class WarzoneTactical {
   }
 
 
-  /** 帧绘制（V11.5f 元首令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
+  /** 帧绘制（V11.5f 舰长令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
    * 文字全部退役——只剩盘+符号+高亮；扫描波束动态动画此前已退役。 */
   draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>): void {
     const g = this.g
@@ -2123,7 +2123,7 @@ export class WarzoneTactical {
       g.restore()
       hits.push({ x: s1.x, y: s1.y, r: 12, ref: s })
     })
-    // V11.5f（元首令）：名册/态势/速报/顶底栏文字全部退役——只剩盘+符号+高亮。
+    // V11.5f（舰长令）：名册/态势/速报/顶底栏文字全部退役——只剩盘+符号+高亮。
     const B = 26, M = 14
     ;([[S.x + M, S.y + M, 1, 1], [S.x + S.w - M, S.y + M, -1, 1], [S.x + M, S.y + S.h - M, 1, -1], [S.x + S.w - M, S.y + S.h - M, -1, -1]] as const).forEach(c => {
       g.strokeStyle = P.corner; g.lineWidth = 2

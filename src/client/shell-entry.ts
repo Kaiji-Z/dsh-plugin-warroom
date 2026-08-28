@@ -16,6 +16,7 @@
  */
 
 import { createElement } from 'react'
+import { activeCopy, subscribeSkin } from './copy.ts'
 import { createRoot } from 'react-dom/client'
 import type { ReactNode } from 'react'
 
@@ -103,10 +104,17 @@ export function mountWarroomShell(view: () => ReactNode, dom?: SidebarMountDeps)
   row.setAttribute('data-dsh-plugin', 'warroom')
   row.setAttribute('data-dsh-part', 'sidebar-entry')
   row.className = 'war-sidebar-row'
-  row.setAttribute('aria-label', '作战室')
-  row.setAttribute('title', '作战室 · 战略任务栏（跨工作区）')
-  row.innerHTML = `<span class="war-sidebar-icon">${WAR_ICON}</span><span class="war-sidebar-label">作战室</span>`
+  // V16 术语随皮肤：标签取词典（trek=舰桥/军事=作战室），订阅切换即时换词。
+  const paintRow = (): void => {
+    const label = activeCopy().head.title
+    row.setAttribute('aria-label', label)
+    row.setAttribute('title', `${label} · 战略任务栏（跨工作区）`)
+    row.innerHTML = `<span class="war-sidebar-icon">${WAR_ICON}</span><span class="war-sidebar-label">${label}</span>`
+  }
+  paintRow()
   row.addEventListener('click', () => state.setOpen(!state.isOpen()))
+
+  const offSkin = subscribeSkin(paintRow)
 
   const placeRow = (): boolean => {
     const root = sidebarRoot(document)
@@ -195,6 +203,7 @@ export function mountWarroomShell(view: () => ReactNode, dom?: SidebarMountDeps)
       document.removeEventListener(ACTIVATE_EVENT, onOtherActivate)
       document.removeEventListener('warroom-open-request', onOpenRequest)
       unsubscribe()
+      offSkin()
       document.documentElement.removeAttribute(ACTIVE_ATTR)
       root?.unmount()
       container?.remove()

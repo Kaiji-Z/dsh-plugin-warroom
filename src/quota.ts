@@ -10,7 +10,7 @@
  * 环境问题不是任务失败。全局 `quotaBlocked {since,code}`（flag on 才写）
  * + 在役任务逐个 `task_paused_quota`（fold 只翻 quotaPaused 位，不动
  * status/attempt）；恢复探测通过 → `task_resumed_quota` + followup 原会话
- * 「继续任务」（征召令牌/attempt 原样保留）。
+ * 「继续任务」（外勤任务简报牌/attempt 原样保留）。
  *
  * 探测本身花配额：probe 是一次近零 token 的 1 轮 prompt（专用探针会话，
  * 复用不新建），节奏 5min 起步指数退避（上限 30min）。
@@ -106,7 +106,7 @@ export function createQuotaFuse(deps: QuotaDeps): QuotaFuse {
         }
         if (task.status !== 'in_progress' || task.quotaPaused !== true) continue
         appendEvent(deps.stateDir, { type: 'task_resumed_quota', ts: new Date().toISOString(), campaignId: id })
-        // 原地续作：把「配额已恢复」投回指挥官会话（attempt/令牌原样）。
+        // 原地续作：把「配额已恢复」投回外勤小队会话（attempt/令牌原样）。
         if (sessions !== undefined && task.claimedBy !== undefined) {
           try {
             await sessions.prompt({
@@ -117,7 +117,7 @@ export function createQuotaFuse(deps: QuotaDeps): QuotaFuse {
               },
             })
           } catch {
-            // 续作投递失败——指挥官会话常驻，goal/巡检会再推。
+            // 续作投递失败——外勤小队会话常驻，goal/巡检会再推。
           }
         }
       }

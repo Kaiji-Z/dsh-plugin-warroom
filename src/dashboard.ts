@@ -105,7 +105,7 @@ export interface DashboardDeps {
   spike?: SpikeDeps
   /** Feature flags（V5-R2 起 dashboard 需要判档位账本路由的开关）。 */
   flags?: FeatureFlags
-  /** K17 计划判定回推：把元首的批/驳结果投回参谋会话（index 经 sessions
+  /** K17 计划判定回推：把舰长的批/驳结果投回大副会话（index 经 sessions
    * 面接线；缺席/失败 best-effort，不阻塞判定入账）。 */
   pushToStaff?: (sessionId: string, text: string) => void
   /** v3: fired after a command card is created — the host ticks the command
@@ -222,7 +222,7 @@ export function dueBounties(stateDir: string, nowMs: number): DueBounty[] {
         const busy = task.status === 'published' || task.status === 'in_progress' || task.status === 'reported'
         out.push(busy
           ? { taskId: id, openRound: false, reason: `上一轮（${task.status}）尚未收官，本次到点跳过、不补跑` }
-          : { taskId: id, openRound: true, reason: '到点重开悬赏' })
+          : { taskId: id, openRound: true, reason: '到点重开任务令' })
       }
     } catch {
       // Stored cron turned invalid — publish-time validation already guards new ones.
@@ -254,7 +254,7 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
       staffSessionId: d.staffSessionId ?? null,
       taskId: d.taskId ?? null,
       cancelledReason: d.cancelledReason ?? null,
-      // V5 档位账本：档位/理由/置信度/元首改档次数（未分诊为 null）。
+      // V5 档位账本：档位/理由/置信度/舰长改档次数（未分诊为 null）。
       grade: d.grade ?? null,
       gradeReason: d.gradeReason ?? null,
       gradeConfidence: d.gradeConfidence ?? null,
@@ -315,10 +315,10 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         // 其当时状态冻结（嫁接是历史不是开关）；推导失败给明确拒绝理由。
         const body = JSON.parse(await readBody(r)) as { text?: unknown; cron?: unknown; continuesFrom?: unknown; name?: unknown }
         const text = typeof body.text === 'string' ? body.text.trim() : ''
-        // V15 战线命名（可选，≤24 字；元首下达时给，不填=命令原文当战线名）。
+        // V15 战线命名（可选，≤24 字；舰长下达时给，不填=命令原文当战线名）。
         const name = typeof body.name === 'string' ? body.name.trim().slice(0, 24) : ''
         if (text === '') {
-          send(400, { ok: false, error: '命令内容为空：请用一句大白话写下元首的意图。' })
+          send(400, { ok: false, error: '命令内容为空：请用一句大白话写下舰长的意图。' })
           return
         }
         if (text.length > 2000) {
@@ -439,7 +439,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands/regrade') {
-        // V5-R2 档位账本（flag staff-triage）：元首在命令卡上升降档。
+        // V5-R2 档位账本（flag staff-triage）：舰长在命令卡上升降档。
         // 旗关 → 404，与改前等价。
         if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-triage')) {
           send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
@@ -448,7 +448,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         const body = JSON.parse(await readBody(r)) as { commandId?: unknown; grade?: unknown; reason?: unknown }
         const commandId = typeof body.commandId === 'string' ? body.commandId.trim() : ''
         const grade = typeof body.grade === 'string' ? body.grade.trim() : ''
-        const reason = typeof body.reason === 'string' && body.reason.trim() !== '' ? body.reason.trim() : '元首命令卡升降档'
+        const reason = typeof body.reason === 'string' && body.reason.trim() !== '' ? body.reason.trim() : '舰长命令卡升降档'
         if (commandId === '') {
           send(400, { ok: false, error: '缺少命令号。' })
           return
@@ -467,7 +467,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         if (directive.grade === undefined) {
-          send(400, { ok: false, error: `命令 ${commandId} 尚未分诊（等参谋第一轮 war_triage 入账后再升降档）。` })
+          send(400, { ok: false, error: `命令 ${commandId} 尚未分诊（等大副第一轮 war_triage 入账后再升降档）。` })
           return
         }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_regraded', ts: new Date().toISOString(), directiveId: commandId, grade, reason })
@@ -475,7 +475,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands/plan') {
-        // V5-R3 计划判定（flag staff-plan）：元首在命令卡上批准/驳回计划草案。
+        // V5-R3 计划判定（flag staff-plan）：舰长在命令卡上批准/驳回计划草案。
         if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-plan')) {
           send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
           return
@@ -504,10 +504,10 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         if (decision === 'approve') {
           appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_approved', ts: new Date().toISOString(), directiveId: commandId, ...(note !== undefined ? { note } : {}) })
         } else {
-          appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_rejected', ts: new Date().toISOString(), directiveId: commandId, reason: note ?? '元首驳回，请修订重呈' })
+          appendDirectiveEvent(deps.stateDir, { type: 'directive_plan_rejected', ts: new Date().toISOString(), directiveId: commandId, reason: note ?? '舰长驳回，请修订重呈' })
         }
-        // K17 判定回推：参谋会话在等判定结果——投递 best-effort，失败不阻塞入账
-        // （下一次呈报/唤醒还会碰头）。仅在参谋会话存在时投。
+        // K17 判定回推：大副会话在等判定结果——投递 best-effort，失败不阻塞入账
+        // （下一次呈报/唤醒还会碰头）。仅在大副会话存在时投。
         if (directive.staffSessionId !== undefined && directive.staffSessionId !== '' && deps.pushToStaff !== undefined) {
           deps.pushToStaff(directive.staffSessionId, decision === 'approve' ? planApprovedNotice(note) : planRejectedNotice(note ?? '请修订重呈'))
         }

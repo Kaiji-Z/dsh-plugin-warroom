@@ -1,6 +1,6 @@
 /**
- * V13 战线一等公民纯函数测试：frontsOf 血脉∩战场拆分（元首定案 2026-08-28——
- * 战线锚定Ⅰ代战场，后续代跨战场=新战线的Ⅰ；成形代继承父代战线）、跨代并集
+ * V13 战线一等公民纯函数测试：frontsOf 血脉∩星球拆分（舰长定案 2026-08-28——
+ * 战线锚定Ⅰ代星球，后续代跨星球=新战线的Ⅰ；成形代继承父代战线）、跨代并集
  * （pivot 共享任务去重）、聚合态；wsKeyOf 合成沙盒判定。
  * @module dsh-plugin-warroom/tests/front
  */
@@ -33,12 +33,12 @@ test('front: 合成沙盒判定——.warroom 下 tasks/instances 归未分组�
   assert.equal(wsKeyOf('C:/srv/.warroom/tasks/t1'), UNGROUPED_WS_KEY)
 })
 
-test('front: 血脉∩战场拆分——Ⅱ 代跨战场即新战线（锚=段首代），pivot 共享任务去重', () => {
+test('front: 血脉∩星球拆分——Ⅱ 代跨星球即新战线（锚=段首代），pivot 共享任务去重', () => {
   const commands = [
     cmd('c1', 'A', 1, 't1', '2026-08-27T09:00:00Z'), // Ⅰ 在 D:/p1
     cmd('c2', 'A', 2, 't2', '2026-08-27T15:00:00Z'), // Ⅱ 被发去合成沙盒 → 拆为新战线
     cmd('c3', 'A', 3, 't2', '2026-08-28T08:00:00Z'), // Ⅲ pivot：与 Ⅱ 共享任务 t2（同沙盒）
-    cmd('c4', 'B', 1, 't3', '2026-08-26T09:30:00Z'), // 独立战线，同在 D:/p1（战场可容纳多条战线）
+    cmd('c4', 'B', 1, 't3', '2026-08-26T09:30:00Z'), // 独立战线，同在 D:/p1（星球可容纳多条战线）
   ]
   const tasks = [
     task('t1', 'closed', 'D:/p1'),
@@ -64,9 +64,9 @@ test('front: 血脉∩战场拆分——Ⅱ 代跨战场即新战线（锚=段�
   assert.deepEqual(a2.generations.map(c => c.commandId), ['c2', 'c3'])
   assert.equal(a2.battlefield, UNGROUPED_WS_KEY)
   assert.deepEqual(a2.tasks.map(t => t.taskId), ['t2'], 'pivot 共享任务去重')
-  assert.equal(a2.rootCommandId, 'c2', '跨战场段的锚=段首代（新战线的Ⅰ）')
+  assert.equal(a2.rootCommandId, 'c2', '跨星球段的锚=段首代（新战线的Ⅰ）')
   assert.equal(a2.agg.live, true)
-  // 段 3：独立战线同战场——战场可容纳多条战线
+  // 段 3：独立战线同星球——星球可容纳多条战线
   assert.equal(b.battlefield, 'D:/p1')
   assert.equal(b.agg.waiting, true, 'published 任务=等你')
   // 任务→战线归属（pivot 任务归段 2）
@@ -75,7 +75,7 @@ test('front: 血脉∩战场拆分——Ⅱ 代跨战场即新战线（锚=段�
   assert.equal(m.get('t1')!.rootCommandId, 'c1')
 })
 
-test('front: Ⅳ 回原战场不回接（相对父代拆分）+ 成形代继承父战线', () => {
+test('front: Ⅳ 回原星球不回接（相对父代拆分）+ 成形代继承父战线', () => {
   const commands = [
     cmd('c1', 'A', 1, 't1', '2026-08-25T09:00:00Z'), // P
     cmd('c2', 'A', 2, 't2', '2026-08-25T12:00:00Z'), // Q → 拆
@@ -123,7 +123,7 @@ test('front: 孤儿任务不造战线；cancelled 全取消链=settled', () => {
   assert.equal(f.agg.settled, true)
 })
 
-test('front: V14 链色绑战线——兄弟段（同链跨战场拆出）互异、同战线恒一色', () => {
+test('front: V14 链色绑战线——兄弟段（同链跨星球拆出）互异、同战线恒一色', () => {
   const mk = (id, root, gen, taskId, created, ws) => cmd(id, root, gen, taskId, created,
     taskId === null ? {} : {})
   // c1(P)/c2(P) 同段；c3(Q) 跨场=兄弟段
@@ -170,7 +170,7 @@ test('front: V15 wsKeyOf kind 感知——真值分键，旧任务回落启发�
   assert.equal(wsKeyOf('D:/repo/worktree-a', 'auto-worktree'), U, 'auto worktree-of-P 按真值归未分组（启发式会误判）')
   assert.equal(wsKeyOf('D:/smoke/.warroom/instances/i1-x', 'instance'), U)
   assert.equal(wsKeyOf('D:/repo/projA', 'bound'), 'D:/repo/projA')
-  assert.equal(wsKeyOf('D:/repo/wt-p', 'bound-worktree'), 'D:/repo/wt-p', 'bound-worktree 是元首显式绑的战场=项目行星')
+  assert.equal(wsKeyOf('D:/repo/wt-p', 'bound-worktree'), 'D:/repo/wt-p', 'bound-worktree 是舰长显式绑的星球=项目行星')
   // 旧任务（kind null/undefined）回落路径启发式
   assert.equal(wsKeyOf('D:/x/.warroom/tasks/t1', null), U)
   assert.equal(wsKeyOf('D:/repo/projA'), 'D:/repo/projA')

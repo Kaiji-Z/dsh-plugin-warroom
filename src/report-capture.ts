@@ -1,5 +1,5 @@
 /**
- * 部队战报事件解析（V9.12 R1）——registerReportCapture 的纯函数半边。
+ * 外勤组员任务回报事件解析（V9.12 R1）——registerReportCapture 的纯函数半边。
  *
  * 宿主 SessionEvent 包一层 { type, seq, time, data }：载荷（source/content）
  * 在 .data 下（2026-08-26 实测，与 activity.ts 的 reduceActivity 同源结论）。

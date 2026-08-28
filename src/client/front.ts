@@ -1,11 +1,11 @@
 /**
  * V13 战线一等公民（纯函数模块）：战线 = 命令的世代链（chain.rootId 聚合），
- * 非 session 组合——sessions 挂在每条命令之下（1 参谋 + 每尝试 1 执行）。
- * 本模块零 React/零宿主 API：分组、跨代任务并集、战场序列、聚合态全部纯派生，
+ * 非 session 组合——sessions 挂在每条命令之下（1 大副 + 每尝试 1 执行）。
+ * 本模块零 React/零宿主 API：分组、跨代任务并集、星球序列、聚合态全部纯派生，
  * 数据全部来自板投影现成字段（foldChains 已投影 rootId/generation/hueSlot）。
  *
- * 战场语义（V13 与宿主对齐的物理模型）：宿主 workspace = 真实项目文件夹
- * （bound 路径）= 战场行星；warRoot 下合成沙盒（tasks/<id>、instances/<id>）
+ * 星球语义（V13 与宿主对齐的物理模型）：宿主 workspace = 真实项目文件夹
+ * （bound 路径）= 星球行星；warRoot 下合成沙盒（tasks/<id>、instances/<id>）
  * 不是项目文件夹——聚合为一颗「未分组」行星。判别是路径启发式（.warroom +
  * tasks/instances 段对）：warRoot 被 config 覆盖改名时判不准（误当项目行星，
  * 视觉无害）；投影加 workspaceKind 字段挂账未来（见 DESIGN.md V13 挂账③）。
@@ -86,7 +86,7 @@ export interface FrontAgg {
 
 export interface WarFront {
   readonly rootId: string
-  /** 本战线的锚命令（本地Ⅰ代）commandId——航迹点击/聚焦的落点。跨战场拆分时=该段首代。 */
+  /** 本战线的锚命令（本地Ⅰ代）commandId——航迹点击/聚焦的落点。跨星球拆分时=该段首代。 */
   readonly rootCommandId: string
   readonly hueSlot: number
   /** 锚命令原文（战线名，纯派生不改名——账本化挂账未来）。 */
@@ -95,23 +95,23 @@ export interface WarFront {
   readonly generations: BoardCommand[]
   /** 跨代任务并集（按 taskId 去重——pivot 与父代共享同一任务），依赖序。 */
   readonly tasks: BoardTask[]
-  /** 战线绑定的唯一战场键（V14 定案：战线绑定一个战场；无任务=未锚定 null）。 */
+  /** 战线绑定的唯一星球键（V14 定案：战线绑定一个星球；无任务=未锚定 null）。 */
   readonly battlefield: string | null
   readonly agg: FrontAgg
   /** 最近活动时刻（ISO 字符串，命令 createdAt 与尝试结算的最大值）——排序键。 */
   readonly lastActivity: string
-  /** V14 溯源：锚的链代 >1（续接代自立战线）时指向源战线——「续接自 源战场·源战线」，
+  /** V14 溯源：锚的链代 >1（续接代自立战线）时指向源战线——「续接自 源星球·源战线」，
    *  commandId=源战线锚（chip 点击跳源战线聚焦页）。 */
   readonly origin: { readonly battlefield: string | null; readonly title: string; readonly fromGen: number; readonly commandId: string } | null
 }
 
 /**
- * 战线全量派生（纯）：**V14 战线范式收口（元首定案）——战线=命令的聚合，绑定一个
- * 战场（workspace）**；层级 战场 ⊃ 战线 ⊃ 命令。continuesFrom 链不再是独立概念
- * （「血脉」除名）：跨战场的续接代自立新战线，链的痕迹收缩为战线的 `origin` 溯源
- * （「续接自某战场·某战线」一枚可点的事实）+ 战线内本地计代（锚=本地Ⅰ）。
- * 拆分规则：按 chain.rootId 分组后**相对父代**做战场键拆分——某代任务落在与父代
- * 不同的战场（含未分组），该代即新战线的Ⅰ。无任务的成形代继承父代所在战线。
+ * 战线全量派生（纯）：**V14 战线范式收口（舰长定案）——战线=命令的聚合，绑定一个
+ * 星球（workspace）**；层级 星球 ⊃ 战线 ⊃ 命令。continuesFrom 链不再是独立概念
+ * （「血脉」除名）：跨星球的续接代自立新战线，链的痕迹收缩为战线的 `origin` 溯源
+ * （「续接自某星球·某战线」一枚可点的事实）+ 战线内本地计代（锚=本地Ⅰ）。
+ * 拆分规则：按 chain.rootId 分组后**相对父代**做星球键拆分——某代任务落在与父代
+ * 不同的星球（含未分组），该代即新战线的Ⅰ。无任务的成形代继承父代所在战线。
  * @param commands 板投影命令全量（含 cancelled）
  * @param tasks 板投影任务全量
  * @param commandIdOf 任务→源命令解析（views 的 lineageMap 同源；孤儿任务 null）
@@ -130,7 +130,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
     if (ts === undefined) { ts = commandTasks(c, tasks); taskClosure.set(c.commandId, ts) }
     return ts
   }
-  /** 代的战场键=其任务域（依赖序）首个 workspace 的映射键；无任务=null（成形代）。
+  /** 代的星球键=其任务域（依赖序）首个 workspace 的映射键；无任务=null（成形代）。
    *  V15：优先吃投影 workspaceKind 真值（旧任务回落路径启发式）。 */
   const battlefieldOfGen = (c: BoardCommand): string | null => {
     for (const t of closureOf(c)) {
@@ -142,7 +142,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
   const fronts: WarFront[] = []
   for (const [rootId, gens] of groups) {
     gens.sort((a, b) => a.chain.generation - b.chain.generation)
-    // 按相对父代的战场键切成连续段；每段=一条战线（锚=段首代）。
+    // 按相对父代的星球键切成连续段；每段=一条战线（锚=段首代）。
     type Run = { head: BoardCommand; gens: BoardCommand[]; bf: string | null }
     const runs: Run[] = []
     for (const g of gens) {
@@ -181,7 +181,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
         rootId,
         rootCommandId: run.head.commandId,
         hueSlot: run.head.chain.hueSlot % 8, // 占位——下方按战线贪心重排
-        title: run.head.name ?? run.head.text, // V15 战线命名：元首给名用名，否则命令原文
+        title: run.head.name ?? run.head.text, // V15 战线命名：舰长给名用名，否则命令原文
         generations: run.gens,
         tasks: union,
         battlefield: run.bf,
@@ -191,7 +191,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
       } as WarFront)
     }
   }
-  // V14 溯源：战线锚的链代 >1 时，找到前一代命令所属战线——「续接自 那个战场·那条战线」。
+  // V14 溯源：战线锚的链代 >1 时，找到前一代命令所属战线——「续接自 那个星球·那条战线」。
   const frontOfCmd = new Map<string, WarFront>()
   for (const f of fronts) for (const c of f.generations) frontOfCmd.set(c.commandId, f)
   const genIndex = new Map<string, BoardCommand>()
@@ -210,7 +210,7 @@ export function frontsOf(commands: readonly BoardCommand[], tasks: readonly Boar
     }
   }
   // V14 链色绑战线（不再绑血脉）：按战线最近活动降序贪心分配——兄弟段（同链跨
-  // 战场拆出的多条战线）天然异色，同一条战线恒一色。平手优先锚命令哈希槽。
+  // 星球拆出的多条战线）天然异色，同一条战线恒一色。平手优先锚命令哈希槽。
   const order = [...fronts].sort((a, b) => a.lastActivity < b.lastActivity ? 1 : a.lastActivity > b.lastActivity ? -1 : a.rootId < b.rootId ? -1 : 1)
   const use = new Array<number>(8).fill(0)
   for (const f of order) {
@@ -230,7 +230,7 @@ export interface WzBridgeFrontLite {
   readonly rootId: string
   readonly rootCommandId: string
   readonly label: string
-  /** 战线绑定的唯一战场键（含 UNGROUPED_WS_KEY）。 */
+  /** 战线绑定的唯一星球键（含 UNGROUPED_WS_KEY）。 */
   readonly battlefield: string
   readonly gens: number
   readonly live: boolean

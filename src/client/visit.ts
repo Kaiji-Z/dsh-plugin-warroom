@@ -21,7 +21,7 @@ export interface VisitDelta {
   any: boolean
 }
 
-/** 任务「落定时刻」的近似：收官/终败以最后 attempt 结束与最后战报较晚者为准。 */
+/** 任务「落定时刻」的近似：收官/终败以最后 attempt 结束与最后任务回报较晚者为准。 */
 export function taskSettledAt(t: BoardTask): number {
   let latest = Date.parse(t.startedAt) || 0
   for (const a of t.attemptLog) {

@@ -53,8 +53,8 @@ gate('bundle', () => {
     [host, 'war_log_report', 'report logging tool'],
     [host, 'startContinuable', 'commander+troops spawn via the native subagent runtime'],
     [host, 'checkDeployment', 'hard rules gate every deploy'],
-    [host, '贴身参谋条令', 'staff persona rides the host bundle'],
-    [host, '指挥官条令', 'commander persona rides the host bundle'],
+    [host, '贴身大副条令', 'staff persona rides the host bundle'],
+    [host, '外勤小队条令', 'commander persona rides the host bundle'],
     [host, 'materializeTaskWorkspace', 'per-task workspace materialization'],
     [host, 'patrolNow', 'patrol fuse wakes the commander'],
     [host, 'registerWarCommand', '/war slash command'],
@@ -82,7 +82,7 @@ gate('bundle', () => {
     [client, '/warroom/api/events', 'client listens on the SSE channel'],
     [client, 'SAFETY_POLL_MS', 'fallback poll pacing'],
     [client, 'QUALITY_TIERS', 'rarity tiers shared from the domain model'],
-    [client, '战利品', 'loot row on the card'],
+    [client, '任务产出', 'loot row on the card'],
     [client, '前置未解锁', 'dependency-chain lock badge'],
     [client, '败因', 'failure cause on the card'],
     [client, 'war-mark', '！/？ map-mark status language'],
@@ -93,7 +93,7 @@ gate('bundle', () => {
     [client, 'useSyncExternalStore', 'skin switch re-renders the board'],
     [client, 'war-skin-opt', 'settings-drawer skin option buttons (V9.2 moved from island)'],
     // V6 三区 + 命令全生命周期（impeccable 重设计轮）。
-    [client, 'war-report', 'third zone (战报) container'],
+    [client, 'war-report', 'third zone (任务回报) container'],
     [client, 'war-life', 'command lifecycle strip on every command card'],
     [client, 'commandTasks', 'command→chain deps closure (lifecycle tracing core)'],
     [client, 'war-lineage', 'task/session lineage chip back to source command'],
@@ -148,7 +148,7 @@ gate('bundle', () => {
     [client, 'WebGLRenderer', 'V11 3D starfield three.js bundled (no runtime require)'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
-    [host, '悬赏令起草法', 'drafting craft body rides the bundle'],
+    [host, '任务令令起草法', 'drafting craft body rides the bundle'],
     [host, '大白话 → 任务书', 'plain-speech-to-brief worked example'],
     [host, 'skills.register', 'runtime skill provider path'],
     // v2.0 R1: directive feed (命令区), workspace mutex, instance workspaces.
@@ -171,7 +171,7 @@ gate('bundle', () => {
     // v2.0 R4: conscription (征召制), dossier, patrol rescue.
     [host, 'war_conscript', 'staff rescue-conscription tool'],
     [host, 'conscriptPlan', 'per-workspace conscription planner (pure)'],
-    [host, 'conscriptBriefing', '征召令 with workspace + dossier'],
+    [host, 'conscriptBriefing', '外勤任务简报 with workspace + dossier'],
     [host, 'readDossier', 'workspace dossier rides conscription'],
     [host, 'maxCommanders', 'global commander capacity gate'],
     [host, 'bindRelay', 'patrol rescue channel via apiProxy'],
@@ -186,7 +186,7 @@ gate('bundle', () => {
     [client, 'react-dom/client', 'board tree via react-dom createRoot'],
     // v3 R1: two-zone command center, detail-first battlefield, dock home.
     // V9 迁移：三区五列 → 三列局势墙 + 底部命令调度条（Dispatch 调度中心）。
-    [client, '作战室', 'war map title (V9.4: 指挥中心 zone retired, title follows)'],
+    [client, '舰桥', 'war map title (V9.4: 指挥中心 zone retired, title follows)'],
     [client, 'war-ops', 'three-column ops wall grid (dispatch is its sibling)'],
     [client, 'war-dispatch', 'bottom command dispatch strip'],
     [client, 'war-dispatch-track', 'dispatch scrollable card track (placard retired, V9.4 containerized)'],
@@ -221,14 +221,14 @@ gate('bundle', () => {
     [client, '执行会话', 'focus tour: commander-session jump button (both skins)'],
     [client, 'war-tour-ghost', 'planning ghost card (task-forming workshop entry)'],
     [client, '去处理', 'reported/failed staff-jump button'],
-    // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、战利品/历次作战。
+    // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、任务产出/历次作战。
     [client, '进入对话回答', 'talking ghost: answer-in-dialog action (both skins)'],
     [client, 'war-btn-warn', 'warn-styled primary for the talking answer action'],
     [client, 'taskScheduledHint', 'scheduled-not-dispatched task hint (state-split copy key)'],
     [client, 'taskBrief', 'task panel: per-ring brief row copy key'],
     [client, 'war-sub-btns', 'config expansion: regrade button row'],
     [client, 'war-sub-attempts', 'report expansion: per-attempt session list (click to jump)'],
-    // V9.11 R1 卡位模型：任务列=参谋侧台账（成形卡 + 任务书卡全量常驻）+ 生命条上报即进战报段。
+    // V9.11 R1 卡位模型：任务列=大副侧台账（成形卡 + 任务书卡全量常驻）+ 生命条上报即进任务回报段。
     [client, 'formingVariantOf', 'forming-variant derivation shared by focus ghost & ledger card'],
     [client, 'war-forming', 'ledger forming card class'],
     [client, '成形中', 'forming drafting chip copy (both skins)'],
@@ -237,19 +237,19 @@ gate('bundle', () => {
     [host, 'ActivityTracker', 'session/event → activity tracker (read-only)'],
     [host, 'activitySalt', 'board revision folds the activity salt (SSE rev-only intact)'],
     [client, 'war-activity', 'exec card live activity line'],
-    // V9.11 指示器跟卡走 + 战报已阅转绿。
+    // V9.11 指示器跟卡走 + 任务回报已阅转绿。
     [client, 'warroom-report-seen', 'report-seen ledger (localStorage) drives green report stage'],
     [client, 'latestSettleMs', 'seen only counts when newer than the latest settlement'],
     // V9.11 demo 织换：假会话号开机换成宿主真会话——所有演示点击真跳转。
     [host, 'weaveDemoSessions', 'boot-time demo session weave (config demoWeave)'],
     [host, '.demo-sessions.json', 'seed manifest consumed by the weaver'],
     [client, 'warroom-open-request', 'dock pill home event'],
-    // V9.12 R1 事件流复活：战报自动记账解析抽纯函数 + 活动表最旧 ts 驱逐。
+    // V9.12 R1 事件流复活：任务回报自动记账解析抽纯函数 + 活动表最旧 ts 驱逐。
     [host, 'parseUnitReportEvent', 'report-capture parsing extracted (nested .data first)'],
     [host, 'Background subagent', 'unit-report child-id regex survives in the parser'],
     // V9.12 R2 ① 待发落动作正名：reported 链去验收 / 败链去下重试令。
-    [client, '去验收 · 参谋会话', 'review action copy (reported chains)'],
-    [client, '去下重试令 · 参谋会话', 'retry-order action copy (failed chains)'],
+    [client, '去验收 · 参谋会话', 'review action copy (reported chains; V16 词典源=军事串，trek 皮肤运行时派生)'],
+    [client, '去下重试令 · 参谋会话', 'retry-order action copy (failed chains; 词典源=军事串)'],
     // V9.12 R2 ⑥ 跳转无操作反馈。
     [client, 'jumpMissHint', 'cold-session jump no-op surfaces a warning'],
     // V9.12 R2 ⑦ 织换真实目录守卫。
@@ -265,7 +265,7 @@ gate('bundle', () => {
     [client, '--war-select-name', 'selected option-card name color token (light=deep blue, dark=white)'],
     [client, '.war-grade-card.on .war-grade-card-name::before', 'selected card dot marker (non-color channel)'],
     // V9.13 补丁二：宿主不给插件子树 border-box——content-box 下 width:100%+padding 的件横向戳出
-    // （composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640，元首报修实测）。
+    // （composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640，舰长报修实测）。
     [client, '.war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}', 'plugin subtree border-box reset (no width:100%+padding overflow)'],
     // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。
     [client, '--war-text-1: var(--dsw-alias-label-primary)', 'text semantic middle layer (component rules stop piercing dsw aliases)'],
@@ -274,13 +274,13 @@ gate('bundle', () => {
     [client, '--war-log-order', 'speedlog semantic colors (kind-based)'],
     [client, 'data-war-skin', 'skin hook attribute on war-root (visual skins remap --war-* only)'],
     [client, 'readTacPalette', 'TS-side token reader (CSS is the single color source)'],
-    // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（战场/战区）。
+    // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（星球/战区）。
     [client, 'frontsOf', 'V13 front aggregation pure function (zero backend, foldChains-derived)'],
-    // V14 战线范式收口：本地计代/origin 溯源/composer 战场/战场战线清单/写侧引导。
+    // V14 战线范式收口：本地计代/origin 溯源/composer 星球/星球战线清单/写侧引导。
     [client, 'localGenOf', 'V14 front-local generation numbering'],
-    [client, 'originChip', 'V14 origin trace chip (续接自 源战场·源战线)'],
+    [client, 'originChip', 'V14 origin trace chip (续接自 源星球·源战线)'],
     [client, 'bfSection', 'V14 composer explicit battlefield picker'],
-    [client, '【战场：', 'V14 battlefield protocol marker (cross-skin token)'],
+    [client, '【星球：', 'V14 battlefield protocol marker (cross-skin token)'],
     [client, 'war-wz-bfpanel', 'V14 battlefield fronts panel (click planet → front list)'],
     [client, 'war-bf-chip', 'V14.1 battlefield chip on flat (single-gen) task cards'],
     // V15 needles：续接闭环 + workspaceKind + 战线命名。
@@ -291,16 +291,19 @@ gate('bundle', () => {
     [host, 'pivotChainSlice', 'V15 pivot insert parent slice'],
     [host, 'workspaceKind', 'V15 write-side composeWorkspaceKind at both publish sites'],
     [client, '--war-dock-h', 'V14.1 wz-foot offset rides measured dock height (no magic number)'],
-    [host, '战线跟着战场走', 'V14 skill workspace routing discipline + relay continuation binding'],
+    [host, '战线跟着星球走', 'V14 skill workspace routing discipline + relay continuation binding'],
     [client, 'rebuildFrontLines', '3D front trajectory layer (V15.2 segmented ring: segments == front count)'],
     [client, 'strokeDasharray', 'V15.2 2D segmented front ring (one ring per planet, segments == front count)'],
     [client, 'war-front-head', 'front group header styles (task column)'],
     [client, 'war-front-line', '2D front trajectory SVG styles'],
     [client, '未分组', 'ungrouped planet lexicon (synthetic sandbox aggregation)'],
-    [client, '每片战场一颗星', 'workspace renamed to battlefield in map copy'],
+    [client, '每片战场一颗星', 'map copy (词典源=军事串；trek 运行时派生为每个项目一颗星)'],
+    [client, '星际迷航', 'V16 trek skin label (default)'],
+    [client, 'TREK_LEXICON', 'V16 trek lexicon derivation layer (terms vary by skin)'],
+    [host, '外勤任务简报', 'V16 trek canonical conscript briefing (host-side)'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
-    [host, '参谋·', 'per-command staff session title'],
+    [host, '大副·', 'per-command staff session title'],
     [host, 'onCommandCreated', 'POST commands → tickNow instant relay'],
     [host, 'thread_attached', 'thread attach event (append-only)'],
     [host, 'thread_detached', 'thread detach event (append-only)'],
@@ -318,7 +321,7 @@ gate('bundle', () => {
     [client, '点 + 下达第一道命令', 'command-zone empty state'],
     [client, '点击进入对话', 'received-card invitation'],
     [client, '打赢了', 'winning-session outcome language'],
-    [client, '待元首翻阅', 'reported-session outcome language'],
+    [client, '待元首翻阅', 'reported-session outcome language (词典源=军事串)'],
     [client, 'lastCurrent', 'session navigation closes the board'],
     // v3 P0 整改（VERIFICATION.md）：flag 机制 + 监督层门文件面。
     [host, 'WARROOM_FEATURES', 'feature flag env switch (default all-off)'],
@@ -399,7 +402,7 @@ gate('bundle', () => {
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),
     // v3 negative face: the HQ-create button is gone from the client bundle.
-    { ok: !client.includes('开设参谋部'), label: 'client bundle no longer carries the HQ-create button copy' },
+    { ok: !client.includes('开设大副部'), label: 'client bundle no longer carries the HQ-create button copy' },
     // V9.2 negative face: retired island buttons/modals must stay gone.
     { ok: !client.includes('AttachThreadModal') && !client.includes('war-attach-input'), label: 'V9.2: attach modal stays retired (no re-entry)' },
     { ok: !client.includes('LegendModal') && !client.includes('war-focusbar'), label: 'V9.2: legend modal + focus bar stay retired (drawer/island-chip own them)' },
@@ -413,7 +416,7 @@ gate('bundle', () => {
     // V9.11 R1 negative face：任务列不再按终局过滤（台账全量在列）。
     { ok: !client.includes('openTasks'), label: 'V9.11: task ledger is no longer filtered to open tasks' },
     // V9.12 R2 ① negative face：旧「去处理」一刀切文案退役——语义分野成正名后的两词。
-    { ok: !client.includes('去处理 · 参谋会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
+    { ok: !client.includes('去处理 · 大副会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

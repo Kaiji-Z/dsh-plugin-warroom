@@ -23,8 +23,8 @@ test('V9.11 织换: manifest 解析容错（坏 JSON/空对象/非字符串值 �
     assert.equal(readManifest(dir), null)
     writeFileSync(join(dir, '.demo-sessions.json'), '{}')
     assert.equal(readManifest(dir), null)
-    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '参谋', bad: 3 }))
-    assert.deepEqual(readManifest(dir), { 'sec-a': '参谋' })
+    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '大副', bad: 3 }))
+    assert.deepEqual(readManifest(dir), { 'sec-a': '大副' })
     assert.equal(readManifest(join(dir, 'nope')), null)
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -34,7 +34,7 @@ test('V9.11 织换: manifest 解析容错（坏 JSON/空对象/非字符串值 �
 test('V9.11 织换: 全流程——真会话建齐、三条 JSONL 重写、标记落盘、二次幂等跳过', async () => {
   const dir = tmpStateDir()
   try {
-    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-smoke-session': '参谋·演示', 'cmd-golf-session': '指挥官·分页修复' }))
+    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-smoke-session': '大副·演示', 'cmd-golf-session': '外勤·分页修复' }))
     mkdirSync(join(dir, 'campaigns'))
     writeFileSync(join(dir, 'campaigns', 'a.jsonl'), '{"claimedBy":"cmd-golf-session"}\n{"claimedBy":"cmd-golf-session"}\n')
     writeFileSync(join(dir, 'directives.jsonl'), '{"staffSessionId":"sec-smoke-session"}\n')
@@ -53,7 +53,7 @@ test('V9.11 织换: 全流程——真会话建齐、三条 JSONL 重写、标�
     assert.equal(readFileSync(join(dir, 'campaigns', 'a.jsonl'), 'utf8'), '{"claimedBy":"session-real-2"}\n{"claimedBy":"session-real-2"}\n')
     assert.equal(readFileSync(join(dir, 'directives.jsonl'), 'utf8'), '{"staffSessionId":"session-real-1"}\n')
     assert.equal(readFileSync(join(dir, 'threads.jsonl'), 'utf8'), '{"sessionId":"session-real-1"}\n')
-    assert.deepEqual(renames, ['演示·参谋·演示', '演示·指挥官·分页修复'])
+    assert.deepEqual(renames, ['演示·大副·演示', '演示·外勤·分页修复'])
     const marker = JSON.parse(readFileSync(join(dir, '.demo-woven.json'), 'utf8')) as { mapping: Record<string, string> }
     assert.equal(marker.mapping['sec-smoke-session'], 'session-real-1')
     // 幂等：标记在即跳过（不再建会话）。
@@ -87,7 +87,7 @@ test('V9.11 织换: 会话创建失败 → 整体放弃不写标记（半织换�
 test('V9.12 ③ 会话复用: 宿主已有同名「演示·」会话 → 零新建（二次重建不泄漏）', async () => {
   const dir = tmpStateDir()
   try {
-    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '参谋·甲', 'sec-b': '参谋·乙' }))
+    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '大副·甲', 'sec-b': '大副·乙' }))
     let created = 0
     const faces = {
       currentRoot: 'D:/current/ws',
@@ -97,8 +97,8 @@ test('V9.12 ③ 会话复用: 宿主已有同名「演示·」会话 → 零新�
             ok: true as const,
             value: {
               items: [
-                { id: 'host-1', title: '演示·参谋·甲', displayTitle: '演示·参谋·甲' },
-                { id: 'host-2', displayTitle: '演示·参谋·乙' }, // 无 durable title，靠 displayTitle 命中
+                { id: 'host-1', title: '演示·大副·甲', displayTitle: '演示·大副·甲' },
+                { id: 'host-2', displayTitle: '演示·大副·乙' }, // 无 durable title，靠 displayTitle 命中
                 { id: 'host-3', title: '普通会话', displayTitle: '普通会话' },
                 { id: 'host-4', displayTitle: '演示·' }, // 空名不算可复用条目（manifest 值非空）
               ],
@@ -128,7 +128,7 @@ test('V9.12 ③ 会话复用: 宿主已有同名「演示·」会话 → 零新�
 test('V9.12 ③ 真号映射复用: .demo-real-map.json 持久档（重播幸存）→ 无 list 面也零新建', async () => {
   const dir = tmpStateDir()
   try {
-    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '参谋·甲', 'sec-b': '参谋·乙' }))
+    writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({ 'sec-a': '大副·甲', 'sec-b': '大副·乙' }))
     // 上次织换留下的持久映射：sec-a 已有真号（重播清了 woven 标记但没清这档）。
     writeFileSync(join(dir, '.demo-real-map.json'), JSON.stringify({ 'sec-a': 'host-keep-1' }))
     let created = 0

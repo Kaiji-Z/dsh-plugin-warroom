@@ -28,11 +28,11 @@ function task(partial: Partial<BoardTask>): BoardTask {
   }
 }
 
-test('四类来源聚合：talking 命令→答澄清、计划待批→批计划、reported→翻战报、failed→决重试', () => {
+test('四类来源聚合：talking 命令→答澄清、计划待批→批计划、reported→翻任务回报、failed→决重试', () => {
   const commands = [
     cmd({ commandId: 'c-talk', status: 'talking' }),
     cmd({ commandId: 'c-plan', plan: { text: '计划', status: 'pending', decidedAt: null } }),
-    cmd({ commandId: 'c-idle', status: 'received' }), // received 不进收件箱（等参谋，不是等元首）
+    cmd({ commandId: 'c-idle', status: 'received' }), // received 不进收件箱（等大副，不是等舰长）
   ]
   const tasks = [
     task({ taskId: 'T-rep', title: '报表任务', status: 'reported', reports: [{ ts: '2026-08-25T11:30:00Z', from: 'cmd', text: '完成', evidence: null }] }),
@@ -46,7 +46,7 @@ test('四类来源聚合：talking 命令→答澄清、计划待批→批计划
   assert.equal(byKind.plan.refId, 'c-plan')
   assert.equal(byKind.review.refId, 'T-rep')
   assert.equal(byKind.retry.refId, 'T-fail')
-  // 等待起点：clarify/plan 用 createdAt；review 用最后一条战报 ts；retry 用失败 attempt 的 endedAt。
+  // 等待起点：clarify/plan 用 createdAt；review 用最后一条任务回报 ts；retry 用失败 attempt 的 endedAt。
   assert.equal(byKind.clarify.since, '2026-08-25T11:00:00Z')
   assert.equal(byKind.review.since, '2026-08-25T11:30:00Z')
   assert.equal(byKind.retry.since, '2026-08-25T11:10:00Z')

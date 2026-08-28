@@ -21,19 +21,19 @@ function tmpStateDir(): string {
 function replayEightStep(dir: string): { commandId: string; taskId: string } {
   const commandId = 'cmd-regression-0001'
   const taskId = '20260824-regression-0001'
-  // 步1-2: 下命令 → 每命令独立参谋会话 → 接收（tickNow 后的真实顺序）。
+  // 步1-2: 下命令 → 每命令独立大副会话 → 接收（tickNow 后的真实顺序）。
   appendDirectiveEvent(dir, { type: 'directive_created', ts: 't0', directiveId: commandId, text: '给日常工具箱加一个每日格言小工具' })
   appendDirectiveEvent(dir, { type: 'directive_session_opened', ts: 't1', directiveId: commandId, staffSessionId: 'sec-staff-reg' })
   appendDirectiveEvent(dir, { type: 'directive_received', ts: 't2', directiveId: commandId, staffSessionId: 'sec-staff-reg' })
-  // 步3: 元首点卡进会话 → talking。
+  // 步3: 舰长点卡进会话 → talking。
   appendDirectiveEvent(dir, { type: 'directive_talking', ts: 't3', directiveId: commandId })
-  // 步4: 参谋 war_publish 携 commandId → 命令批准 + 任务落栏。
+  // 步4: 大副 war_publish 携 commandId → 命令批准 + 任务落栏。
   appendEvent(dir, { type: 'task_created', ts: 't4', campaignId: taskId, title: '给日常工具箱加「每日格言」小工具', brief: 'b', acceptance: 'node motto.js today 退出码 0', priority: 'normal', publishedBy: 'sec-staff-reg' })
   appendEvent(dir, { type: 'task_published', ts: 't5', campaignId: taskId, workspacePath: 'C:/reg/daily-toolbox', publishedBy: 'sec-staff-reg' })
   appendDirectiveEvent(dir, { type: 'directive_approved', ts: 't6', directiveId: commandId, taskId })
-  // 步5: 指挥官持令牌领取 → 作战。
+  // 步5: 外勤小队持令牌领取 → 作战。
   appendEvent(dir, { type: 'task_claimed', ts: 't7', campaignId: taskId, claimedBy: 'cmd-commander-reg', attemptId: 'tok-reg-1', attempt: 1 })
-  // 步6: 指挥官 war_submit 带 KillCredit 证据 → 待翻阅。
+  // 步6: 外勤小队 war_submit 带 KillCredit 证据 → 待翻阅。
   appendEvent(dir, {
     type: 'task_submitted', ts: 't8', campaignId: taskId, from: 'cmd-commander-reg',
     report: 'motto CLI 完成：today/list 子命令 + 纯函数日期轮换',
@@ -45,7 +45,7 @@ function replayEightStep(dir: string): { commandId: string; taskId: string } {
     },
     deliverables: [{ kind: 'tests', summary: '5/5 全绿（npm test 退出码 0）', ts: 't8' }],
   })
-  // 步7-8: 元首「去处理」跳参谋会话收官 → closed + 胜利会话。
+  // 步7-8: 舰长「去处理」跳大副会话收官 → closed + 胜利会话。
   appendEvent(dir, { type: 'task_closed', ts: 't9', campaignId: taskId, verdict: '验收通过，收官' })
   return { commandId, taskId }
 }
@@ -103,7 +103,7 @@ test('P0-2 反验收②：无领取（无令牌）的提交不得产生胜利会
   try {
     appendEvent(dir, { type: 'task_created', ts: 't0', campaignId: 'c-forged', title: 'x', brief: 'b', acceptance: 'a', priority: 'normal' })
     appendEvent(dir, { type: 'task_published', ts: 't1', campaignId: 'c-forged', workspacePath: '/w' })
-    // 伪造提交：没有 task_claimed（没有 attemptId 令牌），战报却声称全绿。
+    // 伪造提交：没有 task_claimed（没有 attemptId 令牌），任务回报却声称全绿。
     appendEvent(dir, { type: 'task_submitted', ts: 't2', campaignId: 'c-forged', from: 'ghost', report: '全部验收通过', evidence: { checks: [{ item: 'a', passed: true }] } })
     appendEvent(dir, { type: 'task_closed', ts: 't3', campaignId: 'c-forged', verdict: '验收通过，收官' })
     const task = loadCampaign(dir, 'c-forged')

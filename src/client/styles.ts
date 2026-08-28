@@ -54,7 +54,7 @@ export const WAR_CSS = `
   --war-wait-border: var(--dsw-alias-state-warn-primary);
   --war-done-border: var(--dsw-alias-state-success-primary);
   --war-fail-border: var(--dsw-alias-state-error-primary);
-  /* 三区彩带（任务/战场/战报的顶部身份色） */
+  /* 三区彩带（任务/星球/任务回报的顶部身份色） */
   --war-band-task: var(--dsw-alias-state-business-primary);
   --war-band-field: var(--dsw-alias-label-tertiary);
   --war-band-report: var(--dsw-alias-state-success-primary);
@@ -106,7 +106,7 @@ export const WAR_CSS = `
   --war-wz-chip-wait-text: #8a5f00; --war-wz-chip-wait-bg: rgba(176,120,0,.12); --war-wz-chip-wait-border: rgba(176,120,0,.5);
   --war-wz-chip-battle-text: #c2410c; --war-wz-chip-battle-bg: rgba(217,72,15,.1); --war-wz-chip-battle-border: rgba(217,72,15,.5);
   --war-wz-chip-held-text: #1971c2; --war-wz-chip-held-bg: rgba(25,113,194,.1); --war-wz-chip-held-border: rgba(25,113,194,.5);
-  /* 速报日志色（kind 化：order 下令/engage 接敌/triumph 凯旋/retreat 败退/
+  /* 速报日志色（kind 化：order 下令/engage 接敌/triumph 达成/retreat 败退/
    * return 返航/review 待验收）——浅色压深保白蓝图对比，深色原亮值。 */
   --war-log-order: #8a5f00; --war-log-engage: #c2410c; --war-log-triumph: #1971c2;
   --war-log-retreat: #b3261e; --war-log-return: #6741d9; --war-log-review: #b07800;
@@ -137,7 +137,7 @@ export const WAR_CSS = `
   font-family:var(--war-font);color:var(--war-text-1);display:flex;flex-direction:column;height:100%;min-height:0;background:var(--war-canvas);position:relative;scrollbar-color:var(--war-scrollbar) transparent}
 .war-root ::selection{background:color-mix(in srgb, var(--war-run-border) 22%, transparent)}
 /* 宿主不给插件子树提供 border-box 复位——content-box 下一切 width:100%+padding
- * 的件（弹窗本体/命令输入框/cron 输入/侧栏行）都会横向戳出父容器（元首报修
+ * 的件（弹窗本体/命令输入框/cron 输入/侧栏行）都会横向戳出父容器（舰长报修
  * 实测：composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640）。 */
 .war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}
 
@@ -246,7 +246,7 @@ body[data-ds-dark-theme] .war-root{
 .war-err{font-size:12px;color:var(--war-fail)}
 .war-empty{color:var(--war-text-2);font-size:12px;padding:12px 4px;text-align:center;border:1px dashed var(--war-border);border-radius:var(--war-r-md);margin:6px 0}
 
-/* --- V9 局势墙三列（任务/战场/战报）+ 底部命令调度条 ------------------------- */
+/* --- V9 局势墙三列（任务/星球/任务回报）+ 底部命令调度条 ------------------------- */
 /* 板体 = 纵向 flex：.war-ops 三列网格占满余高，.war-dispatch 全宽横条贴底。
  * 不能把调度条直接塞进三列 grid——它会被排到第 2 行第 1 列只剩一列宽。 */
 .war-board{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
@@ -264,7 +264,7 @@ body[data-ds-dark-theme] .war-root{
  * Dispatch 调度中心的一排英雄位；命令是唯一可点入口。
  * 视觉与三列刻意拉开物种差：坞带 = 主色淡染凹槽（--war-dock-bg 双主题各自
  * 调强度）+ 内阴影；命令卡在坞里浮起一层投影。
- * V9.4 容器化（元首定）：整坞一个大容器（与三区同语言的圆角容器，物种差
+ * V9.4 容器化（舰长定）：整坞一个大容器（与三区同语言的圆角容器，物种差
  * 保留——主色淡染凹槽坞）；左端 ＋ 下达瓦片（容器一部分，幽灵虚线态）；
  * 命令卡全部进 .war-dispatch-track 轨道横滚；「命令调度」铭牌退役。 */
 .war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;margin:0 10px 10px;padding:10px;border:1px solid var(--war-border);border-radius:var(--war-r-lg);background:var(--war-dock-bg);box-shadow:var(--war-dock-inset)}
@@ -298,7 +298,7 @@ body[data-ds-dark-theme] .war-root{
 .war-chip.st-closed,.war-chip.oc-done{color:var(--war-done);border-color:var(--war-done-border)}
 .war-chip.st-failed,.war-chip.oc-fail{color:var(--war-fail);border-color:var(--war-fail-border)}
 .war-chip.pri-high{color:var(--war-fail);border-color:var(--war-fail-border);font-weight:600}
-/* command-zone chip colors —— V9.13 语义拆分：received=参谋在动（蓝）、
+/* command-zone chip colors —— V9.13 语义拆分：received=大副在动（蓝）、
  * talking=等你回答（琥珀，与台账 warn ghost/收件箱 k-clarify 同族对齐）。 */
 .war-chip.st-draft{color:var(--war-text-2)}
 .war-chip.st-received{color:var(--war-run);border-color:var(--war-run-border);font-weight:600}
@@ -336,7 +336,7 @@ body[data-ds-dark-theme] .war-root{
 .war-command-text{font-size:13px;font-weight:600;line-height:1.5;color:var(--war-text-1);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .war-command-text.struck{color:var(--war-text-2);text-decoration:line-through}
 
-/* --- command lifecycle strip (v6: 命令→任务→执行→战报 全程追踪) -------------- */
+/* --- command lifecycle strip (v6: 命令→任务→执行→任务回报 全程追踪) -------------- */
 .war-life{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:2px}
 .war-life-stage{display:flex;flex-direction:column;gap:3px;min-width:0}
 .war-life-bar{height:3px;border-radius:2px;background:var(--war-border);transition:background .2s ease}
@@ -374,7 +374,7 @@ body[data-ds-dark-theme] .war-root{
 .war-inbox-oldest{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-fail-border);color:var(--war-fail);font-weight:600;flex:0 0 auto}
 .war-inbox-empty{padding:6px 10px;font-size:12px;color:var(--war-text-3)}
 /* 收件箱四类 chip：答澄清=等你（琥珀，与 talking 同族）/ 批计划=等你决（琥珀）/
- * 翻战报=中性（事实已定）/ 决重试=红（败后动作）。 */
+ * 翻任务回报=中性（事实已定）/ 决重试=红（败后动作）。 */
 .war-chip.k-clarify{color:var(--war-wait);border-color:var(--war-wait-border)}
 .war-chip.k-plan{color:var(--war-wait);border-color:var(--war-wait-border)}
 .war-chip.k-review{color:var(--war-text-1);border-color:var(--war-border-hover)}
@@ -393,7 +393,7 @@ body[data-ds-dark-theme] .war-root{
 .war-card.war-rel-dim{opacity:.32}
 .war-card.war-rel-dim:focus-visible,.war-card.war-rel-dim:focus-within{opacity:1}
 .war-card.war-rel-same{border-color:var(--war-run-border);box-shadow:0 0 0 2px var(--war-run-border)}
-.war-focus-btn{padding:0 8px;line-height:22px;font-size:17px;flex:0 0 auto} /* V10.1 元首定：聚焦图标加大一档 */
+.war-focus-btn{padding:0 8px;line-height:22px;font-size:17px;flex:0 0 auto} /* V10.1 舰长定：聚焦图标加大一档 */
 
 /* --- V7-④ 夜间预检 + 起草器档位/最近命令 ---------------------------------------- */
 .war-card-note{display:flex;align-items:center;min-width:0;min-height:18px;font-size:12px;line-height:18px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} /* R4 通知行：预检提示/取消原因；空也留位（恒高） */
@@ -604,7 +604,7 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
 .war-continue-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .war-continue-chip{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-family:var(--war-font)}
 .war-continue-chip.on{border-style:solid;border-color:var(--war-focus);color:var(--war-text-1);font-weight:600;background:var(--war-run-tint)}
-/* --- V10-R3a 星域战场（同心椭圆恒星系）--------------------------------------
+/* --- V10-R3a 星域星球（同心椭圆恒星系）--------------------------------------
  * 全 DOM/CSS；浅色=米白海图纸风（细网格+淡染），深色=夜航星图（点状星幕）。
  * 容器与轨道全用 --war-* 令牌系衍生色。 */
 .war-starfield{position:relative;flex:1;min-height:420px;border-radius:14px;overflow:hidden;border:1px solid var(--war-border-soft);
@@ -647,7 +647,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-legend-dot.dot-fail{background:var(--war-fail)}
 .war-detach,.war-cd-session{min-height:24px}
 /* V10.1 今战速报条：星域态的活体主表面（AFK 回访第一问「现在呢」） */
-/* --- V11 P2 3D 星域（元首定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
+/* --- V11 P2 3D 星域（舰长定案）：canvas 画空间，DOM 覆盖层承载交互实体 --- */
 .war-starfield3d{cursor:grab;touch-action:none;user-select:none;background:var(--war-sky-bg)} /* V12 浅色=天穹（暖阳光斑+浅蓝天幕）；画布 alpha:true 透出；深色太空芯走令牌深色档 */
 .war-starfield3d:active{cursor:grabbing}
 /* --- V11.4 warzone demo 全要素进驻（3D 现实视图 + 2D 指挥室） --- */
@@ -657,8 +657,8 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz.war-wz-cmd .war-wz-vig,.war-wz.war-wz-cmd .war-wz-foot{display:none}
 .war-wz-vig{position:absolute;inset:0;pointer-events:none;z-index:5;background:var(--war-sky-vig)}
 /* V11.5f 执行卡覆盖层：SVG 连线（星球→卡）+ 活体卡 + 高亮名签（frame 循环摆位）。
- * V11.5g（元首令）：卡索引线=实线琥珀——与 HQ↔星球高亮轨迹（虚线青）双通道区分。
- * V12.2（元首令·语义 token 化）：覆盖层全走 --war-wz-* 场景令牌——浅色=纸面
+ * V11.5g（舰长令）：卡索引线=实线琥珀——与 HQ↔星球高亮轨迹（虚线青）双通道区分。
+ * V12.2（舰长令·语义 token 化）：覆盖层全走 --war-wz-* 场景令牌——浅色=纸面
  * 证件风（浅底深字）为缺省，深空玻璃风=令牌深色档（V9.13 双主题纪律）。 */
 .war-wz-lines{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
 .war-wz-xline{stroke:var(--war-wz-line);stroke-width:1.3}
@@ -671,7 +671,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-xsrc{color:var(--war-wz-card-dim)}
 .war-wz-pname{position:absolute;left:0;top:0;z-index:7;pointer-events:none;padding:2px 10px;border-radius:6px;background:var(--war-wz-pname-bg);border:1px solid var(--war-wz-pname-border);color:var(--war-wz-pname-text);font:bold 12px/1.6 var(--war-font);white-space:nowrap;box-shadow:var(--war-wz-pname-shadow)}
 @keyframes war-wz-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.82)}}
-.war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid var(--war-wz-toggle-border);border-radius:var(--war-r-sm);overflow:hidden;backdrop-filter:blur(6px);background:var(--war-wz-toggle-bg)} /* 顶中——右上角是战报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
+.war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid var(--war-wz-toggle-border);border-radius:var(--war-r-sm);overflow:hidden;backdrop-filter:blur(6px);background:var(--war-wz-toggle-bg)} /* 顶中——右上角是任务回报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
 .war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px var(--war-font);letter-spacing:.1em;color:var(--war-wz-toggle-text);background:transparent}
 .war-wz-toggle button.on{background:var(--war-wz-toggle-on-bg);color:var(--war-wz-toggle-on-text);font-weight:700}
 .war-wz-toggle button:hover{color:var(--war-wz-toggle-hover-text)}
@@ -750,28 +750,28 @@ body[data-ds-dark-theme] .war-root .war-ops.war-map .war-zone{box-shadow:0 8px 3
 }
 /* V10.1 岛压图：hero 灵动岛浮于全幅星域之上（z 高于坞 3/舱 2/图 0） */
 .war-island{position:relative;z-index:5}
-/* --- V10.1 TITP 化布局（元首示意图定案）：地图=界面本体 ----------------------
- * 星域从三列网格的中列格子解放，board 级铺满为底；任务/战报列转贴边浮舱压图
+/* --- V10.1 TITP 化布局（舰长示意图定案）：地图=界面本体 ----------------------
+ * 星域从三列网格的中列格子解放，board 级铺满为底；任务/任务回报列转贴边浮舱压图
  * （CALLS/MESSAGES 语言）；命令坞满宽压底不参战。列表态零改动（类不挂即原样）。 */
 .war-board{position:relative}
-.war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（元首定）：调度/任务/战报全部浮于其上 */
+.war-board.war-mapmode .war-starfield{position:absolute;inset:0;min-height:0;flex:none;z-index:0;border-radius:0;border:none} /* V10.1 全幅底图（舰长定）：调度/任务/任务回报全部浮于其上 */
 .war-board.war-mapmode .war-ops{position:relative;flex:1 1 auto;min-height:0;z-index:2;display:block;pointer-events:none;background:transparent;border:none;overflow:visible} /* V10.1 结构修：容器回文档流，底边=坞顶——舱底随坞高自适应，重叠构造上不可能 */
 .war-board.war-mapmode .war-zone{pointer-events:auto;position:absolute;top:8px;bottom:8px;width:min(320px,26vw);overflow-y:auto;background:color-mix(in srgb, var(--war-card-bg) 84%, transparent);border-color:transparent;box-shadow:0 10px 34px color-mix(in srgb,#000 24%,transparent)}
 body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0 10px 36px color-mix(in srgb,#000 60%,transparent)}
 @supports (backdrop-filter: blur(10px)){
   .war-board.war-mapmode .war-zone{backdrop-filter:blur(10px)}
 }
-.war-board.war-mapmode .war-zone.war-tasks{left:10px} /* 左右 10px=坞内缩同款（元首目检 2026-08-27） */
+.war-board.war-mapmode .war-zone.war-tasks{left:10px} /* 左右 10px=坞内缩同款（舰长目检 2026-08-27） */
 .war-board.war-mapmode .war-zone.war-report{right:10px}
 .war-board.war-mapmode .war-zone.war-field{display:none}
 .war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto;padding:10px 10px 6px}
 /* V10.1 坞零纵向滚动：富余做进 track 盒（抬起 6px/下沉 10px/阴影都在盒内），
- * overflow-x:auto 的纵向 auto 副作用因此无料可滚（元首目检 2026-08-27） */
-.war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（元首目检 2026-08-27） */
-/* --- V10.1 调度坞卡牌组（元首二改）：纯横向深叠，每卡只露 60px 标签缘，
+ * overflow-x:auto 的纵向 auto 副作用因此无料可滚（舰长目检 2026-08-27） */
+.war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（舰长目检 2026-08-27） */
+/* --- V10.1 调度坞卡牌组（舰长二改）：纯横向深叠，每卡只露 60px 标签缘，
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
 .war-root{--war-card-w:316px;--war-card-h:168px;--war-history-card-h:137px} /* 五行恒高卡实测值（probe 校准）；历史卡=R1-R4 无 R5（168-31）。定义在 war-root：组面板 portal 出坞后仍在域内 */
-:is(.war-dispatch, .war-group-panel) .war-command-card{width:var(--war-card-w);min-width:var(--war-card-w);max-width:var(--war-card-w);height:var(--war-card-h);overflow:hidden;gap:5px} /* 五行卡规格（元首定）：同尺寸，长文本一行截断 */
+:is(.war-dispatch, .war-group-panel) .war-command-card{width:var(--war-card-w);min-width:var(--war-card-w);max-width:var(--war-card-w);height:var(--war-card-h);overflow:hidden;gap:5px} /* 五行卡规格（舰长定）：同尺寸，长文本一行截断 */
 :is(.war-dispatch, .war-group-panel) .war-card-top{flex-wrap:nowrap;overflow:hidden;flex:0 0 auto}
 :is(.war-dispatch, .war-group-panel) .war-command-text{display:block;flex:0 0 auto;white-space:nowrap;-webkit-line-clamp:unset;-webkit-box-orient:initial;text-overflow:ellipsis}
 :is(.war-dispatch, .war-group-panel) .war-life{flex:0 0 auto}
@@ -796,13 +796,13 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-gen-pip.st-idle{color:var(--war-text-3)}
 .war-gen-pip.now{width:10px;height:10px;outline:1.5px solid currentColor;outline-offset:2px} /* 卡面=最新代：放大+描环 */
 .war-gen-pip.more{font-size:12px;width:auto;height:16px;background:none;color:var(--war-text-2);font-weight:600;padding:0 2px} /* >4 代截头=总代数 chip（V13.5：12px 底线+精确深度） */
-/* 组展开面板（Mac 下载栈式，元首定）：无边框无底色无内衬——历代卡直接自卡面
+/* 组展开面板（Mac 下载栈式，舰长定）：无边框无底色无内衬——历代卡直接自卡面
  * 上方生长（最新前代贴底，更老依次向上），最高 4 行滚轮翻看；fixed 从卡面实测
  * 坐标落位（轨道横滚容器会裁剪绝对定位子元素），translateY(-100%) 底缘贴卡面 */
 .war-group-panel{position:fixed;width:calc(var(--war-card-w) + 12px);max-height:calc(min(var(--war-panel-rows, 4), 4) * (var(--war-history-card-h) + 8px) + 4px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:2px 12px 2px 0;z-index:60;transform:translateY(-100%);scrollbar-width:thin}
 .war-group-history{display:block}
 .war-group-history .war-command-card{height:var(--war-history-card-h);box-shadow:var(--war-shadow-1);animation:war-fan-in .18s ease-out backwards;animation-delay:calc(var(--i, 0) * 40ms)} /* 层叠入场：最新前代先起，更老依次跟上 */
-.war-group-history .war-command-card:hover{transform:none;box-shadow:var(--war-shadow-1);border-color:var(--war-border)} /* 历史卡无悬停反馈（元首定）——生命周期已退场，点开详情是唯一交互 */
+.war-group-history .war-command-card:hover{transform:none;box-shadow:var(--war-shadow-1);border-color:var(--war-border)} /* 历史卡无悬停反馈（舰长定）——生命周期已退场，点开详情是唯一交互 */
 @keyframes war-fan-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 /* --- V9.8 命令详情：决策带置顶 + 四段阶段导航 + 折叠收据 ------------------- */
 .war-cd-band{margin:8px 0 2px;border:1px solid color-mix(in srgb, var(--war-wait-border) 35%, transparent);border-radius:var(--war-r-md);background:var(--war-wait-tint);padding:8px 12px}
@@ -847,14 +847,14 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-tour-jumps{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--war-border-soft)}
 .war-jump-btn{flex:1 1 0;justify-content:center;display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
 .war-jump-btn:disabled{cursor:not-allowed;opacity:.55}
-/* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 战利品+历次作战行 --- */
+/* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 任务产出+历次作战行 --- */
 .war-tour-ghost.warn{border-color:color-mix(in srgb, var(--war-wait-border) 55%, var(--war-border));background:var(--war-wait-tint)}
 .war-tour-ghost.warn .war-tour-ghost-icon{color:var(--war-wait)}
 .war-btn.war-btn-warn{border-color:var(--war-wait-border);color:var(--war-wait);background:color-mix(in srgb, var(--war-wait-border) 8%, var(--war-card-bg))}
 .war-sub-btns{display:inline-flex;gap:6px;flex-wrap:wrap}
 .war-sub-attempts{display:inline-flex;flex-direction:column;gap:6px;min-width:0}
 .war-sub-attempts .war-cd-session{width:100%}
-/* V9.11 任务列=参谋侧台账：成形卡（任务书挂出前的占位）+ 终局任务书卡调暗 */
+/* V9.11 任务列=大副侧台账：成形卡（任务书挂出前的占位）+ 终局任务书卡调暗 */
 .war-forming{border-style:dashed}
 .war-forming .war-forming-icon{color:var(--war-text-2);font-size:14px;line-height:1}
 .war-forming.warn{border-color:color-mix(in srgb, var(--war-wait-border) 55%, var(--war-border));background:var(--war-wait-tint)}
@@ -887,7 +887,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 /* 2D 星域战线航迹（SVG viewBox 0 0 100 100 非等比——描边 vector-effect 防拉伸变形） */
 .war-front-badge2d{position:absolute;transform:translate(-50%,-50%);z-index:1;font-size:12px;font-weight:600;line-height:1;padding:2px 7px;border-radius:var(--war-r-pill);color:var(--war-text-1);background:color-mix(in srgb,var(--chain-hue,#888) 30%,var(--war-pop-bg));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent);pointer-events:none}
 .war-front-badge2d.settled{opacity:.55}
-/* V14 点战场看战线：战场⊃战线 清单浮层（3D/2D 同类名同形） */
+/* V14 点星球看战线：星球⊃战线 清单浮层（3D/2D 同类名同形） */
 .war-wz-bfpanel{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:6;min-width:340px;max-width:480px;padding:10px 12px;border-radius:var(--war-r-lg);background:var(--war-pop-bg);border:1px solid var(--war-border);box-shadow:0 12px 32px rgba(0,0,0,.22)}
 .war-wz-bfpanel-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .war-wz-bfpanel-title{font-size:13px;font-weight:600;color:var(--war-text-1);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -899,7 +899,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-wz-bfpanel-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .war-wz-bfpanel-meta{flex:none;color:var(--war-text-2)}
 .war-wz-bfpanel-empty{font-size:12px;color:var(--war-text-2);padding:4px 2px}
-/* V14 溯源 chip + 起草器战场注 */
+/* V14 溯源 chip + 起草器星球注 */
 .war-bf-chip{flex:none;font-size:12px;line-height:18px;padding:0 7px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}
 .war-cd-origin:hover{color:var(--war-text-1);border-color:var(--war-border-hover,var(--war-border))}

@@ -99,7 +99,7 @@ test('取证①：L0 档 → POST 文本以「!!直接做 」开头，原文落�
     // 账本可见：directive_created 原文（含标记）verbatim 落 directives.jsonl。
     const created = rawEvent(dir, resp.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>
     assert.equal(created.text, '!!直接做 给工具箱加每日格言')
-    // 参谋接令 + 分诊：参谋建议 L1，标记 host 侧强制 L0（不信任模型自觉）。
+    // 大副接令 + 分诊：大副建议 L1，标记 host 侧强制 L0（不信任模型自觉）。
     appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: resp.commandId, staffSessionId: 'sec-1' })
     const deps = makeDeps(dir, FLAG_ON)
     const tri = await execTool(deps, 'war_triage', { command_id: resp.commandId, grade: 'L1', reason: '涉及面广' }) as { grade: string; suggested: string; override?: string }
@@ -136,7 +136,7 @@ test('取证②：L2 档 → POST 文本以「??先看方案 」开头，分诊�
     const created = rawEvent(dir, resp.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>
     assert.equal(created.text, '??先看方案 重构配置层')
     appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: resp.commandId, staffSessionId: 'sec-1' })
-    // 参谋建议 L0（想直发），标记强制 L2：澄清收敛后计划。
+    // 大副建议 L0（想直发），标记强制 L2：澄清收敛后计划。
     const tri = await execTool(makeDeps(dir, FLAG_ON), 'war_triage', { command_id: resp.commandId, grade: 'L0', reason: '看着像小事' }) as { grade: string; suggested: string; override?: string }
     assert.equal(tri.grade, 'L2')
     assert.equal(tri.override, '??')
@@ -184,7 +184,7 @@ test('取证④（缺陷①端到端回归）：手打 !! 再切 L0 档 → 全�
     assert.equal(created.text.split('!!直接做').length - 1, 1) // 恰好一处
     appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: resp.commandId, staffSessionId: 'sec-1' })
     const tri = await execTool(makeDeps(dir, FLAG_ON), 'war_triage', { command_id: resp.commandId, grade: 'L2', reason: 'CI 改动风险高' }) as { grade: string }
-    assert.equal(tri.grade, 'L0') // 标记照常压过参谋建议
+    assert.equal(tri.grade, 'L0') // 标记照常压过大副建议
   } finally {
     srv.dispose()
     rmSync(dir, { recursive: true, force: true })
@@ -221,7 +221,7 @@ test('取证⑥（任务 218b 验收②态）：同一草稿切档 ??→!!——
     assert.equal(first.ok, true)
     const created1 = rawEvent(dir, first.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>
     assert.equal(created1.text, '??先看方案 给面板加导出按钮')
-    // 元首改主意切「!!直接做」再交：正文仍是同一原文，前缀应替换为 !!、无 ?? 残留。
+    // 舰长改主意切「!!直接做」再交：正文仍是同一原文，前缀应替换为 !!、无 ?? 残留。
     const second = JSON.parse(await srv.post('/warroom/api/commands', { text: applyGradeMarker(draft, 'L0') })) as { ok: boolean; commandId: string }
     assert.equal(second.ok, true)
     const created2 = rawEvent(dir, second.commandId, 'directive_created') as Extract<DirectiveEvent, { type: 'directive_created' }>

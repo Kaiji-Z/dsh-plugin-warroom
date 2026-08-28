@@ -100,7 +100,7 @@ test('V4-R4 war_recall 撤退即 park 在役子任务（flag on）且令牌保�
     await execTool(deps, 'war_recall', { task_id: 'c1', child_id: 'child-a', reason: '暂停' }, 'cmd-1')
     const s = loadCampaign(dir, 'c1').subtasks.get('st-x')!
     assert.equal(s.parked, true)
-    assert.equal(s.attempt!.id, 'st-tok-1', 'park 不换令牌——同部队可凭原令牌续作')
+    assert.equal(s.attempt!.id, 'st-tok-1', 'park 不换令牌——同外勤组员可凭原令牌续作')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -121,7 +121,7 @@ test('V4-R4 flag off：war_recall 账本零 park 事件（字节等价路径）'
   }
 })
 
-test('V4-R4 war_troop_reassign：指挥官显式换手——旧令牌吊销回池，kick 排除原主', async () => {
+test('V4-R4 war_troop_reassign：外勤小队显式换手——旧令牌吊销回池，kick 排除原主', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-park-'))
   try {
     recruit(dir)
@@ -132,7 +132,7 @@ test('V4-R4 war_troop_reassign：指挥官显式换手——旧令牌吊销回�
     assert.ok(out.dispatched >= 1, '换手后立即转派')
     const s = loadCampaign(dir, 'c1').subtasks.get('st-x')!
     assert.equal(s.status, 'in_progress')
-    assert.equal(s.claimedBy, 'child-b', '转派给另一闲置部队，原主被排除')
+    assert.equal(s.claimedBy, 'child-b', '转派给另一闲置外勤组员，原主被排除')
     // 旧令牌已被吊销：child-a 持旧令牌更新 → 陈旧拒绝。
     await assert.rejects(execTool(deps, 'war_troop_update', { task_id: 'c1', subtask_id: 'st-x', attempt_id: 'st-tok-1', status: 'completed' }, 'child-a'), /令牌/)
   } finally {
@@ -140,7 +140,7 @@ test('V4-R4 war_troop_reassign：指挥官显式换手——旧令牌吊销回�
   }
 })
 
-test('V4-R4 冷恢复：撤编部队的在役子任务被熔断回池转派', async () => {
+test('V4-R4 冷恢复：撤编外勤组员的在役子任务被熔断回池转派', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-park-'))
   try {
     recruit(dir)

@@ -95,7 +95,7 @@ test('V4-R2 flag 门：war_message 仅在 troop-mailbox ON 时注册（off 面�
   }
 })
 
-test('V4-R2 指挥官→部队：即时唤起（followup 即达）且双事件入账', async () => {
+test('V4-R2 外勤小队→外勤组员：即时唤起（followup 即达）且双事件入账', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-mailbox-'))
   try {
     recruit(dir)
@@ -113,20 +113,20 @@ test('V4-R2 指挥官→部队：即时唤起（followup 即达）且双事件�
   }
 })
 
-test('V4-R2 非参战方不得发信；部队按兵种名寻址（唯一才准）', async () => {
+test('V4-R2 非参战方不得发信；外勤组员按组员名寻址（唯一才准）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-mailbox-'))
   try {
     recruit(dir)
     const deps = makeDeps(dir, fakeSubagents().face, { flags: FLAG_ON, resolveAgent: () => ({ id: 'cmd-session-1' }) })
     await assert.rejects(execTool(deps, 'war_message', { task_id: 'c1', to: 'child-a', text: 'x' }, 'intruder'), /参战方/)
-    // 部队→部队：兵种名唯一寻址 + 经注册表解析指挥官作 parent。
+    // 外勤组员→外勤组员：组员名唯一寻址 + 经注册表解析外勤小队作 parent。
     const sub2 = fakeSubagents()
     const deps2 = makeDeps(dir, sub2.face, { flags: FLAG_ON, resolveAgent: () => ({ id: 'cmd-session-1' }) })
     const out = await execTool(deps2, 'war_message', { task_id: 'c1', to: 'scribe', text: '侧翼有变' }, 'child-a') as { delivered: boolean }
     assert.equal(out.delivered, true)
     assert.equal(sub2.followups[0]!.childId, 'child-b')
     assert.equal((sub2.followups[0]!.parent as { id?: string }).id, 'cmd-session-1')
-    // 同兵种两支部队 → 名称歧义，必须点名 childId。
+    // 同组员两支外勤组员 → 名称歧义，必须点名 childId。
     appendEvent(dir, { type: 'unit_deployed', ts: 't5', campaignId: 'c1', childId: 'child-c', unitName: 'scribe', label: '文书兵', mission: 'm', front: 'notes', writes: true })
     await assert.rejects(execTool(deps2, 'war_message', { task_id: 'c1', to: 'scribe', text: 'x' }, 'child-a'), /childId/)
   } finally {
@@ -134,7 +134,7 @@ test('V4-R2 非参战方不得发信；部队按兵种名寻址（唯一才准�
   }
 })
 
-test('V4-R2 部队→部队无注册表时：入账待投递（delivered false，不丢信）', async () => {
+test('V4-R2 外勤组员→外勤组员无注册表时：入账待投递（delivered false，不丢信）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-mailbox-'))
   try {
     recruit(dir)
@@ -149,7 +149,7 @@ test('V4-R2 部队→部队无注册表时：入账待投递（delivered false�
   }
 })
 
-test('V4-R2 部队→指挥官：入账待阅（无推信通道是诚实限制）', async () => {
+test('V4-R2 外勤组员→外勤小队：入账待阅（无推信通道是诚实限制）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'warroom-mailbox-'))
   try {
     recruit(dir)

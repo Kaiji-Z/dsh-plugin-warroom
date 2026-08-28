@@ -1,5 +1,5 @@
 /**
- * 兵种编制 (unit roster): four builtin unit types plus user extension via
+ * 组员编制 (unit roster): four builtin unit types plus user extension via
  * TOML files (agent-definition shape). Project `.warroom/units/`
  * overrides personal `~/.dsh/warroom-plugin/units/` overrides builtins,
  * matched by name (layered precedence).
@@ -39,7 +39,7 @@ export const BUILTIN_UNITS: ReadonlyArray<UnitSpec> = [
     description: '只读侦察：摸清陌生战区的结构、关键文件与风险，先敌情后行动',
     instructions: [
       '# 侦察兵条令',
-      '你是侦察兵——作战室的只读侦察单位。你的指挥官派你摸清指定战区的地形。',
+      '你是侦察兵——舰桥的只读侦察单位。你的外勤小队派你摸清指定战区的地形。',
       '',
       '## 任务',
       '- 快速侦察战区：目录结构、关键文件（带路径）、与任务相关的模块/依赖/调用关系、潜在风险点。',
@@ -59,7 +59,7 @@ export const BUILTIN_UNITS: ReadonlyArray<UnitSpec> = [
     description: '工程实现：在划定战区内写码、修缺陷、重构',
     instructions: [
       '# 工程兵条令',
-      '你是工程兵——作战室的工程实现单位。',
+      '你是工程兵——舰桥的工程实现单位。',
       '',
       '## 任务',
       '- 在你的战区（front 指定的目录边界）内完成明确的编码任务：实现功能、修复缺陷、重构。',
@@ -80,7 +80,7 @@ export const BUILTIN_UNITS: ReadonlyArray<UnitSpec> = [
     description: '测试与修复：跑测试、诊断失败、修复问题',
     instructions: [
       '# 卫生兵条令',
-      '你是卫生兵——作战室的测试与修复单位。',
+      '你是卫生兵——舰桥的测试与修复单位。',
       '',
       '## 任务',
       '- 在你的战区内运行测试/检查，诊断失败原因，修复测试暴露的问题。',
@@ -101,7 +101,7 @@ export const BUILTIN_UNITS: ReadonlyArray<UnitSpec> = [
     description: '文档：README、注释、使用说明、变更记录',
     instructions: [
       '# 宣传兵条令',
-      '你是宣传兵——作战室的文档单位。',
+      '你是宣传兵——舰桥的文档单位。',
       '',
       '## 任务',
       '- 为你的战区撰写或更新文档：README、模块说明、使用指南、变更记录。',

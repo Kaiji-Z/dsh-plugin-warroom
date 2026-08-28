@@ -91,10 +91,10 @@ with sync_playwright() as p:
             {"type": "directive_plan_opened", "ts": ts(44), "directiveId": D5, "plan": "1) 设计账本数据结构\n2) 写迁移脚本\n3) 兼容旧数据并补测试"},
         ]:
             f.write(json.dumps(ev, ensure_ascii=False) + "\n")
-    # D5 会话号进 manifest（V9.12 ④ 每命令独立参谋会话）。
+    # D5 会话号进 manifest（V9.12 ④ 每命令独立大副会话）。
     mp = STATE / ".demo-sessions.json"
     m = json.loads(mp.read_text(encoding="utf-8"))
-    m["sec-d5"] = "参谋·多本账本"
+    m["sec-d5"] = "大副·多本账本"
     mp.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
     print("seeded smoke board + L1 plan-pending command")
 
@@ -118,7 +118,7 @@ with sync_playwright() as p:
     assert page.locator(".war-island-panel").count() == 1, "island panel did not open on hover"
     assert page.locator(".war-board").bounding_box()["y"] == board_y, "island expansion must not push the board"
 
-    for kind, label in [("k-clarify", "答澄清"), ("k-plan", "批计划"), ("k-review", "翻战报"), ("k-retry", "决重试")]:
+    for kind, label in [("k-clarify", "答澄清"), ("k-plan", "批计划"), ("k-review", "翻任务回报"), ("k-retry", "决重试")]:
         n = page.locator(f".war-inbox-item .{kind}").count()
         assert n >= 1, f"inbox missing {label} ({kind})"
     assert page.locator(".war-inbox-wait").first.inner_text() != "", "inbox items lack wait duration"
@@ -135,7 +135,7 @@ with sync_playwright() as p:
 
     hints = page.locator(".war-waithint").all_inner_texts()
     assert any("排队中" in h for h in hints), f"queue wait-hint missing: {hints}"
-    assert any("等待指挥官领取" in h for h in hints), f"awaiting-claim hint missing: {hints}"
+    assert any("等待外勤小队领取" in h for h in hints), f"awaiting-claim hint missing: {hints}"
     print(f"wait hints: {len(hints)}")
 
     pre = page.locator(".war-preflight")
@@ -186,8 +186,8 @@ with sync_playwright() as p:
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
 
-    # V9.11 R1 卡位模型机检：任务列=参谋侧台账（成形卡置顶 + 终局任务书卡常驻调暗）
-    # + 生命条上报即进战报段（修「卡已到战报列、条停在执行段」的打架）。
+    # V9.11 R1 卡位模型机检：任务列=大副侧台账（成形卡置顶 + 终局任务书卡常驻调暗）
+    # + 生命条上报即进任务回报段（修「卡已到任务回报列、条停在执行段」的打架）。
     leave_island()  # 岛面板悬停展开会盖住列区——先收，别挡后续点卡
     page.wait_for_timeout(350)
     ledger = page.locator(".war-col.zone-tasks")
@@ -214,41 +214,41 @@ with sync_playwright() as p:
     d3_cmd = page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
     assert d3_cmd.count() == 1, "d3 command card must sit in the dispatch strip"
     now_stage = d3_cmd.locator(".war-life-label.now").all_inner_texts()
-    assert now_stage == ["战报"], f"reported command life strip must sit on the REPORT stage, got {now_stage}"
-    # V9.11 指示器跟卡走：成形卡在任务列（d1/d2/d5 参谋已接手）→ 前沿到任务段；
-    # 未被接手的 d0 → 停在命令段；战报未读 → 战报段呼吸（now）而非转绿（done）。
+    assert now_stage == ["任务回报"], f"reported command life strip must sit on the REPORT stage, got {now_stage}"
+    # V9.11 指示器跟卡走：成形卡在任务列（d1/d2/d5 大副已接手）→ 前沿到任务段；
+    # 未被接手的 d0 → 停在命令段；任务回报未读 → 任务回报段呼吸（now）而非转绿（done）。
     def strip_now(text):
         card = page.locator(".war-dispatch .war-command-card", has_text=text)
         return card.locator(".war-life-label.now").all_inner_texts()
     assert strip_now("顺便给小工具加个导出 csv") == ["任务"], "talking (forming card live) strip must sit on TASK stage"
     assert strip_now("能翻回去看以前记的吗") == ["任务"], "received+staff (drafting forming card) strip must sit on TASK stage"
     assert strip_now("等下帮我把 projA 的依赖全部升到最新") == ["任务"], "drafting forming card (seeded received) must sit on TASK stage"
-    assert strip_now("12 月 1 日早上 9 点把上月战报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
-    rep_label = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+    assert strip_now("12 月 1 日早上 9 点把上月任务回报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
+    rep_label = d3_cmd.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
     assert "now" in (rep_label.get_attribute("class") or ""), "unseen report must breathe (now), not turn green"
-    # 战报已阅转绿：点 d3 的战报列卡（t1 尝试会话卡，经 lineage 开聚焦页战报段）
-    # → 战报段进视野 → 关闭后调度条上该命令战报段转绿（done）、无呼吸位。
+    # 任务回报已阅转绿：点 d3 的任务回报列卡（t1 尝试会话卡，经 lineage 开聚焦页任务回报段）
+    # → 任务回报段进视野 → 关闭后调度条上该命令任务回报段转绿（done）、无呼吸位。
     page.locator(".war-col.zone-report .war-card", has_text="每日一句").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     page.wait_for_timeout(600)
     page.keyboard.press("Escape")
     page.wait_for_timeout(400)
     assert d3_cmd.locator(".war-life-label.now").count() == 0, "after viewing the report, no stage should breathe"
-    rep_label2 = d3_cmd.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+    rep_label2 = d3_cmd.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
     assert "done" in (rep_label2.get_attribute("class") or ""), "viewed report stage must turn green (done)"
     page.screenshot(path=f"{OUT}/v9-ledger.png")
 
     # --- V9.12 R2: seen 收紧三通道 + 待发落动作正名（去验收/去下重试令分野）。 ---
-    # 时序断言（视口无关——战报段是否初始可见不影响判定）：
+    # 时序断言（视口无关——任务回报段是否初始可见不影响判定）：
     #   扫一眼（<800ms）不许转绿（旧 0.35 即绿判定的回归位）；
-    #   点战报卡展开 → <800ms 内即绿（通道②）；
+    #   点任务回报卡展开 → <800ms 内即绿（通道②）；
     #   纯停留 → ≥800ms 才绿（通道③）。
     def d3_strip():
         return page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
     def report_label(cmd_loc):
-        return cmd_loc.locator(".war-life-stage").filter(has_text="战报").locator(".war-life-label")
+        return cmd_loc.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
     # 通道②（点开展开）：清 seen → 开聚焦页（modal 挂载即全量重渲染，生命条重读
-    # localStorage）→ 250ms 仍呼吸 → 点战报卡展开 → 800ms 停留窗未到就已转绿。
+    # localStorage）→ 250ms 仍呼吸 → 点任务回报卡展开 → 800ms 停留窗未到就已转绿。
     page.evaluate("() => localStorage.removeItem('warroom-report-seen')")
     d3_strip().click()
     page.wait_for_selector(".war-modal", timeout=3000)
@@ -256,7 +256,7 @@ with sync_playwright() as p:
     assert "now" in (report_label(d3_strip()).get_attribute("class") or ""), "a <800ms glance must NOT mark seen (tightened channel)"
     page.locator(".war-modal [data-stage='report'] .war-session-card").first.click()
     page.wait_for_timeout(300)
-    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 参谋会话").count() == 1, "reported chain review action must carry the renamed copy (去验收)"
+    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 大副会话").count() == 1, "reported chain review action must carry the renamed copy (去验收)"
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
     assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "expand-click channel must mark seen before the dwell window"
@@ -272,17 +272,17 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell channel: sustained view past 800ms must mark seen"
     # 正名分野：d7 败链的重试 CTA 在主界面任务卡（败因卡按钮）与聚焦页任务环
-    # 展开面板（战报段对无战报败链诚实给「尚无战报」，不硬造卡）。
+    # 展开面板（任务回报段对无任务回报败链诚实给「尚无任务回报」，不硬造卡）。
     t3_card = page.locator(".war-col.zone-tasks .war-card", has_text="20260823-delta").first
-    assert "去下重试令 · 参谋会话" in t3_card.inner_text(), "main-board failed task card must carry the retry-order copy"
+    assert "去下重试令 · 大副会话" in t3_card.inner_text(), "main-board failed task card must carry the retry-order copy"
     assert "去验收" not in t3_card.inner_text(), "failed task card must NOT offer the review copy"
     d7_cmd = page.locator(".war-dispatch .war-command-card", has_text="查清楚登录重定向测试为什么老挂")
     d7_cmd.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     page.locator(".war-modal [data-stage='task'] .war-card", has_text="20260823-delta").first.click()
     page.wait_for_timeout(300)
-    assert page.locator(".war-modal .war-subdetail", has_text="去下重试令 · 参谋会话").count() == 1, "failed chain task panel must carry the renamed copy (去下重试令)"
-    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 参谋会话").count() == 0, "failed chain must NOT offer the review copy"
+    assert page.locator(".war-modal .war-subdetail", has_text="去下重试令 · 大副会话").count() == 1, "failed chain task panel must carry the renamed copy (去下重试令)"
+    assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 大副会话").count() == 0, "failed chain must NOT offer the review copy"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
     page.screenshot(path=f"{OUT}/v912-review-retry.png")
@@ -389,7 +389,7 @@ with sync_playwright() as p:
     page.locator(".war-island-focus").click()
     page.wait_for_timeout(300)
     assert page.locator(".war-island-focus").count() == 0, "focus chip click did not exit focus"
-    # 再聚焦一次 → 点列间空白（zone 边框区域）也应退出（元首指令：点空即退）。
+    # 再聚焦一次 → 点列间空白（zone 边框区域）也应退出（舰长指令：点空即退）。
     page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").locator(".war-focus-btn").click()
     page.wait_for_timeout(300)
     page.locator(".war-ops").click(position={"x": 8, "y": 300}, force=True)
@@ -438,7 +438,7 @@ with sync_playwright() as p:
     # --- Phase G2: 设置抽屉（⚙：皮肤/图例/行为开关/连接）。 ---
     page.locator(".war-island-gear").click()
     page.wait_for_selector(".war-settings-drawer", timeout=3000)
-    assert page.locator(".war-skin-opt").count() == 2, "skin options missing in settings drawer"
+    assert page.locator(".war-skin-opt").count() == 3, "skin options missing in settings drawer"
     assert page.locator(".war-legend-rows").count() >= 1, "legend rows missing in settings drawer"
     assert page.locator(".war-switch").count() == 3, "behavior toggles missing in settings drawer (V10.1 adds view switch)"
     assert page.locator(".war-set-conn-dot").count() == 1, "connection status missing in settings drawer"
@@ -639,7 +639,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
     # V9.9/V9.10 全生命周期导览（approved→t1 已呈报）：任务卡展开=计划+任务书+验收
-    # +去验收（V9.12 正名）；执行段无 live 只给提示行；战报卡展开=最新战报+战利品+历次作战；双跳钮可点。
+    # +去验收（V9.12 正名）；执行段无 live 只给提示行；任务回报卡展开=最新任务回报+任务产出+历次作战；双跳钮可点。
     page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-modal [data-stage='task'] .war-tour-cards .war-card").count() >= 1, "task stage must show the chain task card"
@@ -652,16 +652,16 @@ with sync_playwright() as p:
     tp_text = tp.inner_text()
     assert "任务书" in tp_text and "Node 单包小工具" in tp_text, "task panel must carry the ring's brief"
     assert "验收标准" in tp_text and "今日晴" in tp_text, "task panel must carry the ring's acceptance"
-    assert page.locator(".war-modal [data-stage='task'] .war-subdetail .war-btn", has_text="去验收 · 参谋会话").count() == 1, "reported ring must offer the review action"
+    assert page.locator(".war-modal [data-stage='task'] .war-subdetail .war-btn", has_text="去验收 · 大副会话").count() == 1, "reported ring must offer the review action"
     page.locator(".war-modal [data-stage='report'] .war-card").first.click()
     page.wait_for_timeout(250)
     rep = page.locator(".war-modal [data-stage='report'] .war-subdetail")
-    assert rep.count() == 1 and "最新战报" in rep.inner_text(), "report card click must expand the report panel"
+    assert rep.count() == 1 and "最新任务回报" in rep.inner_text(), "report card click must expand the report panel"
     rep_text = rep.inner_text()
-    assert "战利品" in rep_text and "npm test 8/8 全绿" in rep_text, "report panel must carry the deliverables row"
+    assert "任务产出" in rep_text and "npm test 8/8 全绿" in rep_text, "report panel must carry the deliverables row"
     assert "历次作战" in rep_text, "report panel must carry the attempts section"
     assert page.locator(".war-modal .war-sub-attempts .war-cd-session").count() == 1, "t1 has exactly one attempt session row"
-    assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去验收 · 参谋会话").count() == 1, "reported command report panel must offer the review action"
+    assert page.locator(".war-modal [data-stage='report'] .war-subdetail .war-btn", has_text="去验收 · 大副会话").count() == 1, "reported command report panel must offer the review action"
     jumps2 = page.locator(".war-modal .war-tour-jumps .war-jump-btn")
     assert jumps2.nth(0).is_enabled() and jumps2.nth(1).is_enabled(), "reported command: both jumps must target real sessions"
     page.screenshot(path=f"{OUT}/v9-focus-report.png")
@@ -685,7 +685,7 @@ with sync_playwright() as p:
 
     # --- Phase G6: V9.10 任务段状态机机检（talking ghost / 已取消分岔 / 定时待发分岔）。 ---
     # talking 命令（d2）：任务段 = warn ghost 卡，点开给「进入对话回答」——任务成形
-    # 车间（参谋会话）的就地入口，不再只有命令卡可点。
+    # 车间（大副会话）的就地入口，不再只有命令卡可点。
     page.locator(".war-dispatch .war-command-card", has_text="顺便给小工具加个导出 csv").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     ghost = page.locator(".war-modal [data-stage='task'] .war-tour-ghost.warn")
@@ -695,7 +695,7 @@ with sync_playwright() as p:
     ghost.click()
     page.wait_for_timeout(250)
     tg = page.locator(".war-modal [data-stage='task'] .war-subdetail")
-    assert tg.count() == 1 and "参谋在等你回答" in tg.inner_text(), "talking ghost panel must explain the wait"
+    assert tg.count() == 1 and "大副在等你回答" in tg.inner_text(), "talking ghost panel must explain the wait"
     assert page.locator(".war-modal .war-subdetail .war-btn", has_text="进入对话回答").count() == 1, "talking panel must offer the answer-in-dialog action"
     page.screenshot(path=f"{OUT}/v9-focus-talking.png")
     page.keyboard.press("Escape")

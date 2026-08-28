@@ -54,7 +54,7 @@ function userMessage(text: string): { id: string; role: 'user'; content: Array<{
 export function warOrderPrompt(rawInput: string): string {
   const text = rawInput.trim()
   if (text === '') return warKickoffPrompt()
-  return `【元首意图】${text}\n\n参谋：请按条令处理——听懂意图、需要澄清就问、清晰则起草任务书，经元首过目后 war_publish 发布。`
+  return `【舰长意图】${text}\n\n大副：请按条令处理——听懂意图、需要澄清就问、清晰则起草任务书，经舰长过目后 war_publish 发布。`
 }
 
 /** Execute `/war` against the live store. Pure over the deps; no HTTP. */
@@ -70,7 +70,7 @@ export function executeWarCommand(deps: WarCommandDeps, invocation: CommandInvoc
     deps.onActiveChange(true)
   }
   invocation.agent.followup(userMessage(warOrderPrompt(invocation.rawInput)))
-  return { kind: 'success', text: '作战室已就位 — 指挥官正在报到；部队状态用 war_status 查询 / War room active — the commander is reporting in.' }
+  return { kind: 'success', text: '舰桥已就位 — 外勤小队正在报到；外勤组员状态用 war_status 查询 / War room active — the commander is reporting in.' }
 }
 
 /**
@@ -98,7 +98,7 @@ export function registerPeaceCommand(commands: CommandsServiceFace, deps: WarCom
         deps.store.save()
         deps.onActiveChange(false)
       }
-      return { kind: 'success', text: '作战室已退役（在役部队与会话保留，可 /war 重新启用）/ War room stood down.' }
+      return { kind: 'success', text: '舰桥已退役（在役外勤组员与会话保留，可 /war 重新启用）/ War room stood down.' }
     },
   })
 }

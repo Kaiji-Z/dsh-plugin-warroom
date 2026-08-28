@@ -39,7 +39,7 @@ export interface Directive {
   readonly text: string
   readonly createdAt: string
   status: DirectiveStatus
-  /** The 参谋部 session that took the command (set on receive). */
+  /** The 大副部 session that took the command (set on receive). */
   staffSessionId?: string
   /** The task this directive became (set on approval). */
   taskId?: string
@@ -49,13 +49,13 @@ export interface Directive {
   grade?: DirectiveGrade
   /** 分诊/改档理由（最新一条）。 */
   gradeReason?: string
-  /** 分诊置信度（0-1，参谋自报；regrade 不改它）。 */
+  /** 分诊置信度（0-1，大副自报；regrade 不改它）。 */
   gradeConfidence?: number
-  /** 元首改档次数（审计）。 */
+  /** 舰长改档次数（审计）。 */
   regrades?: number
   /** V5-R3 计划态：当前待批/已批/被驳的计划（最新一次呈报）。 */
   plan?: { text: string; status: 'pending' | 'approved' | 'rejected'; decidedAt?: string }
-  /** V6 命令拆解（flag staff-decompose）：参谋呈批的结构化拆解（最新一稿）。
+  /** V6 命令拆解（flag staff-decompose）：大副呈批的结构化拆解（最新一稿）。
    *  plan 卡走既有计划态；本字段是机器可读的子任务书，成链发布时逐个落地。 */
   decomposition?: { plan: string; tasks: Array<{ title: string; brief: string; acceptance: string }> }
   /** V9.2 定时下达：created 带 cron 即待发（dispatchedAt 空时引信不取）；
@@ -65,7 +65,7 @@ export interface Directive {
   readonly continuesFrom?: string
   /** V10 续接意图（与 continuesFrom 同源冻结；pivot 的实际投递由引信分路）。 */
   readonly continuation?: { readonly mode: ContinuationMode; readonly parentId: string }
-  /** V15 战线命名：元首下达时可选（不填=命令原文当战线名）。 */
+  /** V15 战线命名：舰长下达时可选（不填=命令原文当战线名）。 */
   readonly name?: string
 }
 
@@ -81,7 +81,7 @@ export type DirectiveEvent =
   | { type: 'directive_triaged'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string; confidence?: number; suggested?: DirectiveGrade; override?: '!!' | '??' }
   | { type: 'directive_regraded'; ts: string; directiveId: string; grade: DirectiveGrade; reason: string }
   // V5-R3 计划态（插件自建——R1 定案：宿主 plan-mode 宿主面不可达）：
-  // opened 落计划草案（重复呈报即覆盖待批稿）；approved/rejected 是元首
+  // opened 落计划草案（重复呈报即覆盖待批稿）；approved/rejected 是舰长
   // 判定（decision 路由落地）。发布硬门只认 approved。
   | { type: 'directive_plan_opened'; ts: string; directiveId: string; plan: string }
   | { type: 'directive_plan_approved'; ts: string; directiveId: string; note?: string }
@@ -89,7 +89,7 @@ export type DirectiveEvent =
   // V6 命令拆解（flag staff-decompose）：结构化拆解随计划稿一并呈批——
   // plan 态走既有事件，decomposed 只存机器可读子任务书（成链发布用）。
   | { type: 'directive_decomposed'; ts: string; directiveId: string; plan: string; tasks: Array<{ title: string; brief: string; acceptance: string }> }
-  // V5-R3 goal 代管入账：参谋状态机 goal（永远 disarm）开/收的审计痕迹。
+  // V5-R3 goal 代管入账：大副状态机 goal（永远 disarm）开/收的审计痕迹。
   | { type: 'directive_goal_opened'; ts: string; directiveId: string; goalId: string; disarmed: boolean }
   | { type: 'directive_goal_settled'; ts: string; directiveId: string; goalId: string }
   | { type: 'directive_approved'; ts: string; directiveId: string; taskId: string }
@@ -173,7 +173,7 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         current.status = 'talking'
         break
       // V5 档位账本：triaged 首落档位（含 override 强制改档痕迹），regraded
-      // 元首升降档（计数审计）。二者均受终态守卫——approved/cancelled 后档位失去意义。
+      // 舰长升降档（计数审计）。二者均受终态守卫——approved/cancelled 后档位失去意义。
       case 'directive_triaged':
         current.grade = event.grade
         current.gradeReason = event.reason
@@ -185,7 +185,7 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         current.regrades = (current.regrades ?? 0) + 1
         break
       // V5-R3 计划态：opened 覆盖待批稿；判定只在 pending 时生效（幂等——
-      // 路由层已挡重放，fold 层再兜一道）。驳回后参谋重呈新稿即回 pending
+      // 路由层已挡重放，fold 层再兜一道）。驳回后大副重呈新稿即回 pending
       // （多轮收敛的机械表达）。终态守卫沿用。
       case 'directive_plan_opened':
         current.plan = { text: event.plan, status: 'pending' }
@@ -215,7 +215,7 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
         current.cancelledReason = event.reason
         break
       // V9.2 定时下达到点：一次性发令（幂等——已发过的不再改）。发完保持
-      // draft，命令引信下一 tick（≤15s）照常把它转达参谋。
+      // draft，命令引信下一 tick（≤15s）照常把它转达大副。
       case 'directive_dispatched':
         if (current.schedule !== undefined && current.schedule.dispatchedAt === undefined) {
           current.schedule.dispatchedAt = event.ts
@@ -300,26 +300,26 @@ export interface ContinuationTaskFace {
   status: TaskStatus
   /** 尝试日志里最近一个已有结算态的结果。 */
   lastOutcome?: 'failed' | 'reported' | 'succeeded'
-  /** 未结束 attempt 的指挥官会话号（进行中才有）。 */
+  /** 未结束 attempt 的外勤小队会话号（进行中才有）。 */
   liveAttemptSessionId?: string
 }
 
 /**
  * 按父命令当时的状态推导续接模式（纯）——下达路由的冻结依据：
- * 参谋对话未成形→拒绝（直接继续谈）；执行中→pivot（需活体 attempt 会话）；
- * 成功仗/closed→deepen；败仗→retry。错误给可直接展示给元首的理由。
+ * 大副对话未成形→拒绝（直接继续谈）；执行中→pivot（需活体 attempt 会话）；
+ * 成功仗/closed→deepen；败仗→retry。错误给可直接展示给舰长的理由。
  */
 export function deriveContinuation(
   parent: { status: DirectiveStatus; taskId?: string },
   task?: ContinuationTaskFace,
 ): { mode: ContinuationMode; targetSessionId?: string } | { error: string } {
   if (parent.status === 'cancelled') return { error: '被取消的命令没有可续接的战线——请直接下新命令。' }
-  if (parent.status !== 'approved') return { error: '这条命令还在参谋对话里成形，直接点进命令卡继续谈即可；可续接的是已成形的仗。' }
+  if (parent.status !== 'approved') return { error: '这条命令还在大副对话里成形，直接点进命令卡继续谈即可；可续接的是已成形的仗。' }
   if (parent.taskId === undefined || task === undefined) return { error: '命令已批准但任务尚未发布成形，暂无可续接的阵地。' }
   if (task.lastOutcome === 'failed' || task.status === 'failed') return { mode: 'retry' }
   if (task.status === 'closed' || task.lastOutcome === 'succeeded' || task.lastOutcome === 'reported') return { mode: 'deepen' }
   if (task.liveAttemptSessionId !== undefined) return { mode: 'pivot', targetSessionId: task.liveAttemptSessionId }
-  return { error: '作战正在排队（指挥官尚未领令接火），此刻无可转向的执行会话。' }
+  return { error: '作战正在排队（外勤小队尚未领令接火），此刻无可转向的执行会话。' }
 }
 
 /** Load all directives from disk (read + fold), oldest first. */

@@ -100,7 +100,7 @@ test('恢复：探测通过 → resumed + 原会话续作提示（attempt/令牌
     let probeFuse = createQuotaFuse({ stateDir: dir, store, sessions: () => probeFace, probeSessionId: () => 'sess-probe' })
     assert.equal(await probeFuse.probe(), 'blocked')
     assert.equal(fuse.isBlocked(), true)
-    // 探测 open → 恢复：全局清 + resumed 事件 + 续作提示投给指挥官会话。
+    // 探测 open → 恢复：全局清 + resumed 事件 + 续作提示投给外勤小队会话。
     probeFace = fakeSessions({ prompts, probeResult: 'ok' })
     probeFuse = createQuotaFuse({ stateDir: dir, store, sessions: () => probeFace, probeSessionId: () => 'sess-probe' })
     assert.equal(await probeFuse.probe(), 'open')

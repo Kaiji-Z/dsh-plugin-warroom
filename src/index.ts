@@ -2,10 +2,10 @@
  * dsh-plugin-warroom — the strategic operating system for DeepSeek Harness.
  *
  * v0.2 shape: the sovereign talks only to the
- * staff (贴身参谋, the user-facing conversation persona); the staff
+ * staff (贴身大副, the user-facing conversation persona); the staff
  * authors professional task briefs and publishes them to the strategic task
  * board (跨工作区 JSONL store + war map UI); a single durable commander
- * (指挥官, a continuable subagent child with FULL harness capability — the
+ * (外勤小队, a continuable subagent child with FULL harness capability — the
  * "autonomous executor") auto-claims tasks, materializes per-task
  * workspaces, and deploys typed troops inside them; reports flow back to the
  * board for the sovereign's review.
@@ -79,11 +79,11 @@ function createWarSurface(
  * in-process continuable child inherits its PARENT session's write root
  * (live R8 catch: a warRoot-rooted commander could not write a bound
  * external workspace), while a session-bound commander roots exactly where
- * the task lives and sits at delegation depth 0. The 征召令 prompt carries
+ * the task lives and sits at delegation depth 0. The 外勤任务简报 prompt carries
  * the full commander doctrine (no persona field exists on sessions.create).
  * Gates: spawn-once-per-task, workspace occupancy, global commander cap.
  * The patrol fuse is the crash-recovery net: stranded published tasks get
- * ONE relay ping into the 参谋部 conversation per plan signature.
+ * ONE relay ping into the 大副部 conversation per plan signature.
  */
 function createConscriptor(deps: {
   store: WarStore
@@ -105,25 +105,25 @@ function createConscriptor(deps: {
     for (const id of [...spawned]) {
       if (loadCampaign(deps.stateDir, id).status !== 'published') spawned.delete(id)
     }
-    if (spawned.has(task.campaignId)) return { spawned: false, reason: '该任务已有一名待命指挥官。' }
+    if (spawned.has(task.campaignId)) return { spawned: false, reason: '该任务已有一名待命外勤小队。' }
     const busy = workspaceConflict(task.workspacePath, board().map(t => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath })))
     if (busy !== undefined) return { spawned: false, reason: `工作区正被任务 ${busy.taskId} 占用，本任务排队等待收官接力。` }
     const inflight = board().filter(t => t.status === 'in_progress').length
-    if (inflight >= deps.maxCommanders) return { spawned: false, reason: `在役指挥官满编（${inflight}/${deps.maxCommanders}），稍后由巡检补征。` }
+    if (inflight >= deps.maxCommanders) return { spawned: false, reason: `在役外勤小队满编（${inflight}/${deps.maxCommanders}），稍后由巡检补征。` }
     // Bind the commander session to the task workspace (sandbox root).
     const wsPath = task.workspacePath ?? deps.warRoot
     const ws = await workspaceApi.create({ rpcId: rpc(), payload: { path: wsPath } })
     if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败（${ws.result.error.code}）：${ws.result.error.message}` }
     const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
-    if (!created.result.ok) return { spawned: false, reason: `指挥官会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
+    if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
     const sessionId = created.result.value.sessionId
-    const title = `指挥官·${(task.title ?? task.intent).slice(0, 14)}`
+    const title = `外勤·${(task.title ?? task.intent).slice(0, 14)}`
     void relay.rename({ rpcId: rpc(), payload: { sessionId, title } }).catch(() => undefined)
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
     const dossier = task.workspacePath !== undefined && bound
       ? readDossier(deps.stateDir, task.workspacePath)
       : '（新战区，尚无历史档案。）'
-    // V15 续接闭环：本任务若出自续接命令，征召令带上链摘要（末代结论+产物+战报，
+    // V15 续接闭环：本任务若出自续接命令，外勤任务简报带上链摘要（末代结论+产物+任务回报，
     // cap 600）。在 conscriptTask 内反查 taskId→命令——publish/收官接力/补征入口一处覆盖。
     let chainBrief = ''
     try {
@@ -149,10 +149,10 @@ function createConscriptor(deps: {
       conscriptBriefing({ taskId: task.campaignId, title: task.title ?? task.intent, workspacePath: task.workspacePath, acceptance: task.acceptance ?? '', dossier }),
       ...(chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${chainBrief}`] : []),
       '',
-      '你的写权限根就在本会话绑定的工作区——直接动手即可；确需分兵时用 war_deploy_unit（战区写工作区内相对路径）。',
+      '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（战区写工作区内相对路径）。',
     ].join('\n')
     const prompted = await relay.prompt({ rpcId: rpc(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: order }] } })
-    if (!prompted.result.ok) return { spawned: false, reason: `征召令投递失败（${prompted.result.error.code}）：${prompted.result.error.message}` }
+    if (!prompted.result.ok) return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}` }
     spawned.add(task.campaignId)
     return { spawned: true, childId: sessionId }
   }
@@ -215,7 +215,7 @@ function registerReportCapture(ctx: Context, stateDir: string, store: WarStore):
   const onEvent = (session: unknown, ev: unknown): void => {
     try {
       // V9.12 R1：解析抽纯函数（嵌套 event.data 优先、扁平退回）——旧顶层
-      // 读法在宿主嵌套形状下静默失效，战报自动记账一度全灭。
+      // 读法在宿主嵌套形状下静默失效，任务回报自动记账一度全灭。
       const parsed = parseUnitReportEvent(ev)
       if (parsed === null) return
       const war = store.get()
@@ -226,7 +226,7 @@ function registerReportCapture(ctx: Context, stateDir: string, store: WarStore):
       for (const taskId of listCampaignIds(stateDir)) {
         const task = loadCampaign(stateDir, taskId)
         if (!task.units.has(childId)) continue
-        // v2.0 征召制：部队的上级是该任务当前持有者的会话；旧单指挥官日志经
+        // v2.0 征召制：外勤组员的上级是该任务当前持有者的会话；旧单外勤小队日志经
         // commanderChildId 兜底兼容。
         if (sessionId !== task.claimedBy && sessionId !== war.commanderChildId) continue
         const ts = new Date().toISOString()
@@ -323,7 +323,7 @@ export function apply(ctx: Context, config: Config): void {
     }, 30_000)
     ctx.effect(() => () => clearInterval(schedulerTimer), 'warroom.schedulerFuse()')
   }
-  // V5-R4 (staff-wake): 参谋唤醒管线——分级推（结算点钩子）+ 去抖 + 90s
+  // V5-R4 (staff-wake): 大副唤醒管线——分级推（结算点钩子）+ 去抖 + 90s
   // 巡检补推（崩溃恢复：reported/failed 未醒的任务）。sessions 面晚绑定
   // 经 sessionsRef 惰性取（与命令引信同一形态）。
   if (featureEnabled(deps.flags, 'staff-wake')) {
@@ -335,7 +335,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   // V6 goal 接力原子性补偿（flag staff-goal）：领取时武装失败（goal 面打嗝）
   // 的在役任务由 60s 巡检补武装——AFK 不因一次瞬时失败静默断链（SPEC §6 坑
-  // 「发布成功但指挥官 goal 建失败的补偿路径」）。幂等：已武装/面缺席/无
+  // 「发布成功但外勤小队 goal 建失败的补偿路径」）。幂等：已武装/面缺席/无
   // 活体 agent 都是 no-op，入账带 swept:true。
   if (featureEnabled(deps.flags, 'staff-goal')) {
     const goalRelayTimer = setInterval(() => {
@@ -419,7 +419,7 @@ export function apply(ctx: Context, config: Config): void {
   const patrolFuse = setInterval(() => commander.patrolNow(), 90_000)
   patrolFuse.unref?.()
   ctx.effect(() => () => clearInterval(patrolFuse), 'warroom.patrolFuse()')
-  // Bounty fuse (日常悬赏) + V9.2 定时命令 fuse: host-side 30s tick. It only
+  // Bounty fuse (日常任务令) + V9.2 定时命令 fuse: host-side 30s tick. It only
   // appends trigger events (错过即跳过 — dueBounties anchors on the last
   // trigger, never backfills); waking the commander stays the patrol fuse's
   // job, one concern per fuse. Scheduled directives append directive_dispatched
@@ -453,7 +453,7 @@ export function apply(ctx: Context, config: Config): void {
     }, 'warroom.commands()')
   })
   // Command fuse (命令引信): 15s tick relaying board commands into the
-  // 参谋部 conversation. The fuse lives on the plugin's main context (an
+  // 大副部 conversation. The fuse lives on the plugin's main context (an
   // inject-scope effect got disposed immediately and killed the interval —
   // live R8 catch); the apiProxy sessions face binds in late and the fuse
   // no-ops until then. Activation flips the store + syncs the surface in
@@ -559,7 +559,7 @@ export function apply(ctx: Context, config: Config): void {
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },
-      // K17 判定回推：计划批/驳结果直接投回参谋会话（sessions 面晚绑定，缺席跳过）。
+      // K17 判定回推：计划批/驳结果直接投回大副会话（sessions 面晚绑定，缺席跳过）。
       pushToStaff: (sessionId, text) => {
         const sessions = sessionsRef.face
         if (sessions === undefined) return

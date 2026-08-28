@@ -1,7 +1,7 @@
 /**
- * V10-R3a 星域战场底版（元首定案 B 方案 · 同心椭圆恒星系）：☀HQ 居中是全局战
+ * V10-R3a 星域星球底版（舰长定案 B 方案 · 同心椭圆恒星系）：☀HQ 居中是全局战
  * 时开关的化身（board.active）；每 workspace 一颗星按创建序内老外新独占一圈椭圆
- * 轨道；执行中的部队光点挂在所属星的近地轨道上。**一切坐标确定性推导**（ID 哈希
+ * 轨道；执行中的外勤组员光点挂在所属星的近地轨道上。**一切坐标确定性推导**（ID 哈希
  * /创建序）——SSE revision 更新绝不抖动；全 DOM/CSS，禁 WebGL（V10-BRIEF §3）。
  * 布局数学全是纯函数并单独出测（tests/starfield.test.ts）。
  * @module dsh-plugin-warroom/client/starfield
@@ -12,7 +12,7 @@ import { UNGROUPED_WS_KEY } from './front.ts'
 
 /** FNV-1a + murmur3 终结混叠 → [0,1)：相位/角度种子的唯一来源（同输入恒同输出）。
  * 终结混叠必须要有：裸 FNV-1a 对「只差末位一个字符的连续键」（星星 `key:0..N`）
- * 输出恰差 prime/2^32≈0.0039——2800 颗星被排成渐变细线（星链既视感，元首目检实抓）。 */
+ * 输出恰差 prime/2^32≈0.0039——2800 颗星被排成渐变细线（星链既视感，舰长目检实抓）。 */
 export function hash01(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
@@ -87,7 +87,7 @@ export function galaxyLayout(wsPathsInCreationOrder: readonly string[], bounds?:
   })
 }
 
-/** 部队光点在所属星近地轨道上的相位角（纯）：同会话恒同位。 */
+/** 外勤组员光点在所属星近地轨道上的相位角（纯）：同会话恒同位。 */
 export function moonAngleRad(sessionId: string): number {
   return hash01(sessionId) * Math.PI * 2
 }
@@ -115,7 +115,7 @@ export function workspaceCreationOrder(tasks: ReadonlyArray<Pick<BoardTask, 'wor
   return [...firstSeen.entries()].sort((a, b) => (a[1] < b[1] ? -1 : a[1] === b[1] ? 0 : 1)).map(([p]) => p)
 }
 
-/** 一颗星的驻军切片：活跃 attempt 光点 + 凯旋印记数（已收官任务）+ 是否有活体。 */
+/** 一颗星的驻军切片：活跃 attempt 光点 + 达成印记数（已收官任务）+ 是否有活体。 */
 export interface PlanetGarrison {
   readonly orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>
   readonly triumphs: number
@@ -182,7 +182,7 @@ export interface StarfieldProps {
   readonly ghosts?: ReadonlyArray<{ sessionId: string; xPct: number; yPct: number; outcome: 'failed' | 'reported' | 'succeeded' }>
   /** 光点无动词时的无障碍兜底标签。 */
   readonly orbIdleLabel?: string
-  /** V10.1 critique P1-1：行星可达——点击/回车跳该战场最近的源命令聚焦页。 */
+  /** V10.1 critique P1-1：行星可达——点击/回车跳该星球最近的源命令聚焦页。 */
   /** V10.1 critique P3：地图就地微图例（正式图例仍在设置抽屉）。 */
   readonly mapLegend?: string
   /** 速报条无溯源时的词典化兜底（不再露会话号片段）。 */
@@ -190,18 +190,18 @@ export interface StarfieldProps {
   /** V13 未分组行星的词典化标签（合成沙盒聚合星）。 */
   readonly ungroupedLabel?: string
   /** V13 战线世代环（2D 视觉层，pointer-events:none——行星/光点仍是交互层）；
-   *  战线锚定单战场（元首定案：血脉∩战场），环+世代点画在锚行星上。 */
+   *  战线锚定单星球（舰长定案：血脉∩星球），环+世代点画在锚行星上。 */
   readonly fronts?: ReadonlyArray<{ rootId: string; rootCommandId: string; label: string; battlefield: string; gens: number; live: boolean; hueSlot: number }>
 }
 
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
- * 轨道与星；过去不留常驻位（凯旋印记走行星角标计数），追问看聚焦页族谱。 */
+ * 轨道与星；过去不留常驻位（达成印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
   const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
   // V13：未分组行星标签词典化（其余行星仍走目录名）。
   const labelOf = (ws: string): string => ws === UNGROUPED_WS_KEY ? (ungroupedLabel ?? '未分组') : planetLabel(ws)
   const posOf = new Map(planets.map(p => [p.spec.wsPath, p.spec] as const))
-  // V14 点战场看战线（2D 同源）：被点星球 wsPath。
+  // V14 点星球看战线（2D 同源）：被点星球 wsPath。
   const [bfPanel, setBfPanel] = useState<string | null>(null)
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
@@ -225,7 +225,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
     }, active ? '☀' : '☄'),
     createElement('svg', { className: 'war-front-svg', viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
       ...(() => {
-        // V15.2 语义重铸（元首定案，与 3D 同构）：一星球一环、分段=战线数
+        // V15.2 语义重铸（舰长定案，与 3D 同构）：一星球一环、分段=战线数
         // （dasharray 切段）；世代点/链色/「N 代」牌退役——代数去卡片读。
         const counts = new Map<string, number>()
         for (const f of fronts) counts.set(f.battlefield, (counts.get(f.battlefield) ?? 0) + 1)
@@ -252,8 +252,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-ws-index': String(spec.ring),
         'data-triumphs': String(garrison.triumphs),
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
-        title: `${labelOf(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 凯旋 ${garrison.triumphs} · 败 ${garrison.failing}`,
-        'aria-label': `战场 ${labelOf(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、凯旋 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
+        title: `${labelOf(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 达成 ${garrison.triumphs} · 败 ${garrison.failing}`,
+        'aria-label': `星球 ${labelOf(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、达成 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
         onClick: () => { setBfPanel(spec.wsPath) },
         onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBfPanel(spec.wsPath) } },
       },
@@ -311,8 +311,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'aria-hidden': 'true',
       }),
     ),
-    // V14 点战场看战线（2D 同源）：战场⊃战线 清单浮层。
-    bfPanel !== null ? createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '战场战线清单' },
+    // V14 点星球看战线（2D 同源）：星球⊃战线 清单浮层。
+    bfPanel !== null ? createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '星球战线清单' },
       createElement('div', { className: 'war-wz-bfpanel-head' },
         createElement('span', { className: 'war-wz-bfpanel-title' }, labelOf(bfPanel)),
         createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', onClick: () => setBfPanel(null) }, '✕')),
@@ -325,7 +325,7 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
         createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? '推进中' : '已收官'}`))),
       fronts.filter(f => f.battlefield === bfPanel).length === 0
-        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该战场暂无战线（任务待成形）')
+        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该星球暂无战线（任务待成形）')
         : null) : null,
   )
 }

@@ -48,7 +48,7 @@ test('夜间增量：睡前到访后新收官/新终败/新命令各计数', () 
   assert.equal(d.any, true)
 })
 
-test('taskSettledAt：取最后 attempt 结束与最后战报较晚者', () => {
+test('taskSettledAt：取最后 attempt 结束与最后任务回报较晚者', () => {
   const t = task({ status: 'closed', attemptEnd: iso(SEEN + 1_000_000), reportTs: iso(SEEN + 2_000_000) })
   assert.equal(taskSettledAt(t), SEEN + 2_000_000)
 })

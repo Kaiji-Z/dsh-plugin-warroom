@@ -1,15 +1,15 @@
 /**
- * V5-R4 参谋唤醒管线（flag staff-wake）：分级推 + 去抖。
+ * V5-R4 大副唤醒管线（flag staff-wake）：分级推 + 去抖。
  *
- * 分级（SPEC §0）：reported/failed 推（有判定/重派要参谋跟）；普通进展
+ * 分级（SPEC §0）：reported/failed 推（有判定/重派要大副跟）；普通进展
  * （claim/deploy/progress）不推。去抖：同任务同类别在窗口内（默认 30s）
- * 的重复唤醒合并（丢重放——战报本质一条，迟到的重复不需要再吵醒参谋）。
+ * 的重复唤醒合并（丢重放——任务回报本质一条，迟到的重复不需要再吵醒大副）。
  *
- * 唤醒目标 = 拥有该任务的命令卡之参谋会话（staffSessionId），兜底
+ * 唤醒目标 = 拥有该任务的命令卡之大副会话（staffSessionId），兜底
  * 全局 HQ 会话；都没有则记 ledger 说明跳过（可审计，不静默）。成功投递
  * 落 `staff_woken` 账本事件（崩溃恢复：reported/failed 未醒的任务由巡检
  * sweep 补推——事件晚于最近一次结算才算已醒）。提示词带板摘要注入
- * （C 轻版：在役 + 近期结局）——防参谋失忆重复立案。
+ * （C 轻版：在役 + 近期结局）——防大副失忆重复立案。
  * @module dsh-plugin-warroom/wake
  */
 
@@ -22,7 +22,7 @@ export interface WakeDeps {
   stateDir: string
   /** 惰性取 sessions 面（apiProxy 晚绑定——与命令引信同一形态）。 */
   sessions(): SessionsApiFace | undefined
-  /** HQ 兜底会话（v2 遗留参谋部）。 */
+  /** HQ 兜底会话（v2 遗留大副部）。 */
   hqSessionId(): string | undefined
   /** 可注入时钟（测试去抖窗口）。 */
   now(): number
@@ -52,18 +52,18 @@ export function boardDigest(stateDir: string, maxRows = 6): string {
   return lines.join('\n')
 }
 
-/** 唤醒提示词：战报 + 板摘要 + 档位纪律。纯函数。 */
+/** 唤醒提示词：任务回报 + 板摘要 + 档位纪律。纯函数。 */
 export function wakeMessageFor(input: { taskId: string; title: string; kind: 'reported' | 'failed' | 'closed'; detail: string }, digest: string): string {
   const head = input.kind === 'reported'
-    ? `【战报】任务 ${input.taskId}「${input.title}」已提交汇报，等你的下一步判定`
+    ? `【任务回报】任务 ${input.taskId}「${input.title}」已提交汇报，等你的下一步判定`
     : input.kind === 'failed'
-      ? `【战报】任务 ${input.taskId}「${input.title}」尝试失败`
-      : `【战报】任务 ${input.taskId}「${input.title}」已收官`
+      ? `【任务回报】任务 ${input.taskId}「${input.title}」尝试失败`
+      : `【任务回报】任务 ${input.taskId}「${input.title}」已收官`
   return `${head}：
 ${input.detail}
 
 ${digest}
-参谋：按分诊档位跟下一步（L0 全绿自动收官已由系统判定；存疑进会话复核；失败按重派/重新立案处置）。这是系统唤醒，无需回话除非要主动做事。`
+大副：按分诊档位跟下一步（L0 全绿自动收官已由系统判定；存疑进会话复核；失败按重派/重新立案处置）。这是系统唤醒，无需回话除非要主动做事。`
 }
 
 export interface WakeEngine {
@@ -73,7 +73,7 @@ export interface WakeEngine {
   sweep(): void
 }
 
-/** 内部：找到任务归属的参谋会话（命令卡 > HQ 兜底）。 */
+/** 内部：找到任务归属的大副会话（命令卡 > HQ 兜底）。 */
 function staffSessionFor(stateDir: string, taskId: string, hq: string | undefined): { sessionId: string; via: 'command' | 'hq' } | undefined {
   const directive = loadDirectives(stateDir).find(d => d.taskId === taskId && d.staffSessionId !== undefined)
   if (directive?.staffSessionId !== undefined) return { sessionId: directive.staffSessionId, via: 'command' }

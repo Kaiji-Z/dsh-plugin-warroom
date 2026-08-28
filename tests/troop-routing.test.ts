@@ -54,7 +54,7 @@ test('V4-R1 路由解析：缺半边即 roster 错误（provider 必须带 model
 })
 
 test('V4-R1 flag 门：unitAgentOptions 只在 flag ON 且路由完整时给出 agentOptions', () => {
-  // off == 改前行为：即使兵种带了路由，也不透传（字节等价的老派兵）。
+  // off == 改前行为：即使组员带了路由，也不透传（字节等价的老加派组员）。
   assert.equal(unitAgentOptions(routedUnit, FLAG_OFF), undefined)
   assert.equal(unitAgentOptions(bareUnit(), FLAG_ON), undefined)
   assert.deepEqual(unitAgentOptions(routedUnit, FLAG_ON), { provider: 'glm', model: 'glm-5.2-air' })
@@ -107,16 +107,16 @@ async function deployOnce(dir: string, unit: UnitSpec, flags: FeatureFlags, fron
   return sub.starts[0]!
 }
 
-test('V4-R1 回归：war_deploy_unit 透传 agentOptions 仅当 flag ON 且兵种带路由', async () => {
+test('V4-R1 回归：war_deploy_unit 透传 agentOptions 仅当 flag ON 且组员带路由', async () => {
   const dir = taskDir()
   try {
-    // 三次派兵各占一条战线——同任务写权限战区互斥是铁律，测试不得绕。
+    // 三次加派组员各占一条战线——同任务写权限战区互斥是铁律，测试不得绕。
     const off = await deployOnce(dir, routedUnit, FLAG_OFF, 'src')
     assert.equal(off.request.agentOptions, undefined, 'flag off 必须与改前字节等价（无 agentOptions）')
     const on = await deployOnce(dir, routedUnit, FLAG_ON, 'docs')
     assert.deepEqual(on.request.agentOptions, { provider: 'glm', model: 'glm-5.2-air' })
     const onBare = await deployOnce(dir, bareUnit(), FLAG_ON, 'tests')
-    assert.equal(onBare.request.agentOptions, undefined, 'flag on 但兵种无路由也不得造路由')
+    assert.equal(onBare.request.agentOptions, undefined, 'flag on 但组员无路由也不得造路由')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

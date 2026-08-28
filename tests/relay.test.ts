@@ -58,11 +58,11 @@ test('v3 每命令一会话: two draft commands get two distinct staff sessions'
     const sessions = fakeSessions()
     const store = fakeStore(false)
     const result = await relayPendingCommands({ store, stateDir: dir, warRoot: '/war', activate: () => { store.get().active = true } }, sessions)
-    // Per-command sessions: two creates, two 参谋· renames, two prompts.
+    // Per-command sessions: two creates, two 大副· renames, two prompts.
     assert.equal(sessions.created, 2)
     assert.equal(sessions.renamed.length, 2)
-    assert.ok(sessions.renamed[0]!.startsWith('参谋·'))
-    assert.ok(sessions.renamed[1]!.startsWith('参谋·'))
+    assert.ok(sessions.renamed[0]!.startsWith('大副·'))
+    assert.ok(sessions.renamed[1]!.startsWith('大副·'))
     // Inactive war room: activation is code-side (store flip via activate()),
     // the queue carries only relay texts — never a '/war' string.
     assert.equal(store.get().active, true)
@@ -137,7 +137,7 @@ function seedChain(dir: string, mode: 'deepen' | 'retry' | 'pivot'): void {
   appendDirectiveEvent(dir, { type: 'directive_created', ts: isoAt(4), directiveId: 'cmd-2', text: '续战令文本', continuesFrom: 'cmd-1', continuationMode: mode })
 }
 
-test('V10 pivot 分路：指令直插活体执行会话队列，一穿五态挂父任务；不开新参谋会话', async () => {
+test('V10 pivot 分路：指令直插活体执行会话队列，一穿五态挂父任务；不开新大副会话', async () => {
   const dir = tmpStateDir()
   try {
     // 活体 attempt：claimedBy 即执行会话号（endedAt 空 = 作战中）。
@@ -147,7 +147,7 @@ test('V10 pivot 分路：指令直插活体执行会话队列，一穿五态挂�
     const store = fakeStore(true)
     const r = await relayPendingCommands({ store, stateDir: dir, warRoot: '/war', activate: () => {} }, sessions)
     assert.equal(r.relayed, 1)
-    assert.equal(sessions.created, 0, 'pivot 不开新参谋会话')
+    assert.equal(sessions.created, 0, 'pivot 不开新大副会话')
     assert.deepEqual(sessions.targets, ['cmd-live-1'], '插进的是父任务的执行会话')
     assert.ok(sessions.prompts[0]!.includes('【续战令·转向】'), '转达文本署名续战令')
     assert.ok(sessions.prompts[0]!.includes('续战令文本'))
@@ -161,7 +161,7 @@ test('V10 pivot 分路：指令直插活体执行会话队列，一穿五态挂�
   }
 })
 
-test('V10 pivot 兜底：无活体 attempt 落回常轨走参谋，且战线档案随令注入', async () => {
+test('V10 pivot 兜底：无活体 attempt 落回常轨走大副，且战线档案随令注入', async () => {
   const dir = tmpStateDir()
   try {
     // 父任务已发布但无人领令——无执行会话可插。
@@ -169,11 +169,11 @@ test('V10 pivot 兜底：无活体 attempt 落回常轨走参谋，且战线档�
     const sessions = fakeSessions()
     const store = fakeStore(true)
     await relayPendingCommands({ store, stateDir: dir, warRoot: '/war', activate: () => {} }, sessions)
-    assert.equal(sessions.created, 1, '落回常轨开参谋会话')
+    assert.equal(sessions.created, 1, '落回常轨开大副会话')
     assert.ok(sessions.targets[0]!.startsWith('sec-'))
     const text = sessions.prompts.find(p => p.includes('【命令区】新命令 cmd-2'))!
     assert.ok(text.includes('【战线档案 · Ⅱ 代续战令】'), '兜底档案随令')
-    assert.ok(text.includes('已发布，待指挥官领令'), '档案含父代战况')
+    assert.ok(text.includes('已发布，待外勤小队领令'), '档案含父代战况')
     assert.equal(loadDirectives(dir).find(d => d.id === 'cmd-2')!.status, 'received')
   } finally {
     rmSync(dir, { recursive: true, force: true })

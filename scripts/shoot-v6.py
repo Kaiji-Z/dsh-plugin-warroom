@@ -28,7 +28,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1200)
     assert page.evaluate("document.documentElement.getAttribute('data-dsh-warroom-active')") is not None, "board did not activate"
 
-    # ① 三区：指挥中心 / 战场 / 战报。
+    # ① 三区：指挥中心 / 星球 / 任务回报。
     assert page.query_selector(".war-hq") is not None, "war-hq missing"
     assert page.query_selector(".war-field") is not None, "war-field missing"
     assert page.query_selector(".war-report") is not None, "war-report (third zone) missing"

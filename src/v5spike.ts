@@ -5,9 +5,9 @@
  *  ① ctx.planMode / ctx.goals 在宿主面插件上下文是否可达（静态结论：
  *     goals 是宿主面命名服务；planMode 疑似 agent 预设 isolate realm 内
  *     挂载——需动态定案）；
- *  ② plan-mode 在参谋会话上的 set/get 往返（评审卡与现有决策卡的 UI
+ *  ② plan-mode 在大副会话上的 set/get 往返（评审卡与现有决策卡的 UI
  *     共存另凭 planCard 动作 + 截图定案）；
- *  ③ sessions.create 是否吃 toolFilter（参谋物理收权的第一道闸）；
+ *  ③ sessions.create 是否吃 toolFilter（大副物理收权的第一道闸）；
  *  ④ 宿主 provider 错误事件面（静态 grep 记录，无动态探针）。
  *
  * 本模块只做结构切片与探针编排，不 import 宿主类型；探针永不抛
@@ -35,7 +35,7 @@ export interface SpikeDeps {
   planMode(): PlanModeFace | undefined
   goals(): GoalsFace | undefined
   sessions(): SessionsApiFace | undefined
-  /** 参谋根目录——探针会话的 cwd（与真实参谋会话同层）。 */
+  /** 大副根目录——探针会话的 cwd（与真实大副会话同层）。 */
   warRoot(): string
 }
 

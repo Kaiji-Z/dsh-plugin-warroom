@@ -107,7 +107,7 @@ test('war_publish_chain 硬门与成链：无拆解/未批均拒；批准后顺�
     await assert.rejects(execTool(deps, 'war_publish_chain', { command_id: 'cmd-c' }), /无拆解方案/)
     // 呈拆解但计划待批 → 拒。
     await execTool(deps, 'war_decompose', { command_id: 'cmd-c', plan: '目标迁移配置层，步骤一二三，工作区主仓，风险回滚 git。', tasks: SPECS })
-    await assert.rejects(execTool(deps, 'war_publish_chain', { command_id: 'cmd-c' }), /待元首批准/)
+    await assert.rejects(execTool(deps, 'war_publish_chain', { command_id: 'cmd-c' }), /待舰长批准/)
     // 驳回 → 拒（修订重呈指引）。
     appendDirectiveEvent(dir, { type: 'directive_plan_rejected', ts: 't2', directiveId: 'cmd-c', reason: '验收太虚' })
     await assert.rejects(execTool(deps, 'war_publish_chain', { command_id: 'cmd-c' }), /被驳回/)

@@ -70,7 +70,7 @@ function seedReportable(dir: string, id: string): void {
   appendDirectiveEvent(dir, { type: 'directive_approved', ts: 't2', directiveId: 'cmd-w', taskId: id })
 }
 
-test('boardDigest / wakeMessageFor：纯函数形态（在役+结局、战报头+纪律尾）', () => {
+test('boardDigest / wakeMessageFor：纯函数形态（在役+结局、任务回报头+纪律尾）', () => {
   const dir = tmpDir()
   try {
     appendEvent(dir, { type: 'task_created', ts: 't0', campaignId: 'c1', title: '修锁', brief: 'b', acceptance: 'a', priority: 'normal' })
@@ -79,14 +79,14 @@ test('boardDigest / wakeMessageFor：纯函数形态（在役+结局、战报头
     assert.match(digest, /【板摘要】/)
     assert.match(digest, /c1「修锁」待领取/)
     const msg = wakeMessageFor({ taskId: 'c1', title: '修锁', kind: 'reported', detail: '验收 2 项全过' }, digest)
-    assert.match(msg, /【战报】任务 c1「修锁」已提交汇报/)
+    assert.match(msg, /【任务回报】任务 c1「修锁」已提交汇报/)
     assert.match(msg, /系统唤醒/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
 })
 
-test('唤醒引擎：reported 投递到命令卡参谋会话 + staff_woken 入账；去抖窗口内合并', async () => {
+test('唤醒引擎：reported 投递到命令卡大副会话 + staff_woken 入账；去抖窗口内合并', async () => {
   const dir = tmpDir()
   const sessions = fakeSessions()
   let now = 1_000_000
@@ -100,12 +100,12 @@ test('唤醒引擎：reported 投递到命令卡参谋会话 + staff_woken 入�
     assert.ok(readEvents(dir, 'c-wake').some(e => e.type === 'staff_woken' && e.sessionId === 'sec-staff'))
     // 去抖：窗口内同任务同类别 → 合并（无第二次投递）。
     now += 5_000
-    engine.wake('c-wake', 'reported', '重放战报')
+    engine.wake('c-wake', 'reported', '重放任务回报')
     await new Promise(r => setTimeout(r, 20))
     assert.equal(sessions.prompted.length, 1)
     // 窗口外 → 再投（并再次入账）。
     now += 60_000
-    engine.wake('c-wake', 'reported', '新战报')
+    engine.wake('c-wake', 'reported', '新任务回报')
     await new Promise(r => setTimeout(r, 20))
     assert.equal(sessions.prompted.length, 2)
     // 不同类别不受彼此去抖影响。
@@ -145,7 +145,7 @@ test('tools 钩子分级：reported 唤醒；全绿自动收官不唤醒；faile
     const wakes: Array<[string, string]> = []
     const deps = makeDeps(dir, FLAG_WAKE, (taskId, kind) => { wakes.push([taskId, kind]) })
     await execTool(deps, 'war_submit', { task_id: 'c-hook', attempt_id: 'tok', report: '汇报', evidence: evidenceGreen })
-    // 待翻阅（无 auto-close 旗）→ 唤醒参谋（分级推：reported 推）。
+    // 待翻阅（无 auto-close 旗）→ 唤醒大副（分级推：reported 推）。
     assert.deepEqual(wakes, [['c-hook', 'reported']])
     assert.equal(loadCampaign(dir, 'c-hook').status, 'reported')
     // 失败（用尽）→ 唤醒 failed。
