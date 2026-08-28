@@ -403,7 +403,7 @@ body[data-ds-dark-theme] .war-root{
 .war-preflight-btn{padding:2px 8px;font-size:12px;line-height:18px;flex:0 0 auto}
 .war-recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
 .war-recent-label{font-size:12px;color:var(--war-text-3);flex:0 0 auto}
-.war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .war-recent-item:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 
 /* --- V7-⑥ 空板首用引导 -------------------------------------------------------- */
@@ -602,7 +602,7 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
 .war-cd-chain-item:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 /* 起草器续接排：独立类（勿混用 war-recent-item——V7 取证脚本按它定位，混类=针脚事故） */
 .war-continue-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-.war-continue-chip{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-family:var(--war-font)}
+.war-continue-chip{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-family:var(--war-font)}
 .war-continue-chip.on{border-style:solid;border-color:var(--war-focus);color:var(--war-text-1);font-weight:600;background:var(--war-run-tint)}
 /* --- V10-R3a 星域战场（同心椭圆恒星系）--------------------------------------
  * 全 DOM/CSS；浅色=米白海图纸风（细网格+淡染），深色=夜航星图（点状星幕）。
@@ -675,7 +675,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px var(--war-font);letter-spacing:.1em;color:var(--war-wz-toggle-text);background:transparent}
 .war-wz-toggle button.on{background:var(--war-wz-toggle-on-bg);color:var(--war-wz-toggle-on-text);font-weight:700}
 .war-wz-toggle button:hover{color:var(--war-wz-toggle-hover-text)}
-.war-wz-foot{position:absolute;left:50%;bottom:238px;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;user-select:none}
+.war-wz-foot{position:absolute;left:50%;bottom:calc(var(--war-dock-h, 230px) + 10px);transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;user-select:none}
 .war-wz-legend{display:flex;gap:14px;font:12px/1.5 var(--war-font);color:var(--war-wz-legend-text)}
 .war-wz-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
 .war-wz-legend .lg-wait{background:var(--war-wz-wait)}
@@ -900,6 +900,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-wz-bfpanel-meta{flex:none;color:var(--war-text-2)}
 .war-wz-bfpanel-empty{font-size:12px;color:var(--war-text-2);padding:4px 2px}
 /* V14 溯源 chip + 起草器战场注 */
+.war-bf-chip{flex:none;font-size:12px;line-height:18px;padding:0 7px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}
 .war-cd-origin:hover{color:var(--war-text-1);border-color:var(--war-border-hover,var(--war-border))}
 .war-cp-note{font-size:12px;color:var(--war-text-2);margin-top:4px;line-height:1.5}

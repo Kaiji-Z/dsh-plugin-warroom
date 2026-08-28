@@ -16,7 +16,7 @@ import { WAR_CSS } from '../src/client/styles.ts'
 import { readTacPalette, warLogColors, readChainHue, CHAIN_HUE_FALLBACK, TAC_FALLBACK_DARK, TAC_FALLBACK_LIGHT, type WzLogKind } from '../src/client/war-tokens.ts'
 
 /** JS 运行时注入的动态变量（带回退引用，无静态定义） */
-const RUNTIME_VARS = new Set(['--war-panel-rows'])
+const RUNTIME_VARS = new Set(['--war-panel-rows', '--war-dock-h']) // V14.1 board 实测坞高（JS 内联注入，styles 用 var(..., 230px) 回退）
 
 const DEFINITION_SELECTORS = new Set<string>([
   '.war-root',

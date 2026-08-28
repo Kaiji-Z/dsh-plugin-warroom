@@ -556,6 +556,17 @@ with sync_playwright() as p:
         assert c is not None and c == c and c >= 4.5, f"{sel} contrast {c} below 4.5:1"
         print(f"contrast: {sel} {c:.2f}:1")
 
+    # V14.1：未选中 composer chips 必须透明底（UA ButtonFace 在宿主 color-scheme:dark
+    # 下泄漏曾致 1.09:1——B6 机检根因）。n 开起草器量完即 Esc。
+    page.keyboard.press("n")
+    page.wait_for_timeout(500)
+    if page.locator(".war-continue-chip[data-war-bf]:not(.on)").count() > 0:
+        c = contrast_of(".war-continue-chip[data-war-bf]:not(.on)")
+        assert c is not None and c == c and c >= 4.5, f"unselected composer chip contrast {c} below 4.5:1"
+        print(f"contrast: unselected bf chip {c:.2f}:1")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+
     # Esc 层协调：聚焦 + 弹窗叠加时，一次 Esc 只关最顶层（复评 P1-3）。
     page.locator(".war-command-card", has_text="能记每日一句的命令行小工具").locator(".war-focus-btn").click()
     page.wait_for_timeout(300)

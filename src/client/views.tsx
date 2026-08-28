@@ -1052,7 +1052,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             ? createElement('button', {
               key: 'origin', type: 'button', className: 'war-cd-origin', title: origin.title,
               onClick: () => onOpenCommand?.(origin.commandId),
-            }, activeCopy().front.originChip(origin.battlefield === null ? null : bfNameOf(origin.battlefield), origin.title.slice(0, 10)))
+            }, activeCopy().front.originChip(origin.battlefield === null ? null : bfNameOf(origin.battlefield), origin.title.slice(0, 14)))
             : null,
           ...chainMembers.map((m, mi) =>
             createElement('button', {
@@ -1303,7 +1303,7 @@ function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting'
   )
 }
 
-function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace): ReactNode {
+function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace, /** V14.1 单代战线战场身份（任务列传参；其他调用点不传不渲染）。 */ bf?: string | null): ReactNode {
   // V9.11 台账终局态：closed/failed 任务书卡常驻任务列但调暗；reported 是待验收
   // 动作态（收件箱有「去处理」），保持全亮不许被埋。
   const settled = task.status === 'closed' || task.status === 'failed'
@@ -1330,6 +1330,7 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
             onClick: e => { e.stopPropagation(); onOpenCommand(lineageCmd.commandId) },
           }, `↩ ${lineageCmd.commandId}`)
         : null,
+      bf ? createElement('span', { className: 'war-chip war-bf-chip', title: bf }, bf) : null,
       createElement('span', { className: 'war-title' }, task.title),
     ),
     createElement('div', { className: 'war-card-top' },
@@ -2063,7 +2064,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       .map(c => ({
         commandId: c.commandId,
         text: c.text,
-        generation: c.chain.generation,
+        generation: localGenOf(c), // V14：composer 说战线的话（本地代序），不再报链代
         hueSlot: chainHueOf(c),
         live: chainOf(c).some(t => t.attemptLog.some(a => a.endedAt === null)),
         bf: cmdFront.get(c.commandId)?.battlefield ?? null,
@@ -2240,7 +2241,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       (t.status === 'reported' || t.status === 'failed') && staffFor(t.taskId) !== null
         ? () => { openStaff(t.taskId) }
         : null,
-      lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null))
+      lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null),
+      (() => { const f = taskFront.get(t.taskId); return f !== undefined ? bfNameOf(f.battlefield) : null })())
     const tasksSorted = [...tasks].sort((a, b) => {
       const la = lineageOf(a.taskId), lb = lineageOf(b.taskId)
       if (la === null && lb === null) return 0
@@ -2361,7 +2363,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         )
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
-          : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}` },
+          : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}`, style: { '--war-dock-h': `${boardBox.dockH}px` } as React.CSSProperties },
           // V10.1 TITP 化（元首示意图定案）：星域=界面本体，board 级铺满为底；
           // 任务/战报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
           ...(mapView ? [no3d

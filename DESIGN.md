@@ -550,3 +550,13 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 **坑（本轮入账）**：①**composer 闭包变量名与 props 名不一致**（bfChoices vs props.battlefields）→ ReferenceError pageerror、composer 整树挂——注入代码后必须 live 验证（n 键开起草器抓 pageerror）；②**chip 选中判定用 className.includes('on')** 会命中 continue 里的子串——探针一律 classList.contains；③**color-mix 混 transparent 在 Chromium 产出 `oklab(...)` 计算值**——对比度解析器必须带 oklab→sRGB 换算分支（shoot-v7 两个测量器已补，6.27:1 实测过）；④**宿主 settings 被活界面持久化 dark 后 theme-presenter 异步写回**——对比度测量必须同 tick removeAttribute+读值；⑤展示切片（slice 8）与数据全集不一致时**选中项保底附加**。
 
 **验证**：verify PASS（239 测：V14 新测「链色绑战线兄弟段互异」「本地计代+origin 溯源」+7 条 V14 针脚 localGenOf/originChip/bfSection/【战场：/war-wz-bfpanel/战线跟着战场走×2）+ shoot-v13 12 断言 + shoot-v7（oklab 修复后全绿，4 组对比度 6.27-6.96:1）+ shoot-v10 + shoot-theme 11×2 + probe 40/40。live 验证：composer 8+1 chips/续接自动带 projA/聚焦页本地 Ⅰ Ⅱ Ⅲ+origin chip/3D 点行星面板 1 行零 pageerror。取证 `.goal/evidence/v13/`（V14 五图）。critique 未跑（元首令：改好即可，后续一起审）。
+
+### V14.1 critique 整改（R6 双子代理 27/40——P0 机检根因修复）
+
+**B6 机检最有价值发现**：未选中 `.war-continue-chip` **无插件 background 规则** → UA `ButtonFace` 在宿主 `color-scheme:dark`（不随 data-ds-dark-theme 翻转）下恒泄漏 rgb(107,107,107)——**两主题同为灰底灰字（浅 1.09:1）**，V14 旗舰面（战场选择器）在浅色下不可用。修复=continue-chip/recent-item 显式 `background:transparent`（实测 5.80:1，shoot-v7 增机检位：n 开起草器量未选中 chip）。
+
+**其余采纳**：①单代战线卡增战场 chip（`war-bf-chip`，taskCardOf 经 taskFront→bfNameOf 传参）——V14 模型下每条命令出生即有战场身份；②wz-foot 被坞裁切→bottom 魔数 238px 退役，`calc(var(--war-dock-h)+10px)`（views 实测 dockH 注入变量；`--war-dock-h` 入 war-tokens RUNTIME_VARS 豁免——哨兵体系第一次为「JS 注入变量」开口子）；③composer 续接候选改本地计代（`localGenOf`——composer 说战线的话）；④origin chip 截断 10→14；⑤战报空态中性化（原「还没有打赢的会话」预设胜利，与合并成败列矛盾）。
+
+**驳回**：「战场 picker 仅歧义时出现」（V14 显式选择是元首点名第 1 条）；雷达行星三层微文本（canvas 标签系统量级，backlog）。
+
+**验证**：verify PASS + shoot-v7 全绿（新机检 5.80:1）+ v13（操场板）/theme 11×2/v10/probe 40/40。快照 `.impeccable/critique/2026-08-28T12-12-34Z`。**运行纪律新增**：shoot 跑批会互相换板（v7 跑完板= v7 夹具），依赖特定板面的 shooter（shoot-v13 需操场板）前必须重播 `seed-playground.py`——本轮 v13 首跑 6 断言红全是板面错配非代码回归。

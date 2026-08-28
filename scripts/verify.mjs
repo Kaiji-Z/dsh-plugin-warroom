@@ -282,6 +282,8 @@ gate('bundle', () => {
     [client, 'bfSection', 'V14 composer explicit battlefield picker'],
     [client, '【战场：', 'V14 battlefield protocol marker (cross-skin token)'],
     [client, 'war-wz-bfpanel', 'V14 battlefield fronts panel (click planet → front list)'],
+    [client, 'war-bf-chip', 'V14.1 battlefield chip on flat (single-gen) task cards'],
+    [client, '--war-dock-h', 'V14.1 wz-foot offset rides measured dock height (no magic number)'],
     [host, '战线跟着战场走', 'V14 skill workspace routing discipline + relay continuation binding'],
     [client, 'rebuildFrontLines', '3D front trajectory layer (chain-hue tubes + generation markers)'],
     [client, 'readChainHue', 'chain hue CSS reader with same-value fallback'],

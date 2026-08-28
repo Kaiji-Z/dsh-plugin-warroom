@@ -399,7 +399,7 @@ export const warCopy: WarCopy = {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
     tasks: { title: '任务', empty: '等参谋发布第一张悬赏' },
     live: { title: '作战中', empty: '下达命令后，指挥官的作战会话会出现在这里' },
-    done: { title: '已完成', empty: '还没有打赢的会话' },
+    done: { title: '已完成', empty: '战报栏还空着——收官与折戟都会落在这里' },
     failed: { title: '已失败', empty: '暂无失败会话' },
   },
   lifecycle: {
@@ -766,7 +766,7 @@ export const plainCopy: WarCopy = {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
     tasks: { title: '任务', empty: '等参谋发布第一个任务' },
     live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里' },
-    done: { title: '已完成', empty: '还没有完成的会话' },
+    done: { title: '已完成', empty: '这里还空着——完成和失败都会落在这里' },
     failed: { title: '已失败', empty: '暂无失败会话' },
   },
   lifecycle: {
