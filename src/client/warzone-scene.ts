@@ -1616,7 +1616,7 @@ export class WarzoneScene {
     if (c2 === null) return
     // V16.4-R2 critique P2：失败定位不退化——有败的星球名签缀红「N 败」
     //（2D/3D 同源 p.failing），默认值班态也能 10 秒定位失败。
-    const label = p.failing > 0 ? `${p.name} ·${p.failing}败` : p.name
+    const label = p.failing > 0 ? `${p.name} ·${p.failing}挫败` : p.name
     c2.font = '600 30px system-ui, sans-serif'
     w = Math.min(Math.ceil(c2.measureText(label).width) + 26, 380)
     cv.width = w; cv.height = 44
@@ -1633,7 +1633,7 @@ export class WarzoneScene {
       c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
       c2.fillText(p.name, x0, 23)
       c2.fillStyle = '#e5484d'
-      c2.fillText(` ·${p.failing}败`, x0 + nameW, 23)
+      c2.fillText(` ·${p.failing}挫败`, x0 + nameW, 23)
     } else {
       c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
       c2.fillText(label, w / 2, 23)
@@ -2106,7 +2106,7 @@ export class WarzoneTactical {
       if (p.failing > 0) {
         // V16.4-R2：失败星球名签红缀（与 3D 名牌同源同语义）
         const nmW = g.measureText(nm).width
-        const suf = ` ·${p.failing}败`
+        const suf = ` ·${p.failing}挫败`
         const sufW = g.measureText(suf).width
         g.textAlign = 'left'
         g.fillStyle = isHl ? P.nameHl : P.name
@@ -2122,7 +2122,7 @@ export class WarzoneTactical {
       if (p.garrison > 0) {
         // V16.4-R3 critique P2-1：零值标签是纯噪音（九星九个 0艘）——garrison=0 不渲染
         g.fillStyle = col; g.font = '9px Consolas'
-        g.fillText(`LV${p.level}·${p.garrison}艘`, s1.x, s1.y + rr + 13)
+        g.fillText(`达成 ${p.garrison}`, s1.x, s1.y + rr + 13)  /* V16.4-R5：LV·艘 机器黑话退役——用板面自己的词汇（达成数） */
       }
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
     })

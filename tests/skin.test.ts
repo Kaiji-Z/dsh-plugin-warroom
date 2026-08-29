@@ -64,3 +64,23 @@ test('皮肤 store：缺省 trek；切换/回切生效并通知订阅者；持�
   // 还原缺省，避免影响同进程其他测试。
   setSkin('trek')
 })
+
+test('V16.4-R7 词汇收敛：同一概念每皮肤只有一个词面（败局=挫败/成功=圆满·完成）', () => {
+  setSkin('trek')
+  try {
+    const c = activeCopy()
+    // 败局一词面：trek 下 chip/pip/岛计数/速报 全部落「挫败」
+    assert.equal(c.outcome.failed.label, '挫败')
+    assert.equal(c.commandCard.pipStatus.fail, '挫败')
+    assert.ok(c.island.counts({ pending: 0, waiting: 0, active: 0, failed: 2 }).includes('挫败'))
+    assert.equal(c.starfield.logRetreat, '挫败')
+    assert.equal(c.starfield.garrisonTitle(0, 0, 0, 3).includes('挫败'), true)
+    // 成功一词面：chip=圆满（达成是星域动作语，共存但 chip 不再出现打赢了）
+    assert.equal(c.outcome.succeeded.label, '圆满')
+    // 执行态一词面：岛段=列头（执行中）
+    assert.ok(c.island.counts({ pending: 0, waiting: 0, active: 3, failed: 0 }).includes('执行中 3'))
+    assert.equal(c.columns.live.title, '执行中')
+  } finally {
+    setSkin('trek')
+  }
+})

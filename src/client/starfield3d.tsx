@@ -10,27 +10,32 @@
  */
 import { createElement, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
+import { activeCopy } from './copy.ts'
 import type { WzBridgeFrontLite } from './front.ts'
 
 type WzEntityRef = { kind: 'hq' } | WzPlanet | WzSquad | WzFrontNode
 
 /** V14 星球名（目录名；合成沙盒聚合键=未分组）。 */
 const dirLabel = (wsPath: string): string => {
-  if (wsPath === '__war_ungrouped__') return '未分组'
+  if (wsPath === '__war_ungrouped__') return activeCopy().starfield.ungrouped
   const parts = wsPath.split(/[\/]+/).filter(p => p.length > 0)
   return parts.length > 0 ? parts[parts.length - 1]! : wsPath
 }
 
-const statusChip = (st: string): string =>
-  `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '执行中' ? 'st-battle' : 'st-held'}">${st}</span>`
+const statusChip = (st: string): string => {
+  const c = activeCopy().starfield
+  const text = st === '待进攻' ? c.wzStWait : st === '执行中' ? c.wzStBattle : c.wzStHeld
+  return `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '执行中' ? 'st-battle' : 'st-held'}">${text}</span>`
+}
 
 /** 信息卡（三卡结构承 demo，字段全为板面真值）。 */
 function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
   if (ent.kind === 'hq') {
     const st = hqStats(scene.planets, scene.squads)
+    const sf = activeCopy().starfield
     return `<div class="tt-head"><span class="dot"></span>
-      <span class="tt-name">HEADQUARTERS</span><span class="tt-tag">舰长 · 指挥中枢</span></div>
-      <div class="tt-desc">舰桥旗舰「太空总部」——你的全部星球与执行编队由此投送调度。</div>
+      <span class="tt-name">${sf.hqName}</span><span class="tt-tag">${sf.hqTag}</span></div>
+      <div class="tt-desc">${sf.hqDesc}</div>
       <div class="tt-row"><span>星球</span><b>${scene.planets.length} 个</b></div>
       <div class="tt-row"><span>起飞编队</span><b>${st.inbound} 支</b></div>
       <div class="tt-row"><span>执行中编队</span><b>${st.battle} 支</b></div>
@@ -39,7 +44,7 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
       <div class="tt-row"><span>累计达成</span><b>${st.garrison} 仗</b></div>`
   }
   if (ent.kind === 'front') {
-    const state = ent.live ? '推进中' : '已收官'
+    const state = ent.live ? activeCopy().front.stateLive : activeCopy().front.stateSettled
     return `<div class="tt-head"><span class="dot chain war-chain-hue-${ent.hueSlot}"></span>
       <span class="tt-name">战线 · ${ent.gens} 代</span><span class="tt-tag">${state}</span></div>
       <div class="tt-desc">${ent.label}</div>
@@ -522,7 +527,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
       ...squads.filter(s => s.live).map(s => createElement('button', {
         key: s.sessionId, type: 'button', className: 'war-wz-xcard', 'data-wz-sid': s.sessionId,
         title: `${s.wsPath} · ${s.verb ?? orbIdleLabel}`,
-        'aria-label': `执行中：${s.verb ?? orbIdleLabel}${s.sourceLabel !== null ? `（${s.sourceLabel}）` : ''}，点击查看源命令`,
+        'aria-label': `${activeCopy().starfield.xcardPrefix}${s.verb ?? orbIdleLabel}${s.sourceLabel !== null ? `（${s.sourceLabel}）` : ''}，点击查看源命令`,
         onMouseEnter: () => { hoverWsRef.current = s.wsPath },
         onMouseLeave: () => { hoverWsRef.current = null },
         onFocus: () => { hoverWsRef.current = s.wsPath },
@@ -533,31 +538,31 @@ export function Warzone(props: WarzoneProps): ReactNode {
         createElement('span', { className: 'war-wz-xverb' }, s.verb ?? orbIdleLabel),
         s.sourceLabel !== null ? createElement('span', { className: 'war-wz-xsrc' }, s.sourceLabel) : null))),
     createElement('div', { ref: nameRef, className: 'war-wz-pname', 'aria-hidden': 'true' }),
-    createElement('div', { className: 'war-wz-toggle', role: 'group', 'aria-label': '视图切换' },
-      createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, '3D 视图'),
-      createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, '2D 视图')),
+    createElement('div', { className: 'war-wz-toggle', role: 'group', 'aria-label': activeCopy().starfield.toggleAria },
+      createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, activeCopy().starfield.toggle3d),
+      createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, activeCopy().starfield.toggle2d)),
     createElement('div', { className: 'war-wz-foot', 'aria-hidden': 'true' },
-        createElement('div', { className: 'war-wz-foot-stat' }, `${squads.filter(q => q.live).length} 队在外 · ${planets.length} 星球 · ${fronts.length} 战线`),  /* V16.4-R3 critique P2-3：中列失名——雷达常驻状态铭牌 */
+        createElement('div', { className: 'war-wz-foot-stat' }, activeCopy().starfield.footStat(squads.filter(q => q.live).length, planets.length, fronts.length)),  /* V16.4-R3 critique P2-3：中列失名——雷达常驻状态铭牌 */
       createElement('div', { className: 'war-wz-legend' },
-        createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
-        createElement('span', null, createElement('i', { className: 'lg-battle' }), '执行中'),
-        createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
-        createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
-        createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（分段=战线数）')),
+        createElement('span', null, createElement('i', { className: 'lg-wait' }), activeCopy().starfield.legendWait),
+        createElement('span', null, createElement('i', { className: 'lg-battle' }), activeCopy().starfield.legendBattle),
+        createElement('span', null, createElement('i', { className: 'lg-held' }), activeCopy().starfield.legendHeld),
+        createElement('span', null, createElement('i', { className: 'lg-hl' }), activeCopy().starfield.legendHl),
+        createElement('span', null, createElement('i', { className: 'lg-front' }), activeCopy().starfield.legendFront)),
       createElement('div', { className: 'war-wz-hint' }, cmd
-        ? '点击星球 看战线 · 拖卡 摆位 · V 切换视图 · M 回列表'
-        : '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
+        ? activeCopy().starfield.hintCmd
+        : activeCopy().starfield.hint3d)),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
     // V16.4-R2 critique P2：键盘镜像——行星→战线面板此前纯指针可达（canvas 拾取）。
     // 视觉隐藏的星球按钮列（Tab 顺序=轨道序，focus-visible 时显形）补齐键盘路径；
     // 与列表态的键盘严谨对齐（Sam 画像）。
-    createElement('div', { className: 'war-wz-kbplanets', role: 'group', 'aria-label': '星球清单（键盘直达战线面板）' },
+    createElement('div', { className: 'war-wz-kbplanets', role: 'group', 'aria-label': activeCopy().starfield.kbGroupAria },
       ...planets.map(pl => createElement('button', {
         key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
         'data-wz-kb-ws': pl.wsPath,
         onClick: () => { setBfPanel(pl.wsPath) },
       }, `${pl.name}（${pl.status}${pl.failing > 0 ? ` ·${pl.failing}败` : ''}）`))),
-    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '星球战线清单', onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
+    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': activeCopy().starfield.bfPanelAria, onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
       createElement('div', { className: 'war-wz-bfpanel-head' },
         createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),
         createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', autoFocus: true, onClick: () => setBfPanel(null) }, '✕')  /* V16.4-R3 critique B：焦点移入 dialog——键盘镜像开启后 Esc 才可达（probe-b3 抓的死路） */),
@@ -568,9 +573,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       },
         createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
         createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
-        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? '推进中' : '已收官'}`))),
+        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? activeCopy().front.stateLive : activeCopy().front.stateSettled}`))),  /* V16.4-R7：战线聚合态并词典（一词一面） */
       fronts.filter(f => f.battlefield === bfPanel).length === 0
-        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该星球暂无战线（任务待成形）')
+        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, activeCopy().starfield.bfPanelEmpty)
         : null)] : []),
   )
 }

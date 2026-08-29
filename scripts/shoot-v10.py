@@ -203,9 +203,11 @@ with sync_playwright() as p:
                  gens: anchored.reduce((n, f) => n + Math.max(f.gens, 1), 0), lastBig, glows,
                  pick: s.frontPickables.length, ungrp: un ? un.name : null } }""")
     assert fr["rings"] == fr["anchored"] == 3, f"世代环应==锚定战线 3：{fr}"
-    assert fr["markers"] == fr["gens"] == 5 and fr["lastBig"] == 3, f"标记应==代数和 5（各战线末代放大）：{fr}"
-    assert fr["glows"] == 1, f"末代辉光应只在 live 战线（B）：{fr}"
-    assert fr["pick"] == fr["markers"], f"世代标记应全部可拾取：{fr}"
+    # V15.2b 环语义重铸（一星球一环、分段=战线数）：世代点/末代辉光已休眠（代数是
+    # 卡片层信息）——旧 markers/lastBig/glows 断言随 V13/V14 语义一并退役。
+    segs_total = page.evaluate("() => { const s = window.__wz.scene; let n = 0; for (const g of s.frontGroup.children) n += g.children.length; return n }")
+    assert segs_total == fr["anchored"], f"环分段总数应==战线数 {fr['anchored']}（V15.2b 一星球一环），got {segs_total}"
+    assert fr["pick"] == 0, f"世代标记休眠后应无可拾取标记：{fr}"
     assert fr["ungrp"] and "未分组" in fr["ungrp"], f"合成沙盒应聚合为未分组行星：{fr}"
     # V11.5f 执行中卡片覆盖层：live attempt 数 == 执行卡数（连线钉星球屏位）
     live_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return b.tasks.reduce((n, t) => n + (t.attemptLog ?? []).filter(a => a.outcome === null).length, 0) }")
@@ -283,9 +285,15 @@ with sync_playwright() as p:
     page.mouse.move(spot["x"], spot["y"]); page.mouse.wheel(0, -900); page.wait_for_timeout(1000)
     d2 = cam()["dist"]
     assert abs(d2 - d1) > 8, f"滚轮应缩放（往复距离变化）：{d1:.0f}->{d2:.0f}"
-    page.mouse.dblclick(spot["x"], spot["y"]); page.wait_for_timeout(2800)
-    c3 = cam()
-    assert abs(c3["cx"] - c0["cx"]) < 2 and abs(c3["dist"] - c0["dist"]) < 8 and min(abs(c3["yaw"] - c0["yaw"]), 2 * 3.14159 - abs(c3["yaw"] - c0["yaw"])) < 0.05, f"双击应复位（含平移归零；headless 软光栅 rAF 慢须长等阻尼收敛）：{c0}->{c3}"
+    page.mouse.dblclick(spot["x"], spot["y"])
+    # V16.4-R7：固定 2800ms 在慢机/headless 软光栅下收敛不足（阻尼指数收敛，
+    # 帧率决定时长）——轮询等待到位，上限 15s。
+    import time as _t
+    c3 = cam(); _deadline = _t.time() + 15
+    def _near(a, b): return abs(a["cx"] - b["cx"]) < 2 and abs(a["dist"] - b["dist"]) < 8 and min(abs(a["yaw"] - b["yaw"]), 2 * 3.14159 - abs(a["yaw"] - b["yaw"])) < 0.05
+    while not _near(c3, c0) and _t.time() < _deadline:
+        page.wait_for_timeout(500); c3 = cam()
+    assert _near(c3, c0), f"双击应复位（含平移归零；轮询 15s 仍未收敛）：{c0}->{c3}"
     page.screenshot(path=str(OUT / "v10-map.png"))
     print("P2 map ok")
 

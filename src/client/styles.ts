@@ -237,6 +237,9 @@ body[data-ds-dark-theme] .war-root{
 .war-island-badge.hot{color:var(--war-fail);border-color:var(--war-fail-border);font-weight:600}
 .war-island-badge.wait{color:var(--war-wait);border-color:var(--war-wait-border)} /* V16.4 P2-1：琥珀=等你搬到徽标（等外勤小队是机器等待，四数全中性） */
 .war-island-visitmini{font-size:12px;color:var(--war-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.war-vm-seg.done{color:var(--war-done)} /* V16.4-R7：delta 语义染色 */
+.war-vm-seg.fail{color:var(--war-fail)}
+.war-vm-seg.run{color:var(--war-run-strong)}
 .war-island-spacer{flex:1 1 auto;min-width:4px}
 .war-island-pinned{font-size:12px;flex:0 0 auto}
 .war-island .war-btn{padding:2px 10px;line-height:18px;font-size:12px;flex:0 0 auto}
@@ -518,7 +521,8 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-chip.sched{color:var(--war-run-strong);border-color:var(--war-run-border);border-style:dashed;background:var(--war-run-tint);font-weight:600}
 
 /* --- V9.2 起草器重设计（说明 + 档位/时机选项卡 + cron）---------------------- */
-.war-composer-modal{max-width:640px}
+.war-composer-modal{max-width:640px;max-height:80vh;overflow-y:auto}
+.war-composer-modal .war-modal-actions,.war-composer-modal .war-cp-kbd{position:sticky;bottom:0;background:var(--war-card-bg)} /* V16.4-R7：滚动时提交行/快捷键行不裁 */ /* V16.4-R5 critique P2：cron/星球二级全展开会越 80vh——节体可滚，不再裁按钮行 */
 .war-cp-section{font-size:13px;font-weight:600;color:var(--war-text-2);margin:12px 0 6px}
 .war-grade-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .war-grade-cards.war-sched-cards{grid-template-columns:repeat(2,1fr)}
@@ -733,7 +737,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-map-legend{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--war-text-2);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-border-soft);pointer-events:none;white-space:nowrap}
 .war-map-legend .war-legend-dot{flex:0 0 auto}
 /* V10.1 星域指路 toast（一次性） */
-.war-map-hint{position:fixed;right:18px;bottom:calc(var(--war-dock-h, 0px) + 18px);z-index:40;max-width:340px;padding:8px 10px 8px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);display:flex;align-items:center;gap:6px} /* V16.4-R2：抬到调度条上方（dock 实测高变量）+ 内部主/忽略两钮 */
+.war-map-hint{position:fixed;left:50%;transform:translateX(-50%);top:60px;bottom:auto;z-index:40;max-width:340px;padding:8px 10px 8px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);display:flex;align-items:center;gap:6px} /* V16.4-R2：抬到调度条上方（dock 实测高变量）+ 内部主/忽略两钮 */
 .war-map-hint-main{cursor:pointer;background:none;border:none;font:inherit;color:inherit;text-align:left;padding:0}
 .war-map-hint-main:hover{color:var(--war-run-strong)}
 .war-map-hint-x{flex:none;cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-border);color:var(--war-text-2);background:transparent}

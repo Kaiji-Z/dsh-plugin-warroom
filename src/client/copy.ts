@@ -25,7 +25,37 @@ export interface WarCopy {
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
-  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; mapHintDismiss: string; untraced: string; controls: string; ungrouped: string }
+  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; mapHintDismiss: string; untraced: string; controls: string; ungrouped: string
+    /** V16.4-R5 critique P1：星域层文案并词典（此前 starfield3d/wzLog/2D 标题 ~20 条
+     *  硬编码绕过 activeCopy——V16「改一处词典三皮肤同步」的结构性保证在地图半边失效）。 */
+    hqName: string
+    hqTag: string
+    hqDesc: string
+    wzStWait: string
+    wzStBattle: string
+    wzStHeld: string
+    legendWait: string
+    legendBattle: string
+    legendHeld: string
+    legendHl: string
+    legendFront: string
+    hintCmd: string
+    hint3d: string
+    toggle3d: string
+    toggle2d: string
+    toggleAria: string
+    bfPanelAria: string
+    bfPanelEmpty: string
+    xcardPrefix: string
+    footStat: (squads: number, planets: number, fronts: number) => string
+    kbGroupAria: string
+    logOrder: string
+    logTriumph: string
+    logRetreat: string
+    logReview: string
+    garrisonTitle: (active: number, awaiting: number, triumphs: number, failing: number) => string
+    garrisonAria: (label: string, active: number, awaiting: number, triumphs: number, failing: number) => string
+  }
   /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
   front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string; originChip: (bf: string | null, title: string) => string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string; segActive: string; segSettled: string }
@@ -571,6 +601,33 @@ export const warCopy: WarCopy = {
     controls: '左键拖拽平移 · 中键旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
     untraced: '未溯源执行',
     ungrouped: '未分组',
+    hqName: 'HEADQUARTERS',
+    hqTag: '元首 · 指挥中枢',
+    hqDesc: '作战室旗舰「太空总部」——你的全部战场与执行编队由此投送调度。',
+    wzStWait: '待进攻',
+    wzStBattle: '执行中',
+    wzStHeld: '已占领',
+    legendWait: '待进攻',
+    legendBattle: '执行中',
+    legendHeld: '已占领',
+    legendHl: '聚焦轨迹',
+    legendFront: '战线环（分段=战线数）',
+    hintCmd: '点击战场 看战线 · 拖卡 摆位 · V 切换视图 · M 回列表',
+    hint3d: '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表',
+    toggle3d: '3D 视图',
+    toggle2d: '2D 视图',
+    toggleAria: '视图切换',
+    bfPanelAria: '战场战线清单',
+    bfPanelEmpty: '该战场暂无战线（任务待成形）',
+    xcardPrefix: '作战中：',
+    footStat: (sq, pl, fr) => `${sq} 队在外 · ${pl} 战场 · ${fr} 战线`,
+    kbGroupAria: '战场清单（键盘直达战线面板）',
+    logOrder: '下令',
+    logTriumph: '达成',
+    logRetreat: '败退',
+    logReview: '任务回报待验收',
+    garrisonTitle: (ac, aw, tr, fa) => `活跃 ${ac} · 待发 ${aw} · 达成 ${tr} · 折戟 ${fa}`,
+    garrisonAria: (lb, ac, aw, tr, fa) => `战场 ${lb}：活跃 ${ac}、待发 ${aw}、达成 ${tr}、折戟 ${fa}——跳最近的源命令`,
   },
   front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, originChip: (bf, title) => `续接自 ${bf === null ? '别的战场' : bf}·${title}`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
@@ -700,14 +757,14 @@ export const warCopy: WarCopy = {
     // V10.1 审查：零段折叠（三个 0 是胶囊噪音）。V12.2 元首令「让图例失业」：
     // 等待对象后缀化（等·参谋/等·指挥官）——词本身自消歧，图例 待×3 行删除。
     counts: c =>
-      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `作战 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
+      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     // V16.4-R3 critique P1-2：岛计数可点——分段结构化（kind 路由到列），词仍过词表。
     countSegs: c =>
       [
         c.pending > 0 ? { kind: 'pending' as const, label: `等·参谋 ${c.pending}` } : null,
         c.waiting > 0 ? { kind: 'waiting' as const, label: `等·指挥官 ${c.waiting}` } : null,
-        c.active > 0 ? { kind: 'active' as const, label: `作战 ${c.active}` } : null,
+        c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
         c.failed > 0 ? { kind: 'failed' as const, label: `折戟 ${c.failed}` } : null,
       ].filter(x => x !== null),
     inboxBadge: n => `✉ ${n}`,
@@ -954,6 +1011,33 @@ export const plainCopy: WarCopy = {
     controls: '左键拖动平移 · 中键转视角 · 滚轮缩放 · 双击或 R 回正 · 悬停亮点查看关联',
     untraced: '还没关联命令',
     ungrouped: '杂项',
+    hqName: 'HEADQUARTERS',
+    hqTag: '我 · 指挥中枢',
+    hqDesc: '工作台总部——你的全部项目和执行中的活都从这里调度。',
+    wzStWait: '待执行',
+    wzStBattle: '进行中',
+    wzStHeld: '已完成',
+    legendWait: '待执行',
+    legendBattle: '进行中',
+    legendHeld: '已完成',
+    legendHl: '聚焦轨迹',
+    legendFront: '战线环（分段=战线数）',
+    hintCmd: '点项目 看详情 · 拖卡 摆位 · V 切换视图 · M 回列表',
+    hint3d: '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表',
+    toggle3d: '3D 视图',
+    toggle2d: '2D 视图',
+    toggleAria: '视图切换',
+    bfPanelAria: '项目战线清单',
+    bfPanelEmpty: '该项目暂无战线（任务待成形）',
+    xcardPrefix: '进行中：',
+    footStat: (sq, pl, fr) => `${sq} 个进行中 · ${pl} 个项目 · ${fr} 条线`,
+    kbGroupAria: '项目清单（键盘直达战线面板）',
+    logOrder: '新建',
+    logTriumph: '完成',
+    logRetreat: '失败',
+    logReview: '待验收',
+    garrisonTitle: (ac, aw, tr, fa) => `进行中 ${ac} · 待执行 ${aw} · 完成 ${tr} · 失败 ${fa}`,
+    garrisonAria: (lb, ac, aw, tr, fa) => `项目 ${lb}：进行中 ${ac}、待执行 ${aw}、完成 ${tr}、失败 ${fa}——跳最近的源命令`,
   },
   front: { genN: n => `${n} 代`, taskN: n => `${n} 件事`, originChip: (bf, title) => `来自 ${bf === null ? '别的项目' : bf}·${title}`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
@@ -1140,6 +1224,10 @@ const TREK_LEXICON: ReadonlyArray<readonly [string, string]> = [
   ['战时', '出航'],
   ['停战', '入坞'],
   ['凯旋', '达成'],
+  ['败退', '挫败'],
+  ['打赢了', '圆满'],
+  ['已失败', '挫败'],
+  ['失败', '挫败'],
 ]
 
 /** 词表换不掉的语境修正（作用于变换后的文本）：源串里「战场」与「星/行星」

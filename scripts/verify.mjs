@@ -277,6 +277,9 @@ gate('bundle', () => {
     [client, 'war-wz-kbplanet', 'V16.4-R2 keyboard mirror buttons for planet front panels (canvas was pointer-only)'],
     [client, 'war-map-hint-x', 'V16.4-R2 map-hint toast dismissible + dock-aware position'],
     [client, 'mapHintDismiss', 'V16.4-R2 dismiss copy rides the skin lexicon'],
+    [client, 'garrisonTitle', 'V16.4-R5 starfield 2D garrison title rides the lexicon (no hardcoded Chinese)'],
+    [client, 'logRetreat', 'V16.4-R5 speedlog verbs through the lexicon (败退→挫败 trek unify)'],
+    [client, '.war-composer-modal{max-width:640px;max-height:80vh;overflow-y:auto', 'V16.4-R5 composer body scrolls (cron expand cannot clip actions)'],
     [client, "location.hash.match(/^#war-cmd-", 'V16.4 focus page state rides URL hash (refresh/share safe)'],
     // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。
     [client, '--war-text-1: var(--dsw-alias-label-primary)', 'text semantic middle layer (component rules stop piercing dsw aliases)'],

@@ -449,6 +449,8 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   // 发·◎ 聚焦；全空给「无快捷操作」占位）——行高恒定，坞内所有命令卡同尺寸。
   const preflight = stalledOnUserPlan(cmd)
   const cancelledNote = cmd.status === 'cancelled' && cmd.cancelledReason !== null
+  // V16.4-R7：tour 内成形 ghost（drafting/talking/plan）在场即由它发言
+  const ghostSpeaks = tour && formingVariantOf(cmd, chain) !== null
     ? activeCopy().commandDetail.cancelledReason(cmd.cancelledReason)
     : null
   const activate = (): void => { onDetail(cmd) }
@@ -488,13 +490,15 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   // R3 全生命周期阶段条：命令不因发布而死卡——任务/执行/任务回报进度常驻卡上。
   LifeStrip(cmd, chain),
   // R4 通知行：夜间预检后果提示 / 取消原因；空也保留行位（恒高）。
+  // V16.4-R7 critique P2-1：tour 里成形 ghost 卡就是该状态的唯一发言人——R4 行
+  // 退为占位（恒高保形，文字不三重复读「自动推进」）。
   createElement('div', {
-    className: `war-card-note${preflight ? ' war-preflight is-wait' : cancelledNote !== null ? ' is-fail' : ''}`,
-    ...(preflight ? { title: activeCopy().preflight.title } : {}),
+    className: `war-card-note${preflight && !ghostSpeaks ? ' war-preflight is-wait' : cancelledNote !== null ? ' is-fail' : ''}`,
+    ...(preflight && !ghostSpeaks ? { title: activeCopy().preflight.title } : {}),
   },
-    preflight
+    preflight && !ghostSpeaks
       ? createElement('span', { className: 'war-preflight-text' }, activeCopy().preflight.hint)
-      : cancelledNote,
+      : ghostSpeaks ? null : cancelledNote,
   ),
   // R5 快捷操作行：进入对话 / 改直发（V7-④ 出口）/ ◎ 聚焦；tour 变体全空给占位；
   // history 变体（组展开面板里的历代卡）无此行——过去的命令不再需要操作，只可点看。
@@ -1695,7 +1699,9 @@ function WarIsland(props: {
           window.setTimeout(() => { el.classList.remove('war-flash') }, 1600)
         }
         const go = (): void => {
-          if (seg.kind === 'pending') { setPinned(true); return }
+          // V16.4-R7 critique A6：统一手势——四段全部 flash 列内目标卡（等·大副的
+          // 卡=任务列成形卡），钉岛留给 ✉ 徽标，同一动作不再两种结果。
+          if (seg.kind === 'pending') { flash(document.querySelector('.war-zone.war-tasks .war-forming')); return }
           if (seg.kind === 'waiting') { flash(document.querySelector('.war-zone.war-tasks .war-chip.st-published')?.closest('.war-card') ?? null); return }
           if (seg.kind === 'active') { flash(document.querySelector('.war-zone.war-field .war-card')); return }
           flash(document.querySelector('.war-zone.war-report .war-chip.oc-fail')?.closest('.war-card') ?? null)
@@ -1720,7 +1726,10 @@ function WarIsland(props: {
       ? createElement('span', {
           className: 'war-island-visitmini',
           title: lastSeen > 0 ? activeCopy().visit.since(relTime(new Date(lastSeen).toISOString(), now)) : activeCopy().visit.firstSeen,
-        }, copy.visitMini(visit.closed, visit.failed, visit.commands))
+        }, copy.visitMini(visit.closed, visit.failed, visit.commands).split(' · ').map((seg, i) =>
+          // V16.4-R7 critique P2-2：delta 按四档语义染色（收官绿/挫败红/新令蓝）——
+          // 「什么变了」从 hover 二阶信息升为首屏可扫的一阶信号。
+          createElement('span', { key: `vm-${i}`, className: `war-vm-seg${seg.startsWith('✕') ? ' fail' : seg.startsWith('✓') ? ' done' : seg.startsWith('＋') || seg.startsWith('✚') ? ' run' : ''}` }, seg)))
       : null,
     focusText !== null
       ? createElement('button', {
@@ -2311,14 +2320,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }
     // V12.2：速报色 kind 化——值由 --war-log-* 令牌解析（浅压深/深原亮），不再散写 hex。
     const logOrder = warLogKindColor('order'), logTriumph = warLogKindColor('triumph'), logRetreat = warLogKindColor('retreat'), logReview = warLogKindColor('review')
-    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: logOrder, text: `下令 · ${displayTitleOf(c.text).slice(0, 18)}` }))
+    // V16.4-R5 critique P1：速报动词并词典（下令/达成/败退/待验收——trek 败退→挫败）。
+    const wzv = activeCopy().starfield
+    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: logOrder, text: `${wzv.logOrder} · ${displayTitleOf(c.text).slice(0, 18)}` }))
     for (const t of tasks) {
       const src = commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? t.title.slice(0, 12)
       for (const a of t.attemptLog ?? []) {
         if (a.outcome === null || a.endedAt === null) continue
-        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: logTriumph, text: `达成 · ${src}` })
-        else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: logRetreat, text: `败退 · ${src}` })
-        else wzLogFeed.push({ ts: a.endedAt, color: logReview, text: `任务回报待验收 · ${src}` })
+        if (a.outcome === 'succeeded') wzLogFeed.push({ ts: a.endedAt, color: logTriumph, text: `${wzv.logTriumph} · ${src}` })
+        else if (a.outcome === 'failed') wzLogFeed.push({ ts: a.endedAt, color: logRetreat, text: `${wzv.logRetreat} · ${src}` })
+        else wzLogFeed.push({ ts: a.endedAt, color: logReview, text: `${wzv.logReview} · ${src}` })
       }
     }
     const wzLog = warLogOf(wzLogFeed)

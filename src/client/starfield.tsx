@@ -9,6 +9,7 @@
 import { createElement, useState, type ReactNode } from 'react'
 import type { BoardAttempt, BoardTask } from './data.ts'
 import { UNGROUPED_WS_KEY } from './front.ts'
+import { activeCopy } from './copy.ts'
 
 /** FNV-1a + murmur3 终结混叠 → [0,1)：相位/角度种子的唯一来源（同输入恒同输出）。
  * 终结混叠必须要有：裸 FNV-1a 对「只差末位一个字符的连续键」（星星 `key:0..N`）
@@ -252,8 +253,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'data-ws-index': String(spec.ring),
         'data-triumphs': String(garrison.triumphs),
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
-        title: `${labelOf(spec.wsPath)} · 活跃 ${garrison.orbs.length} · 待发 ${garrison.awaiting} · 达成 ${garrison.triumphs} · 败 ${garrison.failing}`,
-        'aria-label': `星球 ${labelOf(spec.wsPath)}：活跃 ${garrison.orbs.length}、待发 ${garrison.awaiting}、达成 ${garrison.triumphs}、败 ${garrison.failing}——跳最近的源命令`,
+        title: `${labelOf(spec.wsPath)} · ${activeCopy().starfield.garrisonTitle(garrison.orbs.length, garrison.awaiting, garrison.triumphs, garrison.failing)}`,
+        'aria-label': activeCopy().starfield.garrisonAria(labelOf(spec.wsPath), garrison.orbs.length, garrison.awaiting, garrison.triumphs, garrison.failing),
         onClick: () => { setBfPanel(spec.wsPath) },
         onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBfPanel(spec.wsPath) } },
       },

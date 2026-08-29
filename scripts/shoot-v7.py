@@ -181,7 +181,7 @@ with sync_playwright() as p:
     assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"
     assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
     report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()
-    assert any("打赢" in c for c in report_chips) and any("失败" in c for c in report_chips), f"report column must merge succeeded+failed: {report_chips}"
+    assert any("圆满" in c for c in report_chips) and any("挫败" in c for c in report_chips), f"report column must merge succeeded+failed (V16.4-R7 一词一面: 圆满/挫败): {report_chips}"
     assert any("待翻阅" in c for c in page.locator(".war-col.zone-tasks .war-chip").all_inner_texts()), "tasks column should hold non-terminal tasks"
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
