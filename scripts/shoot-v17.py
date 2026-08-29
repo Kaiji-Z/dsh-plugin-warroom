@@ -100,23 +100,59 @@ with sync_playwright() as p:
     print("④ gate on non-terminal ok")
 
 
-    # --- ⑥ A-② 星域星球集合随页签过滤 --------------------------------------
-    def planet_count():
+    # --- ⑥ V18 星域与页签解耦：星球=注册工作区，切页签星域不变；
+    # 发光态覆盖 active（进行中蓝）/settled（已收官绿）两谱。 ------------------
+    def planet_stats():
         page.keyboard.press("m")
         page.wait_for_timeout(2600)
-        n = page.evaluate("() => window.__wz ? window.__wz.scene.planets.length : -1")
+        st = page.evaluate("""() => {
+          if (!window.__wz) return null
+          const ps = window.__wz.scene.planets
+          return { n: ps.length, states: [...new Set(ps.map(p => p.state))] }
+        }""")
         page.keyboard.press("m")
         page.wait_for_timeout(1200)
-        return n
+        return st
 
-    click_tab("进行中")  # ⑥ 在归档（⑤）之前跑——已归档页签此刻为空态
-    n_active = planet_count()
-    click_tab("已归档")
-    n_arch = planet_count()
+    click_tab("进行中")  # ⑥ 在归档（⑤）之前跑
+    st_a = planet_stats()
+    click_tab("已收官")
+    st_s = planet_stats()
     click_tab("进行中")
-    assert n_active > 0 and n_arch == 0 and n_arch < n_active, \
-        f"星域星球数应随页签过滤（空归档页签=0 星球）：active={n_active} archived={n_arch}"
-    print(f"⑥ starfield filter ok: active={n_active} archived={n_arch}")
+    assert st_a and st_a["n"] >= 2, f"注册星球应 ≥2：{st_a}"
+    assert st_a["n"] == st_s["n"], f"星域不得随页签变化（舰长令）：active={st_a['n']} settled={st_s['n']}"
+    assert "active" in st_a["states"] and "settled" in st_a["states"],         f"发光态应同时含进行中/已收官：{st_a['states']}"
+    print(f"⑥ starfield decoupled ok: n={st_a['n']} states={st_a['states']}")
+
+    # --- ⑥b V18 HQ 点击 → 工作区注册弹窗；注册 E2E（真实目录 → 星球+1）------
+    import os as _os
+    page.keyboard.press("m")
+    page.wait_for_timeout(2600)
+    hqclick = page.evaluate("""() => {
+      const hq = window.__wz.hqScreen()
+      const cv = document.querySelector('.war-starfield') || document.querySelector('.war-wz-tac')
+      const r = cv.getBoundingClientRect()
+      return { x: r.left + hq.x, y: r.top + hq.y }
+    }""")
+    page.mouse.click(hqclick["x"], hqclick["y"])
+    page.wait_for_timeout(900)
+    assert page.locator(".war-hq-picker").count() == 1, "HQ 点击应开工作区注册弹窗"
+    page.locator(".war-hq-picker-x").click()
+    page.wait_for_timeout(500)
+    ws_dir = _os.path.abspath(".smoke-state/ws/hq-e2e").replace("\\", "/")
+    _os.makedirs(ws_dir, exist_ok=True)
+    reg = page.evaluate("""async (p) => {
+      const r = await fetch('/warroom/api/planets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: p, title: 'hq-e2e' }) })
+      return await r.json()
+    }""", ws_dir)
+    assert reg.get("ok") is True, f"注册真实目录应成功：{reg}"
+    page.wait_for_timeout(1800)
+    n2 = page.evaluate("() => window.__wz.scene.planets.length")
+    page.keyboard.press("m")
+    page.wait_for_timeout(1000)
+    assert n2 == st_a["n"] + 1, f"注册后星球应 +1：{st_a['n']} → {n2}"
+    print(f"⑥b HQ picker ok (planet {st_a['n']}->{n2})")
+    page.wait_for_timeout(2600)  # SSE(3s retry)+重渲染落定——⑧ 立即量几何会撞上换轴瞬间
 
     # --- ⑧ B-② 列表态：overlay 在场 + 常显管段不穿卡体 ------------------------
     pipe = page.locator(".war-pipe-svg")
@@ -155,15 +191,60 @@ with sync_playwright() as p:
         const dattr = path.getAttribute('d') || ''
         if (!dattr.trim()) continue
         const L = path.getTotalLength()
+        // 端口豁免：子路径首尾 12px 是进/出端口的贴边短柱（卡=导管），不算穿卡。
+        const segBounds = []
+        for (const m of dattr.matchAll(/M\s+[\d.-]+ [\d.-]+/g)) segBounds.push(m.index)
         for (let i = 0; i <= 120; i++) {
-          const p = path.getPointAtLength(L * i / 120)
+          const at = L * i / 120
+          let nearEnd = at < 18 || at > L - 18
+          if (!nearEnd && segBounds.length > 1) {
+            // 子路径起点近似：按 d 字符占比映射弧长——只作豁免粗判，宁宽勿严。
+            for (const idx of segBounds.slice(1)) {
+              const approx = (idx / dattr.length) * L
+              if (Math.abs(at - approx) < 14) { nearEnd = true; break }
+            }
+          }
+          if (nearEnd) continue
+          const p = path.getPointAtLength(at)
           for (const c of cards)
             if (p.x > c.x1 + INS && p.x < c.x2 - INS && p.y > c.y1 + INS && p.y < c.y2 - INS) { hits += 1; break }
         }
       }
       return hits
     }""")
-    assert crosses == 0, f"管段穿卡体采样命中 {crosses} 次（管走沟槽不许穿卡）"
+    if crosses > 0:
+        diag = page.evaluate("""() => {
+          const svg = document.querySelector('.war-pipe-svg')
+          const box = svg.getBoundingClientRect()
+          const visRect = (el) => {
+            let r = el.getBoundingClientRect()
+            let n = el.parentElement
+            while (n && n !== document.body) {
+              const o = getComputedStyle(n).overflowY
+              if (['auto','scroll','hidden','clip'].includes(o)) {
+                const c = n.getBoundingClientRect()
+                r = { top: Math.max(r.top, c.top), bottom: Math.min(r.bottom, c.bottom), left: Math.max(r.left, c.left), right: Math.min(r.right, c.right) }
+              }
+              n = n.parentElement
+            }
+            return r
+          }
+          const cards = [...document.querySelectorAll('[data-pipe-cmd],[data-pipe-task],[data-pipe-sess],[data-pipe-forming]')]
+            .map(el => { const r = visRect(el); return { id: (el.getAttribute('data-pipe-task')||el.getAttribute('data-pipe-cmd')||el.getAttribute('data-pipe-sess')||'?').slice(-12), x1: r.left-box.left, y1: r.top-box.top, x2: r.right-box.left, y2: r.bottom-box.top } })
+          for (const path of svg.querySelectorAll('path[d]')) {
+            const d = (path.getAttribute('d')||'').trim()
+            if (!d) continue
+            const L = path.getTotalLength()
+            for (let i = 0; i <= 120; i++) {
+              const pt = path.getPointAtLength(L * i / 120)
+              for (const c of cards)
+                if (pt.x > c.x1+2 && pt.x < c.x2-2 && pt.y > c.y1+2 && pt.y < c.y2-2) return { pt: [Math.round(pt.x),Math.round(pt.y)], card: c, d: d.slice(0,110) }
+            }
+          }
+          return null
+        }""")
+        raise AssertionError(f"管段穿卡体采样命中 {crosses} 次：{diag}")
+    assert crosses == 0, "unreachable"
     page.screenshot(path=str(OUT / "v17-pipes-list.png"))
     print(f"⑧ list pipes ok: {n_paths} paths, 0 card-crossings")
 
@@ -319,6 +400,10 @@ with sync_playwright() as p:
     page.wait_for_timeout(700)
     assert rel_dim() >= 1, "星球悬停应高亮相关卡片族（非族卡压暗）"
     page.mouse.down(); page.mouse.up()
+    page.wait_for_timeout(400)
+    assert page.locator(".war-wz-bfpanel").count() == 1, "V18 点星球应同时开战线列表面板"
+    page.locator(".war-wz-bfpanel-x").click()
+    page.wait_for_timeout(300)
     page.mouse.move(860, 60)
     page.wait_for_timeout(700)
     assert rel_dim() >= 1, "星球点击后高亮聚焦应粘滞（悬停离开仍在）"
@@ -425,13 +510,11 @@ with sync_playwright() as p:
          "errs": errors[-3:]})
     assert page.locator(".war-dispatch .war-command-card", has_text="查清楚登录重定向测试为什么老挂").count() == 1, \
         "已归档页签应含刚归档的命令卡"
-    # 归档后星球随页签过滤（后半：归档页签现在应有该命令的星球）
-    click_tab("已归档")
-    n_arch2 = planet_count()
-    click_tab("进行中")
-    assert n_arch2 >= 1, f"归档后已归档页签星球应 ≥1：{n_arch2}"
+    # V18 归档不改星域（星球=注册工作区，与命令生命周期解耦）
+    st_post = planet_stats()
+    assert st_post["n"] == n2, f"归档后星域星球数应不变：pre={n2} post={st_post['n']}"
     page.screenshot(path=str(OUT / "v17-archived-after.png"))
-    print(f"⑤ archive flow ok (archived-tab planets={n_arch2})")
+    print(f"⑤ archive flow ok (starfield constant n={st_post['n']})")
 
     # --- ⑦ A-③ 归档实证：账面会话已从宿主清单消失 ---------------------------
     board = api("/warroom/api/board")

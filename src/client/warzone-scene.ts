@@ -167,11 +167,17 @@ const dirNameOf = (wsPath: string): string => {
   return parts.length > 0 ? parts[parts.length - 1]! : wsPath
 }
 
+export type WzPlanetState = 'active' | 'settled' | 'failed' | 'idle'
+
 export interface WzBridgePlanet {
   readonly wsPath: string
   /** 历史任务量（大小分级依据：多仗=大星）。 */
   readonly activity: number
   readonly status: '待进攻' | '执行中' | '已占领'
+  /** V18 星球生命周期态（发光语义：active=蓝机器在动/settled=绿善终/failed=红败/idle=金待命）。 */
+  readonly state: WzPlanetState
+  /** V18 星球名（注册时的工作区名；缺省回落目录名）。 */
+  readonly title?: string | null
   /** 达成数（驻军弧）。 */
   readonly garrison: number
   readonly failing: number
@@ -233,7 +239,7 @@ export function warzoneLayoutFor(wsPaths: readonly string[], activity: readonly 
     return {
       index: i,
       cls,
-      name: `${dirNameOf(wsPath)} · W-${pad2(i + 1)}`,
+      name: dirNameOf(wsPath),
       radius,
       level: cls === 'large' ? 4 : cls === 'medium' ? 3 : detBool(`lv:${k}`, 0.5) ? 2 : 1,
       hue: hues[i % hues.length]! + det(`hu:${k}`, -0.03, 0.03),
@@ -312,6 +318,7 @@ export interface WzPlanet {
   haloScale: number
   orbit: WzPlanetSpec['orbit']
   status: WzStatus
+  state: WzPlanetState
   garrison: number
   failing: number
   battleT: number
@@ -771,6 +778,10 @@ export class WarzoneScene {
   private readonly cBattle = new THREE.Color('#ff6a55')
   private readonly cHeld = new THREE.Color('#66d4ff')
   private readonly cWait = new THREE.Color('#b07800')
+  /** V18 星球生命周期态色（active=蓝/settled=绿/failed=红；idle 走 cWait 金）。 */
+  private readonly cActive = new THREE.Color('#5aa9ff')
+  private readonly cSettled = new THREE.Color('#4cd98e')
+  private readonly cFailed = new THREE.Color('#ff5f56')
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     // alpha:true（舰长定）：画布透明，容器 CSS 底透出。
@@ -845,12 +856,12 @@ export class WarzoneScene {
   /** 单星球落子（V11.5h NASA 自然色）：Group = 表面 + 云壳（terra/rust）+ 大气
    * 临边辉（非 gray）± 环（气巨 55%）+ halo 状态光晕 + pick 代理，全部本地坐标
    * （轨道推进只推 group）。贴图走模块缓存（arch:wsPath 键，SSE 重建零重画）。 */
-  private addPlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
-    return this.isDarkTheme ? this.addSpacePlanet(spec, wsPath, status, garrison, failing, inbound) : this.addSkyIsland(spec, wsPath, status, garrison, failing, inbound)
+  private addPlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number, state: WzPlanetState = 'idle', title: string | null = null): WzPlanet {
+    return this.isDarkTheme ? this.addSpacePlanet(spec, wsPath, status, garrison, failing, inbound, state, title) : this.addSkyIsland(spec, wsPath, status, garrison, failing, inbound, state, title)
   }
 
   /** 深空星球（V11.5h NASA 六原型）。 */
-  private addSpacePlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
+  private addSpacePlanet(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number, state: WzPlanetState = 'idle', title: string | null = null): WzPlanet {
     const arch = archetypeOf(wsPath)
     const post = PAINT_POST[arch]
     const { map, bump } = paintedMaps(`wz:${arch}:${wsPath}`, (img, bimg) => PAINTERS[arch](img, bimg, wsPath), post === undefined ? undefined : (ctx, bctx) => post(ctx, bctx, wsPath))
@@ -901,7 +912,7 @@ export class WarzoneScene {
     const p: WzPlanet = {
       kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
       radius: spec.radius, mesh: group, cloud, halo, proxy, baseGlow, haloScale: spec.radius * 3.0,
-      orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
+      orbit: spec.orbit, status, state, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
       seed: spec.seed, rot: spec.rotSpeed, ring: null, pillar: null,
     }
     surface.userData.ref = p
@@ -914,7 +925,7 @@ export class WarzoneScene {
   /** 浅色浮空岛（V12 舰长定案：王国之泪层岩为主+纳格兰垂坠石点缀）——workspace=岛。
    * 语义物理化（选型红利）：LV2+长建筑=打过仗、层级/建筑密度=任务量、达成史=
    * 发光达成碑、状态=基座环色+执行光柱（白天辉光失效的正解）。全 hash 确定性。 */
-  private addSkyIsland(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number): WzPlanet {
+  private addSkyIsland(spec: WzPlanetSpec, wsPath: string, status: WzStatus, garrison: number, failing: number, inbound: number, state: WzPlanetState = 'idle', title: string | null = null): WzPlanet {
     const k = `isl:${wsPath}`
     const R = spec.radius
     const group = new THREE.Group()
@@ -994,7 +1005,7 @@ export class WarzoneScene {
     const p: WzPlanet = {
       kind: 'planet', id: spec.index, name: spec.name, wsPath, cls: spec.cls, level: spec.level,
       radius: R, mesh: group, cloud: null, halo, proxy, baseGlow, haloScale: R * 2.4,
-      orbit: spec.orbit, status, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
+      orbit: spec.orbit, status, state, garrison, failing, battleT: 0, ringT: 0, inbound, deployedSquads: [],
       seed: spec.seed, rot: spec.rotSpeed * 0.3, ring, pillar,
     }
     proxy.userData.ref = p
@@ -1513,7 +1524,7 @@ export class WarzoneScene {
     // V12.2 语义令牌刷新：CSS 是色源；美术资产（贴图/舰体/光照）仍走下方工厂分支。
     this.tac = readTacPalette(dark)
     this.logC = warLogColors(dark)
-    this.cHl.set(this.tac.hl); this.cBattle.set(this.tac.battle); this.cHeld.set(this.tac.held); this.cWait.set(this.tac.wait)
+    this.cHl.set(this.tac.hl); this.cBattle.set(this.tac.battle); this.cHeld.set(this.tac.held); this.cWait.set(this.tac.wait); this.cActive.set(this.tac.active); this.cSettled.set(this.tac.settled); this.cFailed.set(this.tac.failed)
     // V13：链色随主题翻转（浅压深/深原亮）——航迹层整组重建。
     if (this.lastFronts.length > 0) this.rebuildFrontLines(this.lastFronts)
     this.starGroup.visible = dark
@@ -1695,7 +1706,10 @@ export class WarzoneScene {
       group.position.copy(p.mesh.position)
       group.rotation.x = Math.PI / 2.4
       group.rotation.y = det(`fr:${ws}`, -0.5, 0.5)
-      const color = p.baseGlow.clone().lerp(new THREE.Color(light ? '#304050' : '#e8ecf2'), light ? 0.45 : 0.35)
+      // V18 舰长令：战线环=星球身份色（每星球一个独特色相，黄金角轮转最大
+      // 区分度）——不再取星球辉光底色混中性（平庸之源）。
+      const pi = this.planets.findIndex(q => q.wsPath === ws)
+      const color = new THREE.Color().setHSL(((pi + 1) * 0.61803398875) % 1, light ? 0.62 : 0.72, light ? 0.38 : 0.55)
       const segs = Math.max(count, 1)
       const gap = 0.24
       const arc = (Math.PI * 2) / segs - gap
@@ -1783,14 +1797,19 @@ export class WarzoneScene {
       p.mesh.rotation.y += p.rot * dt
       if (p.cloud !== null) p.cloud.rotation.y += p.rot * dt * 1.16
       if (this.isDarkTheme) {
+        // V18 发光=星球生命周期态（舰长令：进行中/已完成区分）：active=蓝脉动
+        // （机器在动）/settled=绿（善终）/failed=红（败）/idle=原型辉光金。
         _c1.copy(p.baseGlow)
         let op = 0.3
-        if (p.status === '执行中') {
-          _c1.copy(this.cBattle)
+        if (p.state === 'active') {
+          _c1.copy(this.cActive)
           op = 0.42 + 0.18 * Math.sin(t * 7 + p.seed * 6)
-        } else if (p.status === '已占领') {
-          _c1.lerp(_c2.copy(this.cHeld), 0.4)
-          op = 0.34
+        } else if (p.state === 'settled') {
+          _c1.copy(this.cSettled)
+          op = 0.36
+        } else if (p.state === 'failed') {
+          _c1.copy(this.cFailed)
+          op = 0.36
         }
         const hl = this.hlWs.has(p.wsPath)
         if (hl) { op = 0.58; _c1.lerp(_c2.copy(this.cHl), 0.35) }
@@ -1802,8 +1821,8 @@ export class WarzoneScene {
       } else if (p.ring !== null) {
         // V12 浅色：辉光失效——基座环+执行光柱接班状态语义（光柱=王国之泪语言）
         const rm = p.ring.material as THREE.MeshBasicMaterial
-        if (p.status === '执行中') {
-          rm.color.copy(this.cBattle)
+        if (p.state === 'active') {
+          rm.color.copy(this.cActive)
           rm.opacity = 0.5 + 0.25 * Math.sin(t * 7 + p.seed * 6)
           if (p.pillar !== null) {
             p.pillar.visible = true
@@ -1811,7 +1830,8 @@ export class WarzoneScene {
           }
         } else {
           if (p.pillar !== null) p.pillar.visible = false
-          if (p.status === '已占领') { rm.color.copy(this.cHeld); rm.opacity = 0.45 }
+          if (p.state === 'settled') { rm.color.copy(this.cSettled); rm.opacity = 0.45 }
+          else if (p.state === 'failed') { rm.color.copy(this.cFailed); rm.opacity = 0.42 }
           else { rm.color.copy(this.cWait); rm.opacity = 0.26 }
         }
         if (this.hlWs.has(p.wsPath)) { rm.color.copy(this.cHl); rm.opacity = 0.85 }
@@ -1900,7 +1920,8 @@ export class WarzoneScene {
       const specs = warzoneLayoutFor(bridge.planets.map(p => p.wsPath), bridge.planets.map(p => p.activity))
       for (const sp of specs) {
         const b = bridge.planets[sp.index]!
-        this.addPlanet(sp, b.wsPath, b.status, b.garrison, b.failing, b.inbound)
+        // V18 星球名=注册的工作区名（title），缺省目录名；规格不可变→浅拷贝改名。
+        this.addPlanet(b.title !== undefined && b.title !== null && b.title !== '' ? { ...sp, name: b.title } : sp, b.wsPath, b.status, b.garrison, b.failing, b.inbound, b.state, b.title ?? null)
       }
       this.rebuildHlLines()
       this.recalcCamBounds()
@@ -1911,6 +1932,7 @@ export class WarzoneScene {
         const p = this.planets[i]
         if (p === undefined) return
         p.status = b.status
+        p.state = b.state
         p.garrison = b.garrison
         p.failing = b.failing
         p.inbound = b.inbound
@@ -2113,7 +2135,7 @@ export class WarzoneTactical {
       // V17 压暗：非命中星球整体 ×0.35（名签/刻度环随 globalAlpha 同乘）。
       g.globalAlpha = dim === true && !(hl !== undefined && hl.has(p.wsPath)) ? 0.35 : 1
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
-      const col = p.status === '执行中' ? P.stBattle : p.status === '已占领' ? P.stHeld : P.stWait
+      const col = p.state === 'active' ? tac.active : p.state === 'settled' ? tac.settled : p.state === 'failed' ? tac.failed : P.stWait
       const rr = Math.max(7, p.radius * 0.9)
       const isHl = hl !== undefined && hl.has(p.wsPath)
       if (isHl) {
@@ -2122,7 +2144,7 @@ export class WarzoneTactical {
         g.strokeStyle = P.hlLine; g.lineWidth = 1.4; g.stroke()
         g.setLineDash([])
       }
-      if (p.status === '执行中') {
+      if (p.state === 'active') {
         const k = (t * 1.4 + p.seed) % 1
         g.beginPath(); g.arc(s1.x, s1.y, rr + 4 + k * 16, 0, PI2)
         g.strokeStyle = `rgba(${P.battlePulse},${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()

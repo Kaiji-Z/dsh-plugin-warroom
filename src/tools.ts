@@ -22,6 +22,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { join, relative, resolve, isAbsolute } from 'node:path'
 import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, type DirectiveGrade } from './directives.ts'
+import { registerPlanet } from './planets.ts'
 import { appendDossierEntry, dossierEntryFor } from './dossier.ts'
 import { appendEvent, foldCampaign, isActiveUnit, listCampaignIds, loadCampaign, readEvents } from './events.ts'
 import { checkClaim, checkDeployment, conscriptPlan, depsUnsatisfied, normalizeFront, sameWorkspace, workspaceConflict } from './rules.ts'
@@ -475,6 +476,7 @@ export function warTools(deps: WarToolsDeps) {
         ...(quality !== 'common' ? { quality } : {}), ...(depIds.length > 0 ? { deps: depIds } : {}),
       })
       appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: taskId, workspacePath: ws.path, publishedBy: staff.id, workspaceKind: composeWorkspaceKind(binding.kind, ws, binding.kind === 'bound' ? resolve(binding.path) : undefined) })
+      registerPlanet(deps.stateDir, ws.path)
       if (args.cron !== undefined && args.cron.trim() !== '') {
         appendEvent(deps.stateDir, { type: 'task_scheduled', ts: new Date().toISOString(), campaignId: taskId, cron: args.cron.trim(), enabled: true })
       }
@@ -1340,6 +1342,7 @@ export function warTools(deps: WarToolsDeps) {
           ...(i > 0 ? { deps: [ids[i - 1]!] } : {}),
         })
         appendEvent(deps.stateDir, { type: 'task_published', ts: new Date().toISOString(), campaignId: ids[i]!, workspacePath: ws.path, publishedBy: staff.id, workspaceKind: composeWorkspaceKind(binding.kind, ws, binding.kind === 'bound' ? abs : undefined) })
+      registerPlanet(deps.stateDir, ws.path)
       }
       // 命令卡链接链头（approved）；链尾收官即整条命令完成。
       appendDirectiveEvent(deps.stateDir, { type: 'directive_approved', ts: new Date().toISOString(), directiveId: directive.id, taskId: ids[0]! })

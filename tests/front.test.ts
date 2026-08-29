@@ -164,14 +164,17 @@ test('front: V14 本地计代与 origin 溯源——跨场段的锚是本地Ⅰ�
   assert.equal(front1.origin, null, '原生段无溯源')
 })
 
-test('front: V15 wsKeyOf kind 感知——真值分键，旧任务回落启发式', () => {
+test('front: V18 wsKeyOf 路径感知——合成沙盒归未分组，真实目录原样（kind 容忍）', () => {
   const U = UNGROUPED_WS_KEY
   assert.equal(wsKeyOf('D:/x/.warroom/tasks/t1', 'auto-dir'), U)
-  assert.equal(wsKeyOf('D:/repo/worktree-a', 'auto-worktree'), U, 'auto worktree-of-P 按真值归未分组（启发式会误判）')
   assert.equal(wsKeyOf('D:/smoke/.warroom/instances/i1-x', 'instance'), U)
   assert.equal(wsKeyOf('D:/repo/projA', 'bound'), 'D:/repo/projA')
-  assert.equal(wsKeyOf('D:/repo/wt-p', 'bound-worktree'), 'D:/repo/wt-p', 'bound-worktree 是舰长显式绑的星球=项目行星')
-  // 旧任务（kind null/undefined）回落路径启发式
+  assert.equal(wsKeyOf('D:/repo/wt-p', 'bound-worktree'), 'D:/repo/wt-p')
+  // V18（舰长令）：大副自建工作区=指定默认目录里的真实文件夹——instance/auto
+  // 落在真实路径时按路径键（可挂注册星球），只有 .warroom 树才归未分组。
+  assert.equal(wsKeyOf('D:/ws/projA/tasks/t1', 'auto-dir'), 'D:/ws/projA/tasks/t1')
+  assert.equal(wsKeyOf('D:/ws/warroom-workspaces/i1-x', 'instance'), 'D:/ws/warroom-workspaces/i1-x')
+  // 旧任务（kind null/undefined）同一路径启发式
   assert.equal(wsKeyOf('D:/x/.warroom/tasks/t1', null), U)
   assert.equal(wsKeyOf('D:/repo/projA'), 'D:/repo/projA')
 })

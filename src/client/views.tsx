@@ -1854,6 +1854,54 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
  * 休眠（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
+/** V18 HQ 工作区注册弹窗（舰长令：星球=宿主真实工作区）：列出宿主侧已建立
+ * 的工作区，选取注册为星球；注册闸在服务端（真实目录 + registry 收编）。 */
+function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; title: string | null }>; onClose: () => void; onRegistered: () => void }): ReactNode {
+  const { registered, onClose, onRegistered } = props
+  const layer = useModalLayer(onClose, activeCopy().starfield.hqPickerTitle)
+  const [rows, setRows] = useState<Array<{ workspaceId: string; path: string; title: string; sessionCount: number }> | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const regSet = new Set(registered.map(p => p.path))
+  useEffect(() => {
+    let alive = true
+    fetch('/warroom/api/host-workspaces').then(r => r.json()).then((j: { ok: boolean; workspaces?: typeof rows; error?: string }) => {
+      if (!alive) return
+      if (j.ok && j.workspaces !== undefined) setRows(j.workspaces)
+      else setErr(j.error ?? '宿主工作区清单缺席')
+    }).catch(e => { if (alive) setErr(String(e)) })
+    return () => { alive = false }
+  }, [])
+  const register = (path: string, title: string): void => {
+    setBusy(path)
+    fetch('/warroom/api/planets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path, title }) })
+      .then(r => r.json())
+      .then((j: { ok: boolean; error?: string }) => {
+        setBusy(null)
+        if (j.ok) onRegistered()
+        else setErr(j.error ?? '注册失败')
+      })
+      .catch(e => { setBusy(null); setErr(String(e)) })
+  }
+  return createElement('div', { className: 'war-modal', role: 'dialog', 'aria-label': activeCopy().starfield.hqPickerTitle, ...layer.props },
+    createElement('div', { className: 'war-hq-picker' },
+      createElement('div', { className: 'war-hq-picker-head' },
+        createElement('span', { className: 'war-hq-picker-title' }, activeCopy().starfield.hqPickerTitle),
+        createElement('button', { type: 'button', className: 'war-hq-picker-x', 'aria-label': '关闭', autoFocus: true, onClick: onClose }, '✕')),
+      createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerHint),
+      err !== null ? createElement('p', { className: 'war-hq-picker-err' }, err) : null,
+      rows === null && err === null ? createElement('p', { className: 'war-hq-picker-hint' }, '…') : null,
+      rows !== null && rows.length === 0 ? createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerEmpty) : null,
+      ...(rows ?? []).map(w => createElement('div', { key: w.workspaceId, className: 'war-hq-picker-row' },
+        createElement('span', { className: 'war-hq-picker-name' }, w.title),
+        createElement('span', { className: 'war-hq-picker-path' }, w.path),
+        regSet.has(w.path)
+          ? createElement('span', { className: 'war-hq-picker-done' }, activeCopy().starfield.hqPickerRegistered)
+          : createElement('button', { type: 'button', className: 'war-btn', disabled: busy === w.path, onClick: () => { register(w.path, w.title) } }, busy === w.path ? '…' : activeCopy().starfield.hqPickerRegister),
+      )),
+    ))
+}
+
 // V17.6 页签图标（皮肤中性——词表随皮肤变，图标不变；全名在 title/aria）。
 const CMD_TAB_ICONS: Record<CmdTab, string> = { active: '▶', settled: '✓', archived: '▦' }
 
@@ -2024,6 +2072,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const { data, error, refresh } = useWar()
     // All hooks before any conditional rendering (React #310 discipline).
     const [composerOpen, setComposerOpen] = useState(false)
+    const [hqPickerOpen, setHqPickerOpen] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     // V16.4 critique P2（Alex 画像）：聚焦页状态进 URL hash（#war-cmd-<id>）——
     // 刷新不丢、可贴进笔记发给别人；replaceState 不推历史栈。R2 勘误：hash 归
@@ -2174,6 +2223,28 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const tabCmds = commands.filter(c => tabOf(c) === cmdTab)
     const tabCmdIds = new Set(tabCmds.map(c => c.commandId))
     const tabTasks = tasks.filter(t => tabCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))
+    // V18 星域与页签解耦（舰长令）：星球=**注册的真实工作区**（HQ 弹窗注册/
+    // 发布侧自动注册），不随页签过滤——进行中/已收官星球同场，发光色区分态；
+    // 星域聚合吃「非归档」任务（归档命令整体退出星域）。
+    const registeredPlanets = data?.planets ?? []
+    const fieldCmdIds = new Set(commands.filter(c => tabOf(c) !== 'archived').map(c => c.commandId))
+    const fieldTasks = tasks.filter(t => fieldCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))
+    const wzWsOrder = registeredPlanets.map(p => p.path)
+    const planetTitleOf = new Map(registeredPlanets.map(p => [p.path, p.title ?? null] as const))
+    const planetStateOf = (key: string): 'active' | 'settled' | 'failed' | 'idle' => {
+      let active = false, closed = false, failed = false
+      for (const t of fieldTasks) {
+        if (wsKeyOf(t.workspacePath) !== key) continue
+        if (t.status !== 'closed' && t.status !== 'failed') active = true
+        if (t.status === 'closed') closed = true
+        if (t.status === 'failed') failed = true
+      }
+      if (active) return 'active'
+      if (failed) return 'failed'
+      if (closed) return 'settled'
+      return 'idle'
+    }
+
     // V13 战线一等公民（纯派生零后端）：按 chain.rootId 聚合命令世代链——跨代任务
     // 并集（pivot 共享任务去重）、星球键序列（合成沙盒归未分组）、聚合态、排序键。
     const fronts = frontsOf(commands, tasks, tid => lineageMap.get(tid)?.commandId ?? null)
@@ -2220,7 +2291,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // ?? [] — a stale projection without attemptLog must not crash the board).
     const byStart = (a: BoardAttempt, b: BoardAttempt): number => (a.startedAt < b.startedAt ? 1 : -1)
     // V17 页签过滤：会话列/回报列/调度条只吃当前页签的命令集。
-    const live = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
+    const live = fieldTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const done = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const failed = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const commandsNewest = [...commands].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
@@ -2313,16 +2384,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }, [])
     const sidePct = (330 / Math.max(boardBox.w, 1)) * 100
     const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
-    // V17：星域桥吃页签过滤后的星球序（composer 的 bfChoices 仍用全量 wsOrder）。
-    const wzWsOrder = [...new Set(workspaceCreationOrder(tabTasks)
-      .map(ws => wsKeyOf(ws))
-      .filter((k): k is string => k !== null))]
     const planetSpecs = galaxyLayout(wzWsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
     // V13：garrison 按星球键聚合——未分组行星吃全部合成沙盒任务的切片。
     const garrisonOfKey = (key: string): { orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>; triumphs: number; awaiting: number; failing: number } => {
       let triumphs = 0, awaiting = 0, failing = 0
       const orbs: Array<{ sessionId: string; verbLabel: string | null; paused: boolean }> = []
-      for (const t of tabTasks) {
+      for (const t of fieldTasks) {
         if (wsKeyOf(t.workspacePath) !== key) continue
         if (t.status === 'closed') triumphs += 1
         if (t.status === 'published') awaiting += 1
@@ -2388,17 +2455,20 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const g = garrisonOfKey(ws)
       return {
         wsPath: ws,
-        activity: tasks.filter(t => wsKeyOf(t.workspacePath) === ws).length,
+        activity: fieldTasks.filter(t => wsKeyOf(t.workspacePath) === ws).length,
         status: g.orbs.length > 0 ? '执行中' : g.triumphs > 0 ? '已占领' : '待进攻',
+        state: planetStateOf(ws),
+        title: planetTitleOf.get(ws) ?? null,
         garrison: g.triumphs,
         failing: g.failing,
         inbound: g.awaiting,
       }
     })
     // V13 战线世代环桥数据：已锚定星球的战线才上星域；上限 12 条防杂。
+    const wzPlanetSet = new Set(wzWsOrder)
     const wzFronts: WzBridgeFrontLite[] = fronts
-      .filter(f => f.battlefield !== null)
-      .filter(f => f.generations.some(g => tabCmdIds.has(g.commandId)))  // V17：页签过滤战线环
+      .filter(f => f.battlefield !== null && wzPlanetSet.has(f.battlefield))  // V18：战线环只挂注册星球
+      .filter(f => f.generations.some(g => fieldCmdIds.has(g.commandId)))  // V18：非归档命令（页签解耦）
       .slice(0, 12)
       .map(f => ({
         rootId: f.rootId, rootCommandId: f.rootCommandId, label: `${bfNameOf(f.battlefield)}·${f.title.slice(0, 8)}`,
@@ -2657,6 +2727,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                   if (c !== null) setFocusCommandId(cur => cur === c ? null : c)
                 },
                 onVoidClick: () => { setFocusCommandId(null) },
+                onHqClick: () => { setHqPickerOpen(true) },
                 orbIdleLabel: activeCopy().starfield.orbIdle,
                 onUnavailable: () => { setNo3d(true) },
               })] : []),
@@ -2780,6 +2851,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             })(),
           ),
         ),
+      hqPickerOpen ? createElement(HqWorkspacePicker, { key: 'hqpicker', registered: registeredPlanets, onClose: () => { setHqPickerOpen(false) }, onRegistered: refresh }) : null,
       composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,

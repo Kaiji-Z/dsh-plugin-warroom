@@ -14,7 +14,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 export interface MaterializedWorkspace {
   /** Absolute path of the task workspace. */
@@ -28,6 +28,15 @@ export interface MaterializedWorkspace {
 /** Resolve the war root: config override, else `<cwd>/.warroom`. */
 export function resolveWarRoot(configured: string): string {
   return configured !== '' ? resolve(configured) : join(process.cwd(), '.warroom')
+}
+
+/** V18 指定默认目录（舰长令：大副自建工作区=真实文件夹）：配置优先，
+ * 缺省 <warRoot 同级>/warroom-workspaces——在 .warroom 之外（非合成沙盒，
+ * 任务可挂真实星球）。 */
+export function resolveWorkspaceRoot(configured: string, warRoot: string): string {
+  if (configured.trim() !== '') return resolve(configured.trim())
+  const wr = resolveWarRoot(warRoot)
+  return join(dirname(wr), 'warroom-workspaces')
 }
 
 /**

@@ -712,3 +712,14 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 
 ①**不虚显常驻**：管线默认全隐（opacity 0——非 display:none，几何仍可测取证不破），仅 hover/聚焦族 100%+流动；旧「常显 12%/其余压 5%」退役，verify 针脚同步（默认全隐 + has-active g.on=1 两枚）。②**页签去计数**：图标页签只剩图标，全名+计数走 title/aria-label。③**map 沟位锚定面板缘外 8px**（舰长令「和栏间隔一致」）：竖干=任务列右缘+8、回报腿竖段=回报列左缘-8、底沟=调度栏上缘-8（顶沟 topY=8 沿用）；旧竖干贴卡缘+24/底沟取坞卡中点——随卡宽卡高漂移。④**坑（抓真 bug 一枚）**：底沟锚曾沿用旧查询 `.war-ops`——它根本不是调度栏（top 与 overlay 齐平），channelY 算出 **-8**，命令腿从卡顶一路穿出板外再折返，竖段贴 HQ 50px 被 shooter 新量测当场抓获；改锚 `.war-dispatch` 后 311px。shooter ⑨ 其余管断言收紧为 ==0；⑩ hq_dist/rep_hit 量测前先滚动+hover 汇报族（管线仅 hover 可见后，无 hover 量测是空集）。
 机检：verify PASS + shoot-v17 全绿；实测默认 0 可见管、hover 单族显形，沟位数值咬合（trunk 338=zone+8 / channel 650=opsTop-8 / legX 1102=zone-8）；目检 `.goal/evidence/v17/v178-hover-pipe.png`。
+
+## V18 星球语义重铸（2026-08-29，元首六项令）
+
+**①颜色语义体系**：战线环=**星球身份色**（黄金角 137.5° 轮转色相，每星球独确定色——取代「辉光底色混中性」的平庸源）；发光（halo/2D 盘符号/浅色基座环）=**生命周期四档**：active=蓝脉动（进行中，机器在动）/settled=绿（已收官善终）/failed=红（有败）/idle=金（注册无战事）。三状态令牌 --war-wz-active/settled/failed 入 war-tokens 闭环（TAC_TOKEN_MAP+双皮回退+styles 双主题，哨兵测试锁死）。
+**②命名**：`目录名 · W-NN` → 纯工作区名（注册 title 优先，缺省目录名）；编号退役。
+**③星域与页签解耦**：星球集合=注册表（planets.jsonl），切页签只换卡片、星域恒定；进行中/已收官星球同场靠发光区分；聚合（garrison/编队/战线环）吃「非归档」任务域 fieldTasks（归档命令整体退出星域）。
+**④星球=真实工作区**：注册闸=磁盘真实目录（statSync isDirectory）+ 宿主 registry 幂等收编（workspace.create best-effort 30s 界）；**大副自建工作区落指定默认目录**（config workspaceRoot，缺省 <warRoot 同级>/warroom-workspaces——在 .warroom 之外即真实路径），发布点（war_publish/publish_chain）materialize 后自动 registerPlanet；wsKeyOf 简化为纯路径感知（.warroom 树才归未分组，真实路径原样——instance/auto 落真目录可挂星球）。
+**⑤HQ 注册弹窗**：点 HQ（2D 盘心命中圈/3D）→ HqWorkspacePicker（useModalLayer）：列宿主 workspace.list 全量（title+path+会话数），已注册标绿、未注册一键 POST /warroom/api/planets；planets.jsonl 入 boardRevision（SSE 推刷新）。
+**⑥点星球恢复战线面板**：点击=粘性聚焦（V17.4 保留）**+ 战线列表面板**（war-wz-bfpanel 回归，键盘镜像同款）。
+**坑**：①TDZ 第三案重演——fieldTasks 块插在 `live`（更早）之后，整板白屏「Cannot access before initialization」；解耦块必须上移到 tabTasks 之后。②列表态「任务→战报」跨列直达腿取端口中点=竖沟从执行列卡身穿过（114 命中，⑥ 换页签滚动复位让 bravo 任务卡显形才暴露）——跨列腿改走列沟（任务列右沟→执行列卡上缘顶沟→回报列左沟），沟锚取「卡缘↔列缘更外侧」（卡矩形可宽于列盒）。③穿卡检测器加子路径端点 18px 豁免（端口短柱贴邻卡裁剪矩形是设计行为，非穿卡）。④shooter 全程必须重播种（HQ 注册/归档流都写账）。
+**机检**：verify PASS（245 测）；shoot-v17 全绿：⑥星域恒定 n=6 states=[active,settled,failed]、⑥b HQ 弹窗+注册 E2E（6→7）、⑧ 0 穿卡、⑩ rep_hit=0、⑤归档后星域不变 n=7、⑦宿主清单核查、bfpanel 断言、零控制台错误。目检 `.goal/evidence/v17/v18-planets-map.png`（星球名=纯工作区名）。

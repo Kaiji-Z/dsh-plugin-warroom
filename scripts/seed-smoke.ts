@@ -11,6 +11,7 @@
  * live acceptance run.)
  */
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs'
+import { registerPlanet } from '../src/planets.ts'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { appendEvent } from '../src/events.ts'
@@ -26,10 +27,15 @@ if (flag === '--clear') {
   console.log(`cleared ${dir}/campaigns + directives`)
   process.exit(0)
 }
+// V18 星球=真实工作区：seed 的战场全部物化为 stateDir/ws 下的真实目录并注册为星球。
+let WS_A = '', WS_B = ''
 mkdirSync(`${dir}/campaigns`, { recursive: true })
+WS_A = `${dir}/ws/projA`.replace(/\\/g, '/')
+WS_B = `${dir}/ws/projB`.replace(/\\/g, '/')
+const W_T2 = `${dir}/ws/t2`.replace(/\\/g, '/'), W_T3 = `${dir}/ws/t3`.replace(/\\/g, '/'), W_T4 = `${dir}/ws/t4`.replace(/\\/g, '/')
+for (const w of [WS_A, WS_B, `${WS_B}/daily`, `${WS_B}/pager`, W_T2, W_T3, W_T4]) mkdirSync(w, { recursive: true })
 const ts = (i: number): string => new Date(Date.now() - (60 - i) * 60_000).toISOString()
 const t0 = '20260823-alpha', t1 = '20260823-bravo', t2 = '20260823-charlie', t3 = '20260823-delta', t4 = '20260823-echo', t5 = '20260823-foxtrot', t6 = '20260823-golf'
-const WS_A = 'D:/smoke/projA', WS_B = 'D:/smoke/projB'
 
 // t5：进行中的执行会话（进行中区会话卡）——projA 被它占着
 appendEvent(dir, { type: 'task_created', ts: ts(55), campaignId: t5, title: '给 projA 加健康检查端点', brief: '背景：运维需要探活。执行指引：加 /healthz 返回 JSON。', acceptance: 'curl /healthz 返回 200；npm test 退出码 0', priority: 'normal', quality: 'rare', publishedBy: 'sec-smoke' })
@@ -65,11 +71,11 @@ appendEvent(dir, { type: 'task_closed', ts: ts(32), campaignId: t6, verdict: '�
 
 // t2：依赖链锁定（🔒 前置 t0 未收官）
 appendEvent(dir, { type: 'task_created', ts: ts(20), campaignId: t2, title: '为新认证架构写迁移指南', brief: '依赖重构完成后的文档任务。', acceptance: '指南覆盖三种迁移路径；示例可运行', priority: 'normal', deps: [t0], publishedBy: 'sec-smoke' })
-appendEvent(dir, { type: 'task_published', ts: ts(20), campaignId: t2, workspacePath: 'D:/smoke/war/t2', publishedBy: 'sec-smoke' })
+appendEvent(dir, { type: 'task_published', ts: ts(20), campaignId: t2, workspacePath: W_T2, publishedBy: 'sec-smoke' })
 
 // t3：重试用尽的失败卡（败因 + 已失败区两张会话卡）
 appendEvent(dir, { type: 'task_created', ts: ts(15), campaignId: t3, title: '修复 Flaky 的登录重定向测试', brief: '间歇失败，需要根因分析。', acceptance: '该用例连跑 20 次全绿', priority: 'normal', publishedBy: 'sec-smoke' })
-appendEvent(dir, { type: 'task_published', ts: ts(15), campaignId: t3, workspacePath: 'D:/smoke/war/t3', publishedBy: 'sec-smoke' })
+appendEvent(dir, { type: 'task_published', ts: ts(15), campaignId: t3, workspacePath: W_T3, publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_claimed', ts: ts(14), campaignId: t3, claimedBy: 'cmd-delta-1-session', attemptId: 'f1e2d3c4-b5a6-7890-abcd-ef1234567890', attempt: 1 })
 appendEvent(dir, { type: 'task_attempt_failed', ts: ts(10), campaignId: t3, reason: '竞态根因在第三方库内部', from: 'cmd-delta-1-session' })
 appendEvent(dir, { type: 'task_requeued', ts: ts(10), campaignId: t3, reason: '第 1 次尝试失败：竞态根因在第三方库内部' })
@@ -79,7 +85,7 @@ appendEvent(dir, { type: 'task_failed', ts: ts(5), campaignId: t3, reason: '第 
 
 // t4：日常任务令（cron 徽章）
 appendEvent(dir, { type: 'task_created', ts: ts(3), campaignId: t4, title: '每日依赖安全巡检', brief: '跑 npm audit，有高危就汇报。', acceptance: '巡检结果上栏（无论是否有高危）', priority: 'normal', publishedBy: 'sec-smoke' })
-appendEvent(dir, { type: 'task_published', ts: ts(3), campaignId: t4, workspacePath: 'D:/smoke/war/t4', publishedBy: 'sec-smoke' })
+appendEvent(dir, { type: 'task_published', ts: ts(3), campaignId: t4, workspacePath: W_T4, publishedBy: 'sec-smoke' })
 appendEvent(dir, { type: 'task_scheduled', ts: ts(3), campaignId: t4, cron: '0 9 * * *', enabled: true })
 
 // 命令区五状态各一张：draft / received(呼吸提醒) / talking / approved(链到 t1) / cancelled
@@ -166,4 +172,9 @@ writeFileSync(join(dir, '.demo-sessions.json'), JSON.stringify({
   'cmd-golf-session': '外勤·分页修复',
 }, null, 2))
 
+// V18 注册星球（幂等）：projA（进行中 t5/t0）、daily（t1）、pager（t6 收官）、
+// t2（收官）/t3（待领）/t4——发光态覆盖 active/settled/idle 全谱。
+for (const [w, t] of [[WS_A, 'projA'], [`${WS_B}/daily`, 'daily'], [`${WS_B}/pager`, 'pager'], [W_T2, 't2'], [W_T3, 't3'], [W_T4, 't4']] as const) {
+  registerPlanet(dir, w, t)
+}
 console.log(`seeded 7 smoke tasks + 5 command cards into ${dir}`)

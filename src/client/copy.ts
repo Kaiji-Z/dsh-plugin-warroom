@@ -46,6 +46,11 @@ export interface WarCopy {
     toggleAria: string
     bfPanelAria: string
     bfPanelEmpty: string
+    hqPickerTitle: string
+    hqPickerHint: string
+    hqPickerRegister: string
+    hqPickerRegistered: string
+    hqPickerEmpty: string
     xcardPrefix: string
     footStat: (squads: number, planets: number, fronts: number) => string
     kbGroupAria: string
@@ -631,6 +636,11 @@ export const warCopy: WarCopy = {
     toggleAria: '视图切换',
     bfPanelAria: '战场战线清单',
     bfPanelEmpty: '该战场暂无战线（任务待成形）',
+    hqPickerTitle: '注册工作区为星球',
+    hqPickerHint: '选取宿主侧已建立的工作区——注册后作为星球进入星域',
+    hqPickerRegister: '注册为星球',
+    hqPickerRegistered: '已注册',
+    hqPickerEmpty: '宿主侧暂无工作区（或清单未就绪）',
     xcardPrefix: '作战中：',
     footStat: (sq, pl, fr) => `${sq} 队在外 · ${pl} 战场 · ${fr} 战线`,
     kbGroupAria: '战场清单（键盘直达战线面板）',
@@ -1052,6 +1062,11 @@ export const plainCopy: WarCopy = {
     toggleAria: '视图切换',
     bfPanelAria: '项目战线清单',
     bfPanelEmpty: '该项目暂无战线（任务待成形）',
+    hqPickerTitle: '添加工作区',
+    hqPickerHint: '选取已有工作区——添加后进入看板地图',
+    hqPickerRegister: '添加',
+    hqPickerRegistered: '已添加',
+    hqPickerEmpty: '暂无工作区（或清单未就绪）',
     xcardPrefix: '进行中：',
     footStat: (sq, pl, fr) => `${sq} 个进行中 · ${pl} 个项目 · ${fr} 条线`,
     kbGroupAria: '项目清单（键盘直达战线面板）',

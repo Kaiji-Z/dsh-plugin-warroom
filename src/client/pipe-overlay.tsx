@@ -138,6 +138,21 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             const trunkX = b.x + 5
             return [{ x: a.x, y: channelY }, { x: trunkX, y: channelY }, { x: trunkX, y: b.y }]
           }
+          // 跨列直达腿（任务→战报，族无执行站）：不能取两端口中点——中点落在
+          // 执行列卡身上必穿卡（V18 实抓：竖沟 x=717 从执行卡 512-927 穿过）。
+          // 走列沟：任务列右沟上行 → 顶沟（执行列卡上缘之上）→ 回报列左沟下行。
+          if (stops[i - 1]!.kind === 'task' && stops[i]!.kind === 'report') {
+            const zone = (sel: string): DOMRect | null => {
+              const el = svg.parentElement?.querySelector(sel)
+              return el != null ? el.getBoundingClientRect() : null
+            }
+            const tz = zone('.war-zone.war-tasks'), ez = zone('.war-zone.war-field'), rz = zone('.war-zone.war-report')
+            // 卡矩形可宽于列盒（col-body 负边距/滚动条带）——沟取「卡缘↔列缘」更外侧。
+            const trunkX = Math.max(a.x + 5, tz !== null ? tz.right - box.left + 5 : a.x + 5)
+            const legX = Math.min(b.x - 5, rz !== null ? rz.left - box.left - 5 : b.x - 12)
+            const topY = ez !== null ? Math.max(6, ez.top - box.top + 4) : Math.min(a.y, b.y) - 14
+            return [{ x: a.x, y: a.y }, { x: trunkX, y: a.y }, { x: trunkX, y: topY }, { x: legX, y: topY }, { x: legX, y: b.y }]
+          }
           const g = (a.x + b.x) / 2
           return [{ x: g, y: a.y }, { x: g, y: b.y }]
         }

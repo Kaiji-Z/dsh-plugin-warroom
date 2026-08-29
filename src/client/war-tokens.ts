@@ -30,6 +30,7 @@ export interface WarTacPalette {
   readonly hqPulse: string; readonly hqFill: string; readonly hq: string
   readonly hqCore: string; readonly hqLabel: string
   readonly wait: string; readonly battle: string; readonly held: string; readonly hl: string
+  readonly active: string; readonly settled: string; readonly failed: string
   readonly hlLine: string; readonly battlePulse: string
   readonly garrison: string; readonly name: string; readonly nameHl: string
   readonly sqBattle: string; readonly sqRet: string; readonly sqDep: string; readonly sqHold: string
@@ -44,6 +45,7 @@ const TAC_TOKEN_MAP: ReadonlyArray<readonly [keyof WarTacPalette, string]> = [
   ['hqPulse', '--war-tac-hq-pulse'], ['hqFill', '--war-tac-hq-fill'], ['hq', '--war-tac-hq'],
   ['hqCore', '--war-tac-hq-core'], ['hqLabel', '--war-tac-hq-label'],
   ['wait', '--war-wz-wait'], ['battle', '--war-wz-battle'], ['held', '--war-wz-held'], ['hl', '--war-wz-hl'],
+  ['active', '--war-wz-active'], ['settled', '--war-wz-settled'], ['failed', '--war-wz-failed'],
   ['hlLine', '--war-wz-hl-line'], ['battlePulse', '--war-wz-battle-pulse'],
   ['garrison', '--war-tac-garrison'], ['name', '--war-tac-name'], ['nameHl', '--war-tac-name-hl'],
   ['sqBattle', '--war-tac-sq-battle'], ['sqRet', '--war-tac-sq-ret'], ['sqDep', '--war-tac-sq-dep'], ['sqHold', '--war-tac-sq-hold'],
@@ -57,6 +59,7 @@ export const TAC_FALLBACK_DARK: WarTacPalette = {
   tick: 'rgba(90,170,240,.35)', bearing: 'rgba(120,190,250,.5)', hqPulse: '111,227,255',
   hqFill: 'rgba(20,50,90,.92)', hq: '#9fdcff', hqCore: '#cfeeff', hqLabel: '#bfe6ff',
   wait: '#ffc24d', battle: '#ff6a55', held: '#66d4ff', hl: '#6fe3ff',
+  active: '#5aa9ff', settled: '#4cd98e', failed: '#ff5f56',
   hlLine: 'rgba(111,227,255,.55)', battlePulse: '255,90,60',
   garrison: 'rgba(95,196,255,.7)', name: 'rgba(200,225,250,.85)', nameHl: '#bfefff',
   sqBattle: '#ff7755', sqRet: '#9a86ff', sqDep: '#5fc4ff', sqHold: '#ffc98a',
@@ -70,6 +73,7 @@ export const TAC_FALLBACK_LIGHT: WarTacPalette = {
   tick: 'rgba(90,130,180,.45)', bearing: 'rgba(70,105,150,.65)', hqPulse: '28,78,128',
   hqFill: 'rgba(214,232,248,.95)', hq: '#1c4e80', hqCore: '#2d6ca6', hqLabel: '#1c4e80',
   wait: '#b07800', battle: '#d9480f', held: '#1971c2', hl: '#0e7490',
+  active: '#1971c2', settled: '#2f9e44', failed: '#c92a2a',
   hlLine: 'rgba(14,116,144,.55)', battlePulse: '217,72,15',
   garrison: 'rgba(25,113,194,.75)', name: 'rgba(40,70,110,.9)', nameHl: '#0b3a53',
   sqBattle: '#d9480f', sqRet: '#6741d9', sqDep: '#1971c2', sqHold: '#b07800',

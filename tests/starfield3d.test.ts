@@ -66,12 +66,12 @@ test('V11.5 warzoneLayoutFor: 真实 workspace 谱——确定性/大小按任�
   assert.deepEqual(a, b, '同谱恒同布局（SSE 零抖动）')
   assert.equal(a.length, ws.length)
   // 任务量 top2（deploy 30/alpha 12）=大星；3-5 名（ui 8/gamma 5/web 4）=中星。
-  const clsOf = new Map(a.map(p => [p.name.split(' ·')[0]!, p.cls]))
+  const clsOf = new Map(a.map(p => [p.name, p.cls]))
   assert.equal(clsOf.get('deploy'), 'large')
   assert.equal(clsOf.get('alpha'), 'large')
   assert.equal(clsOf.get('ui'), 'medium')
   assert.equal(clsOf.get('ops'), 'small')
-  assert.equal(a[0]!.name, 'alpha · W-01', '命名=目录名 · W-编号')
+  assert.equal(a[0]!.name, 'alpha', 'V18 命名=目录名（编号退役）')
   // 间距拒绝采样仍生效。
   for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) {
     const d = Math.hypot(a[i]!.x - a[j]!.x, a[i]!.y - a[j]!.y, a[i]!.z - a[j]!.z)

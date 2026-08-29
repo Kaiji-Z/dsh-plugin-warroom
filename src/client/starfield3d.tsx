@@ -94,6 +94,8 @@ export interface WarzoneProps {
   readonly onPlanetHover?: (ws: string | null) => void
   /** V17.4：星球点击 → 粘性高亮聚焦（再点同星球/点空处取消——父层管状态）。 */
   readonly onPlanetClick?: (ws: string) => void
+  /** V18 点击 HQ → 工作区注册弹窗（星球=真实工作区）。 */
+  readonly onHqClick?: () => void
   /** V17.4：点星域空处 → 取消高亮聚焦。 */
   readonly onVoidClick?: () => void
   /** 执行卡动词兜底。 */
@@ -103,7 +105,7 @@ export interface WarzoneProps {
 }
 
 export function Warzone(props: WarzoneProps): ReactNode {
-  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, onPlanetHover, onPlanetClick, onVoidClick, orbIdleLabel, onUnavailable } = props
+  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, onPlanetHover, onPlanetClick, onVoidClick, onHqClick, orbIdleLabel, onUnavailable } = props
   const rootRef = useRef<HTMLDivElement | null>(null)
   const c3dRef = useRef<HTMLCanvasElement | null>(null)
   const c2dRef = useRef<HTMLCanvasElement | null>(null)
@@ -232,13 +234,15 @@ export function Warzone(props: WarzoneProps): ReactNode {
       //（雷达布局与 3D 投影不同轴——scene.pick 在 2D 态会错位）。
       if (mode === 'cmd') {
         const best = pickAt(e.clientX - rect.left, e.clientY - rect.top)
-        if (best !== null && best.kind === 'planet') { onPlanetClick?.((best as WzPlanet).wsPath); return }
+        if (best !== null && best.kind === 'hq') { onHqClick?.(); return }
+        if (best !== null && best.kind === 'planet') { setBfPanel((best as WzPlanet).wsPath); onPlanetClick?.((best as WzPlanet).wsPath); return }
         onVoidClick?.()
         return
       }
       const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
+      if (hit !== null && hit.kind === 'hq') { onHqClick?.(); return }
       if (hit !== null && hit.kind === 'front') { onOpenCommand?.((hit as WzFrontNode).rootCommandId); return }
-      if (hit !== null && hit.kind === 'planet') { onPlanetClick?.((hit as WzPlanet).wsPath); return }
+      if (hit !== null && hit.kind === 'planet') { setBfPanel((hit as WzPlanet).wsPath); onPlanetClick?.((hit as WzPlanet).wsPath); return }
       onVoidClick?.()
     }
     const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }

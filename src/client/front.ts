@@ -25,16 +25,14 @@ export function isSyntheticWs(wsPath: string): boolean {
   return segs.slice(dotWarroom + 1).some(s => s === 'tasks' || s === 'instances')
 }
 
-/** workspace → 星域键：合成沙盒归未分组，bound 项目原样。
- *  V15 kind 感知：投影带 workspaceKind 时按真值分（instance/auto-*=未分组，
- *  bound*=路径键）——治 auto worktree-of-P 被路径启发式误判成项目行星；
- *  kind 缺失（旧账本任务）回落路径启发式（append-only 无回填）。 */
+/** workspace → 星域键：合成沙盒归未分组，真实目录原样。
+ *  V15 kind 感知；V18 修订（舰长令：大副自建工作区=指定默认目录里的真实
+ *  文件夹）：instance/auto-* 只有落在合成沙盒（.warroom 树）才归未分组，
+ *  真实路径按路径键——可挂注册星球。 */
 export function wsKeyOf(wsPath: string | null, workspaceKind?: string | null): string | null {
   if (wsPath === null || wsPath === '') return null
-  if (workspaceKind !== undefined && workspaceKind !== null && workspaceKind !== '') {
-    return workspaceKind === 'bound' || workspaceKind === 'bound-worktree' ? wsPath : UNGROUPED_WS_KEY
-  }
-  return isSyntheticWs(wsPath) ? UNGROUPED_WS_KEY : wsPath
+  if (isSyntheticWs(wsPath)) return UNGROUPED_WS_KEY
+  return wsPath
 }
 
 /** 命令的任务域（全生命周期追踪的核心）：头任务 + 全部传递依赖它的任务

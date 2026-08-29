@@ -120,6 +120,8 @@ export interface BoardData {
   commands: BoardCommand[]
   tasks: BoardTask[]
   threads: BoardThread[]
+  /** V18 注册星球（真实工作区；HQ 弹窗/发布侧注册，planets.jsonl 折叠）。 */
+  planets?: ReadonlyArray<{ path: string; title: string | null; registeredAt: string }>
   roster: Array<{ name: string; label: string; description: string; sandboxMode: string; source: string }>
   rosterErrors: string[]
 }

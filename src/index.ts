@@ -41,7 +41,7 @@ import { parseUnitReportEvent } from './report-capture.ts'
 import { weaveDemoSessions } from './demo-weave.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
-import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot } from './workspace.ts'
+import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot, resolveWorkspaceRoot } from './workspace.ts'
 import { displayTitleOf } from './client/preflight.ts'
 
 export const name = 'warroom-plugin'
@@ -297,6 +297,8 @@ export function apply(ctx: Context, config: Config): void {
   // The war root must exist before anything points a workspace at it —
   // workspace.create rejects missing paths with a raw ENOENT (live R8 catch).
   const warRoot = resolveWarRoot(config.warRoot)
+  // V18 指定默认目录：大副自建工作区落真实文件夹（.warroom 之外=真星球）。
+  const workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot, config.warRoot)
   mkdirSync(warRoot, { recursive: true })
   const roster = (): Roster => loadRoster(join(stateDir, 'units'), process.cwd())
   const subagents = (ctx as unknown as { subagents: SubagentsServiceFace }).subagents
@@ -309,7 +311,11 @@ export function apply(ctx: Context, config: Config): void {
     roster,
     subagents,
     commander,
-    workspace: { materialize: materializeTaskWorkspace, materializeInstance: materializeInstanceWorkspace },
+    workspace: {
+      // V18：物化根=指定默认目录（包装闭包吃掉 deps.warRoot 实参——tools 侧签名不变）。
+      materialize: (_warRoot, taskId, repo) => materializeTaskWorkspace(workspaceRoot, taskId, repo),
+      materializeInstance: (_warRoot, taskId, slug) => materializeInstanceWorkspace(workspaceRoot, taskId, slug),
+    },
     warRoot,
     flags: runtimeFlags(), // 开发期默认全开（DEFAULT_ON + env 覆盖），见 flags.ts 政策注
   }
@@ -625,6 +631,27 @@ export function apply(ctx: Context, config: Config): void {
           return { ok: false, code: 'E_TIMEOUT', message: '宿主归档 RPC 超时（registry 操作队拥塞）' }
         }
       },
+      // V18 HQ 工作区注册弹窗（只读）：宿主 registry 全量工作区；面缺席如实 null。
+      listWorkspaces: async () => {
+        const workspace = workspaceRef.face as WorkspaceListFace | undefined
+        if (workspace === undefined || workspace.list === undefined) return null
+        try {
+          const r = await withTimeout(workspace.list({ rpcId: `warroom-ws-list-${Date.now()}`, payload: {} }), 30_000)
+          return r.result.ok ? r.result.value.items.map(i => ({ workspaceId: i.workspaceId, path: i.path, title: i.title, sessionCount: i.sessionIds.length })) : null
+        } catch {
+          return null
+        }
+      },
+      registerHostWorkspace: async path => {
+        const workspace = workspaceRef.face
+        if (workspace === undefined) return { ok: false }
+        try {
+          const r = await withTimeout(workspace.create({ rpcId: `warroom-planet-${archiveSeq++}`, payload: { path } }), 30_000)
+          return r.result.ok ? { ok: true, title: (r.result.value as { workspace?: { title?: string } }).workspace?.title } : { ok: false }
+        } catch {
+          return { ok: false }
+        }
+      },
       // V17 归档核查（只读）：宿主当前会话 id 清单；list 面缺席如实报 null。
       listSessions: async () => {
         const sessions = sessionsRef.face
@@ -639,6 +666,16 @@ export function apply(ctx: Context, config: Config): void {
 }
 
 export { Config }
+
+/** V18 宿主 workspace.list 面的结构切片（HQ 注册弹窗数据源）。 */
+interface WorkspaceListFace {
+  list?(req: { rpcId: string; payload: {} }): Promise<{
+    result: {
+      ok: true
+      value: { items: ReadonlyArray<{ workspaceId: string; path: string; title: string; sessionIds: readonly string[] }> }
+    } | { ok: false; error: { code: string; message: string } }
+  }>
+}
 
 /** V17 归档扇出加界：宿主 registry 操作队拥塞时 RPC 可排队分钟级——超时即败，
  *  让路由能如实记账（部分失败）而不是无限挂起。 */

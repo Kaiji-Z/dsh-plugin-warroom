@@ -83,7 +83,7 @@ export const WAR_CSS = `
   /* 星域场景组（V12.2）：浅=纸面证件风/蓝图纸面，深=深空玻璃/战术雷达。
    * 执行卡、名签、tooltip、切换钮、图例、hint、战术盘、速报日志色全组在此
    * ——TS 侧 war-tokens.ts 按名读取，回退哨兵锁死同值。 */
-  --war-wz-wait: #b07800; --war-wz-battle: #d9480f; --war-wz-held: #1971c2; --war-wz-hl: #0e7490;
+  --war-wz-wait: #b07800; --war-wz-battle: #d9480f; --war-wz-held: #1971c2; --war-wz-hl: #0e7490; --war-wz-active: #1971c2; --war-wz-settled: #2f9e44; --war-wz-failed: #c92a2a;
   --war-wz-line: rgba(176,120,0,.72);
   --war-wz-card-bg: rgba(252,253,255,.92); --war-wz-card-border: rgba(176,120,0,.5);
   --war-wz-card-text: #23405e; --war-wz-card-dim: #5a7396;
@@ -169,7 +169,7 @@ body[data-ds-dark-theme] .war-root{
   --war-shadow-3: 0 14px 36px rgba(0, 0, 0, .55);
   --war-backdrop: rgba(0, 0, 0, .55);
   /* 星域场景组 · 深空玻璃/战术雷达皮 */
-  --war-wz-wait: #ffc24d; --war-wz-battle: #ff6a55; --war-wz-held: #66d4ff; --war-wz-hl: #6fe3ff;
+  --war-wz-wait: #ffc24d; --war-wz-battle: #ff6a55; --war-wz-held: #66d4ff; --war-wz-hl: #6fe3ff; --war-wz-active: #5aa9ff; --war-wz-settled: #4cd98e; --war-wz-failed: #ff5f56;
   --war-wz-line: rgba(255,179,92,.78);
   --war-wz-card-bg: rgba(8,14,28,.84); --war-wz-card-border: rgba(255,179,92,.4);
   --war-wz-card-text: #cfe6ff; --war-wz-card-dim: #7e9cc0;
@@ -535,6 +535,18 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 2px 0 0 var(--war-run-border)}
 .war-cmdtab-ico{font-size:11px;line-height:1}
 .war-cmdtab-n{font-size:11px;opacity:.85}
+/* V18 HQ 工作区注册弹窗。 */
+.war-hq-picker{display:flex;flex-direction:column;gap:8px;min-width:380px;max-width:520px;max-height:60vh;overflow-y:auto}
+.war-hq-picker-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.war-hq-picker-title{font-size:14px;font-weight:600;color:var(--war-text-1)}
+.war-hq-picker-x{cursor:pointer;background:transparent;border:none;color:var(--war-text-2);font-size:14px;padding:2px 6px}
+.war-hq-picker-x:hover{color:var(--war-text-1)}
+.war-hq-picker-hint{margin:0;font-size:12px;color:var(--war-text-2)}
+.war-hq-picker-err{margin:0;font-size:12px;color:var(--war-fail)}
+.war-hq-picker-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border:1px solid var(--war-border);border-radius:var(--war-r-sm)}
+.war-hq-picker-name{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--war-text-1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-hq-picker-path{flex:1 1 auto;min-width:0;font-size:11px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.war-hq-picker-done{flex:0 0 auto;font-size:12px;color:var(--war-done)}
 /* V17 归档行/确认条（聚焦页决策带下方）。 */
 .war-archive-row{display:flex;align-items:center;gap:8px;margin-top:6px}
 .war-archive-btn:disabled{cursor:not-allowed;opacity:.5}

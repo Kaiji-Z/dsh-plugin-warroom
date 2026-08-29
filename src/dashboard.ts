@@ -22,6 +22,7 @@ import type { CampaignState } from './types.ts'
 import { armPlanCard, runSpikeProbe, type SpikeDeps } from './v5spike.ts'
 import { planApprovedNotice, planRejectedNotice } from './persona.ts'
 import { featureEnabled, type FeatureFlags } from './flags.ts'
+import { loadPlanets, registerPlanet } from './planets.ts'
 
 /** Structural slice of the harness webServer route registry. */
 export interface RouteRegistry {
@@ -76,6 +77,12 @@ export function boardRevision(stateDir: string, activitySalt?: string): string {
     const st = statSync(join(stateDir, 'directives.jsonl'))
     sig += `directives:${st.mtimeMs}:${st.size};`
   } catch {
+    // 未建账——空板仍有 revision。
+  }
+  try {
+    const st = statSync(join(stateDir, 'planets.jsonl'))  // V18：星球注册入 revision（SSE 推板刷新）
+    sig += `planets:${st.mtimeMs}:${st.size};`
+  } catch {
     sig += 'directives:-;'
   }
   try {
@@ -123,6 +130,10 @@ export interface DashboardDeps {
   archiveSession?: (sessionId: string) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
   /** V17 归档核查（只读）：宿主当前会话 id 清单（A-③ 判据用）。缺席返回 null。 */
   listSessions?: () => Promise<string[] | null>
+  /** V18 HQ 工作区注册弹窗：宿主 workspace.list（只读；缺席如实报 null）。 */
+  listWorkspaces?: () => Promise<Array<{ workspaceId: string; path: string; title: string; sessionCount: number }> | null>
+  /** V18 注册时把真实目录幂等收编进宿主 registry（best-effort，失败不阻塞）。 */
+  registerHostWorkspace?: (path: string) => Promise<{ ok: boolean; title?: string }>
 }
 
 const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in_progress: 1, reported: 2, draft: 3, failed: 4, closed: 5 }
@@ -311,7 +322,41 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           threads: loadAttachedThreads(deps.stateDir).map(t => ({ sessionId: t.sessionId, note: t.note, attachedAt: t.attachedAt })),
           roster: deps.roster().units.map(u => ({ name: u.name, label: u.label, description: u.description, sandboxMode: u.sandboxMode, source: u.source })),
           rosterErrors: deps.roster().errors,
+          planets: loadPlanets(deps.stateDir),
         })
+        return
+      }
+      if (r.method === 'GET' && pathname === '/warroom/api/host-workspaces') {
+        // V18 HQ 点击弹窗数据源：宿主 registry 全量工作区（只读）。
+        if (deps.listWorkspaces === undefined) {
+          send(501, { ok: false, error: '宿主工作区清单未接入（workspace.list 面缺席）。' })
+          return
+        }
+        const workspaces = await deps.listWorkspaces()
+        if (workspaces === null) {
+          send(501, { ok: false, error: '宿主工作区清单缺席（workspace.list 不可用）。' })
+          return
+        }
+        send(200, { ok: true, workspaces })
+        return
+      }
+      if (r.method === 'POST' && pathname === '/warroom/api/planets') {
+        // V18 注册工作区为星球：闸=磁盘真实目录（舰长令：星球不得是「不存在
+        // 文件夹的行星」）；宿主 registry 收编 best-effort（幂等 create）。
+        const body = JSON.parse(await readBody(r)) as { path?: unknown; title?: unknown }
+        const path = typeof body.path === 'string' ? body.path.trim() : ''
+        const title = typeof body.title === 'string' && body.title.trim() !== '' ? body.title.trim() : null
+        if (path === '') { send(400, { ok: false, error: '缺少工作区路径。' }); return }
+        let isDir = false
+        try { isDir = statSync(path).isDirectory() } catch { isDir = false }
+        if (!isDir) { send(400, { ok: false, error: `不是真实目录：${path}` }); return }
+        let hostTitle: string | null = title
+        if (deps.registerHostWorkspace !== undefined) {
+          const r2 = await deps.registerHostWorkspace(path)
+          if (r2.ok && r2.title !== undefined) hostTitle = hostTitle ?? r2.title
+        }
+        const planets = registerPlanet(deps.stateDir, path, hostTitle)
+        send(200, { ok: true, planets })
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/commands') {

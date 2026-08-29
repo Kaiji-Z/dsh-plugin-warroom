@@ -56,6 +56,8 @@ export const Config: z<Config> = z.object({
   maxCommanders: z.natural().min(1).max(8).default(3),
   statePath: z.string().default(''),
   warRoot: z.string().default(''),
+  /** V18 大副自建工作区的指定默认目录（空=<warRoot 同级 warroom-workspaces/>）。 */
+  workspaceRoot: z.string().default(''),
   active: z.union(['auto', 'on', 'off'] as const).default('auto'),
   demoWeave: z.boolean().default(false),
 })
