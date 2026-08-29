@@ -16,6 +16,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 errors: list[str] = []
 log: list[str] = []
+canvas_by_theme: dict[str, str] = {}
 
 
 def snap(page, name: str) -> None:
@@ -40,10 +41,11 @@ def open_board(page) -> None:
 
 
 def leave_focus(page) -> None:
-    """从聚焦页/抽屉退回主板（Esc 兜底两次）。"""
+    """从聚焦页/抽屉退回主板（Esc 兜底两次）；鼠标挪到角落防 hover 伪影。"""
     for _ in range(3):
         page.keyboard.press("Escape")
         page.wait_for_timeout(400)
+    page.mouse.move(8, 8)
 
 
 def starfield(page, mode_3d: bool) -> None:
@@ -65,9 +67,17 @@ with sync_playwright() as p:
         page.on("pageerror", lambda e: errors.append(f"[{theme}] pageerror: {e}"))
 
         open_board(page)
+        # V16.4 critique P1-2：主题残留坑（宿主 ui-theme 持久化会让 light 轮拍到
+        # dark 板）——light 轮强制摘属性，两轮各自机检令牌真在切换，否则硬失败。
         if theme == "dark":
             page.evaluate("document.body.setAttribute('data-ds-dark-theme','')")
+        else:
+            page.evaluate("document.body.removeAttribute('data-ds-dark-theme')")
         page.wait_for_timeout(600)
+        canvas = page.evaluate("getComputedStyle(document.querySelector('.war-root')).getPropertyValue('--war-canvas')")
+        canvas_by_theme[theme] = canvas.strip()
+        print(f"[{theme}] --war-canvas = {canvas}")
+        assert canvas.strip() != "", "war canvas token unresolved"
 
         try_capture(page, f"board-{theme}", lambda pg: None)
         try_capture(page, f"focus-{theme}", lambda pg: (
@@ -99,6 +109,9 @@ with sync_playwright() as p:
         page.close()
 
     browser.close()
+
+assert canvas_by_theme.get("light") != canvas_by_theme.get("dark"), \
+    f"themes collapsed to same canvas token: {canvas_by_theme}（主题残留坑复发）"
 
 print("\n".join(log))
 print("---CONSOLE/PAGE ERRORS---")

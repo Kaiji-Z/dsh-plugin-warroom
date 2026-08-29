@@ -42,6 +42,7 @@ import { weaveDemoSessions } from './demo-weave.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
 import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot } from './workspace.ts'
+import { displayTitleOf } from './client/preflight.ts'
 
 export const name = 'warroom-plugin'
 export const inject = ['tools', 'systemPrompt', 'subagents']
@@ -117,7 +118,7 @@ function createConscriptor(deps: {
     const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
     if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
     const sessionId = created.result.value.sessionId
-    const title = `外勤·${(task.title ?? task.intent).slice(0, 14)}`
+    const title = `外勤·${displayTitleOf(task.title ?? task.intent).slice(0, 14)}`
     void relay.rename({ rpcId: rpc(), payload: { sessionId, title } }).catch(() => undefined)
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
     const dossier = task.workspacePath !== undefined && bound

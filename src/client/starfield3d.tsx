@@ -8,7 +8,7 @@
  * 执行卡覆盖层（卡钉星球屏位+连线，点击跳源命令）与悬停/聚焦→星球高亮联动。
  * @module dsh-plugin-warroom/client/starfield3d
  */
-import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createElement, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
 import type { WzBridgeFrontLite } from './front.ts'
 
@@ -361,6 +361,21 @@ export function Warzone(props: WarzoneProps): ReactNode {
           const hit = hits.find(h => (h.ref as { kind?: string } | null)?.kind === 'planet' && (h.ref as WzPlanet).wsPath === ws)
           return hit === undefined ? null : { x: hit.x, y: hit.y }
         }
+        // V16.4 critique P2-2：铭牌带禁区——星球名牌画在行星正下方（sprite 位于
+        // -(radius+4.6)），带宽按 19px 目标高近似（30px 字号 × labelH 缩放）。
+        // 活动卡群（中心星团尤其密）此前直接压在他星铭牌上——星球名恰在交战处不可读。
+        const bands: Array<{ x: number; y: number; w: number; h: number }> = []
+        for (const p of scene.planets) {
+          const pos = posOf(p.wsPath)
+          if (pos === null) continue
+          const bw = Math.min(320, p.name.length * 11 + 20)
+          bands.push({ x: pos.x - bw / 2, y: pos.y + 6, w: bw, h: 22 })
+        }
+        // 两段式落位：先各算基础位（拖过的卡自由摆放不动），再按 DOM 序做车道
+        // 避让——横向挪位优先（线端点跟随 cx2/cy2，随时可挪），7 车道占满仍撞
+        // 他星铭牌带才上抬。拖过的卡矩形也进禁区（不遮用户手动摆的位）。
+        type Placement = { el: HTMLElement; line: SVGLineElement | null; pos: { x: number; y: number }; x: number; y: number; w: number; h: number; dragged: boolean }
+        const placements: Placement[] = []
         for (const el of Array.from(cards.querySelectorAll<HTMLElement>('.war-wz-xcard'))) {
           const sid = el.dataset.wzSid ?? ''
           const sq = squadsRef.current.find(q => q.sessionId === sid)
@@ -380,14 +395,40 @@ export function Warzone(props: WarzoneProps): ReactNode {
           if (cy2 > safe.y + safe.h - 4) cy2 = safe.y + safe.h - 4
           const off = mode === 'cmd' ? cardOffRef.current.get(sid) : undefined
           if (off !== undefined) { cx2 += off.dx; cy2 += off.dy }
-          el.style.visibility = ''
-          el.style.transform = `translate(-50%,-100%) translate(${cx2.toFixed(1)}px,${(cy2 - 6).toFixed(1)}px)`
-          if (line !== null) {
-            line.style.visibility = ''
-            line.setAttribute('x1', String(pos.x))
-            line.setAttribute('y1', String(pos.y))
-            line.setAttribute('x2', String(cx2))
-            line.setAttribute('y2', String(cy2))
+          placements.push({ el, line, pos, x: cx2, y: cy2, w: el.offsetWidth, h: el.offsetHeight, dragged: off !== undefined })
+        }
+        const hitsRect = (r: { x: number; y: number; w: number; h: number }, o: { x: number; y: number; w: number; h: number }): boolean =>
+          r.x < o.x + o.w && o.x < r.x + r.w && r.y < o.y + o.h && o.y < r.y + r.h
+        const cardRect = (p: Placement, x: number, y: number): { x: number; y: number; w: number; h: number } =>
+          ({ x: x - p.w / 2 - 4, y: y - 6 - p.h, w: p.w + 8, h: p.h + 6 })
+        for (const pl of placements) {
+          if (!pl.dragged) {
+            const taken: Array<{ x: number; y: number; w: number; h: number }> = [...bands]
+            for (const other of placements) {
+              if (other === pl) continue
+              taken.push(cardRect(other, other.x, other.y))
+            }
+            let picked = false
+            for (const lane of [0, 1, -1, 2, -2, 3, -3]) {
+              const nx = Math.min(Math.max(pl.pos.x + lane * (pl.w + 12), safe.x + pl.w / 2 + 4), safe.x + safe.w - pl.w / 2 - 4)
+              if (lane !== 0 && Math.abs(nx - pl.pos.x) < Math.abs(lane) * (pl.w + 12) - 1) break // 钳边后车道重合，再扫也是撞
+              if (!taken.some(o => hitsRect(cardRect(pl, nx, pl.y), o))) { pl.x = nx; picked = true; break }
+            }
+            if (!picked) {
+              // 车道占满仍撞铭牌带：上抬到最高碰撞带的顶上（线仍指真实星球位）
+              const r = cardRect(pl, pl.x, pl.y)
+              const topHit = Math.min(...taken.filter(o => hitsRect(r, o)).map(o => o.y), pl.y)
+              if (topHit < pl.y) pl.y = topHit - 6
+            }
+          }
+          pl.el.style.visibility = ''
+          pl.el.style.transform = `translate(-50%,-100%) translate(${pl.x.toFixed(1)}px,${(pl.y - 6).toFixed(1)}px)`
+          if (pl.line !== null) {
+            pl.line.style.visibility = ''
+            pl.line.setAttribute('x1', String(pl.pos.x))
+            pl.line.setAttribute('y1', String(pl.pos.y))
+            pl.line.setAttribute('x2', String(pl.x))
+            pl.line.setAttribute('y2', String(pl.y))
           }
         }
         // 高亮名签：第一颗高亮星球上方（同样钳进安全区）
@@ -496,18 +537,30 @@ export function Warzone(props: WarzoneProps): ReactNode {
       createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, '3D 视图'),
       createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, '2D 视图')),
     createElement('div', { className: 'war-wz-foot', 'aria-hidden': 'true' },
+        createElement('div', { className: 'war-wz-foot-stat' }, `${squads.filter(q => q.live).length} 队在外 · ${planets.length} 星球 · ${fronts.length} 战线`),  /* V16.4-R3 critique P2-3：中列失名——雷达常驻状态铭牌 */
       createElement('div', { className: 'war-wz-legend' },
         createElement('span', null, createElement('i', { className: 'lg-wait' }), '待进攻'),
         createElement('span', null, createElement('i', { className: 'lg-battle' }), '执行中'),
         createElement('span', null, createElement('i', { className: 'lg-held' }), '已占领'),
         createElement('span', null, createElement('i', { className: 'lg-hl' }), '聚焦轨迹'),
         createElement('span', null, createElement('i', { className: 'lg-front' }), '战线环（分段=战线数）')),
-      createElement('div', { className: 'war-wz-hint' }, '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
+      createElement('div', { className: 'war-wz-hint' }, cmd
+        ? '点击星球 看战线 · 拖卡 摆位 · V 切换视图 · M 回列表'
+        : '左键 平移 · 中键 旋转 · 滚轮 缩放 · 双击/R 复位 · V 切换视图 · M 回列表')),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
-    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '星球战线清单' },
+    // V16.4-R2 critique P2：键盘镜像——行星→战线面板此前纯指针可达（canvas 拾取）。
+    // 视觉隐藏的星球按钮列（Tab 顺序=轨道序，focus-visible 时显形）补齐键盘路径；
+    // 与列表态的键盘严谨对齐（Sam 画像）。
+    createElement('div', { className: 'war-wz-kbplanets', role: 'group', 'aria-label': '星球清单（键盘直达战线面板）' },
+      ...planets.map(pl => createElement('button', {
+        key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
+        'data-wz-kb-ws': pl.wsPath,
+        onClick: () => { setBfPanel(pl.wsPath) },
+      }, `${pl.name}（${pl.status}${pl.failing > 0 ? ` ·${pl.failing}败` : ''}）`))),
+    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '星球战线清单', onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
       createElement('div', { className: 'war-wz-bfpanel-head' },
         createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),
-        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', onClick: () => setBfPanel(null) }, '✕')),
+        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', autoFocus: true, onClick: () => setBfPanel(null) }, '✕')  /* V16.4-R3 critique B：焦点移入 dialog——键盘镜像开启后 Esc 才可达（probe-b3 抓的死路） */),
       ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
         key: f.rootCommandId, type: 'button',
         className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,

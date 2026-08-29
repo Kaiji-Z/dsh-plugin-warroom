@@ -25,7 +25,7 @@ export interface WarCopy {
   }
   /** 底部命令调度条（V9.1：滚轮横移的「英雄位」坞，视觉与三列拉开）。 */
   /** V10 星域战场。 */
-  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; untraced: string; controls: string; ungrouped: string }
+  starfield: { aria: string; hqOn: string; hqOff: string; orbIdle: string; mapLegend: string; mapHintToast: string; mapHintDismiss: string; untraced: string; controls: string; ungrouped: string }
   /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
   front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string; originChip: (bf: string | null, title: string) => string }
   dispatch: { label: string; addTitle: string; viewMapHint: string; viewBackHint: string; segActive: string; segSettled: string }
@@ -87,6 +87,8 @@ export interface WarCopy {
   lifecycle: {
     stages: { command: string; task: string; battle: string; report: string }
     waitingStaff: string
+    /** V16.4-R3：未接令（含定时未出发）专用——「起草中」只留给真在起草的，假动词不说谎。 */
+    pendingRelay: string
     approvedAwaitingPublish: string
     waitingClarify: string
     planPending: string
@@ -167,6 +169,7 @@ export interface WarCopy {
     highPriority: string
     attemptN: (n: number) => string
     attemptNTitle: string
+    taskIdTitle: string
     failReason: (e: string) => string
     failTitle: string
     handle: string
@@ -193,6 +196,7 @@ export interface WarCopy {
     planTitle: Record<'pending' | 'approved' | 'rejected', string>
     approvePlan: string
     rejectPlan: string
+    planIrreversible: string
     regradeTo: (label: string) => string
     close: string
     cancelledReason: (r: string) => string
@@ -286,6 +290,9 @@ export interface WarCopy {
     namePlaceholder: string
     bfAutoHint: string
     bfContNote: string
+    /** V16.4 critique P2-3：二级展开（星球全列）/ 最近命令收起态的开关钮。 */
+    bfMore: string
+    recentToggle: string
     recentLabel: string
     kbdHint: string
   }
@@ -322,6 +329,8 @@ export interface WarCopy {
    * 收进顶部一颗胶囊（hover 展开 + 点击钉住；聚焦模式即岛的常驻形态）。 */
   island: {
     counts: (c: { pending: number; waiting: number; active: number; failed: number }) => string
+    /** V16.4-R3：分段结构化（岛计数可点路由）——label 过词表（函数返回值派生）。 */
+    countSegs: (c: { pending: number; waiting: number; active: number; failed: number }) => ReadonlyArray<{ kind: 'pending' | 'waiting' | 'active' | 'failed'; label: string }>
     inboxBadge: (n: number) => string
     visitMini: (closed: number, failed: number, commands: number) => string
     pin: string
@@ -409,11 +418,12 @@ export const warCopy: WarCopy = {
   },
   lifecycle: {
     stages: { command: '命令', task: '任务', battle: '执行', report: '战报' },
-    waitingStaff: '参谋接收中',
+    waitingStaff: '参谋起草中',
+    pendingRelay: '待参谋接令',  /* V16.4-R3 P1-1：chip 说账本事实（已接收），状态行说正在发生的动词（起草中）——等价类收敛 */
     approvedAwaitingPublish: '任务待发布',
     waitingClarify: '等你答问',
     planPending: '计划待你批',
-    formingDrafting: '成形中',
+    formingDrafting: '起草中',  /* V16.4-R3 P1-1：与解释行「正在起草任务书」同一动词 */
     waitingClaim: '待指挥官领取',
     attemptN: n => `第 ${n} 次尝试`,
     chain: (done, total) => `任务链 ${done}/${total}`,
@@ -528,6 +538,7 @@ export const warCopy: WarCopy = {
     highPriority: '高优先',
     attemptN: n => `第 ${n} 次尝试`,
     attemptNTitle: '含自动重派的尝试次数',
+    taskIdTitle: '任务单 ID（溯源用）',
     failReason: e => `败因：${e}`,
     failTitle: '重试已用尽，等元首让参谋重新立案',
     handleReview: '去验收 · 参谋会话',
@@ -544,7 +555,7 @@ export const warCopy: WarCopy = {
     continueBtnTitle: '以这条命令为母本下达续作——新令接过战线继续打',
   },
   commandCard: {
-    noQuickAction: '无快捷操作',
+    noQuickAction: '无需操作——命令在自动推进',
     pipsTitle: n => `这条战线共 ${n} 代——每个圆点是一代，颜色即该代当前状态`,
     pipStatus: { run: '推进中', wait: '等你发落', done: '善终', fail: '败退', idle: '未战而终' },
     panelAria: n => `战线前史共 ${n} 代（最新一代就在坞上）：上/下键选代，回车打开详情`,
@@ -556,6 +567,7 @@ export const warCopy: WarCopy = {
     orbIdle: '执行中',
     mapLegend: '蓝动·琥珀等·绿善终·红败 ｜ 行星=战场（内环=最老）· 环=战线（分段=战线数）· ✓凯旋 · 呼吸光点=执行中',
     mapHintToast: '🪐 战场不止一个——试试战区视图（点此开启，⚙ 设置里随时可关）',
+    mapHintDismiss: '忽略',
     controls: '左键拖拽平移 · 中键旋转 · 滚轮缩放 · 双击或 R 复位 · 悬停光点点亮战线',
     untraced: '未溯源执行',
     ungrouped: '未分组',
@@ -567,6 +579,7 @@ export const warCopy: WarCopy = {
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
     rejectPlan: '驳回重呈',
+    planIrreversible: '批准即发布，下发后不可撤回；驳回则退回参谋重拟',
     regradeTo: label => `改为 ${label}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
@@ -652,6 +665,8 @@ export const warCopy: WarCopy = {
     bfAuto: '参谋定',
     bfAutoHint: '不指定——参谋按任务性质选择工作区',
     bfContNote: '续接默认随父战线所在战场；改选即宣告另起新战线（原战线留在原战场）',
+    bfMore: '其他战场 ▾',
+    recentToggle: '⌁ 最近命令 ▾',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -687,6 +702,14 @@ export const warCopy: WarCopy = {
     counts: c =>
       [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `作战 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
+    // V16.4-R3 critique P1-2：岛计数可点——分段结构化（kind 路由到列），词仍过词表。
+    countSegs: c =>
+      [
+        c.pending > 0 ? { kind: 'pending' as const, label: `等·参谋 ${c.pending}` } : null,
+        c.waiting > 0 ? { kind: 'waiting' as const, label: `等·指挥官 ${c.waiting}` } : null,
+        c.active > 0 ? { kind: 'active' as const, label: `作战 ${c.active}` } : null,
+        c.failed > 0 ? { kind: 'failed' as const, label: `折戟 ${c.failed}` } : null,
+      ].filter(x => x !== null),
     inboxBadge: n => `✉ ${n}`,
     // V10.1 审查：▲收官→✓收官（善终语义，与凯旋印记同符）。
     visitMini: (closed, failed, commands) =>
@@ -780,10 +803,11 @@ export const plainCopy: WarCopy = {
   lifecycle: {
     stages: { command: '下达', task: '任务', battle: '执行', report: '结果' },
     waitingClarify: '等你回答',
-    waitingStaff: '规划 Agent 接收中',
+    waitingStaff: '规划 Agent 起草中',
+    pendingRelay: '待规划 Agent 接令',
     approvedAwaitingPublish: '任务待发布',
     planPending: '方案待你批',
-    formingDrafting: '成形中',
+    formingDrafting: '起草中',
     waitingClaim: '等执行者领取',
     attemptN: n => `第 ${n} 次尝试`,
     chain: (done, total) => `任务组 ${done}/${total}`,
@@ -897,6 +921,7 @@ export const plainCopy: WarCopy = {
     highPriority: '高优先',
     attemptN: n => `第 ${n} 次尝试`,
     attemptNTitle: '含自动重派的尝试次数',
+    taskIdTitle: '任务编号（溯源用）',
     failReason: e => `失败原因：${e}`,
     failTitle: '重试已用尽，等规划 Agent 重新立案',
     handleReview: '去验收 · 规划 Agent 会话',
@@ -913,7 +938,7 @@ export const plainCopy: WarCopy = {
     continueBtnTitle: '以这条命令为基础下发跟进——新的跟进接在原事后面',
   },
   commandCard: {
-    noQuickAction: '暂无操作',
+    noQuickAction: '无需操作——流程自动推进',
     pipsTitle: n => `这条跟进线共 ${n} 步——每个圆点是一步，颜色是每步状态`,
     pipStatus: { run: '进行中', wait: '待你处理', done: '已完成', fail: '失败', idle: '已取消' },
     panelAria: n => `此前跟进共 ${n} 步（最新一步就在下方）：上/下键选择，回车查看`,
@@ -925,6 +950,7 @@ export const plainCopy: WarCopy = {
     orbIdle: '进行中',
     mapLegend: '蓝=干活·琥珀=等你·绿=完成·红=失败 ｜ 星球=项目（内环=最早）· 环=同一条线（点=第几轮）· ✓完成数 · 亮点=进行中',
     mapHintToast: '🪐 项目不止一个——试试全景图视图（点这里打开，⚙ 设置里可以关掉）',
+    mapHintDismiss: '忽略',
     controls: '左键拖动平移 · 中键转视角 · 滚轮缩放 · 双击或 R 回正 · 悬停亮点查看关联',
     untraced: '还没关联命令',
     ungrouped: '杂项',
@@ -936,6 +962,7 @@ export const plainCopy: WarCopy = {
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
     rejectPlan: '驳回重呈',
+    planIrreversible: '同意即发布，发出后不能撤回；不同意则退回规划 Agent 重拟',
     regradeTo: label => `改为 ${label}`,
     close: '关闭',
     cancelledReason: r => `取消原因：${r}`,
@@ -1021,6 +1048,8 @@ export const plainCopy: WarCopy = {
     bfAuto: '自动',
     bfAutoHint: '不指定——规划 Agent 按任务性质选择项目',
     bfContNote: '跟进默认在原事项的项目里；改选即在别的项目另起一条新线',
+    bfMore: '更多项目 ▾',
+    recentToggle: '⌁ 最近命令 ▾',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -1054,6 +1083,13 @@ export const plainCopy: WarCopy = {
     counts: c =>
       [c.pending > 0 ? `等·规划 Agent ${c.pending}` : '', c.waiting > 0 ? `等·执行 Agent ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
+    countSegs: c =>
+      [
+        c.pending > 0 ? { kind: 'pending' as const, label: `等·规划 Agent ${c.pending}` } : null,
+        c.waiting > 0 ? { kind: 'waiting' as const, label: `等·执行 Agent ${c.waiting}` } : null,
+        c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
+        c.failed > 0 ? { kind: 'failed' as const, label: `失败 ${c.failed}` } : null,
+      ].filter(x => x !== null),
     inboxBadge: n => `✉ ${n}`,
     visitMini: (closed, failed, commands) =>
       [closed > 0 ? `✓完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']

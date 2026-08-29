@@ -39,3 +39,14 @@ export function applyBattlefieldMarker(text: string, bf: string | null): string 
   return body.includes(marker) ? body : `${body}
 ${marker}`
 }
+
+/** V16.4 critique P1-1：人读标题剥协议标记行——【星球：…】（V16 正典）与【战场：…】
+ *  （V14 旧令，解析双兼容）是给大副看的机器语法，不该成为聚焦页 H1 / 续接 chips /
+ *  调度卡标题里人类读到的第一串字符（截断 Windows 路径占满标题位）。
+ *  只剥「整行恰为标记」的行；剥完为空则退回原文（绝不产出空标题）。
+ *  档位前缀（!!直接做/??先看方案）保留——那是元首自己的意图信号，不是机器词汇。 */
+export function displayTitleOf(text: string): string {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '' && !/^【(?:星球|战场)：.+】$/.test(l))
+  const t = lines[0] ?? ''
+  return t === '' ? text.trim() : t
+}

@@ -231,7 +231,7 @@ gate('bundle', () => {
     // V9.11 R1 卡位模型：任务列=大副侧台账（成形卡 + 任务书卡全量常驻）+ 生命条上报即进任务回报段。
     [client, 'formingVariantOf', 'forming-variant derivation shared by focus ghost & ledger card'],
     [client, 'war-forming', 'ledger forming card class'],
-    [client, '成形中', 'forming drafting chip copy (both skins)'],
+    [client, '起草中', 'forming drafting chip copy (both skins)'],
     [client, 'war-card.settled', 'settled task cards stay in ledger, dimmed'],
     // V9.11 R2 执行卡实时活动：session/event → 动词 → 板投影/revision 盐。
     [host, 'ActivityTracker', 'session/event → activity tracker (read-only)'],
@@ -267,6 +267,17 @@ gate('bundle', () => {
     // V9.13 补丁二：宿主不给插件子树 border-box——content-box 下 width:100%+padding 的件横向戳出
     // （composer 恒溢出弹窗右缘 8px、modal 实宽 678 超 max-width 640，舰长报修实测）。
     [client, '.war-root *,.war-root *::before,.war-root *::after{box-sizing:border-box}', 'plugin subtree border-box reset (no width:100%+padding overflow)'],
+    // V16.4 UI critique 整改：标记不进人读面 + 琥珀=等你搬家 + 星域车道避让 +
+    // composer 二级削层 + side-tab 侧条退役 + 聚焦页 URL hash。
+    [client, 'displayTitleOf', 'V16.4 protocol marker stripped from human title surfaces (H1/chips/cards)'],
+    [client, 'war-island-badge.wait', 'V16.4 amber=waiting-for-you moved to inbox badge (machine counts neutral)'],
+    [client, 'war-bf-more', 'V16.4 composer battlefield tiering (parent context + expandable rest)'],
+    [client, 'war-recent-toggle', 'V16.4 composer recent-orders collapsed by default'],
+    [client, 'hitsRect', 'V16.4 starfield xcard lane avoidance around planet nameplates'],
+    [client, 'war-wz-kbplanet', 'V16.4-R2 keyboard mirror buttons for planet front panels (canvas was pointer-only)'],
+    [client, 'war-map-hint-x', 'V16.4-R2 map-hint toast dismissible + dock-aware position'],
+    [client, 'mapHintDismiss', 'V16.4-R2 dismiss copy rides the skin lexicon'],
+    [client, "location.hash.match(/^#war-cmd-", 'V16.4 focus page state rides URL hash (refresh/share safe)'],
     // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。
     [client, '--war-text-1: var(--dsw-alias-label-primary)', 'text semantic middle layer (component rules stop piercing dsw aliases)'],
     [client, '--war-border: var(--dsw-alias-border-l2)', 'border semantic token'],

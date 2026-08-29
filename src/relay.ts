@@ -17,6 +17,7 @@ import { bountyDraftingSkillContent } from './skill.ts'
 import { boardDigest } from './wake.ts'
 import { loadCampaign } from './events.ts'
 import { buildChainNote, pivotChainSlice, type ChainAncestor } from './chain-note.ts'
+import { displayTitleOf } from './client/preflight.ts'
 import type { TaskStatus } from './types.ts'
 import type { WarStore } from './state.ts'
 
@@ -241,7 +242,7 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
       if (!created.result.ok) throw new Error(`大副会话创建失败：${created.result.error.code}: ${created.result.error.message}`)
       sessionId = created.result.value.sessionId
       appendDirectiveEvent(deps.stateDir, { type: 'directive_session_opened', ts: new Date().toISOString(), directiveId: directive.id, staffSessionId: sessionId })
-      void sessions.rename({ rpcId: rpcId(), payload: { sessionId, title: `大副·${directive.text.slice(0, 12)}` } }).catch(() => undefined)
+      void sessions.rename({ rpcId: rpcId(), payload: { sessionId, title: `大副·${displayTitleOf(directive.text).slice(0, 12)}` } }).catch(() => undefined)
       const war = deps.store.get()
       if (war.hqSessionId === undefined) {
         war.hqSessionId = sessionId

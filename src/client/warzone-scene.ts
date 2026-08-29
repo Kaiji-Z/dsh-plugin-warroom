@@ -1614,16 +1614,30 @@ export class WarzoneScene {
     let w = 60
     try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过名牌 */ }
     if (c2 === null) return
+    // V16.4-R2 critique P2：失败定位不退化——有败的星球名签缀红「N 败」
+    //（2D/3D 同源 p.failing），默认值班态也能 10 秒定位失败。
+    const label = p.failing > 0 ? `${p.name} ·${p.failing}败` : p.name
     c2.font = '600 30px system-ui, sans-serif'
-    w = Math.min(Math.ceil(c2.measureText(p.name).width) + 26, 340)
+    w = Math.min(Math.ceil(c2.measureText(label).width) + 26, 380)
     cv.width = w; cv.height = 44
     c2 = cv.getContext('2d')
     if (c2 === null) return
     const dark = this.darkTheme !== false
     c2.font = '600 30px system-ui, sans-serif'
     c2.textAlign = 'center'; c2.textBaseline = 'middle'
-    c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
-    c2.fillText(p.name, w / 2, 23)
+    if (p.failing > 0) {
+      const nameW = c2.measureText(p.name).width
+      const sufW = c2.measureText(` ·${p.failing}败`).width
+      const x0 = w / 2 - (nameW + sufW) / 2
+      c2.textAlign = 'left'
+      c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
+      c2.fillText(p.name, x0, 23)
+      c2.fillStyle = '#e5484d'
+      c2.fillText(` ·${p.failing}败`, x0 + nameW, 23)
+    } else {
+      c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
+      c2.fillText(label, w / 2, 23)
+    }
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.62 : 0.8, depthWrite: false, fog: false }))
     // V13.5 常屏幕尺寸：目标像素高 + 画布宽高比记进 userData，update 逐帧按相机距离补偿。
     sprite.userData.labelH = 19
@@ -2025,7 +2039,7 @@ export class WarzoneTactical {
       g.strokeStyle = P.ring; g.lineWidth = 1; g.stroke()
       g.fillStyle = P.ringTxt; g.font = '10px Consolas'
       g.textAlign = 'left'; g.textBaseline = 'alphabetic'
-      g.fillText(wr + 'k', 4, -r + 12)
+      // V16.4-R3 critique P2-1：假距离刻度（demo 遗产世界单位）退役——环保留，数字不再说谎
     }
     g.strokeStyle = P.cross
     g.beginPath(); g.moveTo(-R - 30, 0); g.lineTo(R + 30, 0); g.moveTo(0, -R - 30); g.lineTo(0, R + 30); g.stroke()
@@ -2088,11 +2102,28 @@ export class WarzoneTactical {
         g.strokeStyle = P.garrison; g.lineWidth = 2; g.stroke()
       }
       g.font = '10px "Microsoft YaHei",Consolas'; g.textAlign = 'center'
-      g.fillStyle = isHl ? P.nameHl : P.name
-      if (isHl) g.font = 'bold 12px "Microsoft YaHei",Consolas'
-      g.fillText(p.name.split(' ·')[0]!, s1.x, s1.y - rr - 6)
-      g.fillStyle = col; g.font = '9px Consolas'
-      g.fillText(`LV${p.level}·${p.garrison}艘`, s1.x, s1.y + rr + 13)
+      const nm = p.name.split(' ·')[0]!
+      if (p.failing > 0) {
+        // V16.4-R2：失败星球名签红缀（与 3D 名牌同源同语义）
+        const nmW = g.measureText(nm).width
+        const suf = ` ·${p.failing}败`
+        const sufW = g.measureText(suf).width
+        g.textAlign = 'left'
+        g.fillStyle = isHl ? P.nameHl : P.name
+        g.fillText(nm, s1.x - (nmW + sufW) / 2, s1.y - rr - 6)
+        g.fillStyle = '#e5484d'
+        g.fillText(suf, s1.x - (nmW + sufW) / 2 + nmW, s1.y - rr - 6)
+        g.textAlign = 'center'
+      } else {
+        g.fillStyle = isHl ? P.nameHl : P.name
+        if (isHl) g.font = 'bold 12px "Microsoft YaHei",Consolas'
+        g.fillText(nm, s1.x, s1.y - rr - 6)
+      }
+      if (p.garrison > 0) {
+        // V16.4-R3 critique P2-1：零值标签是纯噪音（九星九个 0艘）——garrison=0 不渲染
+        g.fillStyle = col; g.font = '9px Consolas'
+        g.fillText(`LV${p.level}·${p.garrison}艘`, s1.x, s1.y + rr + 13)
+      }
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
     })
     // 编队符号 + 虚线航迹

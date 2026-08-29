@@ -200,7 +200,7 @@ with sync_playwright() as p:
     plan_f = forming.filter(has_text="把 projB 的小工具改成支持多本账本")
     assert plan_f.count() == 1 and "计划待你批" in plan_f.first.inner_text(), "plan-pending command must surface its forming card"
     draft_f = forming.filter(has_text="能翻回去看以前记的吗")
-    assert draft_f.count() == 1 and "成形中" in draft_f.first.inner_text(), "received(+staff session) command must carry the drafting forming card"
+    assert draft_f.count() == 1 and "起草中" in draft_f.first.inner_text(), "received(+staff session) command must carry the drafting forming card (V16.4-R3 正名：成形中→起草中)"
     approved_f = forming.filter(has_text="README 补一页英文版")
     assert approved_f.count() == 1 and "任务待发布" in approved_f.first.inner_text(), "approved-awaiting-publish command must surface its forming card"
     assert forming.filter(has_text="算了").count() == 0, "cancelled command must not surface a forming card"
@@ -208,8 +208,9 @@ with sync_playwright() as p:
     settled = ledger.locator(".war-card.settled")
     assert settled.count() == 2, f"ledger must keep BOTH terminal task cards (failed t3 + closed t6), got {settled.count()}"
     settled_txt = settled.all_inner_texts()
-    assert any("20260823-delta" in t for t in settled_txt) and any("20260823-golf" in t for t in settled_txt), f"terminal cards must be t3(failed)+t6(closed): {settled_txt}"
-    t1_card = ledger.locator(".war-card", has_text="20260823-bravo").first
+    # V16.4：任务卡裸 taskId 降级为 title（critique：机器 ID 不占人读行）——定位改按任务标题。
+    assert any("修复 Flaky 的登录重定向测试" in t for t in settled_txt) and any("修复分页参数 off-by-one" in t for t in settled_txt), f"terminal cards must be t3(failed)+t6(closed): {settled_txt}"
+    t1_card = ledger.locator(".war-card", has_text="做一个「每日一句」CLI 小工具").first
     assert "settled" not in (t1_card.get_attribute("class") or ""), "reported task must stay fully lit (review action pending)"
     d3_cmd = page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
     assert d3_cmd.count() == 1, "d3 command card must sit in the dispatch strip"
@@ -224,7 +225,7 @@ with sync_playwright() as p:
     assert strip_now("能翻回去看以前记的吗") == ["任务"], "received+staff (drafting forming card) strip must sit on TASK stage"
     assert strip_now("等下帮我把 projA 的依赖全部升到最新") == ["任务"], "drafting forming card (seeded received) must sit on TASK stage"
     assert strip_now("12 月 1 日早上 9 点把上月任务回报整理成一段摘要发我") == ["命令"], "scheduled (not yet relayed) strip must stay on COMMAND stage"
-    rep_label = d3_cmd.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
+    rep_label = d3_cmd.locator(".war-life-stage").nth(3).locator(".war-life-label")  # V16.4：段标签只在 now 出现，报告段按位取（第 4 段）
     assert "now" in (rep_label.get_attribute("class") or ""), "unseen report must breathe (now), not turn green"
     # 任务回报已阅转绿：点 d3 的任务回报列卡（t1 尝试会话卡，经 lineage 开聚焦页任务回报段）
     # → 任务回报段进视野 → 关闭后调度条上该命令任务回报段转绿（done）、无呼吸位。
@@ -234,7 +235,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(400)
     assert d3_cmd.locator(".war-life-label.now").count() == 0, "after viewing the report, no stage should breathe"
-    rep_label2 = d3_cmd.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
+    rep_label2 = d3_cmd.locator(".war-life-stage").nth(3).locator(".war-life-label")
     assert "done" in (rep_label2.get_attribute("class") or ""), "viewed report stage must turn green (done)"
     page.screenshot(path=f"{OUT}/v9-ledger.png")
 
@@ -246,7 +247,7 @@ with sync_playwright() as p:
     def d3_strip():
         return page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
     def report_label(cmd_loc):
-        return cmd_loc.locator(".war-life-stage").filter(has_text="任务回报").locator(".war-life-label")
+        return cmd_loc.locator(".war-life-stage").nth(3).locator(".war-life-label")
     # 通道②（点开展开）：清 seen → 开聚焦页（modal 挂载即全量重渲染，生命条重读
     # localStorage）→ 250ms 仍呼吸 → 点任务回报卡展开 → 800ms 停留窗未到就已转绿。
     page.evaluate("() => localStorage.removeItem('warroom-report-seen')")
@@ -273,13 +274,13 @@ with sync_playwright() as p:
     assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell channel: sustained view past 800ms must mark seen"
     # 正名分野：d7 败链的重试 CTA 在主界面任务卡（败因卡按钮）与聚焦页任务环
     # 展开面板（任务回报段对无任务回报败链诚实给「尚无任务回报」，不硬造卡）。
-    t3_card = page.locator(".war-col.zone-tasks .war-card", has_text="20260823-delta").first
+    t3_card = page.locator(".war-col.zone-tasks .war-card", has_text="修复 Flaky 的登录重定向测试").first
     assert "去下重试令 · 大副会话" in t3_card.inner_text(), "main-board failed task card must carry the retry-order copy"
     assert "去验收" not in t3_card.inner_text(), "failed task card must NOT offer the review copy"
     d7_cmd = page.locator(".war-dispatch .war-command-card", has_text="查清楚登录重定向测试为什么老挂")
     d7_cmd.click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    page.locator(".war-modal [data-stage='task'] .war-card", has_text="20260823-delta").first.click()
+    page.locator(".war-modal [data-stage='task'] .war-card", has_text="修复 Flaky 的登录重定向测试").first.click()
     page.wait_for_timeout(300)
     assert page.locator(".war-modal .war-subdetail", has_text="去下重试令 · 大副会话").count() == 1, "failed chain task panel must carry the renamed copy (去下重试令)"
     assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 大副会话").count() == 0, "failed chain must NOT offer the review copy"
@@ -411,7 +412,10 @@ with sync_playwright() as p:
     # 定时下达：preset 选中 → cron 输入同步 → 提交后调度坞出现 ⏰ 待发卡。
     page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    assert page.locator(".war-recent-item").count() >= 1, "recent commands row missing"
+    # V16.4 critique P2-3：最近命令默认收进二级开关（选项墙削层）——点开才见条目。
+    assert page.locator(".war-recent-toggle").count() == 1, "recent commands collapsed toggle missing"
+    page.locator(".war-recent-toggle").click()
+    assert page.locator(".war-recent-item").count() >= 1, "recent commands row missing after expand"
     page.locator(".war-sched-card", has_text="定时").click()
     assert page.locator(".war-cron-presets").count() == 1, "cron presets missing after choosing 定时"
     page.locator(".war-cron-preset").first.click()
@@ -427,9 +431,10 @@ with sync_playwright() as p:
     page.locator(".war-modal-actions button.primary").click()
     page.wait_for_timeout(1500)
     assert page.locator(".war-chip.sched").count() >= 1, "scheduled command card must carry the ⏰ chip"
-    # 最近命令重发仍可用。
+    # 最近命令重发仍可用（V16.4：composer 重开默认收起——先展开再点）。
     page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
+    page.locator(".war-recent-toggle").click()
     page.locator(".war-recent-item").first.click()
     assert page.locator(".war-composer").input_value() != "", "recent re-send did not fill the composer"
     page.locator(".war-modal-actions button", has_text="取消").click()

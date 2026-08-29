@@ -230,9 +230,12 @@ body[data-ds-dark-theme] .war-root{
 .war-head-dot.on{background:var(--war-run-border)}
 .war-island-counts{font-size:12px;color:var(--war-text-2);white-space:nowrap}
 .war-island-num{font-size:13px;font-weight:600;color:var(--war-text-2)} /* V12.2 critique P3：计数数字上权重（第一眼信息反层级倒挂） */
-.war-island-num.wait{color:var(--war-wait)} /* 四数主从：待领=唯一行动信号（琥珀），非零即第一眼 */
-.war-island-badge{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-border);color:var(--war-text-2);white-space:nowrap}
+.war-island-badge{font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-border);color:var(--war-text-2);white-space:nowrap;background:transparent;cursor:pointer;font-family:var(--war-font)} /* V16.4-R3：span→button——显式透明底防 UA ButtonFace 泄漏 */
+.war-island-seg{background:none;border:none;font:inherit;color:inherit;cursor:pointer;padding:0}
+.war-island-seg:hover .war-island-num,.war-island-seg:hover{color:var(--war-text-1)}
+.war-flash{outline:2px solid var(--war-focus) !important;outline-offset:1px;border-radius:var(--war-r-sm)} /* V16.4-R3：计数路由的 1.6s 闪显描边 */
 .war-island-badge.hot{color:var(--war-fail);border-color:var(--war-fail-border);font-weight:600}
+.war-island-badge.wait{color:var(--war-wait);border-color:var(--war-wait-border)} /* V16.4 P2-1：琥珀=等你搬到徽标（等外勤小队是机器等待，四数全中性） */
 .war-island-visitmini{font-size:12px;color:var(--war-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .war-island-spacer{flex:1 1 auto;min-width:4px}
 .war-island-pinned{font-size:12px;flex:0 0 auto}
@@ -345,7 +348,7 @@ body[data-ds-dark-theme] .war-root{
 .war-life-bar.now{background:var(--war-run-border);animation:war-life-breath 2.4s ease-in-out infinite}
 @keyframes war-life-breath{0%,100%{opacity:1}50%{opacity:.45}}
 @media (prefers-reduced-motion: reduce){.war-life-bar.now{animation:none}}
-.war-life-label{font-size:12px;line-height:16px;color:color-mix(in srgb, var(--war-text-3) 45%, var(--war-text-2));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.war-life-label{font-size:12px;line-height:16px;min-height:16px;color:color-mix(in srgb, var(--war-text-3) 45%, var(--war-text-2));white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* V16.4：min-height 保恒高——段标签只在 now 段出现，空段位不塌 */
 .war-life-label.done{color:var(--war-text-2)}
 .war-life-label.now{color:var(--war-run-strong);font-weight:600}
 .war-life-status{font-size:12px;color:var(--war-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -405,6 +408,9 @@ body[data-ds-dark-theme] .war-root{
 .war-recent-label{font-size:12px;color:var(--war-text-3);flex:0 0 auto}
 .war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .war-recent-item:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
+/* V16.4 critique P2-3：选项墙削层——收起态开关钮（最近命令/其他星球二级展开）。 */
+.war-recent-toggle{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;margin-top:8px} /* V16.4-R2：text-3 浅色 3.71:1 不达 4.5（probe 抓）——升 text-2 */
+.war-recent-toggle:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 
 /* --- V7-⑥ 空板首用引导 -------------------------------------------------------- */
 .war-onboard{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px 20px;text-align:center}
@@ -680,6 +686,10 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-toggle button.on{background:var(--war-wz-toggle-on-bg);color:var(--war-wz-toggle-on-text);font-weight:700}
 .war-wz-toggle button:hover{color:var(--war-wz-toggle-hover-text)}
 .war-wz-foot{position:absolute;left:50%;bottom:calc(var(--war-dock-h, 230px) + 10px);transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;user-select:none}
+.war-wz-foot-stat{font-size:12px;color:var(--war-text-2);letter-spacing:.04em}
+/* V16.4-R2 critique P2：键盘镜像星球钮——平时视觉隐藏，focus-visible 显形为浮钮。 */
+.war-wz-kbplanet{position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden}
+.war-wz-kbplanet:focus-visible{position:fixed;left:340px;top:64px;z-index:30;width:auto;height:auto;overflow:visible;padding:4px 10px;border-radius:var(--war-r-pill);border:1px solid var(--war-run-border);background:var(--war-pop-bg);color:var(--war-text-1);font-size:12px;font-family:var(--war-font);outline:2px solid var(--war-focus);outline-offset:1px}
 .war-wz-legend{display:flex;gap:14px;font:12px/1.5 var(--war-font);color:var(--war-wz-legend-text)}
 .war-wz-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
 .war-wz-legend .lg-wait{background:var(--war-wz-wait)}
@@ -723,7 +733,11 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-map-legend{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--war-text-2);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-border-soft);pointer-events:none;white-space:nowrap}
 .war-map-legend .war-legend-dot{flex:0 0 auto}
 /* V10.1 星域指路 toast（一次性） */
-.war-map-hint{position:fixed;right:18px;bottom:18px;z-index:40;max-width:340px;padding:10px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;cursor:pointer;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);text-align:left}
+.war-map-hint{position:fixed;right:18px;bottom:calc(var(--war-dock-h, 0px) + 18px);z-index:40;max-width:340px;padding:8px 10px 8px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);display:flex;align-items:center;gap:6px} /* V16.4-R2：抬到调度条上方（dock 实测高变量）+ 内部主/忽略两钮 */
+.war-map-hint-main{cursor:pointer;background:none;border:none;font:inherit;color:inherit;text-align:left;padding:0}
+.war-map-hint-main:hover{color:var(--war-run-strong)}
+.war-map-hint-x{flex:none;cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-border);color:var(--war-text-2);background:transparent}
+.war-map-hint-x:hover{color:var(--war-text-1);border-color:var(--war-run-border)}
 .war-map-hint:hover{background:var(--war-run-tint)}
 .war-map-hint:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 .war-settings-body{padding-bottom:32px}
@@ -850,7 +864,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-subdetail .war-modal-actions{border-top:0;padding-top:0;justify-content:flex-start}
 .war-tour-jumps{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--war-border-soft)}
 .war-jump-btn{flex:1 1 0;justify-content:center;display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
-.war-jump-btn:disabled{cursor:not-allowed;opacity:.55}
+.war-jump-btn:disabled{cursor:not-allowed;opacity:.55;border-style:dashed;color:var(--war-text-3);background:transparent} /* V16.4-R2：禁用占位三通道可辨（虚线+灰字+透明底），色弱不只靠 opacity */
 /* --- V9.10 聚焦页状态机补全：warn ghost / 改档按钮组 / 任务产出+历次执行行 --- */
 .war-tour-ghost.warn{border-color:color-mix(in srgb, var(--war-wait-border) 55%, var(--war-border));background:var(--war-wait-tint)}
 .war-tour-ghost.warn .war-tour-ghost-icon{color:var(--war-wait)}
@@ -873,9 +887,11 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 /* --- V13 战线一等公民：战线头（任务列）/ 航迹（2D SVG）/ 未分组 / 3D 图例 ------ */
 .war-front-group{display:flex;flex-direction:column;gap:8px}
 /* V13.3 组=围合容器（critique R2 P1）+ V13.4 浅色提浓（critique R3 P1：4%/22%
- * 在白底上 1.03/1.3:1 低于知觉阈值——浅色基线 8%/42%，深色维持淡雅）。 */
-.war-front-group{margin-top:7px;padding:4px 4px 6px;border-radius:var(--war-r-lg);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);border:1px solid color-mix(in srgb,var(--chain-hue,#888) 42%,transparent);border-left:3px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent)}
-body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb,var(--chain-hue,#888) 9%,transparent);border-color:color-mix(in srgb,var(--chain-hue,#888) 24%,transparent);border-left:3px solid color-mix(in srgb,var(--chain-hue,#888) 50%,transparent)}
+ * 在白底上 1.03/1.3:1 低于知觉阈值——浅色基线 8%/42%，深色维持淡雅）。
+ * V16.4 critique B：side-tab 侧条退役（探测器成体系命中）——链色身份由
+ * tint+围合边+头点（war-front-dot）三通道承载，左条是第四重冗余。 */
+.war-front-group{margin-top:7px;padding:4px 4px 6px;border-radius:var(--war-r-lg);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);border:1px solid color-mix(in srgb,var(--chain-hue,#888) 42%,transparent)}
+body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb,var(--chain-hue,#888) 9%,transparent);border-color:color-mix(in srgb,var(--chain-hue,#888) 24%,transparent)}
 .war-front-group.settled{opacity:.78}
 .war-front-head{display:flex;align-items:center;gap:6px;padding:3px 6px 5px;min-width:0}
 .war-front-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--chain-hue,#888);box-shadow:0 0 0 2px color-mix(in srgb,var(--chain-hue,#888) 25%,transparent)}
@@ -886,7 +902,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-front-state.warn{color:var(--war-wait);font-weight:600}
 .war-front-state.err{color:var(--war-fail)}
 .war-front-state.done{color:var(--war-done)}
-.war-inbox-front{display:flex;align-items:center;gap:6px;padding:4px 10px 2px;border-left:3px solid var(--chain-hue,#888)}
+.war-inbox-front{display:flex;align-items:center;gap:6px;padding:4px 10px 2px;border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 7%,transparent)} /* V16.4：侧条退役——头内 war-front-dot 已 carry 链色 */
 .war-inbox-front-text{font-size:12px;font-weight:600;color:var(--war-text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 2D 星域战线航迹（SVG viewBox 0 0 100 100 非等比——描边 vector-effect 防拉伸变形） */
 .war-front-badge2d{position:absolute;transform:translate(-50%,-50%);z-index:1;font-size:12px;font-weight:600;line-height:1;padding:2px 7px;border-radius:var(--war-r-pill);color:var(--war-text-1);background:color-mix(in srgb,var(--chain-hue,#888) 30%,var(--war-pop-bg));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent);pointer-events:none}
@@ -897,7 +913,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-wz-bfpanel-title{font-size:13px;font-weight:600;color:var(--war-text-1);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-wz-bfpanel-x{flex:none;border:none;background:none;cursor:pointer;font-size:13px;color:var(--war-text-2);padding:2px 6px;border-radius:var(--war-r-sm)}
 .war-wz-bfpanel-x:hover{color:var(--war-text-1);background:var(--war-well-bg)}
-.war-wz-bfpanel-row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;margin:0 0 4px;border:1px solid transparent;border-left:3px solid var(--chain-hue,#888);border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 6%,transparent);cursor:pointer;font-family:var(--war-font);font-size:12px;color:var(--war-text-1)}
+.war-wz-bfpanel-row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;margin:0 0 4px;border:1px solid transparent;border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 6%,transparent);cursor:pointer;font-family:var(--war-font);font-size:12px;color:var(--war-text-1)} /* V16.4：侧条退役——行内 war-front-dot 已 carry 链色 */
 .war-wz-bfpanel-row:hover{background:color-mix(in srgb,var(--chain-hue,#888) 14%,transparent)}
 .war-wz-bfpanel-row:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
 .war-wz-bfpanel-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
