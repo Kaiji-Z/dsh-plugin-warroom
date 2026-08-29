@@ -2018,6 +2018,8 @@ export class WarzoneTactical {
   private readonly scanPat: CanvasPattern | null
   /** V12：2D 双皮——深色=战术雷达 / 浅色=蓝图纸面（白纸+青蓝制图线，舰长定）。 */
   private dark = true
+  /** V18 critique：画布内图例行（与 3D HUD 同文案 mapLegend——3D 有 2D 无是两待遇）。 */
+  private legend = ''
   /** V12.2：调色板经 war-tokens 从 CSS 令牌读取（setTheme 刷新；headless 回退）。 */
   private tac: WarTacPalette = TAC_FALLBACK_DARK
   private w = 0
@@ -2060,6 +2062,10 @@ export class WarzoneTactical {
   /** 帧绘制（V11.5f 舰长令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
    * 文字全部休眠——只剩盘+符号+高亮；扫描波束动态动画此前已休眠。
    * V17 dim：管网高亮族在场时，非命中星球/编队 alpha×0.35（HQ/盘面常亮）。 */
+  setLegend(text: string): void {
+    if (text !== this.legend) this.legend = text
+  }
+
   draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>, dim?: boolean): void {
     const g = this.g
     const w = this.w, h = this.h
@@ -2222,5 +2228,15 @@ export class WarzoneTactical {
     })
     // CRT 静态扫描线（动态闪线按令休眠；纸面态无扫描纹理——白纸干净）
     if (P.scan && this.scanPat) { g.fillStyle = this.scanPat; g.fillRect(0, 0, w, h) }
+    // V18 critique：画布内状态图例行（3D 有 HUD 而 2D 没有的两待遇补齐；
+    // 文案=mapLegend 同源——蓝动/琥珀等/绿善终/红败 + 星球=战场·环=战线）。
+    if (this.legend !== '') {
+      g.globalAlpha = dim === true ? 0.4 : 0.85
+      g.fillStyle = P.name
+      g.font = '11px Consolas,"Microsoft YaHei"'
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic'
+      g.fillText(this.legend, S.x + M + 4, S.y + S.h - M - 6)
+      g.globalAlpha = 1
+    }
   }
 }

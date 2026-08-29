@@ -276,6 +276,9 @@ function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   // V12.2 critique P2：链终局=failed 时报告段红收尾——绿严格=圆满（图例契约），
   // 挫败不许再以全绿条示人（cancelled 的 err 终局此前比 failed 更红，倒挂）。
   const failTerminus = life.reached.report && chain.some(t => t.status === 'failed')
+  // V18 critique A2：cancelled 的命令段不得染绿（绿=善终契约）——被否的命令
+  // 唯一一眼元素走 err 中性化，与状态行红同源（V12.2 修了 failed 红尾，cancelled 漏网）。
+  const cancelledHead = cmd.status === 'cancelled'
   const stages: Array<{ key: LifeStage; label: string }> = [
     { key: 'command', label: copy.stages.command },
     { key: 'task', label: copy.stages.task },
@@ -284,7 +287,7 @@ function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
   ]
   return createElement('div', { className: 'war-life' },
     ...stages.map(s => createElement('div', { key: s.key, className: 'war-life-stage', 'aria-label': s.label },
-      createElement('span', { className: `war-life-bar${failTerminus && s.key === 'report' ? ' err' : life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }),
+      createElement('span', { className: `war-life-bar${failTerminus && s.key === 'report' ? ' err' : cancelledHead && s.key === 'command' ? ' err' : life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}` }),
       // V16.4 critique P3：段标签只在「当前段」出现（一屏 20 卡×4 标签=噪音）；
       // 其余段名进 title/aria——min-height 保行高，恒高卡不塌。
       createElement('span', { className: `war-life-label${life.now === s.key ? ' now' : life.reached[s.key] ? ' done' : ''}`, title: s.label }, life.now === s.key ? s.label : ''),
@@ -323,8 +326,13 @@ function useModalLayer(onClose: () => void, label: string): {
   const ref = useRef<HTMLDivElement | null>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  // V18 critique B2-P1：prev 必须在**渲染期**捕获——effect 里取时子件 autoFocus
+  // 已把焦点移进弹窗，prev=弹窗内节点，归还聚焦到已卸载元素=焦点掉 body
+  //（全部弹窗消费者的共性缺陷：起草器/聚焦页/HQ/设置抽屉）。
+  const prevRef = useRef<HTMLElement | null>(
+    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  )
   useEffect(() => {
-    const prev = document.activeElement instanceof HTMLElement ? document.activeElement : null
     ref.current?.focus()
     const mine = (): void => { closeRef.current() }
     escLayers.push(mine)
@@ -349,7 +357,7 @@ function useModalLayer(onClose: () => void, label: string): {
       document.removeEventListener('keydown', onKey)
       const i = escLayers.indexOf(mine)
       if (i >= 0) escLayers.splice(i, 1)
-      prev?.focus()
+      prevRef.current?.focus()
     }
   }, [])
   return { ref, props: { role: 'dialog', 'aria-modal': 'true', 'aria-label': label, tabIndex: -1 } }
@@ -545,7 +553,13 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
         }, '◎')
       : null,
     tour && !conversational && !preflight
-      ? createElement('span', { className: 'war-card-actions-empty' }, activeCopy().commandCard.noQuickAction)
+      ? createElement('span', { className: 'war-card-actions-empty' },
+          // A3-P2：终局命令不走「自动推进」措辞（与安神带同源二态）。
+          cmd.status === 'cancelled'
+            ? activeCopy().commandCard.noQuickCancelled
+            : chain.length > 0 && chain.every(t => t.status === 'closed' || t.status === 'failed')
+              ? activeCopy().commandCard.noQuickSettled
+              : activeCopy().commandCard.noQuickAction)
       : null,
   ),
   )
@@ -676,6 +690,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   // 本体仍常驻，V14.1 定案不翻）；续接时星球行只摆「父战线」语境项。
   const [bfExpanded, setBfExpanded] = useState(false)
   const [recentOpen, setRecentOpen] = useState(false)
+  // V18 critique A2：续接候选折叠——平铺 ≤4（新战线+3 最近），其余进折叠（全板唯一 >4 决策簇的收口）。
+  const [contOpen, setContOpen] = useState(false)
   const bfChoices = props.battlefields
   const pickCont = (id: string | null): void => {
     setCont(id)
@@ -798,7 +814,9 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
             className: `war-continue-chip${cont === null ? ' on' : ''}`,
             onClick: () => { pickCont(null) },
           }, copy.continueNone),
-          ...continueCandidates.map(c => createElement('button', {
+          ...continueCandidates
+            .filter((c, i) => contOpen || cont === c.commandId || i < 3)
+            .map(c => createElement('button', {
             key: c.commandId, type: 'button',
             className: `war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
             title: `${c.text}（${c.live ? activeCopy().chain.tags.pivot : activeCopy().chain.tags.deepen}）`,
@@ -806,6 +824,12 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
             'data-war-cont': c.commandId,
             onClick: () => { pickCont(cont === c.commandId ? null : c.commandId) },
           }, `${genLabel(c.generation) === '' ? 'Ⅰ' : genLabel(c.generation)}·${displayTitleOf(c.text).slice(0, 12)}${c.text.length > 12 ? '…' : ''}${c.live ? ' ⚡' : ''}`)),
+          ...(continueCandidates.length > 3
+            ? [createElement('button', {
+              key: 'cont-more', type: 'button',
+              className: 'war-recent-toggle',
+              onClick: () => { setContOpen(o => !o) },
+            }, contOpen ? copy.contFoldLess : copy.contFoldMore(continueCandidates.length - 3))] : []),
         )
         : null,
       bfChoices !== undefined && bfChoices.length > 0
@@ -909,11 +933,13 @@ function ArchiveRow(props: { chain: BoardTask[]; cmd: BoardCommand; onArchive: (
     )
   }
   if (!terminal) {
+    // V18 critique：gate 理由从 title 提升为可见副行（键盘/SR 用户拿不到 title）。
     return createElement('div', { className: 'war-archive-row' },
       createElement('button', {
         className: 'war-btn war-archive-btn', type: 'button', disabled: true,
         title: ac.gate,
       }, ac.button),
+      createElement('span', { className: 'war-archive-gate' }, ac.gate),
     )
   }
   if (!confirming) {
@@ -928,7 +954,9 @@ function ArchiveRow(props: { chain: BoardTask[]; cmd: BoardCommand; onArchive: (
   return createElement('div', { className: 'war-archive-confirm' },
     createElement('span', { className: 'war-archive-warn' }, `${ac.confirmTitle} ${ac.irreversible}`),
     createElement('span', { className: 'war-cd-band-actions' },
-      createElement('button', { className: 'war-btn primary', onClick: () => { setConfirming(false); onArchive() } }, ac.confirmOk),
+      // V18 critique：不可逆动作的确认键走红语义（--war-fail=终局既成语言），
+      // 不再穿 primary 蓝「常规操作」的视觉语法。
+      createElement('button', { className: 'war-btn war-btn-danger', onClick: () => { setConfirming(false); onArchive() } }, ac.confirmOk),
       createElement('button', { className: 'war-btn', onClick: () => { setConfirming(false) } }, ac.cancel),
     ),
   )
@@ -1193,7 +1221,9 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             createElement('span', { className: 'war-chip st-closed' }, activeCopy().archive.badge),
             createElement('span', { className: 'war-archive-when', title: cmd.archived.sessions.join('、') }, `${activeCopy().front.stateSettled} · ${relTime(cmd.archived.at)}`),
           )
-        : createElement(ArchiveRow, { chain, cmd, onArchive: () => { onArchive?.() } }),
+        : null,
+      // V18 critique P3：归档行（不可逆件）从决策带上方移到带下方——起草中的
+      // 命令标题下第一个交互件不该是 disabled 的「归档此命令」。
       // 决策带（置顶常驻）：有事给动作，无事给安神行。
       createElement('div', { className: `war-cd-band${actionKind === null ? ' quiet' : ''}`, role: actionKind === null ? undefined : 'region', 'aria-label': actionKind === null ? undefined : band.title },
         actionKind === 'plan'
@@ -1234,11 +1264,34 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
                     createElement('span', { className: 'war-cd-band-tag' }, '⏰'),
                     createElement('span', { className: 'war-cd-band-hint' }, band.scheduledHint(fmtSchedule(cmd.schedule.nextRunAt))),
                   )
-                  : createElement('div', { className: 'war-cd-band-in' },
-                    createElement('span', { className: 'war-cd-band-tag' }, '✓'),
-                    createElement('span', { className: 'war-cd-band-hint' }, band.quiet),
-                  ),
+                  : (() => {
+                    // V18 critique A2-P1：终局命令的安神带不得说「自动推进中」——
+                    // 读投影零歧义：cancelled=已取消终局，settled=已收官；quiet 只留
+                    // 给真正在途的命令。
+                    const settledChain = chain.length > 0 && chain.every(t => t.status === 'closed' || t.status === 'failed')
+                    if (cmd.status === 'cancelled') {
+                      return createElement('div', { className: 'war-cd-band-in' },
+                        createElement('span', { className: 'war-cd-band-tag war-cd-band-err' }, '✕'),
+                        createElement('span', { className: 'war-cd-band-hint war-fail' }, band.terminalCancelled),
+                      )
+                    }
+                    if (settledChain) {
+                      return createElement('div', { className: 'war-cd-band-in' },
+                        createElement('span', { className: 'war-cd-band-tag war-cd-band-done' }, '✓'),
+                        createElement('span', { className: 'war-cd-band-hint' }, band.terminalSettled),
+                      )
+                    }
+                    return createElement('div', { className: 'war-cd-band-in' },
+                      createElement('span', { className: 'war-cd-band-tag' }, '✓'),
+                      createElement('span', { className: 'war-cd-band-hint' }, band.quiet),
+                    )
+                  })(),
       ),
+      cmd.archived === undefined || cmd.archived === null
+        ? (chain.length > 0 || cmd.status === 'cancelled'
+          ? createElement(ArchiveRow, { chain, cmd, onArchive: () => { onArchive?.() } })
+          : null)  // A2：起草中（链空）与归档无关——不渲染永久灰闸
+        : null,
       createElement('div', { className: 'war-detail-body war-cd-body', ref: bodyRef },
         // ① 命令 · 你说了什么：主界面命令卡原样拉进来，点卡展开「下达配置」
         // （V9.10 配置即改档之家——看当时怎么配的，顺手改档）。
@@ -1762,7 +1815,7 @@ function WarIsland(props: {
     // 分段词走 countSegs 词典（函数返回值过词表，trek 同步派生）。
     // 段分隔必须切带空格的 ' · '——词内的 等·大副 之 · 无空格，不能当分隔符吃掉。
     // aria-live=polite：SSE 计数跃迁对读屏可闻（收件箱增量播报之外的轻量覆盖）。
-    createElement('span', { className: 'war-island-counts', 'aria-label': countsText, 'aria-live': 'polite' },
+    createElement('span', { className: 'war-island-counts', 'aria-label': countsText, 'aria-live': 'polite', title: copy.countsScope },
       ...copy.countSegs(counts).flatMap((seg, pi): ReactNode[] => {
         const flash = (el: Element | null): void => {
           if (el === null) return
@@ -1773,6 +1826,12 @@ function WarIsland(props: {
         const go = (): void => {
           // V16.4-R7 critique A6：统一手势——四段全部 flash 列内目标卡（等·大副的
           // 卡=任务列成形卡），钉岛留给 ✉ 徽标，同一动作不再两种结果。
+          if (seg.kind === 'awaiting') {
+            // A3-P3：首击时面板尚未挂载——flash 推迟一拍，等 pinned 重渲染后再描边。
+            setPinned(true)
+            window.setTimeout(() => { flash(document.querySelector('.war-inbox .war-inbox-row') ?? document.querySelector('.war-inbox')) }, 60)
+            return
+          }
           if (seg.kind === 'pending') { flash(document.querySelector('.war-zone.war-tasks .war-forming')); return }
           if (seg.kind === 'waiting') { flash(document.querySelector('.war-zone.war-tasks .war-chip.st-published')?.closest('.war-card') ?? null); return }
           if (seg.kind === 'active') { flash(document.querySelector('.war-zone.war-field .war-card')); return }
@@ -2290,7 +2349,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // Session cards: attempt-level, newest first inside each zone (defensive
     // ?? [] — a stale projection without attemptLog must not crash the board).
     const byStart = (a: BoardAttempt, b: BoardAttempt): number => (a.startedAt < b.startedAt ? 1 : -1)
-    // V17 页签过滤：会话列/回报列/调度条只吃当前页签的命令集。
+    // V17 页签过滤：回报列/调度条只吃当前页签的命令集；执行中列=常驻（live 列声明口径，V18 critique 定案）。
     const live = fieldTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const done = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const failed = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
@@ -2427,6 +2486,21 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       }]
     })
     const mapView = viewPref === 'map' && winW >= 900
+    // V18 critique：管线发现路径——默认全隐（V17.8 舰长令不虚显）后，给一次性
+    // 指路 toast（列表态、有命令即示，关闭即永久 stamp）。
+    const [pipeHint, setPipeHint] = useState(false)
+    useEffect(() => {
+      if (mapView) return
+      try {
+        if (localStorage.getItem('warroom-pipe-hint-seen') !== null) return
+        if (commands.length > 0) setPipeHint(true)
+      } catch { /* 隐私模式 */ }
+    }, [mapView, commands.length >= 1])
+    useEffect(() => {
+      if (!pipeHint) return
+      const t = window.setTimeout(() => { setPipeHint(false); try { localStorage.setItem('warroom-pipe-hint-seen', String(Date.now())) } catch { /* noop */ } }, 12000)
+      return () => { window.clearTimeout(t) }
+    }, [pipeHint])
     // V10.1 对抗审查 P0-2：hover/聚焦某战线时，其已结算 attempts 在星域显「昔日阵地」
     // ghost（舰长 V10 定案「达成印记 hover 显形」本体——平时不留常驻位，追问才显形）。
     // V10.1 舰长定：聚焦态下悬停族系高亮让位——聚焦是主导航态，悬停不该抢戏；
@@ -2617,6 +2691,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const visit = visitDelta(commands, tasks, inbox.length, lastSeenSnapshot, now)
     // V8 大盘计数（灵动岛收起态仪表）：与 dock 徽章同源。
     const counts = {
+      awaiting: inbox.length,  // V18 critique A2：等你段居首（与收件箱四类同源聚合）
       pending: commands.filter(c => c.status === 'received' || c.status === 'talking').length,
       waiting: tasks.filter(t => t.status === 'published').length,
       active: tasks.filter(t => t.status === 'in_progress').length,
@@ -2727,7 +2802,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                   if (c !== null) setFocusCommandId(cur => cur === c ? null : c)
                 },
                 onVoidClick: () => { setFocusCommandId(null) },
-                onHqClick: () => { setHqPickerOpen(true) },
+                onHqClick: () => {
+                  // V18 critique：触发件是 canvas（无可还焦点）——打开前把星域
+                  // 容器设为焦点锚，关闭时 useModalLayer 归还到此而非 body。
+                  const el = document.querySelector('.war-starfield') ?? document.querySelector('.war-wz-tac')
+                  if (el !== null) { el.setAttribute('tabindex', '-1'); (el as HTMLElement).focus() }
+                  setHqPickerOpen(true)
+                },
                 orbIdleLabel: activeCopy().starfield.orbIdle,
                 onUnavailable: () => { setNo3d(true) },
               })] : []),
@@ -2758,19 +2839,25 @@ export function warView(services: ClientServicesFace): () => ReactNode {
             },
           },
             createElement('div', { className: 'war-zone war-tasks' },
-              Zone('tasks', activeCopy().columns.tasks.title, formingTotal + tasks.length, activeCopy().columns.tasks.empty,
+              // V18 critique P1：列头计数必须与切片内容同口径（曾用全局 tasks.length
+              // ——已归档页签「任务 8」配 0 卡的撒谎账本）；空态文案随页签语境。
+              Zone('tasks', activeCopy().columns.tasks.title, taskColumnChildren.length + (mapView ? threadCards.length : 0),
+                cmdTab === 'archived' ? '' : activeCopy().columns.tasks.empty, // 归档空态只留调度条横幅一次（A2：三遍同句=噪音）
                 [...taskColumnChildren,
                 ...(mapView ? threadCards : [])],
               ),
             ),
             createElement('div', { className: 'war-zone war-field' },
-              Zone('live', activeCopy().columns.live.title, live.length + threads.length, activeCopy().columns.live.empty,
+              // V18 critique：执行中列=常驻（与星域同哲学：现在时不随页签切片），
+              // 列头 title 声明常驻口径（见 copy.columns.live.resident）。
+              Zone('live', activeCopy().columns.live.title + activeCopy().columns.live.resident, live.length + threads.length, activeCopy().columns.live.empty,
                 [...live.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'battle') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
                   ...(mapView ? [] : threadCards)],
               ),
             ),
             createElement('div', { className: 'war-zone war-report' },
-              Zone('report', activeCopy().zones.report.title, report.length, activeCopy().columns.done.empty,
+              Zone('report', activeCopy().zones.report.title, report.length,
+                cmdTab === 'archived' ? '' : activeCopy().columns.done.empty,
                 report.map(({ t, a }) => SessionCard(t, a, (t2, a2) => { openSessionVia(t2, a2, 'report') }, traceFor(lineageOf(t.taskId)?.commandId ?? null))),
               ),
             ),
@@ -2782,7 +2869,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           // V16.4-R3 critique B：hint 必须挂在 .war-board 子树内——--war-dock-h
           // 内联在 board 上（自定义属性不跨兄弟继承），挂 war-root 下永远走 0px
           // 回退，「抬到调度条上方」形同虚设（probe-b3 实测 rect 与坞相交）。
-          mapHint && !mapView
+          mapHint && !mapView && winW >= 900
             ? createElement('div', {
                 key: 'map-hint', className: 'war-map-hint', 'data-war-map-hint': '1', role: 'status',
               },
@@ -2792,7 +2879,19 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 }, activeCopy().starfield.mapHintToast),
                 createElement('button', {
                   type: 'button', className: 'war-map-hint-x', title: activeCopy().starfield.mapHintDismiss,
-                  onClick: () => { setMapHint(false) },  // 拒绝=只关本次，不 stamp——7 天冷却到期可再提示
+                  onClick: () => { setMapHint(false) },  // 只关本次；冷却自出现时起算（stamp 在出现处写）
+                }, activeCopy().starfield.mapHintDismiss),
+              )
+            : null,
+          pipeHint && !mapView && winW >= 900
+            ? createElement('div', { key: 'pipe-hint', className: 'war-map-hint war-pipe-hint', role: 'status' },
+                createElement('button', {
+                  type: 'button', className: 'war-map-hint-main',
+                  onClick: () => { setPipeHint(false); try { localStorage.setItem('warroom-pipe-hint-seen', String(Date.now())) } catch { /* noop */ } },
+                }, activeCopy().pipeHint),
+                createElement('button', {
+                  type: 'button', className: 'war-map-hint-x', title: activeCopy().starfield.mapHintDismiss,
+                  onClick: () => { setPipeHint(false); try { localStorage.setItem('warroom-pipe-hint-seen', String(Date.now())) } catch { /* noop */ } },
                 }, activeCopy().starfield.mapHintDismiss),
               )
             : null,
@@ -2844,11 +2943,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               const settledGroups = dispatchGroups.filter(g => !faceActive(g))
               // V17.6 舰长令：分段铭牌（竖排虚线「已收官」路标）退役——与页签语义
               // 重复且被误读为幽灵标签；分段只保留排序（活跃优先），不再挂牌。
-              return [
-                ...activeGroups.map(groupNode),
-                ...settledGroups.map(groupNode),
-              ]
-            })(),
+            // V18 critique P1：归档空页签给安神行（曾有「三处空+调度条全白」的坟场屏）。
+            return [
+              ...(dispatchGroups.length === 0 && cmdTab === 'archived'
+                ? [createElement('div', { key: 'arch-empty', className: 'war-dispatch-empty' }, activeCopy().cmdTabsArchivedEmpty)]
+                : []),
+              ...activeGroups.map(groupNode),
+              ...settledGroups.map(groupNode),
+            ]
+          })(),
           ),
         ),
       hqPickerOpen ? createElement(HqWorkspacePicker, { key: 'hqpicker', registered: registeredPlanets, onClose: () => { setHqPickerOpen(false) }, onRegistered: refresh }) : null,

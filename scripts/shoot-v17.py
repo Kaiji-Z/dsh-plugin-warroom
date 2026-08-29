@@ -85,12 +85,19 @@ with sync_playwright() as p:
     click_tab("已归档")
     n_cards = page.locator(".war-dispatch .war-command-card").count()
     assert n_cards == 0, f"已归档页签初始应为空，got {n_cards}"
+    # V18 critique P1：列头计数=切片口径（曾「任务 8」配 0 卡）+ 归档空态安神行
+    t_count = page.locator(".war-zone.war-tasks .war-col-count").inner_text()
+    assert t_count == "0", f"归档页签任务列计数应为 0（切片口径）：{t_count}"
+    # V18 critique A2：安神行只在调度条横幅一次（zones 静音，三遍同句=噪音）
+    d_empty = page.locator(".war-dispatch-empty").inner_text()
+    assert "归档" in d_empty, f"归档空页签调度条应给安神横幅：{d_empty}"
     page.screenshot(path=str(OUT / "v17-archived-empty.png"))
-    print("③ archived empty ok")
+    print("③ archived empty ok (count=0, 安神行在场)")
 
     # --- ④ 非终局命令：归档按钮禁用 -----------------------------------------
     click_tab("进行中")
-    page.locator(".war-dispatch .war-command-card", has_text="顺便给小工具加个导出 csv").first.click()
+    # A2：链空（起草中）命令不再渲染归档闸；闸验改用有任务的进行中命令
+    page.locator(".war-dispatch .war-command-card", has_text="健康检查").first.click()
     page.wait_for_selector(".war-cd-modal", timeout=5000)
     btn = page.locator(".war-archive-btn")
     assert btn.count() == 1, "归档按钮缺席"

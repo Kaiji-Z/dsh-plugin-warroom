@@ -534,7 +534,6 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-cmdtab:hover{color:var(--war-text-1);background:color-mix(in srgb, var(--war-text-1) 7%, transparent)}
 .war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 2px 0 0 var(--war-run-border)}
 .war-cmdtab-ico{font-size:11px;line-height:1}
-.war-cmdtab-n{font-size:11px;opacity:.85}
 /* V18 HQ 工作区注册弹窗。 */
 .war-hq-picker{display:flex;flex-direction:column;gap:8px;min-width:380px;max-width:520px;max-height:60vh;overflow-y:auto}
 .war-hq-picker-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -545,13 +544,20 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-hq-picker-err{margin:0;font-size:12px;color:var(--war-fail)}
 .war-hq-picker-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border:1px solid var(--war-border);border-radius:var(--war-r-sm)}
 .war-hq-picker-name{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--war-text-1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.war-hq-picker-path{flex:1 1 auto;min-width:0;font-size:11px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.war-hq-picker-path{flex:1 1 auto;min-width:0;font-size:12px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
 .war-hq-picker-done{flex:0 0 auto;font-size:12px;color:var(--war-done)}
 /* V17 归档行/确认条（聚焦页决策带下方）。 */
 .war-archive-row{display:flex;align-items:center;gap:8px;margin-top:6px}
 .war-archive-btn:disabled{cursor:not-allowed;opacity:.5}
 .war-archive-when{font-size:12px;color:var(--war-text-2)}
 .war-archive-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-wait-border);background:var(--war-wait-tint)}
+/* V18 critique：不可逆确认键走红语义（红=终局既成语言，不再 primary 蓝）。 */
+.war-btn-danger{border-color:var(--war-fail-border);color:var(--war-fail);background:var(--war-fail-tint)}
+.war-btn-danger:hover{border-color:var(--war-fail);color:var(--war-fail)}
+/* V18 critique：归档终局闸理由从 title 提升为可见副行。 */
+.war-archive-gate{font-size:12px;color:var(--war-text-2);flex-basis:100%}
+/* V18 critique：归档空页签调度条安神行。 */
+.war-dispatch-empty{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:60px;font-size:12px;color:var(--war-text-2)}
 .war-archive-warn{font-size:12px;color:var(--war-wait);flex:1 1 auto;min-width:200px}
 .war-dispatch-add:hover{background:color-mix(in srgb, var(--war-run-border) 14%, transparent);border-style:solid;border-color:color-mix(in srgb, var(--war-run-border) 65%, transparent)}
 .war-dispatch-add:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
@@ -739,7 +745,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-legend .lg-battle{background:var(--war-wz-battle)}
 .war-wz-legend .lg-held{background:var(--war-wz-held)}
 .war-wz-legend .lg-hl{background:var(--war-wz-hl)}
-.war-wz-hint{font:12px/1.5 var(--war-font);color:var(--war-wz-hint);letter-spacing:.08em}
+.war-wz-hint{font:12px/1.5 var(--war-font);color:var(--war-wz-hint)}
 .war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:300px;display:none;background:var(--war-wz-tip-bg);border:1px solid var(--war-wz-tip-border);border-radius:var(--war-r-md);padding:12px 14px;backdrop-filter:blur(8px);box-shadow:var(--war-wz-tip-shadow);color:var(--war-wz-tip-text);font:12px/1.65 var(--war-font);pointer-events:none}
 .war-wz-tip .tt-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .war-wz-tip .dot{width:9px;height:9px;border-radius:50%;background:var(--war-wz-tip-dot);box-shadow:0 0 5px var(--war-wz-tip-dot-glow);flex:none}
@@ -776,7 +782,9 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-map-legend{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--war-text-2);background:color-mix(in srgb, var(--war-card-bg) 72%, transparent);padding:3px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-border-soft);pointer-events:none;white-space:nowrap}
 .war-map-legend .war-legend-dot{flex:0 0 auto}
 /* V10.1 星域指路 toast（一次性） */
-.war-map-hint{position:fixed;left:50%;transform:translateX(-50%);top:60px;bottom:auto;z-index:40;max-width:340px;padding:8px 10px 8px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);display:flex;align-items:center;gap:6px} /* V16.4-R2：抬到调度条上方（dock 实测高变量）+ 内部主/忽略两钮 */
+.war-map-hint{position:absolute;left:50%;transform:translateX(-50%);top:auto;bottom:calc(var(--war-dock-h, 230px) + 12px);z-index:40;max-width:340px;padding:8px 10px 8px 14px;border-radius:var(--war-r-lg);border:1px solid color-mix(in srgb, var(--war-run-border) 45%, transparent);background:var(--war-card-bg);color:var(--war-text-1);font-size:13px;line-height:1.5;box-shadow:0 10px 30px color-mix(in srgb,#000 22%,transparent);font-family:var(--war-font);display:flex;align-items:center;gap:6px} /* V16.4-R2：抬到调度条上方（dock 实测高变量）+ 内部主/忽略两钮 */
+/* V18 critique：管线指路 toast——同沟带右缘（与 map-hint 错位共存）。 */
+.war-pipe-hint{left:auto;right:12px;transform:none;max-width:300px}
 .war-map-hint-main{cursor:pointer;background:none;border:none;font:inherit;color:inherit;text-align:left;padding:0}
 .war-map-hint-main:hover{color:var(--war-run-strong)}
 .war-map-hint-x{flex:none;cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px solid var(--war-border);color:var(--war-text-2);background:transparent}
@@ -868,6 +876,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-cd-band-in{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .war-cd-band-tag{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--war-wait)}
 .war-cd-band.quiet .war-cd-band-tag{color:var(--war-done)}
+.war-cd-band.quiet .war-cd-band-tag.war-cd-band-err{color:var(--war-fail)}
 .war-cd-band-hint{flex:1 1 200px;min-width:0;font-size:12px;line-height:1.5;color:var(--war-text-2)}
 .war-cd-band-actions{display:flex;gap:8px;flex:0 0 auto}
 .war-cd-stage{display:flex;flex-direction:column;gap:8px;padding-top:6px}
@@ -922,6 +931,8 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 /* V9.11 R2 执行卡实时活动行：呼吸点 + 宿主侧单点动词 */
 .war-activity{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--war-text-2)}
 .war-activity-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--war-run-border);animation:war-act-pulse 1.6s ease-in-out infinite}
+/* V18 critique B2：reduce 守卫必须在基础规则**之后**（同特异性后者胜——放前面会被 934 打穿）。 */
+@media (prefers-reduced-motion:reduce){.war-activity-dot,.war-activity-dot::after{animation:none}}
 .war-activity-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @keyframes war-act-pulse{0%,100%{opacity:.35}50%{opacity:1}}
 /* --- V13 战线一等公民：战线头（任务列）/ 航迹（2D SVG）/ 未分组 / 3D 图例 ------ */

@@ -94,6 +94,9 @@ export interface WarCopy {
   commandBand: {
     title: string
     quiet: string
+    /** V18 critique A2：终局命令的安神带（quiet 的「推进中」对终局是假话）。 */
+    terminalCancelled: string
+    terminalSettled: string
     planHint: string
     clarifyHint: string
     clarifyBtn: string
@@ -114,7 +117,7 @@ export interface WarCopy {
   columns: {
     commands: { title: string; empty: string }
     tasks: { title: string; empty: string }
-    live: { title: string; empty: string }
+    live: { title: string; empty: string; resident: string }
     done: { title: string; empty: string }
     failed: { title: string; empty: string }
   }
@@ -221,6 +224,9 @@ export interface WarCopy {
   /** V10.1 卡规格统一：R5 空占位 / 战线历代状态 pip（罗马数字=代数）/ 组展开面板。 */
   commandCard: {
     noQuickAction: string
+    /** A3-P2：终局命令的快捷操作占位（「推进中」对终局是假话）。 */
+    noQuickCancelled: string
+    noQuickSettled: string
     pipsTitle: (generations: number) => string
     pipStatus: Record<'run' | 'wait' | 'done' | 'fail' | 'idle', string>
     panelAria: (generations: number) => string
@@ -328,6 +334,9 @@ export interface WarCopy {
     /** V16.4 critique P2-3：二级展开（星球全列）/ 最近命令收起态的开关钮。 */
     bfMore: string
     recentToggle: string
+    /** V18 critique A2：续接候选折叠（>3 收进折叠，平铺新战线+3）。 */
+    contFoldMore: (n: number) => string
+    contFoldLess: string
     recentLabel: string
     kbdHint: string
   }
@@ -363,9 +372,11 @@ export interface WarCopy {
   /** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要与全部操作件
    * 收进顶部一颗胶囊（hover 展开 + 点击钉住；聚焦模式即岛的常驻形态）。 */
   island: {
-    counts: (c: { pending: number; waiting: number; active: number; failed: number }) => string
+    counts: (c: { awaiting: number; pending: number; waiting: number; active: number; failed: number }) => string
     /** V16.4-R3：分段结构化（岛计数可点路由）——label 过词表（函数返回值派生）。 */
-    countSegs: (c: { pending: number; waiting: number; active: number; failed: number }) => ReadonlyArray<{ kind: 'pending' | 'waiting' | 'active' | 'failed'; label: string }>
+    countSegs: (c: { awaiting: number; pending: number; waiting: number; active: number; failed: number }) => ReadonlyArray<{ kind: 'awaiting' | 'pending' | 'waiting' | 'active' | 'failed'; label: string }>
+    /** V18 critique：岛计数=全页签口径（切片只作用于三列）。 */
+    countsScope: string
     inboxBadge: (n: number) => string
     visitMini: (closed: number, failed: number, commands: number) => string
     pin: string
@@ -375,6 +386,10 @@ export interface WarCopy {
     announceInbox: (n: number) => string
   }
   /** V17 三页签全局切片 + 归档。 */
+  /** V18 critique：管线发现路径（列表态一次性指路）。 */
+  pipeHint: string
+  /** V18 critique：归档空页签安神行。 */
+  cmdTabsArchivedEmpty: string
   cmdTabs: { active: string; settled: string; archived: string; aria: string; countTitle: (label: string, n: number) => string }
   archive: {
     button: string
@@ -410,9 +425,13 @@ export const warCopy: WarCopy = {
     report: { title: '战报', note: '收官与折戟 · 点卡回源命令' },
   },
   dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下达新命令（定时可选）· 快捷键 n', viewMapHint: '切到战区——每片战场一颗星，战线环串起世代', viewBackHint: '回列表视图（三列局势墙）', segActive: '进行中', segSettled: '已收官' },
+  pipeHint: '悬停命令卡可显示族系管线——链色即战线色',
+  cmdTabsArchivedEmpty: '归档后命令落在这里。归档入口在命令聚焦页——全线终局后可归档',
   commandBand: {
     title: '等你发落',
     quiet: '无需发落——此命令在自动推进中',
+    terminalCancelled: '已取消——此命令已终局，不再推进',
+    terminalSettled: '已收官——全线终局，无需你动作',
     planHint: '参谋呈了计划，批准即放权（夜间无人值守照常执行）',
     clarifyHint: '参谋在等你的回答',
     clarifyBtn: '进入参谋对话',
@@ -459,7 +478,7 @@ export const warCopy: WarCopy = {
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一道命令' },
     tasks: { title: '任务', empty: '等参谋发布第一张悬赏' },
-    live: { title: '作战中', empty: '下达命令后，指挥官的作战会话会出现在这里' },
+    live: { title: '作战中', empty: '下达命令后，指挥官的作战会话会出现在这里', resident: ' · 常驻' },
     done: { title: '已完成', empty: '战报栏还空着——收官与折戟都会落在这里' },
     failed: { title: '已失败', empty: '暂无失败会话' },
   },
@@ -603,6 +622,8 @@ export const warCopy: WarCopy = {
   },
   commandCard: {
     noQuickAction: '无需操作——命令在自动推进',
+    noQuickCancelled: '已取消——此命令已终局',
+    noQuickSettled: '已收官——全线终局',
     pipsTitle: n => `这条战线共 ${n} 代——每个圆点是一代，颜色即该代当前状态`,
     pipStatus: { run: '推进中', wait: '等你发落', done: '善终', fail: '败退', idle: '未战而终' },
     panelAria: n => `战线前史共 ${n} 代（最新一代就在坞上）：上/下键选代，回车打开详情`,
@@ -746,6 +767,8 @@ export const warCopy: WarCopy = {
     bfContNote: '续接默认随父战线所在战场；改选即宣告另起新战线（原战线留在原战场）',
     bfMore: '其他战场 ▾',
     recentToggle: '⌁ 最近命令 ▾',
+    contFoldMore: n => `⌁ 其余续接 ${n} ▾`,
+    contFoldLess: '⌁ 收起续接 ▴',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -778,17 +801,20 @@ export const warCopy: WarCopy = {
   island: {
     // V10.1 审查：零段折叠（三个 0 是胶囊噪音）。V12.2 元首令「让图例失业」：
     // 等待对象后缀化（等·参谋/等·指挥官）——词本身自消歧，图例 待×3 行删除。
+    // V18 critique A2：等你段居首（舰长待办先于机器忙闲）。
     counts: c =>
-      [c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
+      [c.awaiting > 0 ? `等你 ${c.awaiting}` : '', c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     // V16.4-R3 critique P1-2：岛计数可点——分段结构化（kind 路由到列），词仍过词表。
     countSegs: c =>
       [
+        c.awaiting > 0 ? { kind: 'awaiting' as const, label: `等你 ${c.awaiting}` } : null,
         c.pending > 0 ? { kind: 'pending' as const, label: `等·参谋 ${c.pending}` } : null,
         c.waiting > 0 ? { kind: 'waiting' as const, label: `等·指挥官 ${c.waiting}` } : null,
         c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
         c.failed > 0 ? { kind: 'failed' as const, label: `折戟 ${c.failed}` } : null,
       ].filter(x => x !== null),
+    countsScope: '计数为全页签口径（页签只切三列）',
     inboxBadge: n => `✉ ${n}`,
     // V10.1 审查：▲收官→✓收官（善终语义，与凯旋印记同符）。
     visitMini: (closed, failed, commands) =>
@@ -837,9 +863,13 @@ export const plainCopy: WarCopy = {
     report: { title: '结果', note: '完成与失败 · 点卡回源命令' },
   },
   dispatch: { label: '命令调度条（滚轮横移）', addTitle: '下新命令（可定时）· 快捷键 n', viewMapHint: '切到项目全景图', viewBackHint: '回列表视图', segActive: '进行中', segSettled: '已完成' },
+  pipeHint: '悬停事项卡可显示同线连线——颜色即同一条线',
+  cmdTabsArchivedEmpty: '归档后的事项落在这里。归档入口在事项聚焦页——全部结束后可归档',
   commandBand: {
     title: '等你处理',
     quiet: '不用管——这条命令在自己推进',
+    terminalCancelled: '已取消——这条命令结束了，不再推进',
+    terminalSettled: '已完成——全部结束，不用你管',
     planHint: '规划 Agent 给了方案，点头就照做（夜里也不停）',
     clarifyHint: '规划 Agent 在等你回话',
     clarifyBtn: '去对话',
@@ -886,7 +916,7 @@ export const plainCopy: WarCopy = {
   columns: {
     commands: { title: '命令', empty: '点 + 下达第一条命令' },
     tasks: { title: '任务', empty: '等规划 Agent 发布第一个任务' },
-    live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里' },
+    live: { title: '执行中', empty: '下达命令后，执行会话会出现在这里', resident: ' · 常驻' },
     done: { title: '已完成', empty: '这里还空着——完成和失败都会落在这里' },
     failed: { title: '已失败', empty: '暂无失败会话' },
   },
@@ -1029,6 +1059,8 @@ export const plainCopy: WarCopy = {
   },
   commandCard: {
     noQuickAction: '无需操作——流程自动推进',
+    noQuickCancelled: '已取消——这条命令结束了',
+    noQuickSettled: '已完成——全部结束',
     pipsTitle: n => `这条跟进线共 ${n} 步——每个圆点是一步，颜色是每步状态`,
     pipStatus: { run: '进行中', wait: '待你处理', done: '已完成', fail: '失败', idle: '已取消' },
     panelAria: n => `此前跟进共 ${n} 步（最新一步就在下方）：上/下键选择，回车查看`,
@@ -1172,6 +1204,8 @@ export const plainCopy: WarCopy = {
     bfContNote: '跟进默认在原事项的项目里；改选即在别的项目另起一条新线',
     bfMore: '更多项目 ▾',
     recentToggle: '⌁ 最近命令 ▾',
+    contFoldMore: n => `⌁ 其余续接 ${n} ▾`,
+    contFoldLess: '⌁ 收起续接 ▴',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -1203,15 +1237,17 @@ export const plainCopy: WarCopy = {
   },
   island: {
     counts: c =>
-      [c.pending > 0 ? `等·规划 Agent ${c.pending}` : '', c.waiting > 0 ? `等·执行 Agent ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
+      [c.awaiting > 0 ? `等你 ${c.awaiting}` : '', c.pending > 0 ? `等·规划 Agent ${c.pending}` : '', c.waiting > 0 ? `等·执行 Agent ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     countSegs: c =>
       [
+        c.awaiting > 0 ? { kind: 'awaiting' as const, label: `等你 ${c.awaiting}` } : null,
         c.pending > 0 ? { kind: 'pending' as const, label: `等·规划 Agent ${c.pending}` } : null,
         c.waiting > 0 ? { kind: 'waiting' as const, label: `等·执行 Agent ${c.waiting}` } : null,
         c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
         c.failed > 0 ? { kind: 'failed' as const, label: `失败 ${c.failed}` } : null,
       ].filter(x => x !== null),
+    countsScope: '计数为全看板口径（页签只切三列）',
     inboxBadge: n => `✉ ${n}`,
     visitMini: (closed, failed, commands) =>
       [closed > 0 ? `✓完成 ${closed}` : '', failed > 0 ? `✕失败 ${failed}` : '', commands > 0 ? `＋新命令 ${commands}` : '']

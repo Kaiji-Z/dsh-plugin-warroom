@@ -353,7 +353,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (tk !== null) x0 = Math.max(x0, tk.getBoundingClientRect().right - rect.left)
       if (rp !== null) x1 = Math.min(x1, rp.getBoundingClientRect().left - rect.left)
       if (dk !== null) y1 = Math.min(y1, dk.getBoundingClientRect().top - rect.top)
-      const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) }
+      // V18 critique A2：safe 带底部让出 foot（图例/操作行）高度——3D 执行卡
+      // 车道避让不再压住最容易被盖的操作教学行。
+      const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) - (mode === '3d' ? 46 : 0) }
       // 信息卡（内容变化或每 0.5s 刷新——兵力/状态实时变）
       const tip = tipRef.current
       if (tip !== null) {
@@ -393,6 +395,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (mode === '3d') {
         scene.render()
       } else {
+        tac.setLegend(activeCopy().starfield.mapLegend)
         tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet, hlList.length > 0)
       }
       // V11.5f 执行卡覆盖层：活体编队卡钉在星球屏幕位 + SVG 连线 + 高亮名签
