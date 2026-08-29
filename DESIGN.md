@@ -640,3 +640,5 @@ V11.3 六原型被 V11.4 warzone 整替退役后按令复权——从 710abc8 �
 exam-v15 范式常驻化：`pnpm verify:e2e` → scripts/run-e2e.mjs 编排（板面可达性前置→诚实 SKIP 同 promptfoo 纪律；五段驱动 issue/track1/issue2/track2/close → assert-e2e 机检 C1-C8）。**tag 定位不动既有板面**（可在操场直接跑，只追加两条 E2E 命令——考题不再要求清场）；证据落 `.goal/evidence/e2e/`（gitignore，历史考题证据冻结在 v15/ 不覆盖）；考场 ws=temp/e2e-exam-ws 每次清旧。机检泛化：exam-e2e.py/assert-e2e.py 从 v15 拷贝改 tag（E2E代1/代2考题）+名称（e2e战线）。
 
 **首跑结果（2026-08-29 02:00）**：门机械链全对（前置→五段→FAIL 退出码），实弹抓到真问题——**任务 task_published 后 25 分钟无 task_claimed**（征召器/patrol 静默跳过，server.log 零线索：conscriptTask 拒因不上日志）。现场保留（.smoke-state 20260829-020104-9061.jsonl 未清，操场勿重播）待下轮诊断：查 conscriptTask 各 return reason（工作区冲突/满编/spawned 集合泄漏）+ 给 patrol 拒因补日志。
+
+**V16.4 后复跑（2026-08-29 11:17，最新构建）**：E2E-EXAM **PASS（C1-C8 全过）**——两代续接链真实 LLM 全通（代1 token=b9ee2a5e 现场随机→代2 summary 逐字引用，链档案双通道归因 staff=True/commander=True），workspaceKind=bound 双证，KillCredit 双代自动收官；maxCommanders 8 修复生效（操场 3 条假 in_progress 并存下征召正常）。门就此常态化：`pnpm verify:e2e`（前置=活服，约 10 分钟）。证据 .goal/evidence/e2e/。
