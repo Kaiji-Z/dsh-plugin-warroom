@@ -409,7 +409,7 @@ export const warCopy: WarCopy = {
     battleLine: n => `${n} 次作战`,
     noReport: '尚无战报',
     evChecks: '项验收通过',
-    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
+    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 折戟`,
   },
 
   settings: {
@@ -515,7 +515,7 @@ export const warCopy: WarCopy = {
       ['●', '状态四档：蓝 = 机器在动', 'dot-run'],
       ['●', '琥珀 = 等你发落', 'dot-wait'],
       ['●', '绿 = 善终（收官/已阅）', 'dot-done'],
-      ['●', '红 = 败（终败/熔断）', 'dot-fail'],
+      ['●', '红 = 折戟（终局/熔断）', 'dot-fail'],
       ['◌', '战线环：一星球一环，分段数 = 该星球挂载的战线数（跨战场续接自成新战线）'],
       ['！', '新悬赏挂出，等待指挥官领取'],
       ['？', '战报已呈递，等你翻阅收菜'],
@@ -692,7 +692,7 @@ export const warCopy: WarCopy = {
   composer: {
     title: '下达命令',
     lead: '一句话写下意图，参谋会分诊并安排执行。下面两个选择，定「放权多少」与「何时出发」。',
-    placeholder: '例：帮我把 projA 的依赖全部升到最新，测试全绿再收',
+    placeholder: '例：帮我把 projA 的依赖全部升到最新，测试全绿再收官',
     cancel: '取消',
     busy: '下达中…',
     submit: '立即下达',
@@ -820,7 +820,7 @@ export const plainCopy: WarCopy = {
     battleLine: n => `执行 ${n} 次`,
     noReport: '还没有结果',
     evChecks: '项验收通过',
-    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 败`,
+    evTests: (passed, failed) => `测试 ${passed} 过/${failed} 失败`,
   },
 
   settings: {
@@ -925,7 +925,7 @@ export const plainCopy: WarCopy = {
       ['●', '状态四档：蓝 = 机器在动', 'dot-run'],
       ['●', '琥珀 = 等你处理', 'dot-wait'],
       ['●', '绿 = 完成（收官/已阅）', 'dot-done'],
-      ['●', '红 = 败（终败/熔断）', 'dot-fail'],
+      ['●', '红 = 失败（终败/熔断）', 'dot-fail'],
       ['◌', '圆环：同一个项目的多轮任务（点=第几轮）；一色=一条线，换个项目续接会另起一条新线'],
       ['！', '新任务，等待执行者领取'],
       ['？', '结果已提交，等待你验收'],

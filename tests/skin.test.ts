@@ -75,6 +75,9 @@ test('V16.4-R7 词汇收敛：同一概念每皮肤只有一个词面（败局=�
     assert.ok(c.island.counts({ pending: 0, waiting: 0, active: 0, failed: 2 }).includes('挫败'))
     assert.equal(c.starfield.logRetreat, '挫败')
     assert.equal(c.starfield.garrisonTitle(0, 0, 0, 3).includes('挫败'), true)
+    // V16.4-R8：图例红档/事件计数词面也锁（收敛审计的漏网补锁）
+    assert.ok(c.legend.rows.some(r => typeof r[1] === 'string' && (r[1] as string).includes('挫败')), 'legend red row must say 挫败 in trek')
+    assert.ok(!c.legend.rows.some(r => typeof r[1] === 'string' && (r[1] as string).includes('红 = 败')), 'legend red row must not leak bare 败')
     // 成功一词面：chip=圆满（达成是星域动作语，共存但 chip 不再出现打赢了）
     assert.equal(c.outcome.succeeded.label, '圆满')
     // 执行态一词面：岛段=列头（执行中）

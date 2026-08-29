@@ -1614,7 +1614,7 @@ export class WarzoneScene {
     let w = 60
     try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过名牌 */ }
     if (c2 === null) return
-    // V16.4-R2 critique P2：失败定位不退化——有败的星球名签缀红「N 败」
+    // V16.4-R2 critique P2：失败定位不退化——有败的星球名签缀红「N 挫败」
     //（2D/3D 同源 p.failing），默认值班态也能 10 秒定位失败。
     const label = p.failing > 0 ? `${p.name} ·${p.failing}挫败` : p.name
     c2.font = '600 30px system-ui, sans-serif'
@@ -1626,14 +1626,15 @@ export class WarzoneScene {
     c2.font = '600 30px system-ui, sans-serif'
     c2.textAlign = 'center'; c2.textBaseline = 'middle'
     if (p.failing > 0) {
+      const suf = ` ·${p.failing}挫败`
       const nameW = c2.measureText(p.name).width
-      const sufW = c2.measureText(` ·${p.failing}败`).width
+      const sufW = c2.measureText(suf).width  /* V16.4-R8：量宽==绘制串（改名回归抓漏） */
       const x0 = w / 2 - (nameW + sufW) / 2
       c2.textAlign = 'left'
       c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
       c2.fillText(p.name, x0, 23)
       c2.fillStyle = '#e5484d'
-      c2.fillText(` ·${p.failing}挫败`, x0 + nameW, 23)
+      c2.fillText(suf, x0 + nameW, 23)
     } else {
       c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
       c2.fillText(label, w / 2, 23)

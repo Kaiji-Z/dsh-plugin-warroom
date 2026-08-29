@@ -59,7 +59,7 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
       <div class="tt-row"><span>星球等级</span><b>LV.${ent.level} · ${clsName}</b></div>
       <div class="tt-row"><span>活跃会话</span><b>${scene.squads.filter(q => q.target === ent && q.phase !== 'return').length} 个</b></div>
       <div class="tt-row"><span>待发命令</span><b>${ent.inbound} 条</b></div>
-      <div class="tt-row"><span>达成 / 败</span><b>${ent.garrison} / ${ent.failing}</b></div>
+      <div class="tt-row"><span>达成 / 挫败</span><b>${ent.garrison} / ${ent.failing}</b></div>
       <div class="tt-row"><span>执行状态</span>${statusChip(ent.status)}</div>`
   }
   const s = ent as WzSquad
@@ -557,11 +557,17 @@ export function Warzone(props: WarzoneProps): ReactNode {
     // 视觉隐藏的星球按钮列（Tab 顺序=轨道序，focus-visible 时显形）补齐键盘路径；
     // 与列表态的键盘严谨对齐（Sam 画像）。
     createElement('div', { className: 'war-wz-kbplanets', role: 'group', 'aria-label': activeCopy().starfield.kbGroupAria },
-      ...planets.map(pl => createElement('button', {
-        key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
-        'data-wz-kb-ws': pl.wsPath,
-        onClick: () => { setBfPanel(pl.wsPath) },
-      }, `${pl.name}（${pl.status}${pl.failing > 0 ? ` ·${pl.failing}败` : ''}）`))),
+      ...planets.map(pl => {
+        // V16.4-R8 critique B：桥接星球无 name 字段——此前渲染字面 undefined（B8 实证）；
+        // 名取目录名，状态词走词典（一词一面）。
+        const sf = activeCopy().starfield
+        const stText = pl.status === '待进攻' ? sf.wzStWait : pl.status === '执行中' ? sf.wzStBattle : sf.wzStHeld
+        return createElement('button', {
+          key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
+          'data-wz-kb-ws': pl.wsPath,
+          onClick: () => { setBfPanel(pl.wsPath) },
+        }, `${dirLabel(pl.wsPath)}（${stText}${pl.failing > 0 ? ` ·${pl.failing}挫败` : ''}）`)
+      })),
     ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': activeCopy().starfield.bfPanelAria, onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
       createElement('div', { className: 'war-wz-bfpanel-head' },
         createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),

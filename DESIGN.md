@@ -45,6 +45,22 @@
 - 信息密度 > 装饰：卡片是紧凑数据行（chip + 标题 + 时间），不搞大留白卡片墙；弹层才展开全文。
 - 生命条是 4×Npx 细条 + 微呼吸，不做大进度条——它是「阶段指示」不是「百分比」。
 
+## V16.4 UI critique 闭环（2026-08-29，八轮双子评审）
+
+impeccable critique 协议（A=设计总监无锚定审查 + B=探测器/浏览器行为实证，严格隔离）跑了八轮：R1 基线 30/40 → R2 34 → R3 33 → R4 31 → R5 后 27 → R7 校准后 33/40（P0=0）；B 侧缺陷数 1→1→2→0→1→0 单调收敛，后四轮机检/行为级零缺陷（对比度 25 选择器×双主题全过、焦点零死角、键盘全链、hash 深链、reduced-motion、200% 缩放、星域避让）。评分波动源是每轮新评审的视角差与挂账归类差，客观质量面单调收敛。决策与坑：
+
+- **协议标记不进人读面**：`displayTitleOf`（preflight.ts）剥整行【星球：/战场：…】标记（双兼容），接 11 处 client + 2 处 host 会话命名——聚焦页 H1/续接 chips/调度卡标题不再被截断 Windows 路径占据。
+- **琥珀=等你搬家**：四计数是机器态全中性；收件箱 ✉ 徽标才是行动信号（非 err 时挂 wait 色）。
+- **岛计数可点路由**：countSegs 词典分段（trek 随派生），四段统一 flash 列内目标卡（R8 统一手势：钉岛只归 ✉）；`.war-flash` 1.6s 描边。
+- **词汇收敛一词一面**（连续三轮评审同指的 P1）：TREK_LEXICON +失败/已失败/败退→挫败 +打赢了→圆满（长词先于短词入表——数组序即匹配序）；island 作战→执行中（向 plain 对齐）；garrison 败→折戟；canvas 红缀 ·N挫败；图例红档/evTests 同步；skin.test 机检锁面（改词必挂测试）。**坑：改名后量宽串要与绘制串同步**（3D 名签 measure `·N败` draw `·N挫败` 中心偏移半字）。
+- **星域文案并词典**（V16 结构性保证在地图半边失效的补课）：starfield 块 +26 键×军事/平话，trek 派生——HQ 卡/状态 chip/图例/双 hint/切换钮/bfpanel/执行卡 aria/footStat/速报四动词/2D garrisonTitle。**坑：桥接星球（WzBridgePlanet）没有 name 字段**——键盘镜像钮曾渲染字面 undefined（B8 实测），名取 dirLabel(wsPath)。
+- **聚焦页状态进 URL**：`#war-cmd-<id>` 挂 detailCommandId。**坑：R1 曾误接 focusCommandId（族系高亮）**——静态 needle 只证代码串存在，接错状态变量只有行为级断言能抓（B2 四角度实证）。
+- **自定义属性不跨兄弟继承**：--war-dock-h 内联在 .war-board 上，hint 挂 war-root 下永远走 0px 回退（B3 实测「抬升整改从未生效」）——依赖实测变量的浮层必须挂变量所在子树内。
+- **canvas 微文案卫生**：零值标签不渲染（九星九个 0艘）、假距离刻度退役、LV·艘→达成 N；键盘镜像钮（视觉隐藏 focus-visible 显形）+ bfpanel autoFocus（Esc 才可达）补 canvas 交互死角。
+- **composer 恒高弹窗要内滚**：max-height:80vh+overflow-y，提交行/快捷键行 sticky——cron+二级全展开曾会裁按钮行。
+- **shooter 断言随 UI 语义演进同步**是仓库惯例：本轮同步 shoot-v7（任务卡定位改标题、报告段按位取 nth(3)、recent 二级展开、圆满/挫败词面）、shoot-v10（世代标记断言随 V15.2b 环语义退役、复位收敛改轮询 15s——固定 2800ms 在慢机软光栅下确定性不足）。
+- **挂账**（产品待办非界面缺陷）：雷达 canvas 名签避让算法（长名横穿/密星互叠）、任务列筛选/搜索、图例 IA（16 行分组折叠）、3D 相机键盘手势、canvas 动画 reduced-motion 降级、零 delta 安神行、PRODUCT.md 词面与 V16 对齐。
+
 ## V7 到访式工作流（2026-08-25 补记）
 
 > 形态定案见 SPEC.md §0（头脑风暴收敛，不重议）。这里记实现层决策。
