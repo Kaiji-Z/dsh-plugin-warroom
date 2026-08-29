@@ -521,7 +521,7 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-pipe-svg.has-active path{opacity:.05}
 .war-pipe-svg.has-active g.on path{opacity:1}
 .war-pipe-svg g.on path.war-pipe-prog{stroke-width:2.5;animation:war-pipe-flow 1.1s linear infinite}
-.war-pipe-map path{stroke-dasharray:4 4}
+/* V17.1 map 总线走板内边（元首红线示意）：实线管身（虚线只留给流动 prog——直线弦语言已由 HQ/星球弦承担） */
 @keyframes war-pipe-flow{to{stroke-dashoffset:-28}}
 @media (prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}
 /* V17 三页签全局切片：＋旁竖排页签组（铭牌视觉语言，选中三通道）。 */

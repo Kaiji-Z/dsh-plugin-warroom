@@ -138,13 +138,13 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           const g = (a.x + b.x) / 2
           return [{ x: g, y: a.y }, { x: g, y: b.y }]
         }
-        // map 态弦段：任务舱出口 → HQ → (星球 → HQ)? → (回报舱入口)? 直线弦。
+        // map 态弦锚：HQ + 本战线星球屏幕位（__wz 投影出口；星域 inset:0 铺满板，
+        // 正常与板同原点，仍按 rect 差换算防布局漂移）。
         let hq: Pt | null = null
         let planet: Pt | null = null
         if (mapMode) {
           const wz = (window as { __wz?: WzProjector }).__wz
           if (wz !== undefined && wz.hqScreen !== undefined) {
-            // 星域 inset:0 铺满板，正常与板同原点；仍按 rect 差换算防布局漂移。
             let off = { x: 0, y: 0 }
             const star = svg.parentElement?.querySelector('.war-starfield')
             if (star !== null && star !== undefined) {
@@ -159,51 +159,53 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             }
           }
         }
-        // 全程路径 + 流动前缀（生命条 now 段之前的锚全部连上——流到当前战况位）。
-        // 管件=多个子路径（卡是导管本体：左缘入、右缘出，中间不画线——画了必穿卡）。
-        // map 态：坞→任务舱一段 DOM 管，其后 HQ/星球弦一段；列表态逐站一段。
-        const seg0 = (): Pt[] | null => {
-          const e0 = entry(0), e1 = entry(1)
-          return e0 === null || e1 === null ? null : [e0, ...leg(1), e1]
-        }
-        const segOf = (i: number): Pt[] | null => {
-          const a = exit(i - 1), b = entry(i)
-          if (a === null || b === null) return null
-          if (mapMode) return null // map 态 i≥2 走弦
-          return [a, ...leg(i), b]
-        }
-        const mapChord = (): Pt[] | null => {
-          if (!mapMode || hq === null) return null
-          const a = exit(1)
-          if (a === null) return null
-          const pts: Pt[] = [a, hq]
-          if (planet !== null) pts.push(planet, hq)
-          const reportIdx = stops.findIndex(s => s.kind === 'report')
-          if (reportIdx > 1) {
-            const rp = entry(reportIdx)
-            if (rp !== null) pts.push(rp)
+        // map 态总线（元首红线示意 2026-08-29：管线走板内边）——命令卡上缘出 →
+        // 坞顶横沟向左 → 任务列右外竖干（内边，全族共用总线）→ 任务卡右缘支管 →
+        // 竖干续行到板顶横沟 → HQ 竖直接点（星球弦挂 HQ，弦=直线）→ 顶沟续右 →
+        // 回报列左外下行 → 战报卡左缘入。
+        const mapMain = (through: number): string => {
+          const e0 = entry(0), tR = exit(1)
+          if (e0 === null || tR === null) return ''
+          const ops = svg.parentElement?.querySelector('.war-ops')
+          const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : e0.y - 10
+          const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
+          const trunkX = tR.x + 24
+          const topY = 8
+          // 干线先画完（子路径 M 会移当前点——支管必须最后追加，否则续行会从
+          // 支管端点斜拉出去）。
+          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tR.y}`
+          if (through >= 2 && hq !== null) {
+            d += ` L ${trunkX} ${topY} L ${hq.x} ${topY} L ${hq.x} ${hq.y}` // 顶沟 → HQ 接点
+            if (through >= 3) {
+              const reportIdx = stops.findIndex(s => s.kind === 'report')
+              if (reportIdx > 1) {
+                const rp = entry(reportIdx)
+                if (rp !== null) d += ` L ${hq.x} ${topY} L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
+              }
+            }
           }
-          return pts
+          if (through >= 1) d += ` M ${trunkX} ${tR.y} L ${tR.x} ${tR.y}` // 任务卡右缘支管
+          return d
         }
+        // 全程路径 + 流动前缀（生命条 now 段之前的锚全部连上——流到当前战况位）。
+        // 管件=多个子路径（卡是导管本体：缘口进出，中间不画线——画了必穿卡）。
         const buildD = (through: number): string => {
+          if (mapMode) {
+            if (through < 1) return ''
+            let d = mapMain(through)
+            // 星球弦（直线，挂 HQ 接点）：流动到执行段=流进星球即止。
+            if (through >= 2 && hq !== null && planet !== null) d += ` M ${hq.x} ${hq.y} L ${planet.x} ${planet.y}`
+            return d
+          }
           const parts: string[] = []
           if (through >= 1) {
-            const s0 = seg0()
-            if (s0 !== null) parts.push(elbowPath(s0))
+            const e0 = entry(0), e1 = entry(1)
+            if (e0 !== null && e1 !== null) parts.push(elbowPath([e0, ...leg(1), e1]))
           }
-          if (!mapMode) {
-            for (let i = 2; i <= through; i++) {
-              const s = segOf(i)
-              if (s !== null) parts.push(elbowPath(s))
-            }
-          }
-          if (mapMode && through >= 2) {
-            const chord = mapChord()
-            if (chord !== null) {
-              // 流动前缀到执行段=流进星球即止；满管才连回报舱。
-              if (through < 3 && planet !== null) parts.push(elbowPath([chord[0]!, hq, planet]))
-              else parts.push(elbowPath(chord))
-            }
+          for (let i = 2; i <= through; i++) {
+            const a = exit(i - 1), b = entry(i)
+            if (a === null || b === null) continue
+            parts.push(elbowPath([a, ...leg(i), b]))
           }
           return parts.join(' ')
         }
