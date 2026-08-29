@@ -167,11 +167,12 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           }
         }
         // map 态总线（元首红线示意 2026-08-29：管线走板内边）——命令卡上缘出 →
-        // 坞顶横沟向左 → 任务列右外竖干（内边，全族共用总线）→ 任务卡右缘双支管
-        // （入下位/出上位）→ 竖干续行到板顶横沟 → HQ 竖直接点（星球弦挂 HQ，
-        // 弦=直线）→ 顶沟续右 → 回报列左外下行 → 战报卡左缘入。
+        // 坞顶横沟向左 → 任务列右外竖干上行到任务卡**入端口**（下位）进卡即止；
+        // 卡位段不画线（卡本身是导管），**出端口**（上位）再出来续行 → 板顶横沟
+        // → HQ 竖直接点（星球弦挂 HQ，弦=直线）→ 顶沟续右 → 回报列左外下行 →
+        // 战报卡左缘入。
         // 显式旗标而非站序数——无执行站时 report 索引前移，序数会漏画回报腿。
-        const mapDraw = (toTask: boolean, toHq: boolean, toReport: boolean): string => {
+        const mapDraw = (toHq: boolean, toReport: boolean): string => {
           const e0 = entry(0), tIn = entry(1), tOut = exit(1)
           if (e0 === null || tIn === null || tOut === null) return ''
           const ops = svg.parentElement?.querySelector('.war-ops')
@@ -179,11 +180,12 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
           const trunkX = tIn.x + 24
           const topY = 8
-          // 干线先画完（子路径 M 会移当前点——支管必须最后追加，否则续行会从
-          // 支管端点斜拉出去）。
-          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tOut.y}`
+          // 下行段：坞 → 横沟 → 竖干上行 → 入端口进卡即止（子路径 M 会移当前点，
+          // 各段独立显式 M 起笔——卡位段的断开就是「进卡再出来」的视觉本体）。
+          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
+          // 上行段：出端口出卡 → 竖干续行 → 顶沟 → HQ 接点 → (回报腿)。
           if (toHq && hq !== null) {
-            d += ` L ${trunkX} ${topY} L ${hq.x} ${topY} L ${hq.x} ${hq.y}` // 顶沟 → HQ 接点
+            d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY} L ${hq.x} ${topY} L ${hq.x} ${hq.y}`
             if (toReport) {
               const reportIdx = stops.findIndex(s => s.kind === 'report')
               if (reportIdx > 1) {
@@ -191,10 +193,6 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
                 if (rp !== null) d += ` L ${hq.x} ${topY} L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
               }
             }
-          }
-          if (toTask) {
-            d += ` M ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}` // 任务卡右缘入支管（下位）
-            d += ` M ${trunkX} ${tOut.y} L ${tOut.x} ${tOut.y}` // 任务卡右缘出支管（上位）
           }
           return d
         }
@@ -207,7 +205,7 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         const buildD = (through: number): string => {
           if (mapMode) {
             if (through < 1) return ''
-            return mapDraw(true, true, true) + mapChord(true)
+            return mapDraw(true, true) + mapChord(true)
           }
           const parts: string[] = []
           if (through >= 1) {
@@ -223,7 +221,7 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         }
         const d = buildD(stops.length - 1)
         const dProg = mapMode
-          ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 1, fam.stage >= 2, fam.stage >= 3) + mapChord(fam.stage >= 2))
+          ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 2, fam.stage >= 3) + mapChord(fam.stage >= 2))
           : buildD(Math.min(fam.stage, stops.length - 1))
         if (d === '') continue // 站位全缺（滚动出视界等）——不渲染空 path
         out.push({
