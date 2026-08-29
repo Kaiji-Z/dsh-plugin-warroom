@@ -693,3 +693,11 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 - **回报腿测试姿势**：汇报族命令卡默认卷出调度条、任务卡在折叠线下——断言前先把两处滚动到位（walk-up 找滚动容器 scrollLeft/scrollTop 居中）+ 等重算 tick 再量；rep_hit ≤ 20px 实测 **0px**（正触左缘）。
 - **诊断方法论**：①探针累积数组（__pipeDrawn）跨 compute 混多个布局纪元，rect 对账自相矛盾——清空后等一次新 compute 再同帧对账 + 截图定案；②overlay box.left=280（挂中列），端口 x=319 是页坐标 599 的 overlay 系，别当错位；③上下文压缩后的 Read 重放可能是旧文件内容（V17.4 mapDraw(toHq,toReport) 差点骗我回滚重做）——一律 grep 磁盘为准。
 - 机检：verify PASS + shoot-v17 全绿（rep_hit=0 / hq dist 377 不绕 HQ / ⑧ 0 穿卡 / ⑤⑦ 归档流 / 星球悬停粘性 / 3D halo）。目检 `.goal/evidence/v17/v175-now.png`（map 态全板）。
+
+## V17.6 幽灵管线根修 + 页签图标组（2026-08-29，元首三反馈）
+
+①**map 态幽灵管线（元首截图红箭指认）**：已收官页签下星域两侧各一根穿空虚线竖干。根因=mapDraw 按**站序数**取锚（entry(0)/entry(1)/exit(1)），而族构建是每命令一族、task/report 锚取全链共享——当命令卡锚缺席（滚出调度条视界被裁剪判缺席）时 stops 整体前移一位：**任务卡端口顶替命令起笔、回报卡左缘顶替任务入端口**，画出「任务端口→底沟→回报右侧 x+24 竖爬」的畸形绕行（实证 path：`M 314 153 L 314 601 L 1085 601 L 1085 94 L 1061 94`，与截图两根幽灵线逐段吻合）。根修=**锚按 kind 寻址**（findIndex kind），命令腿只在命令卡在场时画；任务出端口→竖干→顶沟→战报卡直连腿不依赖命令腿——命令缺席的族只剩短净路径，穿空干线结构性不可能再出现。列表态本就按段画腿不受影响。
+②**页签图标组**：`war-cmdtabs` 竖排铭牌（三条约 300px）把整条调度栏撑得比卡片高出一大截——改紧凑 **button group**（▶/✓/▦ 皮肤中性图标+计数，分组边框+分隔线，选中=tint 底+高亮字+底线 inset）；全名走 title 悬停提示 + aria-label（可及性与 shooter 断言通道）。**调度栏实测 300px→190px**（卡 168+富余），shooter ①新增 ≤250px 高度断言防回弹。
+③**已收官文字标签**随 ② 一并消失（图标组不再在栏首显示全名）。
+坑：icon 化后 shooter `has-text("进行中")` 类断言全失效——可见文本只剩图标+计数，全名断言一律改 `[aria-label=…]`/`get_attribute`。
+机检：verify PASS + shoot-v17 全绿（tabs aria 三名/dispatch 190px/rep_hit=0/hq dist 333 不绕 HQ/⑤⑦ 归档流）；目检 `.goal/evidence/v17/v176-settled-map.png`（已收官+map 态，幽灵线绝迹）。

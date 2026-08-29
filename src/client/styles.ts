@@ -524,12 +524,14 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 /* V17.1 map 总线走板内边（元首红线示意）：实线管身（虚线只留给流动 prog——直线弦语言已由 HQ/星球弦承担） */
 @keyframes war-pipe-flow{to{stroke-dashoffset:-28}}
 @media (prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}
-/* V17 三页签全局切片：＋旁竖排页签组（铭牌视觉语言，选中三通道）。 */
-.war-cmdtabs{flex:0 0 auto;display:flex;flex-direction:column;gap:4px;align-self:center;padding:0 2px}
-.war-cmdtab{writing-mode:vertical-rl;cursor:pointer;display:flex;align-items:center;gap:3px;padding:8px 4px;border-radius:var(--war-r-sm);border:1px solid var(--war-border);background:transparent;color:var(--war-text-2);font-family:var(--war-font);font-size:12px;font-weight:600;letter-spacing:.12em;white-space:nowrap}
-.war-cmdtab:hover{color:var(--war-text-1);border-color:var(--war-run-border)}
-.war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);border-color:var(--war-run-border);border-style:solid}
-.war-cmdtab.on .war-cmdtab-label::before{content:'● ';font-size:8px;vertical-align:1px}
+/* V17.6 图标页签组（舰长令：竖排铭牌把整条调度栏撑到近 300px——改紧凑
+ * button group，图标+计数，全名走 title 悬停提示；选中=tint 底+高亮字）。 */
+.war-cmdtabs{flex:0 0 auto;display:flex;align-self:center;border:1px solid var(--war-border);border-radius:var(--war-r-sm);overflow:hidden}
+.war-cmdtab{cursor:pointer;display:flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:transparent;color:var(--war-text-2);font-family:var(--war-font);font-size:12px;font-weight:600;white-space:nowrap}
+.war-cmdtab + .war-cmdtab{border-left:1px solid var(--war-border)}
+.war-cmdtab:hover{color:var(--war-text-1);background:color-mix(in srgb, var(--war-text-1) 7%, transparent)}
+.war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 0 -2px 0 var(--war-run-border)}
+.war-cmdtab-ico{font-size:11px;line-height:1}
 .war-cmdtab-n{font-size:11px;opacity:.85}
 /* V17 归档行/确认条（聚焦页决策带下方）。 */
 .war-archive-row{display:flex;align-items:center;gap:8px;margin-top:6px}

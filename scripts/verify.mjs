@@ -286,7 +286,7 @@ gate('bundle', () => {
     [host, '战线未全终局，不可归档', 'V17 chain-terminal gate on the archive route'],
     [host, '/warroom/api/host-sessions', 'V17 read-only host session list (archive verification probe)'],
     [client, 'warroom-cmd-tab', 'V17 tab persistence (localStorage, default active)'],
-    [client, 'war-cmdtabs', 'V17 vertical tab group beside the + tile (whole-board slicer)'],
+    [client, 'war-cmdtabs', 'V17 icon tab group beside the + tile (whole-board slicer)'],
     [client, 'archiveCommand', 'V17 archive POST helper'],
     [client, '不可逆', 'V17 archive irreversible warning copy (host has no unarchive)'],
     // V17-B 族系管网（舰长令：推翻 V7「零几何」定案）。

@@ -148,24 +148,35 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         // （下位）进卡即止；卡位段不画线（卡本身是导管），**出端口**（上位）
         // 出来续行竖干到**板顶横沟** → 右行 → 回报列左外下行 → 战报卡左缘入。
         // 星域内部的连线只有原装 HQ→星球虚线（高亮语言，见 warzone-scene hlLines）。
-        // 显式旗标而非站序数——无执行站时 report 索引前移，序数会漏画回报腿。
+        // 锚按 kind 寻址而非站序——命令卡锚缺席（滚出调度条视界）时站序整体前移：
+        // 任务端口顶替命令起笔、回报左缘顶替任务入端口，画出「任务端口→底沟→
+        // 回报右侧竖爬」的穿空幽灵干线（V17.6 元首指认）。命令腿只在命令卡在场
+        // 时画；任务→战报直连腿不依赖命令腿。
         const mapDraw = (toReport: boolean): string => {
-          const e0 = entry(0), tIn = entry(1), tOut = exit(1)
-          if (e0 === null || tIn === null || tOut === null) return ''
-          const ops = svg.parentElement?.querySelector('.war-ops')
-          const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : e0.y - 10
-          const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
+          const ci = stops.findIndex(s => s.kind === 'cmd')
+          const ti = stops.findIndex(s => s.kind === 'task')
+          if (ti < 0) return ''
+          const tIn = entry(ti), tOut = exit(ti)
+          if (tIn === null || tOut === null) return ''
           const trunkX = tIn.x + 24
           const topY = 8
-          // 下行段：坞 → 横沟 → 竖干上行 → 入端口进卡即止（子路径 M 会移当前点，
-          // 各段独立显式 M 起笔——卡位段的断开就是「进卡再出来」的视觉本体）。
-          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
-          // 上段：出端口出卡 → 竖干续行 → 顶沟右行 → 回报列左外下行 → 战报卡左缘入。
+          let d = ''
+          const e0 = ci >= 0 ? entry(ci) : null
+          if (e0 !== null) {
+            const ops = svg.parentElement?.querySelector('.war-ops')
+            const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : e0.y - 10
+            const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
+            // 命令腿：坞 → 坞顶横沟向左 → 竖干上行 → 入端口进卡即止。
+            d += `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
+          }
+          // 上行段：出端口出卡 → 竖干续行 → 板顶横沟右行 → 回报列左外下行 →
+          // 战报卡左缘入（卡位段不画线——「进卡再出来」的导管感）。
+          d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY}`
           if (toReport) {
-            const reportIdx = stops.findIndex(s => s.kind === 'report')
-            if (reportIdx > 1) {
-              const rp = entry(reportIdx)
-              if (rp !== null) d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY} L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
+            const ri = stops.findIndex(s => s.kind === 'report')
+            if (ri > ti) {
+              const rp = entry(ri)
+              if (rp !== null) d += ` L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
             }
           }
           return d

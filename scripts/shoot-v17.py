@@ -48,7 +48,8 @@ with sync_playwright() as p:
         page.wait_for_timeout(1500)
 
     def tab_labels():
-        return [t.text_content().strip() for t in page.locator(".war-cmdtab").all()]
+        # V17.6 图标页签组：可见文本是图标+计数，全名在 aria-label。
+        return [t.get_attribute("aria-label") for t in page.locator(".war-cmdtab").all()]
 
     def click_tab(label: str):
         for i, l in enumerate(tab_labels()):
@@ -63,13 +64,16 @@ with sync_playwright() as p:
     # --- ① 页签组在场 + 缺省进行中 ------------------------------------------
     tabs = tab_labels()
     assert len(tabs) == 3, f"三页签缺席：{tabs}"
-    on_labels = [page.locator(".war-cmdtab.on").all_text_contents()]
-    assert page.locator('.war-cmdtab.on:has-text("进行中")').count() == 1, f"缺省应进行中：{on_labels}"
-    print(f"① tabs ok: {tabs}")
+    on_labels = [page.locator(".war-cmdtab.on").get_attribute("aria-label")]
+    assert page.locator('.war-cmdtab.on[aria-label="进行中"]').count() == 1, f"缺省应进行中：{on_labels}"
+    # V17.6 图标化后调度栏高度应随卡片收紧（竖排铭牌时代 ≈300px）
+    dh = page.locator(".war-dispatch").bounding_box()["height"]
+    assert dh <= 250, f"调度栏应随卡片高度收紧：{dh}px"
+    print(f"① tabs ok: {tabs}, dispatch h={dh:.0f}px")
 
     # --- ② 已收官页签：全板只含终局卡 ---------------------------------------
     click_tab("已收官")
-    assert page.locator('.war-cmdtab.on:has-text("已收官")').count() == 1
+    assert page.locator('.war-cmdtab.on[aria-label="已收官"]').count() == 1
     body_text = page.locator(".war-root").inner_text()
     assert "修复分页参数 off-by-one" in body_text, "已收官页签应含 t6 收官卡"
     assert "等你回答" not in body_text and "成形中" not in body_text and "起草中" not in body_text, \
@@ -398,10 +402,10 @@ with sync_playwright() as p:
     # 每步落盘）；演示板 fuse/织换/征召同时在排队时，整链实测可达数十秒
     # （RPC 已 15s 有界，路由并行+诚实记账）。90s 轮询等窗关+页签切。
     def archived_done() -> bool:
-        return page.locator(".war-cd-modal").count() == 0 and page.locator('.war-cmdtab.on:has-text("已归档")').count() == 1
+        return page.locator(".war-cd-modal").count() == 0 and page.locator('.war-cmdtab.on[aria-label="已归档"]').count() == 1
     try:
         page.wait_for_function(
-            "() => document.querySelector('.war-cd-modal') === null && !!document.querySelector('.war-cmdtab.on') && document.querySelector('.war-cmdtab.on').textContent.includes('已归档')",
+            "() => document.querySelector('.war-cd-modal') === null && !!document.querySelector('.war-cmdtab.on') && document.querySelector('.war-cmdtab.on').getAttribute('aria-label') === '已归档'",
             timeout=90000,
         )
     except Exception:
@@ -410,7 +414,7 @@ with sync_playwright() as p:
         {"net": net_log, "modal": page.locator(".war-cd-modal").count(),
          "confirm": page.locator(".war-archive-confirm").count(),
          "btn": page.locator(".war-archive-btn").count(),
-         "tab": page.locator(".war-cmdtab.on").text_content(),
+         "tab": page.locator(".war-cmdtab.on").get_attribute("aria-label"),
          "arch": page.evaluate("() => window.__arch"),
          "lsTab": page.evaluate("() => localStorage.getItem('warroom-cmd-tab')"),
          "actionerr": page.locator(".war-actionerr").count() and page.locator(".war-actionerr").inner_text(),

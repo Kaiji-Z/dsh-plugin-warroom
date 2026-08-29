@@ -1854,6 +1854,9 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
  * 休眠（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
+// V17.6 页签图标（皮肤中性——词表随皮肤变，图标不变；全名在 title/aria）。
+const CMD_TAB_ICONS: Record<CmdTab, string> = { active: '▶', settled: '✓', archived: '▦' }
+
 function DispatchStrip(props: { onCompose: () => void; tab: CmdTab; onTab: (t: CmdTab) => void; tabCounts: Record<CmdTab, number>; children: ReactNode[] }): ReactNode {
   const { onCompose, tab, onTab, tabCounts, children } = props
   const ref = useRef<HTMLDivElement | null>(null)
@@ -1918,18 +1921,20 @@ function DispatchStrip(props: { onCompose: () => void; tab: CmdTab; onTab: (t: C
       'aria-label': activeCopy().dispatch.addTitle,
       onClick: onCompose,
     }, '＋'),
-    // V17 三页签全局切片：＋旁竖排页签组——切换整个板（三列+调度条+星域）的
-    // 命令集合；视觉沿用竖排铭牌语言，选中态三通道。
+    // V17 三页签全局切片：＋旁**图标页签组**（V17.6 舰长令：竖排铭牌撑高整条
+    // 调度栏，改紧凑 button group——图标+计数，全名走 title 悬停提示），切换
+    // 整个板（三列+调度条+星域）的命令集合。
     createElement('div', { className: 'war-cmdtabs', role: 'tablist', 'aria-label': activeCopy().cmdTabs.aria },
       ...(['active', 'settled', 'archived'] as const).map(t => createElement('button', {
         key: t, type: 'button', role: 'tab',
         'aria-selected': tab === t,
+        'aria-label': activeCopy().cmdTabs[t],
         className: `war-cmdtab${tab === t ? ' on' : ''}`,
         title: activeCopy().cmdTabs.countTitle(activeCopy().cmdTabs[t], tabCounts[t]),
         onClick: () => { onTab(t) },
       },
+        createElement('span', { className: 'war-cmdtab-ico', 'aria-hidden': 'true' }, CMD_TAB_ICONS[t]),
         createElement('span', { className: 'war-cmdtab-n' }, String(tabCounts[t])),
-        createElement('span', { className: 'war-cmdtab-label' }, activeCopy().cmdTabs[t]),
       ))),
     createElement('div', { className: 'war-dispatch-track', ref, onKeyDown: onTrackKey }, ...children),
   )
