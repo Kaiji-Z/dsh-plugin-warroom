@@ -2738,11 +2738,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               archived: commands.filter(c => tabOf(c) === 'archived').length,
             },
           },
-            // V12.2 critique P1 整改：调度轨道按活跃/收官分段（竖排小铭牌）——
-            // 命令量增长后回访扫读不必整轨滚完；仅一段在场时不挂牌（空板无噪音）。
-            // 分段不改排序（活跃优先+新→旧原样），只插视觉路标。
+            // 调度轨道：活跃优先+新→旧原样排序；铭牌路标已退役（V17.6 舰长令）。
             (() => {
-              const seg = (t: string): ReactNode => createElement('div', { key: `seg-${t}`, className: 'war-track-seg' }, t)
               const groupNode = (g: { rootId: string; cards: BoardCommand[] }): ReactNode => {
               const renderDockCard = (c: BoardCommand, pips?: ReactNode, history = false): ReactNode => {
                 // V10.1 卡组：族系高亮解析升到战线根——hover/聚焦命中链上任一代
@@ -2776,11 +2773,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
               const faceActive = (g: { rootId: string; cards: BoardCommand[] }): boolean => g.cards.some(cmdActive)
               const activeGroups = dispatchGroups.filter(faceActive)
               const settledGroups = dispatchGroups.filter(g => !faceActive(g))
-              const dcopy = activeCopy().dispatch
+              // V17.6 舰长令：分段铭牌（竖排虚线「已收官」路标）退役——与页签语义
+              // 重复且被误读为幽灵标签；分段只保留排序（活跃优先），不再挂牌。
               return [
-                ...(activeGroups.length > 0 && settledGroups.length > 0 ? [seg(dcopy.segActive)] : []),
                 ...activeGroups.map(groupNode),
-                ...(settledGroups.length > 0 ? [seg(dcopy.segSettled)] : []),
                 ...settledGroups.map(groupNode),
               ]
             })(),

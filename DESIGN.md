@@ -701,3 +701,9 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 ③**已收官文字标签**随 ② 一并消失（图标组不再在栏首显示全名）。
 坑：icon 化后 shooter `has-text("进行中")` 类断言全失效——可见文本只剩图标+计数，全名断言一律改 `[aria-label=…]`/`get_attribute`。
 机检：verify PASS + shoot-v17 全绿（tabs aria 三名/dispatch 190px/rep_hit=0/hq dist 333 不绕 HQ/⑤⑦ 归档流）；目检 `.goal/evidence/v17/v176-settled-map.png`（已收官+map 态，幽灵线绝迹）。
+
+## V17.7 页签竖排齐＋高 + 调度栏定高 + 回报腿阶段门（2026-08-29，元首五反馈）
+
+①**页签组竖排**：图标 button group 改 column，`align-self:stretch` 与＋钮同高（三枚 flex:1 均分），选中亮条改左缘 inset。②**调度栏定高 218px**（舰长令：横滚条不得撑高栏体）——卡区=卡高 168+细滚条位 8（track padding 10/12、align-items:flex-start 顶对齐），滚动条出现/消失不改栏高、卡锚 y 恒定；map 态 track/dispatch 的旧 padding 覆盖删除（基规则统管）。③**分段铭牌退役**：`war-track-seg`（竖排虚线「已收官」路标，V12.2 critique P1 引入）与页签语义重复且被误读为幽灵标签——拆除，分段只保留排序（活跃优先）。④⑤**回报腿阶段门**：管线随战况生长——map 态上行段（任务出端口→竖干→顶沟→战报卡）整体只在 stage≥3 画；**常显基管同步按 stage 截段**（列表态 buildD(min(stage,…)) 同门）——根因是族 stops 的 report 锚取全链末次结算，链上前代遗留的已收官 attempt 会让进行中命令提前亮出回报管（元首指认「已收官的管线出现在进行中」+「任务卡只有进没有出」）。实证：进行中页签 map 管全部只剩命令腿，战报卡零管脚；已收官页签 rep_hit=0px 不变。
+坑：icon 页签后 shooter 全名断言走 aria-label；基管截段后 ⑧ 路径数下降（>=2 弹性断言兜住）。
+机检：verify PASS + shoot-v17 全绿；目检 `.goal/evidence/v17/v176-active-map-noreport.png`（进行中+map：竖排页签组/定高栏/无回报腿）。

@@ -169,10 +169,11 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             // 命令腿：坞 → 坞顶横沟向左 → 竖干上行 → 入端口进卡即止。
             d += `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
           }
-          // 上行段：出端口出卡 → 竖干续行 → 板顶横沟右行 → 回报列左外下行 →
-          // 战报卡左缘入（卡位段不画线——「进卡再出来」的导管感）。
-          d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY}`
+          // 上行段（V17.6 舰长令：**回报阶段才接出管**）——未到任务回报的阶段
+          // 任务卡「只有进没有出」；到段后出端口出卡 → 竖干续行 → 板顶横沟右行
+          // → 回报列左外下行 → 战报卡左缘入（卡位段不画线——「进卡再出来」）。
           if (toReport) {
+            d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY}`
             const ri = stops.findIndex(s => s.kind === 'report')
             if (ri > ti) {
               const rp = entry(ri)
@@ -200,7 +201,10 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           }
           return parts.join(' ')
         }
-        const d = buildD(stops.length - 1)
+        // 常显基管同样按 stage 截段（V17.6 舰长令：管线随战况生长——未到回报
+        // 阶段的族不铺回报腿；链上前代遗留的已收官 attempt 不得让进行中命令
+        // 提前亮出回报管）。列表态同理截段。
+        const d = mapMode ? mapDraw(fam.stage >= 3) : buildD(Math.min(fam.stage, stops.length - 1))
         const dProg = mapMode
           ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 3))
           : buildD(Math.min(fam.stage, stops.length - 1))

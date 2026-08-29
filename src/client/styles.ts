@@ -273,8 +273,10 @@ body[data-ds-dark-theme] .war-root{
  * V9.4 容器化（舰长定）：整坞一个大容器（与三区同语言的圆角容器，物种差
  * 保留——主色淡染凹槽坞）；左端 ＋ 下达瓦片（容器一部分，幽灵虚线态）；
  * 命令卡全部进 .war-dispatch-track 轨道横滚；「命令调度」铭牌休眠。 */
-.war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;margin:0 10px 10px;padding:10px;border:1px solid var(--war-border);border-radius:var(--war-r-lg);background:var(--war-dock-bg);box-shadow:var(--war-dock-inset)}
-.war-dispatch-track{flex:1 1 auto;min-width:0;display:flex;gap:10px;align-items:stretch;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+/* V17.6 舰长令：调度栏**定高**——横滚条预留进栏高内（卡区=卡高+细滚条位），
+ * 滚条出现/消失不改变栏高，卡锚 y 恒定（顶对齐+定值 padding-top）。 */
+.war-dispatch{flex:0 0 auto;display:flex;gap:10px;align-items:stretch;height:218px;margin:0 10px 10px;padding:10px;border:1px solid var(--war-border);border-radius:var(--war-r-lg);background:var(--war-dock-bg);box-shadow:var(--war-dock-inset)}
+.war-dispatch-track{flex:1 1 auto;min-width:0;display:flex;gap:10px;align-items:flex-start;padding:10px 2px 12px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin}
 .war-dispatch-track.can-scroll{mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35));-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),rgba(0,0,0,.35))}
 .war-dispatch .war-command-card{flex:0 0 320px;min-width:0}
 /* V12.2 critique P1：调度轨道分段铭牌——竖排小路标（活跃段 | 收官段），
@@ -524,13 +526,13 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 /* V17.1 map 总线走板内边（元首红线示意）：实线管身（虚线只留给流动 prog——直线弦语言已由 HQ/星球弦承担） */
 @keyframes war-pipe-flow{to{stroke-dashoffset:-28}}
 @media (prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}
-/* V17.6 图标页签组（舰长令：竖排铭牌把整条调度栏撑到近 300px——改紧凑
- * button group，图标+计数，全名走 title 悬停提示；选中=tint 底+高亮字）。 */
-.war-cmdtabs{flex:0 0 auto;display:flex;align-self:center;border:1px solid var(--war-border);border-radius:var(--war-r-sm);overflow:hidden}
-.war-cmdtab{cursor:pointer;display:flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:transparent;color:var(--war-text-2);font-family:var(--war-font);font-size:12px;font-weight:600;white-space:nowrap}
-.war-cmdtab + .war-cmdtab{border-left:1px solid var(--war-border)}
+/* V17.6 图标页签组（舰长令：紧凑图标 button group **竖排**在＋旁，组框随
+ * stretch 与＋钮齐高；全名走 title 悬停提示；选中=tint 底+高亮字+左缘亮条）。 */
+.war-cmdtabs{flex:0 0 auto;display:flex;flex-direction:column;align-self:stretch;border:1px solid var(--war-border);border-radius:var(--war-r-sm);overflow:hidden}
+.war-cmdtab{flex:1 1 0;cursor:pointer;display:flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:transparent;color:var(--war-text-2);font-family:var(--war-font);font-size:12px;font-weight:600;white-space:nowrap}
+.war-cmdtab + .war-cmdtab{border-top:1px solid var(--war-border)}
 .war-cmdtab:hover{color:var(--war-text-1);background:color-mix(in srgb, var(--war-text-1) 7%, transparent)}
-.war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 0 -2px 0 var(--war-run-border)}
+.war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 2px 0 0 var(--war-run-border)}
 .war-cmdtab-ico{font-size:11px;line-height:1}
 .war-cmdtab-n{font-size:11px;opacity:.85}
 /* V17 归档行/确认条（聚焦页决策带下方）。 */
@@ -811,10 +813,7 @@ body[data-ds-dark-theme] .war-root .war-board.war-mapmode .war-zone{box-shadow:0
 .war-board.war-mapmode .war-zone.war-tasks{left:10px} /* 左右 10px=坞内缩同款（舰长目检 2026-08-27） */
 .war-board.war-mapmode .war-zone.war-report{right:10px}
 .war-board.war-mapmode .war-zone.war-field{display:none}
-.war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto;padding:10px 10px 6px}
-/* V10.1 坞零纵向滚动：富余做进 track 盒（抬起 6px/下沉 10px/阴影都在盒内），
- * overflow-x:auto 的纵向 auto 副作用因此无料可滚（舰长目检 2026-08-27） */
-.war-board.war-mapmode .war-dispatch-track{padding:12px 2px 16px;align-items:flex-start} /* ops 抽离流后坞是唯一流内子——推回底（舰长目检 2026-08-27） */
+.war-board.war-mapmode .war-dispatch{position:relative;z-index:3;margin-top:auto} /* V17.6 定高/padding 走基规则（滚动条预留进栏高），map 态不再另切 */
 /* --- V10.1 调度坞卡牌组（舰长二改）：纯横向深叠，每卡只露 60px 标签缘，
  * hover 卡浮到组顶显全貌；无 45 度/垂直错位 -------------------------------- */
 .war-root{--war-card-w:316px;--war-card-h:168px;--war-history-card-h:137px} /* 五行恒高卡实测值（probe 校准）；历史卡=R1-R4 无 R5（168-31）。定义在 war-root：组面板 portal 出坞后仍在域内 */
