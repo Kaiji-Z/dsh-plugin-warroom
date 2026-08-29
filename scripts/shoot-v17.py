@@ -182,11 +182,11 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     print(f"⑨ hover/reduced-motion ok: on={ops_['on']} off={ops_['off']} anim={anim}")
 
-    # --- ⑩ V17.4 map 态：管网退场、原装 HQ→星球虚线、压暗、星球悬停/点击联动 ---
+    # --- ⑩ V17.5 map 态：管线走内边+顶沟（不绕 HQ/不挂星球弦）、原装虚线、
+    # 星球悬停/点击联动 ----------------------------------------------
     page.keyboard.press("m")
     page.wait_for_timeout(2600)
-    assert page.locator(".war-pipe-svg").count() == 0, \
-        "map 态管网应整体退场（舰长令：星域内部只留原装 HQ→星球虚线和高亮）"
+    assert page.locator(".war-pipe-svg.war-pipe-map").count() == 1, "map 态管网 overlay 缺席"
 
     # 压暗：hover 命令卡 → dimActive + 原装虚线亮起 + 非命中星球像素变暗（×0.35）。
     # 全星球前/后采样再择差——星球序不假定，命中星球（亮起）不误判。
@@ -226,7 +226,71 @@ with sync_playwright() as p:
     assert drops, f"可采样的非命中星球缺席：all={all_ws} hl={hl_set} pre={pre} post={post}"
     best_drop = max(drops.values())
     assert best_drop > 4, f"非命中星球应被压暗/提亮（|亮度差|）：{ {k: round(v, 1) for k, v in drops.items()} }"
-    print(f"⑩ map pipes retired ok: hlLines={hl_lines}, best far-planet lum delta={best_drop:.1f}")
+    # 管线不绕 HQ：map 管段不得靠近 HQ 投影点（HQ 接点/星球弦已退役）
+    hq = page.evaluate("() => window.__wz.hqScreen()")
+    hq_dist = page.evaluate("""(hq) => {
+      let best = 1e9
+      for (const path of document.querySelectorAll('.war-pipe-svg path[d]')) {
+        const dattr = path.getAttribute('d') || ''
+        if (!dattr.trim()) continue
+        const L = path.getTotalLength()
+        for (let i = 0; i <= 120; i++) {
+          const p = path.getPointAtLength(L * i / 120)
+          best = Math.min(best, Math.hypot(p.x - hq.x, p.y - hq.y))
+        }
+      }
+      return Math.round(best)
+    }""", hq)
+    assert hq_dist > 60, f"map 管线不得绕 HQ：最近距离 {hq_dist}px"
+    # 战报腿在场：map 管段应触及在场战报卡左缘。汇报族（bravo）的命令卡默认
+    # 卷出调度条、任务卡在任务列折叠线下——「站台缺席不画」是设计行为，先把
+    # 两处滚动到位（卡心进可视区）再等重算 tick，然后量测。
+    page.evaluate("""() => {
+      const roll = (sel) => {
+        const el = document.querySelector(sel)
+        if (el === null) return
+        let n = el.parentElement
+        while (n !== null && n !== document.body) {
+          const cs = getComputedStyle(n)
+          const r = el.getBoundingClientRect()
+          if (['auto','scroll','hidden'].includes(cs.overflowX)) {
+            const c = n.getBoundingClientRect()
+            n.scrollLeft += (r.left + r.width / 2) - (c.left + c.width / 2)
+          }
+          if (['auto','scroll'].includes(cs.overflowY)) {
+            const c = n.getBoundingClientRect()
+            n.scrollTop += (r.top + r.height / 2) - (c.top + c.height / 2)
+          }
+          n = n.parentElement
+        }
+      }
+      roll('[data-pipe-cmd$="0905-dd04"]')
+      roll('[data-pipe-task="20260823-bravo"]')
+    }""")
+    page.wait_for_timeout(2000)
+    rep_hit = page.evaluate("""() => {
+      const svg = document.querySelector('.war-pipe-svg')
+      const box = svg.getBoundingClientRect()
+      const cards = [...document.querySelectorAll('.war-zone.war-report [data-pipe-sess]')]
+      if (cards.length === 0) return -1
+      let best = 1e9
+      for (const card of cards) {
+        const r = card.getBoundingClientRect()
+        const ax = r.left - box.left, ay = r.top - box.top + r.height / 2
+        for (const path of svg.querySelectorAll('path[d]')) {
+          const dattr = path.getAttribute('d') || ''
+          if (!dattr.trim()) continue
+          const L = path.getTotalLength()
+          for (let i = 0; i <= 120; i++) {
+            const p = path.getPointAtLength(L * i / 120)
+            best = Math.min(best, Math.hypot(p.x - ax, p.y - ay))
+          }
+        }
+      }
+      return Math.round(best)
+    }""")
+    assert rep_hit != -1 and rep_hit <= 20, f"map 回报腿应触战报卡左缘：rep_hit={rep_hit}px"
+    print(f"⑩ map pipes ok: hlLines={hl_lines}, hq dist={hq_dist}px (不绕 HQ), report leg={rep_hit}px")
 
     # 星球悬停 → 相关卡片族高亮；点击 → 粘性聚焦（移开鼠标仍在）；再点同星球
     # 取消；点星域空处取消（V17.4 舰长令）。

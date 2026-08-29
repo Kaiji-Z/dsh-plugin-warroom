@@ -2604,9 +2604,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}`, style: { '--war-dock-h': `${boardBox.dockH}px` } as React.CSSProperties },
-          // V17.4（舰长令）：map 态管网退场——星域内部只留原装 HQ→星球虚线和高亮；
-          // 管网只在列表态铺装。
-          ...(mapView ? [] : [createElement(PipeOverlay, { key: 'pipes', families: pipeFamilies, activeRootId: activePipeRoot, mapMode: false })]),
+          // V17 族系管网 overlay：map 态=坞→任务→战报直连（不进星域，V17.5）；
+          // 列表态=正交管件路由。流动只跑到生命条 now 段。
+          createElement(PipeOverlay, { key: 'pipes', families: pipeFamilies, activeRootId: activePipeRoot, mapMode: mapView }),
           // V10.1 TITP 化（舰长示意图定案）：星域=界面本体，board 级铺满为底；
           // 任务/任务回报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
           ...(mapView ? [no3d

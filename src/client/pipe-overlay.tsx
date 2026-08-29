@@ -37,15 +37,10 @@ const attrOf = (stop: PipeStop): string =>
 
 interface Pt { x: number; y: number }
 
-/** __wz 投影出口形状（starfield3d 挂载；map 态才有）。 */
-interface WzProjector {
-  planetScreen?: (ws: string) => Pt | null
-  hqScreen?: () => Pt | null
-}
-
 function edgePort(el: Element, side: 'top' | 'left' | 'right', box: DOMRect, dy = 0): Pt | null {
-  let r = el.getBoundingClientRect()
-  if (r.width === 0 && r.height === 0) return null
+  const raw = el.getBoundingClientRect()
+  if (raw.width === 0 && raw.height === 0) return null
+  let r = raw as DOMRect
   // 滚动容器裁剪：滚出列体的卡 rect 仍报全长位置——管只连「看得见」的卡，
   // 裁到不可见（空交）=站台缺席，跳过该站（不许拖一条死管穿坞而过）。
   let n = el.parentElement
@@ -62,11 +57,12 @@ function edgePort(el: Element, side: 'top' | 'left' | 'right', box: DOMRect, dy 
     n = n.parentElement
   }
   if (r.width <= 0 || r.height <= 0) return null
-  // 视界检查：视口外的站按缺席处理。
-  const x = r.left - box.left
-  const y = r.top - box.top
-  const px = side === 'left' ? x : side === 'right' ? x + r.width : x + r.width / 2
-  const py = (side === 'top' ? y : y + r.height / 2) + dy
+  // 端口锚=卡体原位（不是裁剪缝中心）——大半滚出列体的卡只剩一条缝时，缝中心
+  // 会把端口拖到幻影位（缝≠卡，V17.5）：端口点落在裁剪盒外=站台缺席，不接线。
+  const px = (side === 'left' ? raw.left : side === 'right' ? raw.right : raw.left + raw.width / 2) - box.left
+  const py = (side === 'top' ? raw.top : raw.top + raw.height / 2) + dy - box.top
+  if (px < r.left - box.left - 1 || px > r.right - box.left + 1 ||
+      py < r.top - box.top - 1 || py > r.bottom - box.top + 1) return null
   // 远出界（滚出列体可视区/视口外）按缺席处理；近界（±60px，布局瞬间的边缘锚）
   // 钳进板内——管不许画出板外（先算端口再钳：钳边再加半卡高会二次出界）。
   if (py < -60 || py > box.height + 60 || px < -60 || px > box.width + 60) return null
@@ -147,32 +143,13 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         }
         // map 态弦锚：HQ + 本战线星球屏幕位（__wz 投影出口；星域 inset:0 铺满板，
         // 正常与板同原点，仍按 rect 差换算防布局漂移）。
-        let hq: Pt | null = null
-        let planet: Pt | null = null
-        if (mapMode) {
-          const wz = (window as { __wz?: WzProjector }).__wz
-          if (wz !== undefined && wz.hqScreen !== undefined) {
-            let off = { x: 0, y: 0 }
-            const star = svg.parentElement?.querySelector('.war-starfield')
-            if (star !== null && star !== undefined) {
-              const sr = star.getBoundingClientRect()
-              off = { x: sr.left - box.left, y: sr.top - box.top }
-            }
-            const raw = wz.hqScreen()
-            if (raw !== null) hq = { x: raw.x + off.x, y: raw.y + off.y }
-            if (wz.planetScreen !== undefined && fam.wsKey) {
-              const raw2 = wz.planetScreen(fam.wsKey)
-              if (raw2 !== null) planet = { x: raw2.x + off.x, y: raw2.y + off.y }
-            }
-          }
-        }
-        // map 态总线（元首红线示意 2026-08-29：管线走板内边）——命令卡上缘出 →
-        // 坞顶横沟向左 → 任务列右外竖干上行到任务卡**入端口**（下位）进卡即止；
-        // 卡位段不画线（卡本身是导管），**出端口**（上位）再出来续行 → 板顶横沟
-        // → HQ 竖直接点（星球弦挂 HQ，弦=直线）→ 顶沟续右 → 回报列左外下行 →
-        // 战报卡左缘入。
+        // map 态管线（V17.5 元首令修订：不绕 HQ、不挂星球弦，**顶沟保留**）——
+        // 命令卡上缘出 → 坞顶横沟向左 → 任务列右外竖干上行到任务卡**入端口**
+        // （下位）进卡即止；卡位段不画线（卡本身是导管），**出端口**（上位）
+        // 出来续行竖干到**板顶横沟** → 右行 → 回报列左外下行 → 战报卡左缘入。
+        // 星域内部的连线只有原装 HQ→星球虚线（高亮语言，见 warzone-scene hlLines）。
         // 显式旗标而非站序数——无执行站时 report 索引前移，序数会漏画回报腿。
-        const mapDraw = (toHq: boolean, toReport: boolean): string => {
+        const mapDraw = (toReport: boolean): string => {
           const e0 = entry(0), tIn = entry(1), tOut = exit(1)
           if (e0 === null || tIn === null || tOut === null) return ''
           const ops = svg.parentElement?.querySelector('.war-ops')
@@ -183,29 +160,22 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           // 下行段：坞 → 横沟 → 竖干上行 → 入端口进卡即止（子路径 M 会移当前点，
           // 各段独立显式 M 起笔——卡位段的断开就是「进卡再出来」的视觉本体）。
           let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
-          // 上行段：出端口出卡 → 竖干续行 → 顶沟 → HQ 接点 → (回报腿)。
-          if (toHq && hq !== null) {
-            d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY} L ${hq.x} ${topY} L ${hq.x} ${hq.y}`
-            if (toReport) {
-              const reportIdx = stops.findIndex(s => s.kind === 'report')
-              if (reportIdx > 1) {
-                const rp = entry(reportIdx)
-                if (rp !== null) d += ` L ${hq.x} ${topY} L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
-              }
+          // 上段：出端口出卡 → 竖干续行 → 顶沟右行 → 回报列左外下行 → 战报卡左缘入。
+          if (toReport) {
+            const reportIdx = stops.findIndex(s => s.kind === 'report')
+            if (reportIdx > 1) {
+              const rp = entry(reportIdx)
+              if (rp !== null) d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY} L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
             }
           }
           return d
         }
         // 全程路径 + 流动前缀（生命条 now 段之前的锚全部连上——流到当前战况位）。
         // 管件=多个子路径（卡是导管本体：缘口进出，中间不画线——画了必穿卡）。
-        // map 态 base=全网络常显；prog 按 stage 显式驱动（站序数在无执行站时会
-        // 压缩错位——回报腿漏接的根因）。
-        const mapChord = (draw: boolean): string =>
-          draw && hq !== null && planet !== null ? ` M ${hq.x} ${hq.y} L ${planet.x} ${planet.y}` : ''
         const buildD = (through: number): string => {
           if (mapMode) {
             if (through < 1) return ''
-            return mapDraw(true, true) + mapChord(true)
+            return mapDraw(true)
           }
           const parts: string[] = []
           if (through >= 1) {
@@ -221,7 +191,7 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         }
         const d = buildD(stops.length - 1)
         const dProg = mapMode
-          ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 2, fam.stage >= 3) + mapChord(fam.stage >= 2))
+          ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 3))
           : buildD(Math.min(fam.stage, stops.length - 1))
         if (d === '') continue // 站位全缺（滚动出视界等）——不渲染空 path
         out.push({
