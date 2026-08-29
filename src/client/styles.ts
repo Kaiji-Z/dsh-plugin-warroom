@@ -515,7 +515,7 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 /* --- V9.2 调度坞左端钉驻簇（[＋下达][铭牌]）--------------------------------- */
 .war-dispatch-add{flex:0 0 auto;width:52px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;line-height:1;color:var(--war-run-strong);background:var(--war-run-tint);border:1px dashed color-mix(in srgb, var(--war-run-border) 45%, transparent);border-radius:var(--war-r-md);cursor:pointer;padding:0;font-family:var(--war-font);transition:background .12s ease,border-color .12s ease}
 /* V17 族系管网：淡管常显 12% 链色；hover 族 100%+流动，其余压 5%。 */
-.war-pipe-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3} /* SVG 默认 300×150——必须显式撑满 */
+.war-pipe-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:4} /* SVG 默认 300×150——必须显式撑满；z=4 压过调度坞(3)——坞顶横沟管段走在坞容器 padding 带里，同层会被后画的坞盖住 */
 .war-pipe-svg path{fill:none;stroke:var(--chain-hue,#888);stroke-width:2;stroke-linejoin:round;opacity:.12;transition:opacity .25s}
 .war-pipe-svg path.war-pipe-prog{stroke-dasharray:7 7}
 .war-pipe-svg.has-active path{opacity:.05}

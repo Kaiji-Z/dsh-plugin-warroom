@@ -296,7 +296,7 @@ gate('bundle', () => {
     [client, 'setDim', 'V17-B starfield global dim switch (canvas follows family highlight)'],
     [client, 'dimActive', 'V17-B dim multiplier applied to non-highlight entities (halo/ring/label/squad)'],
     [client, 'p.active ? p.dProg : p.d', 'V17-B flow progress rides the lifecycle now-segment prefix (dProg)'],
-    [client, 'through >= 2', 'V17-B map chord flow reaches the planet on the battle segment'],
+    [client, 'mapDraw(', 'V17-B map bus builder (task-col trunk → top channel → HQ tap → report leg, stage-gated flags)'],
     [client, 'prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}', 'V17-B flow animation off under reduced-motion'],
     [client, 'hqScreen', 'V17-B HQ screen projection exit for map chords (2D=radar center / 3D=camera project)'],
     [client, 'war-pipe-map', 'V17-B map-mode pipe class (straight chord legs over the starfield)'],

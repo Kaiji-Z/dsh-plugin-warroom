@@ -43,7 +43,7 @@ interface WzProjector {
   hqScreen?: () => Pt | null
 }
 
-function edgePort(el: Element, side: 'top' | 'left' | 'right', box: DOMRect): Pt | null {
+function edgePort(el: Element, side: 'top' | 'left' | 'right', box: DOMRect, dy = 0): Pt | null {
   let r = el.getBoundingClientRect()
   if (r.width === 0 && r.height === 0) return null
   // 滚动容器裁剪：滚出列体的卡 rect 仍报全长位置——管只连「看得见」的卡，
@@ -66,7 +66,7 @@ function edgePort(el: Element, side: 'top' | 'left' | 'right', box: DOMRect): Pt
   const x = r.left - box.left
   const y = r.top - box.top
   const px = side === 'left' ? x : side === 'right' ? x + r.width : x + r.width / 2
-  const py = side === 'top' ? y : y + r.height / 2
+  const py = (side === 'top' ? y : y + r.height / 2) + dy
   // 远出界（滚出列体可视区/视口外）按缺席处理；近界（±60px，布局瞬间的边缘锚）
   // 钳进板内——管不许画出板外（先算端口再钳：钳边再加半卡高会二次出界）。
   if (py < -60 || py > box.height + 60 || px < -60 || px > box.width + 60) return null
@@ -111,8 +111,8 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
       const out: Array<{ key: string; d: string; dProg: string; hueSlot: number; active: boolean }> = []
       for (const fam of familiesRef.current) {
         // 锚点按 kind+id 查卡；缺失的站跳过（无卡态不说谎，管只连在场的卡）。
-        // 端口有向：命令=顶缘（上行进板）；后续卡=左缘入（进卡）+有下站再右缘出
-        // （出卡）——管件像水电接件，进出各走各口，绝不穿卡体。
+        // 端口有向（V17.1 元首定）：命令=顶缘出（上行进板）；任务卡=右缘双端口
+        // （入=下位 +10、出=上位 -10）；执行/回报卡=左缘入（进卡）——绝不穿卡体。
         const stops: Array<{ el: Element; kind: PipeStop['kind'] }> = []
         for (const stop of fam.stops) {
           const el = document.querySelector(`[${attrOf(stop)}="${CSS.escape(stop.id)}"]`)
@@ -120,9 +120,15 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           stops.push({ el, kind: stop.kind })
         }
         if (stops.length < 2) continue
-        const entry = (i: number): Pt | null => edgePort(stops[i]!.el, stops[i]!.kind === 'cmd' ? 'top' : 'left', box)
-        const exit = (i: number): Pt | null => (stops[i]!.kind === 'cmd' ? entry(i) : edgePort(stops[i]!.el, 'right', box))
-        // 一段管：from 站出口 → to 站入口。命令段=横沟→竖干（贴板缘/列沟）；
+        const entry = (i: number): Pt | null => {
+          const k = stops[i]!.kind
+          return edgePort(stops[i]!.el, k === 'cmd' ? 'top' : k === 'task' ? 'right' : 'left', box, k === 'task' ? 10 : 0)
+        }
+        const exit = (i: number): Pt | null => {
+          const k = stops[i]!.kind
+          return edgePort(stops[i]!.el, k === 'cmd' ? 'top' : 'right', box, k === 'task' ? -10 : 0)
+        }
+        // 一段管：from 站出口 → to 站入口。命令段=横沟→竖干（任务列右外沟槽）；
         // 卡间段=列间 gutter 中线（左列右缘 ↔ 右列左缘之间，必在空沟里）。
         const leg = (i: number): Pt[] => {
           const a = exit(i - 1), b = entry(i)
@@ -133,7 +139,8 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             const ops = svg.parentElement?.querySelector('.war-ops')
             const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : a.y - 10
             const channelY = Math.max(opsBottom + 3, Math.min(a.y - 4, opsBottom + (a.y - opsBottom) / 2))
-            return [{ x: a.x, y: channelY }, { x: b.x - 12, y: channelY }, { x: b.x - 12, y: b.y }]
+            const trunkX = b.x + 5
+            return [{ x: a.x, y: channelY }, { x: trunkX, y: channelY }, { x: trunkX, y: b.y }]
           }
           const g = (a.x + b.x) / 2
           return [{ x: g, y: a.y }, { x: g, y: b.y }]
@@ -160,23 +167,24 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           }
         }
         // map 态总线（元首红线示意 2026-08-29：管线走板内边）——命令卡上缘出 →
-        // 坞顶横沟向左 → 任务列右外竖干（内边，全族共用总线）→ 任务卡右缘支管 →
-        // 竖干续行到板顶横沟 → HQ 竖直接点（星球弦挂 HQ，弦=直线）→ 顶沟续右 →
-        // 回报列左外下行 → 战报卡左缘入。
-        const mapMain = (through: number): string => {
-          const e0 = entry(0), tR = exit(1)
-          if (e0 === null || tR === null) return ''
+        // 坞顶横沟向左 → 任务列右外竖干（内边，全族共用总线）→ 任务卡右缘双支管
+        // （入下位/出上位）→ 竖干续行到板顶横沟 → HQ 竖直接点（星球弦挂 HQ，
+        // 弦=直线）→ 顶沟续右 → 回报列左外下行 → 战报卡左缘入。
+        // 显式旗标而非站序数——无执行站时 report 索引前移，序数会漏画回报腿。
+        const mapDraw = (toTask: boolean, toHq: boolean, toReport: boolean): string => {
+          const e0 = entry(0), tIn = entry(1), tOut = exit(1)
+          if (e0 === null || tIn === null || tOut === null) return ''
           const ops = svg.parentElement?.querySelector('.war-ops')
           const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : e0.y - 10
           const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
-          const trunkX = tR.x + 24
+          const trunkX = tIn.x + 24
           const topY = 8
           // 干线先画完（子路径 M 会移当前点——支管必须最后追加，否则续行会从
           // 支管端点斜拉出去）。
-          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tR.y}`
-          if (through >= 2 && hq !== null) {
+          let d = `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tOut.y}`
+          if (toHq && hq !== null) {
             d += ` L ${trunkX} ${topY} L ${hq.x} ${topY} L ${hq.x} ${hq.y}` // 顶沟 → HQ 接点
-            if (through >= 3) {
+            if (toReport) {
               const reportIdx = stops.findIndex(s => s.kind === 'report')
               if (reportIdx > 1) {
                 const rp = entry(reportIdx)
@@ -184,18 +192,22 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
               }
             }
           }
-          if (through >= 1) d += ` M ${trunkX} ${tR.y} L ${tR.x} ${tR.y}` // 任务卡右缘支管
+          if (toTask) {
+            d += ` M ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}` // 任务卡右缘入支管（下位）
+            d += ` M ${trunkX} ${tOut.y} L ${tOut.x} ${tOut.y}` // 任务卡右缘出支管（上位）
+          }
           return d
         }
         // 全程路径 + 流动前缀（生命条 now 段之前的锚全部连上——流到当前战况位）。
         // 管件=多个子路径（卡是导管本体：缘口进出，中间不画线——画了必穿卡）。
+        // map 态 base=全网络常显；prog 按 stage 显式驱动（站序数在无执行站时会
+        // 压缩错位——回报腿漏接的根因）。
+        const mapChord = (draw: boolean): string =>
+          draw && hq !== null && planet !== null ? ` M ${hq.x} ${hq.y} L ${planet.x} ${planet.y}` : ''
         const buildD = (through: number): string => {
           if (mapMode) {
             if (through < 1) return ''
-            let d = mapMain(through)
-            // 星球弦（直线，挂 HQ 接点）：流动到执行段=流进星球即止。
-            if (through >= 2 && hq !== null && planet !== null) d += ` M ${hq.x} ${hq.y} L ${planet.x} ${planet.y}`
-            return d
+            return mapDraw(true, true, true) + mapChord(true)
           }
           const parts: string[] = []
           if (through >= 1) {
@@ -210,7 +222,9 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           return parts.join(' ')
         }
         const d = buildD(stops.length - 1)
-        const dProg = buildD(Math.min(fam.stage, stops.length - 1))
+        const dProg = mapMode
+          ? (fam.stage < 1 ? '' : mapDraw(fam.stage >= 1, fam.stage >= 2, fam.stage >= 3) + mapChord(fam.stage >= 2))
+          : buildD(Math.min(fam.stage, stops.length - 1))
         if (d === '') continue // 站位全缺（滚动出视界等）——不渲染空 path
         out.push({
           key: fam.rootId,
