@@ -681,3 +681,6 @@ verify（+10 条 V17-B 针脚：常显 12%/hover 100%/其余 5%/setDim/dimActive
 
 ## V17.3 竖干卡位断开（2026-08-29，元首反馈）
 map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右缘下位）进卡即止，**出端口**（右缘上位）再出来续行顶沟→HQ→回报——卡位中间不画线，「进卡再出来」的导管感。列表态本就分段（入下出上），无需改。
+
+## V17.4 map 态管网退场 + 星球悬停/点击联动卡片族（2026-08-29，元首令）
+①**map 态管网整体退场**（元首改主意：星域内部不铺管线）——PipeOverlay 只在列表态挂载；星域内部保留原装 HQ→星球虚线（hlLines，高亮时亮起）与高亮机制不变。②**星球悬停 → 相关卡片族高亮**（与卡片悬停同路）：starfield3d 帧环 hovered 星球变化沿 → onPlanetHover(ws) → views setHoverFamily(cmdIdForWs(ws))。③**星球点击 → 粘性高亮聚焦**：onPlanetClick → setFocusCommandId toggle（再点同星球取消、点他星球换族）；**点星域空处 → onVoidClick 清除**。取代 V14 的「点星球开 bf 面板」（面板走 kbplanet 键盘镜像仍可达）。坑三连：④**V9.2 空白退聚焦的 document 监听抢跑**——星球 click 先设 focus 同一次 click 又被 document 空白清除（target=canvas 非卡片）→ 星域加入豁免表，星域内清除由 onVoidClick 显式管。⑤**编队命中圈盖住星球中心**（绕星巡弋）——拾取改星球优先（pickAt：圈内星球恒胜出，编队在圈外仍可拾取），悬停/点击同源。⑥2D 态点击拾取必须用帧环 hits（雷达布局与 3D 投影不同轴，scene.pick 在 2D 错位）。机检：shoot-v17 全绿（map 管网退场断言 + hlLines≥1 + 星球悬停/粘滞/再点取消/空处取消四连）。

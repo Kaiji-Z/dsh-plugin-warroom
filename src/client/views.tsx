@@ -2103,7 +2103,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const onClick = (e: MouseEvent): void => {
         const el = e.target instanceof Element ? e.target : null
         if (el === null) return
-        if (el.closest('.war-card, .war-island, .war-modal-backdrop, .war-dispatch, .war-onboard, button, a, input, textarea, [role=\"switch\"]') !== null) return
+        // V17.4：星域豁免——星球点击走 onPlanetClick 粘性聚焦/星域空处 onVoidClick
+        // 显式清除，document 空白退聚焦不得抢跑（否则同一次 click 先设后清）。
+        if (el.closest('.war-card, .war-island, .war-modal-backdrop, .war-dispatch, .war-onboard, .war-starfield, button, a, input, textarea, [role=\"switch\"]') !== null) return
         setFocusCommandId(null)
       }
       document.addEventListener('click', onClick)
@@ -2444,6 +2446,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           .map(t => wsKeyOf(t.workspacePath))
           .filter((k): k is string => k !== null))]
       : []
+    // V17.4（舰长令）：星球悬停/点击 → 卡片族高亮/粘性聚焦（与卡片悬停同路）。
+    const cmdIdForWs = (ws: string): string | null => commandsNewest.find(cc => chainOf(cc).some(t => wsKeyOf(t.workspacePath) === ws))?.commandId ?? null
     // V17 族系管网：每条在档战线一根管——锚=命令卡(坞)/任务卡/执行卡/回报卡；
     // stage=生命条 now 段（流动只跑到当前战况位）。activeRoot=hover/聚焦族的根。
     const stageIndexOf = (c: BoardCommand): number => {
@@ -2600,8 +2604,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}`, style: { '--war-dock-h': `${boardBox.dockH}px` } as React.CSSProperties },
-          // V17 族系管网 overlay：管走沟槽不穿卡体；流动只跑到生命条 now 段。
-          createElement(PipeOverlay, { key: 'pipes', families: pipeFamilies, activeRootId: activePipeRoot, mapMode: mapView }),
+          // V17.4（舰长令）：map 态管网退场——星域内部只留原装 HQ→星球虚线和高亮；
+          // 管网只在列表态铺装。
+          ...(mapView ? [] : [createElement(PipeOverlay, { key: 'pipes', families: pipeFamilies, activeRootId: activePipeRoot, mapMode: false })]),
           // V10.1 TITP 化（舰长示意图定案）：星域=界面本体，board 级铺满为底；
           // 任务/任务回报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
           ...(mapView ? [no3d
@@ -2640,6 +2645,15 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 fronts: wzFronts,
                 highlightWs,
                 onOpenCommand: id => { openCommand(id) },
+                onPlanetHover: ws => {
+                  if (!hoverFamilyOn) return
+                  setHoverFamily(ws === null ? null : cmdIdForWs(ws))
+                },
+                onPlanetClick: ws => {
+                  const c = cmdIdForWs(ws)
+                  if (c !== null) setFocusCommandId(cur => cur === c ? null : c)
+                },
+                onVoidClick: () => { setFocusCommandId(null) },
                 orbIdleLabel: activeCopy().starfield.orbIdle,
                 onUnavailable: () => { setNo3d(true) },
               })] : []),

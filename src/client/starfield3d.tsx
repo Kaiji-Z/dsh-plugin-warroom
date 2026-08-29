@@ -90,6 +90,12 @@ export interface WarzoneProps {
   readonly highlightWs: ReadonlyArray<string>
   /** 执行卡点击 → 跳源命令聚焦页。 */
   readonly onOpenCommand?: (commandId: string) => void
+  /** V17.4（舰长令）：星球悬停 → 高亮相关卡片族（与卡片悬停同路）。ws=null=离场。 */
+  readonly onPlanetHover?: (ws: string | null) => void
+  /** V17.4：星球点击 → 粘性高亮聚焦（再点同星球/点空处取消——父层管状态）。 */
+  readonly onPlanetClick?: (ws: string) => void
+  /** V17.4：点星域空处 → 取消高亮聚焦。 */
+  readonly onVoidClick?: () => void
   /** 执行卡动词兜底。 */
   readonly orbIdleLabel: string
   /** WebGL 不可用/初始化失败：父级整棵回落 2D 星域（底线）。 */
@@ -97,7 +103,7 @@ export interface WarzoneProps {
 }
 
 export function Warzone(props: WarzoneProps): ReactNode {
-  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, orbIdleLabel, onUnavailable } = props
+  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, onPlanetHover, onPlanetClick, onVoidClick, orbIdleLabel, onUnavailable } = props
   const rootRef = useRef<HTMLDivElement | null>(null)
   const c3dRef = useRef<HTMLCanvasElement | null>(null)
   const c2dRef = useRef<HTMLCanvasElement | null>(null)
@@ -202,12 +208,38 @@ export function Warzone(props: WarzoneProps): ReactNode {
     let dragDist = 0
     const onDownDist = (): void => { dragDist = 0 }
     const onMoveDist = (e: PointerEvent): void => { dragDist += Math.abs(e.movementX) + Math.abs(e.movementY) }
+    // V17.4：星球优先拾取——编队绕星巡弋，命中圈常盖住星球中心，点/悬停星球
+    // 的意图必须优先于恰好路过的编队；编队在星球命中圈外仍可正常拾取。
+    const pickAt = (px: number, py: number): WzEntityRef | null => {
+      let best: WzEntityRef | null = null
+      let bd = 1e9
+      let bestPlanet: WzEntityRef | null = null
+      let bp = 1e9
+      for (const h of hits) {
+        const d = Math.hypot(h.x - px, h.y - py)
+        if (d >= h.r + 6) continue
+        if ((h.ref as { kind?: string }).kind === 'planet') {
+          if (d < bp) { bp = d; bestPlanet = h.ref as WzEntityRef }
+        } else if (d < bd) { bd = d; best = h.ref as WzEntityRef }
+      }
+      return bestPlanet ?? best
+    }
     const onClickRoot = (e: MouseEvent): void => {
       if (dragDist > 6) return
       if ((e.target as HTMLElement).closest('button') !== null) return
+      // V17.4（舰长令）：星球点击 → 粘性高亮聚焦（取代 V14 的 bf 面板直开——
+      // 键盘镜像 kbplanet 仍可达面板）；点空处 → 取消聚焦。2D 用帧环 hits 拾取
+      //（雷达布局与 3D 投影不同轴——scene.pick 在 2D 态会错位）。
+      if (mode === 'cmd') {
+        const best = pickAt(e.clientX - rect.left, e.clientY - rect.top)
+        if (best !== null && best.kind === 'planet') { onPlanetClick?.((best as WzPlanet).wsPath); return }
+        onVoidClick?.()
+        return
+      }
       const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
       if (hit !== null && hit.kind === 'front') { onOpenCommand?.((hit as WzFrontNode).rootCommandId); return }
-      if (hit !== null && hit.kind === 'planet') setBfPanel((hit as { wsPath: string }).wsPath)
+      if (hit !== null && hit.kind === 'planet') { onPlanetClick?.((hit as WzPlanet).wsPath); return }
+      onVoidClick?.()
     }
     const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }
     const onMouseDownCam = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault() }
@@ -280,27 +312,28 @@ export function Warzone(props: WarzoneProps): ReactNode {
     let t = 0
     let hoverKey = ''
     let ttTimer = 0
+    let hoverPlanetWs: string | null = null
     const hits: TacHit[] = []
     const frame = (now: number): void => {
       const dt = reduce.matches ? 0 : Math.min((now - last) / 1000, 0.05)
       last = now
       t += dt
       scene.update(dt, t)
-      // 悬停拾取
+      // 悬停拾取（拾取优先级见 pickAt）
       let hovered: WzEntityRef | null = null
       if (mouseIn) {
         if (mode === 'cmd') {
-          let best: WzEntityRef | null = null
-          let bd = 1e9
-          for (const h of hits) {
-            const d = Math.hypot(h.x - mx, h.y - my)
-            if (d < h.r + 6 && d < bd) { bd = d; best = h.ref as WzEntityRef }
-          }
-          hovered = best
+          hovered = pickAt(mx, my)
         } else {
           const r = root.getBoundingClientRect()
           hovered = scene.pick((mx / Math.max(r.width, 1)) * 2 - 1, -(my / Math.max(r.height, 1)) * 2 + 1) as WzEntityRef | null
         }
+      }
+      // V17.4：星球悬停 → 父层高亮相关卡片族（与卡片悬停同路；变化沿才回调）。
+      const planetWs = hovered !== null && hovered.kind === 'planet' ? (hovered as WzPlanet).wsPath : null
+      if (planetWs !== hoverPlanetWs) {
+        hoverPlanetWs = planetWs
+        onPlanetHover?.(planetWs)
       }
       // V11.5c：围合中央自由区（灵动岛/任务舱/任务回报舱/命令坞之外）——雷达画进它，
       // V11.5f 起执行卡/名签钳进它（星球投影可能落在坞/舱底下，卡必须可达可点）；
@@ -470,6 +503,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
     // ——2D 态 hits 是帧产物，读帧环最后一帧的缓存；坐标相对星域根，overlay 侧再对板差）。
     ;(window as unknown as Record<string, unknown>).__wz = {
       scene, mode: () => mode, setMode,
+      hitList: (): Array<{ x: number; y: number; r: number }> => hits.map(h => ({ x: h.x, y: h.y, r: h.r })),
       planetScreen: (ws: string): { x: number; y: number } | null => {
         if (mode === '3d') return scene.planetScreen(ws, root.clientWidth, root.clientHeight)
         const h = hits.find(q => (q.ref as { wsPath?: string }).wsPath === ws)

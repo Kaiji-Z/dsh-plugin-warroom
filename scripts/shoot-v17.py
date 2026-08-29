@@ -182,28 +182,13 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     print(f"⑨ hover/reduced-motion ok: on={ops_['on']} off={ops_['off']} anim={anim}")
 
-    # --- ⑩ B-② map 态：overlay+弦在场、压暗乘数、流动弦对齐 ------------------
+    # --- ⑩ V17.4 map 态：管网退场、原装 HQ→星球虚线、压暗、星球悬停/点击联动 ---
     page.keyboard.press("m")
     page.wait_for_timeout(2600)
-    assert page.locator(".war-pipe-svg.war-pipe-map").count() == 1, "map 态管网 overlay 缺席"
-    hq = page.evaluate("() => window.__wz ? window.__wz.hqScreen() : null")
-    assert hq is not None, "HQ 投影出口不可用（2D 盘心）"
-    near_hq = page.evaluate("""(hq) => {
-      let best = 1e9
-      for (const path of document.querySelectorAll('.war-pipe-svg path[d]')) {
-        const dattr = path.getAttribute('d') || ''
-        if (!dattr.trim()) continue
-        const L = path.getTotalLength()
-        for (let i = 0; i <= 160; i++) {
-          const p = path.getPointAtLength(L * i / 160)
-          best = Math.min(best, Math.hypot(p.x - hq.x, p.y - hq.y))
-        }
-      }
-      return Math.round(best)
-    }""", hq)
-    assert near_hq < 25, f"map 态管应过 HQ（弦锚）：最近距离 {near_hq}px"
+    assert page.locator(".war-pipe-svg").count() == 0, \
+        "map 态管网应整体退场（舰长令：星域内部只留原装 HQ→星球虚线和高亮）"
 
-    # 压暗：hover 命令卡 → dimActive + 非命中星球像素变暗（2D tac 帧绘 ×0.35）。
+    # 压暗：hover 命令卡 → dimActive + 原装虚线亮起 + 非命中星球像素变暗（×0.35）。
     # 全星球前/后采样再择差——星球序不假定，命中星球（亮起）不误判。
     def lum_of(ws: str) -> float:
         return page.evaluate("""(ws) => {
@@ -228,6 +213,9 @@ with sync_playwright() as p:
     dim_on = page.evaluate("() => window.__wz.scene.dimActive === true")
     assert dim_on, "hover 族时 scene.dimActive 应为 true"
     hl_set = page.evaluate("() => [...window.__wz.scene.hlWs]")
+    # 原装 HQ→星球虚线在悬停期间读（移开鼠标即清除）
+    hl_lines = page.evaluate("() => window.__wz.scene.hlLines.length")
+    assert hl_lines >= 1, f"hover 族应亮起原装 HQ→星球虚线：hlLines={hl_lines}"
     post = {ws: lum_of(ws) for ws in all_ws}
     page.mouse.move(860, 60)
     page.wait_for_timeout(900)
@@ -238,7 +226,54 @@ with sync_playwright() as p:
     assert drops, f"可采样的非命中星球缺席：all={all_ws} hl={hl_set} pre={pre} post={post}"
     best_drop = max(drops.values())
     assert best_drop > 4, f"非命中星球应被压暗/提亮（|亮度差|）：{ {k: round(v, 1) for k, v in drops.items()} }"
-    print(f"⑩ map overlay/dim ok: hq dist={near_hq}px, best far-planet lum drop={best_drop:.1f}")
+    print(f"⑩ map pipes retired ok: hlLines={hl_lines}, best far-planet lum delta={best_drop:.1f}")
+
+    # 星球悬停 → 相关卡片族高亮；点击 → 粘性聚焦（移开鼠标仍在）；再点同星球
+    # 取消；点星域空处取消（V17.4 舰长令）。
+    def page_pt(ws: str):
+        return page.evaluate("""(ws) => {
+          const wz = window.__wz
+          const pt = wz.planetScreen(ws)
+          if (pt === null) return null
+          const r = document.querySelector('.war-starfield').getBoundingClientRect()
+          return { x: r.left + pt.x, y: r.top + pt.y }
+        }""", ws)
+    def rel_dim() -> int:
+        return page.locator(".war-rel-dim").count()
+    hl_ws = hl_set[0]
+    pt = page_pt(hl_ws)
+    assert pt is not None, f"星球屏幕位不可用：{hl_ws}"
+    page.mouse.move(pt["x"], pt["y"])
+    page.wait_for_timeout(700)
+    assert rel_dim() >= 1, "星球悬停应高亮相关卡片族（非族卡压暗）"
+    page.mouse.down(); page.mouse.up()
+    page.mouse.move(860, 60)
+    page.wait_for_timeout(700)
+    assert rel_dim() >= 1, "星球点击后高亮聚焦应粘滞（悬停离开仍在）"
+    page.mouse.move(pt["x"], pt["y"]); page.mouse.down(); page.mouse.up()
+    page.mouse.move(860, 60)
+    page.wait_for_timeout(700)
+    assert rel_dim() == 0, "再点同星球应取消高亮聚焦"
+    page.mouse.move(pt["x"], pt["y"]); page.mouse.down(); page.mouse.up()
+    page.wait_for_timeout(500)
+    void = page.evaluate("""() => {
+      const r = document.querySelector('.war-starfield').getBoundingClientRect()
+      const tk = document.querySelector('.war-zone.war-tasks').getBoundingClientRect()
+      const rp = document.querySelector('.war-zone.war-report').getBoundingClientRect()
+      const dk = document.querySelector('.war-dispatch').getBoundingClientRect()
+      const hits = window.__wz.hitList()
+      const x0 = tk.right - r.left + 20, x1 = rp.left - r.left - 20
+      const y0 = r.top + 60, y1 = dk.top - r.top - 20
+      for (let x = x0; x < x1; x += 24) for (let y = y0; y < y1; y += 24)
+        if (hits.every(h => Math.hypot(h.x - x, h.y - y) > 60)) return { x: r.left + x, y: r.top + y }
+      return null
+    }""")
+    assert void is not None, "找不到星域空点"
+    page.mouse.move(void["x"], void["y"]); page.mouse.down(); page.mouse.up()
+    page.mouse.move(860, 60)
+    page.wait_for_timeout(700)
+    assert rel_dim() == 0, "点星域空处应取消高亮聚焦"
+    print("⑩ planet hover/click sticky focus ok")
 
     # 3D 半边：切暗色主题（浅色主题 3D 行星环分支是死代码——ring 恒 null），
     # 非命中光晕 ×0.35、命中光晕 0.58 增亮（halo lerp 0.1/帧，留收敛时间）。
