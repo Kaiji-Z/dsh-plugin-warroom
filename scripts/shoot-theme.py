@@ -87,8 +87,28 @@ JS_RATIO = """
 """
 
 
+def _theme_tab(page, label):
+    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+        if label in (_l or ""):
+            page.locator(".war-cmdtab").nth(_i).click()
+            page.wait_for_timeout(700)
+            return
+    raise AssertionError(f"tab {label} missing")
+
 def run_round(page, theme, tag):
-    pairs = page.evaluate(JS_PAIR, [[p[0], p[1], p[2]] for p in PAIRS])
+    # V17 页签切片（元首定：切页签换全部栏）：收官/败因 chip 住已收官页签，
+    # 进行中件（蓝 chip/警示行/解释行）在进行中页签——分页采样后合并。
+    SETTLED_SELS = {".war-chip.st-closed", ".war-chip.st-failed", ".war-fail"}
+    pairs: list = []
+    _theme_tab(page, "已收官")
+    page.wait_for_timeout(400)
+    settled_pairs = [[p[0], p[1], p[2]] for p in PAIRS if p[0] in SETTLED_SELS]
+    pairs += page.evaluate(JS_PAIR, settled_pairs)
+    _theme_tab(page, "进行中")
+    page.wait_for_timeout(400)
+    active_pairs = [[p[0], p[1], p[2]] for p in PAIRS if p[0] not in SETTLED_SELS]
+    pairs += page.evaluate(JS_PAIR, active_pairs)
+    scored = page.evaluate(JS_RATIO, pairs)
     scored = page.evaluate(JS_RATIO, pairs)
     fails = []
     for it in scored:

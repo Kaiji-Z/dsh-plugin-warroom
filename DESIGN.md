@@ -650,3 +650,22 @@ exam-v15 范式常驻化：`pnpm verify:e2e` → scripts/run-e2e.mjs 编排（�
 **修复**：①claim 回执全形令牌+「完整复制、不要截断」提示；submit/fail 拒因加 UUID 全形格式说明（令牌校验红线不动，是展示面在诱导犯错）。②征召令（仅续接令）加指引行「上代产物就在本工作区内——直接读文件，不要检索宿主会话记录/服务日志/工作区之外」。③孤儿自愈：prompt 失败把会话记入 orphanSessions，重试复用同会话重投不再另建。④单点拒因日志（runConscript 包装：成功必记+跳过按同任务同拒因去抖，四入口发布/接力/重派/巡检全覆盖）。
 
 **复跑实锤**（E2E-EXAM PASS C1-C8）：最新外勤会话 **war_claim×1/war_submit×1、令牌不匹配 0 次**（修前 2-3 次）；**pwsh×2、翻宿主内部 0 次**（修前 ~8 次），全程 7 次工具调用收官（修前 ~34 次）；server.log 上线「征召跳过（原因）」去抖行+「外勤小队已派遣」行——顺带暴露操场种子引用不存在的 D:/smoke 路径（巡检每轮去抖尝试，无害，种子候选改进）。verify+三针脚（全形令牌/指引行/跳过日志）。
+
+## V17 三页签全局切片 + 命令归档 + 族系管网连线（2026-08-29，元首令，已交付）
+
+**定案**（元首四问拍板）：淡管常显 12% + hover 增强（不设开关）；仅链全终局可归档（服务端同闸）；已取消归已收官页签（删除线）；列表态管网直连执行卡。
+
+### A. 三页签全局切片 + 命令归档
+- **页签=客户端过滤器**：板照旧全量投影，前端按 `warroom-cmd-tab`（localStorage 持久化，缺省进行中）过滤全部派生列表——任务列/执行中列/回报列/调度条卡组/星域桥 planetSpecs/wzFronts 世代环/收件箱/灵动岛计数全部随页签换（元首令「切标题栏换整个显示 UI」）。tabOf：archived→若 cmdActive 归进行中否则归已收官（已归档完成态回参加进行中巡检）；cancelled→已收官。
+- **归档**：`Directive.archived {at, sessions}` + `directive_archived` 账面事件——**fold 处理必须放在终态守卫之前**（否则被 TERMINAL 守卫吞掉，archived 是唯一允许叠在终态上改账的事件）。写路由 POST /warroom/api/archive 三道闸（存在→未归档→链全终局：链上成员要么 cancelled 要么任务 closed/failed），扇出**并行**（会话互不依赖）逐会话调宿主 `workspaces.archiveSession`（宿主无恢复 RPC=真不可逆），部分失败如实记账（succeeded only 入账，全败 502）；GET /warroom/api/host-sessions 只读清单（A-③ 核查通道）。归档行（ArchiveRow）：非终局禁用+终局点开原地确认条（「不可逆」警示）→ 成功关聚焦页+自动切已归档页签+徽章（「已达成 · 相对时间」+会话清单 title）。
+- **坑：宿主 RPC 冷启动与操作队拥塞**——宿主 sessions/registry 操作串行落盘（enqueueOperation），演示板 fuse/织换/征召同队时单 RPC 实测 15s-2min+。归档扇出必须**有界**：index 侧 withTimeout 90s 按会话失败记账（不假装成也不无限挂起）；rpcId 用序数（并行扇出下 Date.now() 毫秒撞号）。shoot-v17 归档放全脚本最后+先等 host-sessions 完成一次应答（冷窗实测 1-3 分钟）。
+
+### B. 族系管网连线（舰长令：推翻 V7「族系追踪零几何」定案）
+- **架构**：`src/client/pipe-overlay.tsx` 板级 SVG overlay（pointer-events:none）。淡管常显 12%（水电管网隐喻：管常在，hover 该族升 100%+流动动画、其余压 5%）；管色=战线链色（--chain-hue 八相 g 类）；流动只跑到生命条 now 段（dProg 前缀子路径，war-pipe-flow 虚线位移；reduced-motion 停）。
+- **端口有向**（本次最大返工教训）：命令卡=顶缘出（上行进板）；后续卡=左缘入+右缘出（有下站才出）——管件像水电接件，**中间站的两端口之间不画线**（卡体本身是导管；画了必穿卡）。列表态：坞→任务舱走横沟+竖干（横沟 y=「列区底↔坞卡顶」夹缝中点——卡 rect 在滚动容器里报全长，贴坞顶 -12 会撞列卡下半截）；卡间段=列间 gutter 中线（左列右缘↔右列左缘之间，必在空沟）。**锚点裁剪**：滚出列体可视区的卡=站台缺席（rect 报全长位置，连它必出穿坞死管——hue-1 案）。
+- **map 态拓扑**（SPEC §B）：命令卡→任务舱(竖干)→HQ→出航弦→星球→返航弦→HQ→回报舱(直线弦，星域弦线语言)。HQ/星球屏幕位经 `__wz` 投影出口取（2D=盘心/hits 帧缓存；3D=相机投影 hqScreen/planetScreen）；overlay 按 rect 差换算坐标。流动对齐：执行段=流进星球；回报段=满管。星球身上的执行卡群沿用 war-wz-xline 不动。no3d 回落（StarfieldMap）无 __wz 出口→弦段缺席、只画 DOM 腿（挂账）。
+- **星域压暗**（元首令「星域高亮时其余内容压暗」）：scene.setDim + tac.draw(dim)——非命中星球（光晕/名牌/2D globalAlpha）与编队 ×0.35，HQ 与命中族保持增亮。**浅色主题 3D 环分支是死代码**（p.ring 恒 null——V12 基座环从未接线），3D 压暗实证走暗色 halo 分支（挂账：浅色 3D 行星压暗不可视）。浅色纸面上星球填充是暗叠加——alpha 压暗=像素变亮（像素取证断言取幅度不取方向）。
+- **性能**：1s 兜底重算序列化比对（lastSigRef），无变化不 setPaths——每秒换数组身份会拖全板持续重渲染+放大点击竞态窗口。
+
+### C. 验证
+verify（+10 条 V17-B 针脚：常显 12%/hover 100%/其余 5%/setDim/dimActive/dProg 流动/through>=2 星球流段/reduced-motion/hqScreen/war-pipe-map）两轮 PASS；shoot-v17 11 断言块全绿（页签三态/归档闸/不可逆确认/星域随页签过滤/列表管 0 穿卡/hover 100-5/Map 弦过 HQ 5px/2D 像素压暗/3D halo 0.22-0.62/归档扇出/宿主清单核查）；shoot-v7/shoot-v10/shoot-theme 同步页签语义后全绿（战报列/终局台账卡/取消卡/对比度采样按页签归位——既有断言随 UI 演进同步不删除）；shoot-critique 证据捕获无报错。

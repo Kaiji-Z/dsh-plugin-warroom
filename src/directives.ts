@@ -67,6 +67,9 @@ export interface Directive {
   readonly continuation?: { readonly mode: ContinuationMode; readonly parentId: string }
   /** V15 战线命名：舰长下达时可选（不填=命令原文当战线名）。 */
   readonly name?: string
+  /** V17 归档（舰长手动，仅链全终局可入）：宿主会话已 archiveSession 的账面痕迹。
+   *  不改 status——archived 叠在终局之上的第二维度；会话清单随事件冻结。 */
+  archived?: { at: string; sessions: string[] }
 }
 
 /** The directive log's entry union (one JSON line each). */
@@ -94,6 +97,9 @@ export type DirectiveEvent =
   | { type: 'directive_goal_settled'; ts: string; directiveId: string; goalId: string }
   | { type: 'directive_approved'; ts: string; directiveId: string; taskId: string }
   | { type: 'directive_cancelled'; ts: string; directiveId: string; reason: string }
+  // V17 归档：链全终局后舰长手动入档——宿主会话批量 archiveSession 后的账面
+  // 落痕（sessions=实际归档成功的清单；部分失败如实缺席，不假装全成）。
+  | { type: 'directive_archived'; ts: string; directiveId: string; sessions: string[] }
 
 /** Terminal statuses — later transitions are ignored (a published command
  * cannot be re-approved, a cancelled one cannot resurrect). */
@@ -150,6 +156,12 @@ export function foldDirectives(events: ReadonlyArray<DirectiveEvent>): Directive
             }
           : {}),
       })
+      continue
+    }
+    // V17 归档在终态守卫**之前**处理——archived 叠在 approved/cancelled 之上，
+    // 是唯一允许在终态后改账的事件（终态本身仍不可复活）。
+    if (event.type === 'directive_archived') {
+      current.archived = { at: event.ts, sessions: event.sessions }
       continue
     }
     if (TERMINAL.has(current.status)) continue

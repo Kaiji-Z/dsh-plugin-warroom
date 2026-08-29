@@ -349,12 +349,14 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (hlKey !== hlKeyRef.current) {
         hlKeyRef.current = hlKey
         scene.setHighlight(hlList)
+        // V17 管网压暗：高亮族在场 → 星域其余内容 ×0.35（scene 逐帧读；2D 逐帧传入）。
+        scene.setDim(hlList.length > 0)
       }
       // 分流渲染
       if (mode === '3d') {
         scene.render()
       } else {
-        tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet)
+        tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet, hlList.length > 0)
       }
       // V11.5f 执行卡覆盖层：活体编队卡钉在星球屏幕位 + SVG 连线 + 高亮名签
       const cards = cardsRef.current
@@ -464,9 +466,17 @@ export function Warzone(props: WarzoneProps): ReactNode {
     })
     ro.observe(root)
     tac.resize(root.clientWidth, root.clientHeight)
-    // 调试句柄（探针断言用）
+    // 调试句柄（探针断言用）+ V17 管网弦锚投影出口（PipeOverlay 经此取 HQ/星球屏幕位
+    // ——2D 态 hits 是帧产物，读帧环最后一帧的缓存；坐标相对星域根，overlay 侧再对板差）。
     ;(window as unknown as Record<string, unknown>).__wz = {
       scene, mode: () => mode, setMode,
+      planetScreen: (ws: string): { x: number; y: number } | null => {
+        if (mode === '3d') return scene.planetScreen(ws, root.clientWidth, root.clientHeight)
+        const h = hits.find(q => (q.ref as { wsPath?: string }).wsPath === ws)
+        return h === undefined ? null : { x: h.x, y: h.y }
+      },
+      hqScreen: (): { x: number; y: number } | null =>
+        mode === '3d' ? scene.hqScreen(root.clientWidth, root.clientHeight) : tac.hqPoint(),
     }
     return () => {
       cancelAnimationFrame(raf)

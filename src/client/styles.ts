@@ -514,6 +514,29 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 
 /* --- V9.2 调度坞左端钉驻簇（[＋下达][铭牌]）--------------------------------- */
 .war-dispatch-add{flex:0 0 auto;width:52px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;line-height:1;color:var(--war-run-strong);background:var(--war-run-tint);border:1px dashed color-mix(in srgb, var(--war-run-border) 45%, transparent);border-radius:var(--war-r-md);cursor:pointer;padding:0;font-family:var(--war-font);transition:background .12s ease,border-color .12s ease}
+/* V17 族系管网：淡管常显 12% 链色；hover 族 100%+流动，其余压 5%。 */
+.war-pipe-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3} /* SVG 默认 300×150——必须显式撑满 */
+.war-pipe-svg path{fill:none;stroke:var(--chain-hue,#888);stroke-width:2;stroke-linejoin:round;opacity:.12;transition:opacity .25s}
+.war-pipe-svg path.war-pipe-prog{stroke-dasharray:7 7}
+.war-pipe-svg.has-active path{opacity:.05}
+.war-pipe-svg.has-active g.on path{opacity:1}
+.war-pipe-svg g.on path.war-pipe-prog{stroke-width:2.5;animation:war-pipe-flow 1.1s linear infinite}
+.war-pipe-map path{stroke-dasharray:4 4}
+@keyframes war-pipe-flow{to{stroke-dashoffset:-28}}
+@media (prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}
+/* V17 三页签全局切片：＋旁竖排页签组（铭牌视觉语言，选中三通道）。 */
+.war-cmdtabs{flex:0 0 auto;display:flex;flex-direction:column;gap:4px;align-self:center;padding:0 2px}
+.war-cmdtab{writing-mode:vertical-rl;cursor:pointer;display:flex;align-items:center;gap:3px;padding:8px 4px;border-radius:var(--war-r-sm);border:1px solid var(--war-border);background:transparent;color:var(--war-text-2);font-family:var(--war-font);font-size:12px;font-weight:600;letter-spacing:.12em;white-space:nowrap}
+.war-cmdtab:hover{color:var(--war-text-1);border-color:var(--war-run-border)}
+.war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);border-color:var(--war-run-border);border-style:solid}
+.war-cmdtab.on .war-cmdtab-label::before{content:'● ';font-size:8px;vertical-align:1px}
+.war-cmdtab-n{font-size:11px;opacity:.85}
+/* V17 归档行/确认条（聚焦页决策带下方）。 */
+.war-archive-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.war-archive-btn:disabled{cursor:not-allowed;opacity:.5}
+.war-archive-when{font-size:12px;color:var(--war-text-2)}
+.war-archive-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-wait-border);background:var(--war-wait-tint)}
+.war-archive-warn{font-size:12px;color:var(--war-wait);flex:1 1 auto;min-width:200px}
 .war-dispatch-add:hover{background:color-mix(in srgb, var(--war-run-border) 14%, transparent);border-style:solid;border-color:color-mix(in srgb, var(--war-run-border) 65%, transparent)}
 .war-dispatch-add:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 

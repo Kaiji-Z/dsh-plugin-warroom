@@ -13,7 +13,7 @@
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
+import { archiveCommand, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin, type SkinId } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
@@ -23,9 +23,30 @@ import { Warzone } from './starfield3d.tsx'
 import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type WzLogFeedItem, type WzFrontNode } from './warzone-scene.ts'
 import { commandTasks, frontsOf, frontOfTaskMap, greedyRootHues, wsKeyOf, UNGROUPED_WS_KEY, type WarFront, type WzBridgeFrontLite } from './front.ts'
 import { warLogKindColor } from './war-tokens.ts'
+import { PipeOverlay, type PipeFamily, type PipeStop } from './pipe-overlay.tsx'
 import { nextRunOf, parseCron } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
+
+/** V17 三页签全局切片（进行中/已收官/已归档）：模块级 store——WarView 与
+ * WarDockPill 两个挂载点共享同源状态（localStorage 持久化，缺省进行中）。 */
+export type CmdTab = 'active' | 'settled' | 'archived'
+const CMD_TAB_KEY = 'warroom-cmd-tab'
+let cmdTabState: CmdTab = (() => {
+  try { const v = localStorage.getItem(CMD_TAB_KEY); return v === 'settled' || v === 'archived' ? v : 'active' } catch { return 'active' }
+})()
+const cmdTabSubs = new Set<() => void>()
+export function subscribeCmdTab(fn: () => void): () => void {
+  cmdTabSubs.add(fn)
+  return () => { cmdTabSubs.delete(fn) }
+}
+export function cmdTabId(): CmdTab { return cmdTabState }
+export function setCmdTab(t: CmdTab): void {
+  if (t === cmdTabState) return
+  cmdTabState = t
+  try { localStorage.setItem(CMD_TAB_KEY, t) } catch { /* 隐私模式 */ }
+  for (const fn of cmdTabSubs) fn()
+}
 
 /** Structural slices of the framework services. */
 export interface ClientServicesFace {
@@ -458,6 +479,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
     key: cmd.commandId,
     className: `war-card war-command-card clickable${cmd.status === 'received' ? ' pulse' : ''}${relClass(trace)}`,
     'data-war-gen': String(cmd.chain.generation),
+    'data-pipe-cmd': cmd.commandId,
     role: 'button',
     tabIndex: 0,
     'aria-label': `${meta.label}：${displayTitleOf(cmd.text)}`,
@@ -872,6 +894,46 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   )
 }
 
+/** V17 归档行：终局闸 + 原地二次确认（不可逆警示前置）——无新弹窗层。 */
+function ArchiveRow(props: { chain: BoardTask[]; cmd: BoardCommand; onArchive: () => void }): ReactNode {
+  const { chain, cmd, onArchive } = props
+  const ac = activeCopy().archive
+  // 链全终局闸：cancelled 直接过；否则链非空且每环 closed/failed。
+  // approved 未发布（链空）不算——任务还没落地，不存在「归档历史」。
+  const terminal = cmd.status === 'cancelled' || (chain.length > 0 && chain.every(t => t.status === 'closed' || t.status === 'failed'))
+  const [confirming, setConfirming] = useState(false)
+  if (cmd.archived !== undefined && cmd.archived !== null) {
+    return createElement('div', { className: 'war-archive-row' },
+      createElement('span', { className: 'war-chip st-closed' }, ac.badge),
+      createElement('span', { className: 'war-archive-when', title: cmd.archived.sessions.join('、') }, `${activeCopy().front.stateSettled} · ${relTime(cmd.archived.at)}`),
+    )
+  }
+  if (!terminal) {
+    return createElement('div', { className: 'war-archive-row' },
+      createElement('button', {
+        className: 'war-btn war-archive-btn', type: 'button', disabled: true,
+        title: ac.gate,
+      }, ac.button),
+    )
+  }
+  if (!confirming) {
+    return createElement('div', { className: 'war-archive-row' },
+      createElement('button', {
+        className: 'war-btn war-archive-btn', type: 'button',
+        title: ac.irreversible,
+        onClick: () => { setConfirming(true) },
+      }, ac.button),
+    )
+  }
+  return createElement('div', { className: 'war-archive-confirm' },
+    createElement('span', { className: 'war-archive-warn' }, `${ac.confirmTitle} ${ac.irreversible}`),
+    createElement('span', { className: 'war-cd-band-actions' },
+      createElement('button', { className: 'war-btn primary', onClick: () => { setConfirming(false); onArchive() } }, ac.confirmOk),
+      createElement('button', { className: 'war-btn', onClick: () => { setConfirming(false) } }, ac.cancel),
+    ),
+  )
+}
+
 /** V9.9 聚焦页（舰长定案）：主界面是所有卡片的全生命周期监控版；这里是一条
  * 命令的全生命周期聚焦导览——把主界面的卡片拉进这个窗口。四段各放真实在场
  * 的卡（①命令卡 / ②任务卡按链全列 / ③执行卡=仅进行中的会话 / ④任务回报卡），
@@ -880,8 +942,8 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
  * 会话跳钮（任务会话=大副计划会话 / 执行会话=外勤小队实施会话）代替旧 footer
  * 全部按钮，未形成给禁用占位。顶部标题与「等你定夺」决策带沿用 V9.8；阶段
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
-function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin'] }): ReactNode {
-  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin } = props
+function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin']; /** V17 归档：账面痕迹由 cmd 携带；动作（父层管扇出/刷新/切页签）。 */ onArchive?: () => void }): ReactNode {
+  const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin, onArchive } = props
   const layer = useModalLayer(onClose, `命令 ${displayTitleOf(cmd.text).slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 任务回报结论。
@@ -1125,6 +1187,13 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             }, `${GEN_ROMAN[mi + 1] ?? `第${mi + 1}代`} ${displayTitleOf(m.text).slice(0, 14)}${displayTitleOf(m.text).length > 14 ? '…' : ''}`)))
         : null,
       cmd.cancelledReason !== null ? createElement('div', { className: 'war-fail' }, copy.cancelledReason(cmd.cancelledReason)) : null,
+      // V17 归档行：链全终局才可点；点击原地展开确认条（不可逆警示前置）。
+      cmd.archived !== undefined && cmd.archived !== null
+        ? createElement('div', { className: 'war-archive-row' },
+            createElement('span', { className: 'war-chip st-closed' }, activeCopy().archive.badge),
+            createElement('span', { className: 'war-archive-when', title: cmd.archived.sessions.join('、') }, `${activeCopy().front.stateSettled} · ${relTime(cmd.archived.at)}`),
+          )
+        : createElement(ArchiveRow, { chain, cmd, onArchive: () => { onArchive?.() } }),
       // 决策带（置顶常驻）：有事给动作，无事给安神行。
       createElement('div', { className: `war-cd-band${actionKind === null ? ' quiet' : ''}`, role: actionKind === null ? undefined : 'region', 'aria-label': actionKind === null ? undefined : band.title },
         actionKind === 'plan'
@@ -1343,6 +1412,7 @@ function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting'
   return createElement('div', {
     key: `forming-${cmd.commandId}`,
     className: `war-card war-forming clickable${variant === 'talking' ? ' warn' : ''}${relClass(trace)}`,
+    'data-pipe-forming': cmd.commandId,
     role: 'button',
     tabIndex: 0,
     'aria-label': `${chip}：${cmd.text}`,
@@ -1370,6 +1440,7 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
   return createElement('div', {
     key: task.taskId,
     className: `war-card clickable${settled ? ' settled' : ''}${relClass(trace)}`,
+    'data-pipe-task': task.taskId,
     role: 'button',
     tabIndex: 0,
     'aria-label': `${activeCopy().taskStatus[task.status]}：${task.title}`,
@@ -1444,6 +1515,7 @@ function SessionCard(task: BoardTask, attempt: BoardAttempt, onDetail: (task: Bo
   return createElement('div', {
     key,
     className: `war-card war-session-card clickable${relClass(trace)}`,
+    'data-pipe-sess': attempt.sessionId,
     title: activeCopy().session.cardTitle(attempt.sessionId),
     role: 'button',
     tabIndex: 0,
@@ -1782,8 +1854,8 @@ function OnboardPanel(onCompose: () => void): ReactNode {
  * 横移；右缘渐隐只在还能向右滚时出现——动态 can-scroll）。铭牌「命令调度」
  * 休眠（舰长：不需要文字）。wheel 必须 passive:false 原生监听（React 合成
  * wheel 是 passive 的）。 */
-function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }): ReactNode {
-  const { onCompose, children } = props
+function DispatchStrip(props: { onCompose: () => void; tab: CmdTab; onTab: (t: CmdTab) => void; tabCounts: Record<CmdTab, number>; children: ReactNode[] }): ReactNode {
+  const { onCompose, tab, onTab, tabCounts, children } = props
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = ref.current
@@ -1846,6 +1918,19 @@ function DispatchStrip(props: { onCompose: () => void; children: ReactNode[] }):
       'aria-label': activeCopy().dispatch.addTitle,
       onClick: onCompose,
     }, '＋'),
+    // V17 三页签全局切片：＋旁竖排页签组——切换整个板（三列+调度条+星域）的
+    // 命令集合；视觉沿用竖排铭牌语言，选中态三通道。
+    createElement('div', { className: 'war-cmdtabs', role: 'tablist', 'aria-label': activeCopy().cmdTabs.aria },
+      ...(['active', 'settled', 'archived'] as const).map(t => createElement('button', {
+        key: t, type: 'button', role: 'tab',
+        'aria-selected': tab === t,
+        className: `war-cmdtab${tab === t ? ' on' : ''}`,
+        title: activeCopy().cmdTabs.countTitle(activeCopy().cmdTabs[t], tabCounts[t]),
+        onClick: () => { onTab(t) },
+      },
+        createElement('span', { className: 'war-cmdtab-n' }, String(tabCounts[t])),
+        createElement('span', { className: 'war-cmdtab-label' }, activeCopy().cmdTabs[t]),
+      ))),
     createElement('div', { className: 'war-dispatch-track', ref, onKeyDown: onTrackKey }, ...children),
   )
 }
@@ -2061,6 +2146,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }, [hoverFamily, autoScrollOn])
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
+    // V17 三页签：与 WarDockPill 同源；页签是客户端过滤器（板照旧全量投影）。
+    const cmdTab = useSyncExternalStore(subscribeCmdTab, cmdTabId)
     const tasks = data?.tasks ?? []
     const commands = data?.commands ?? []
     const threads = data?.threads ?? []
@@ -2072,6 +2159,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     for (const c of commands) for (const t of commandTasks(c, tasks)) if (!lineageMap.has(t.taskId)) lineageMap.set(t.taskId, c)
     const lineageOf = (taskId: string): BoardCommand | null => lineageMap.get(taskId) ?? null
     const chainOf = (c: BoardCommand): BoardTask[] => commandTasks(c, tasks)
+    // V17 三页签全局切片：archived 优先，其余按「链未全终局=进行中」二分。
+    // 页签过滤任务/命令派生列——lineageMap/statuses/inbox/聚焦页仍吃全量。
+    const tabOf = (c: BoardCommand): CmdTab => {
+      if (c.archived !== null) return 'archived'
+      const ch = commandTasks(c, tasks)
+      return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed')) ? 'active' : 'settled'
+    }
+    const tabCmds = commands.filter(c => tabOf(c) === cmdTab)
+    const tabCmdIds = new Set(tabCmds.map(c => c.commandId))
+    const tabTasks = tasks.filter(t => tabCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))
     // V13 战线一等公民（纯派生零后端）：按 chain.rootId 聚合命令世代链——跨代任务
     // 并集（pivot 共享任务去重）、星球键序列（合成沙盒归未分组）、聚合态、排序键。
     const fronts = frontsOf(commands, tasks, tid => lineageMap.get(tid)?.commandId ?? null)
@@ -2117,10 +2214,12 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // Session cards: attempt-level, newest first inside each zone (defensive
     // ?? [] — a stale projection without attemptLog must not crash the board).
     const byStart = (a: BoardAttempt, b: BoardAttempt): number => (a.startedAt < b.startedAt ? 1 : -1)
-    const live = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
-    const done = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
-    const failed = tasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
+    // V17 页签过滤：会话列/回报列/调度条只吃当前页签的命令集。
+    const live = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
+    const done = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'succeeded' || a.outcome === 'reported').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
+    const failed = tabTasks.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === 'failed').map(a => ({ t, a }))).sort((x, y) => byStart(x.a, y.a))
     const commandsNewest = [...commands].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    const tabCommandsNewest = [...tabCmds].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     const now = Date.now()
     // V9 任务回报列：成功+失败合并、纯时间倒序（无按天分组——组头是单组时的噪音）。
     const report = [...done, ...failed].sort((x, y) => byStart(x.a, y.a))
@@ -2147,7 +2246,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         }
       } catch { /* 隐私模式 */ }
     }, [tasks.length])
-    const dispatchCommands = [...commandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
+    const dispatchCommands = [...tabCommandsNewest].sort((a, b) => (cmdActive(b) ? 1 : 0) - (cmdActive(a) ? 1 : 0))
     // V10.1 卡牌组：同链命令按链根聚拢成叠（调度坞上的「一副手牌」）。
     // V13 调度组按战线分段（血脉∩星球）：跨星球续代不再同叠一组——老段照常入收官
     // 区，新段另起组面；全血脉族谱仍在聚焦页。组键=血脉/段头，对子代 command 唯一。
@@ -2209,12 +2308,16 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }, [])
     const sidePct = (330 / Math.max(boardBox.w, 1)) * 100
     const dockPct = (boardBox.dockH / Math.max(boardBox.h, 1)) * 100
-    const planetSpecs = galaxyLayout(wsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
+    // V17：星域桥吃页签过滤后的星球序（composer 的 bfChoices 仍用全量 wsOrder）。
+    const wzWsOrder = [...new Set(workspaceCreationOrder(tabTasks)
+      .map(ws => wsKeyOf(ws))
+      .filter((k): k is string => k !== null))]
+    const planetSpecs = galaxyLayout(wzWsOrder, { xLo: sidePct, xHi: 100 - sidePct, yLo: 13, yHi: Math.max(30, 100 - dockPct - 7) })
     // V13：garrison 按星球键聚合——未分组行星吃全部合成沙盒任务的切片。
     const garrisonOfKey = (key: string): { orbs: ReadonlyArray<{ sessionId: string; verbLabel: string | null; paused: boolean }>; triumphs: number; awaiting: number; failing: number } => {
       let triumphs = 0, awaiting = 0, failing = 0
       const orbs: Array<{ sessionId: string; verbLabel: string | null; paused: boolean }> = []
-      for (const t of tasks) {
+      for (const t of tabTasks) {
         if (wsKeyOf(t.workspacePath) !== key) continue
         if (t.status === 'closed') triumphs += 1
         if (t.status === 'published') awaiting += 1
@@ -2229,7 +2332,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const commandTextOf = new Map(commands.map(c => [c.commandId, displayTitleOf(c.text).slice(0, 14)] as const))
     const moonSlot = new Map<string, number>()
     const starTroops = live.flatMap(({ t, a }) => {
-      const idx = wsOrder.indexOf(wsKeyOf(t.workspacePath) ?? '')
+      const idx = wzWsOrder.indexOf(wsKeyOf(t.workspacePath) ?? '')
       if (idx < 0) return []
       const spec = planetSpecs[idx]!
       // V10.1 对抗审查 P1：同星多活体确定性避让——按序偏移 π/3（hash 相位撞车无防线）。
@@ -2264,7 +2367,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const starGhosts = ghostFamily !== null
       ? tasks.flatMap(t => {
           if (!familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? '')) return []
-          const idx = wsOrder.indexOf(wsKeyOf(t.workspacePath) ?? '')
+          const idx = wzWsOrder.indexOf(wsKeyOf(t.workspacePath) ?? '')
           if (idx < 0) return []
           const spec = planetSpecs[idx]!
           return t.attemptLog
@@ -2276,7 +2379,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         })
       : []
     // V11.5 连线：warzone 桥数据（宇宙=舰长+workspace；编队=agent 会话；雷达值班）。
-    const wzPlanets: WzBridgePlanet[] = wsOrder.map(ws => {
+    const wzPlanets: WzBridgePlanet[] = wzWsOrder.map(ws => {
       const g = garrisonOfKey(ws)
       return {
         wsPath: ws,
@@ -2290,6 +2393,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V13 战线世代环桥数据：已锚定星球的战线才上星域；上限 12 条防杂。
     const wzFronts: WzBridgeFrontLite[] = fronts
       .filter(f => f.battlefield !== null)
+      .filter(f => f.generations.some(g => tabCmdIds.has(g.commandId)))  // V17：页签过滤战线环
       .slice(0, 12)
       .map(f => ({
         rootId: f.rootId, rootCommandId: f.rootCommandId, label: `${bfNameOf(f.battlefield)}·${f.title.slice(0, 8)}`,
@@ -2312,7 +2416,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         live: true,
       })
     }
-    for (const t of tasks.filter(tk => tk.status === 'reported')) {
+    for (const t of tabTasks.filter(tk => tk.status === 'reported')) {
       const last = [...(t.attemptLog ?? [])].reverse().find(a => a.outcome === 'reported')
       if (last === undefined) continue
       const src = lineageOf(t.taskId)?.commandId ?? null
@@ -2322,8 +2426,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const logOrder = warLogKindColor('order'), logTriumph = warLogKindColor('triumph'), logRetreat = warLogKindColor('retreat'), logReview = warLogKindColor('review')
     // V16.4-R5 critique P1：速报动词并词典（下令/达成/败退/待验收——trek 败退→挫败）。
     const wzv = activeCopy().starfield
-    const wzLogFeed: WzLogFeedItem[] = commands.map(c => ({ ts: c.createdAt, color: logOrder, text: `${wzv.logOrder} · ${displayTitleOf(c.text).slice(0, 18)}` }))
-    for (const t of tasks) {
+    const wzLogFeed: WzLogFeedItem[] = tabCmds.map(c => ({ ts: c.createdAt, color: logOrder, text: `${wzv.logOrder} · ${displayTitleOf(c.text).slice(0, 18)}` }))
+    for (const t of tabTasks) {
       const src = commandTextOf.get(lineageOf(t.taskId)?.commandId ?? '') ?? t.title.slice(0, 12)
       for (const a of t.attemptLog ?? []) {
         if (a.outcome === null || a.endedAt === null) continue
@@ -2335,13 +2439,34 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     const wzLog = warLogOf(wzLogFeed)
     // V11.5f 高亮联动：悬停/聚焦战线的全部星域（去重）→ 对应星球亮起+名签+HQ 轨迹线。
     const highlightWs = familyCmdIds.size > 0
-      ? [...new Set(tasks
+      ? [...new Set(tabTasks
           .filter(t => familyCmdIds.has(lineageOf(t.taskId)?.commandId ?? ''))
           .map(t => wsKeyOf(t.workspacePath))
           .filter((k): k is string => k !== null))]
       : []
+    // V17 族系管网：每条在档战线一根管——锚=命令卡(坞)/任务卡/执行卡/回报卡；
+    // stage=生命条 now 段（流动只跑到当前战况位）。activeRoot=hover/聚焦族的根。
+    const stageIndexOf = (c: BoardCommand): number => {
+      const now = lifecycleOf(c, chainOf(c), reportSeenAtOf(c.commandId)).now
+      return now === 'command' ? 0 : now === 'task' ? 1 : now === 'battle' ? 2 : 3
+    }
+    const pipeFamilies: PipeFamily[] = tabCmds.map(c => {
+      const ch = chainOf(c)
+      const stops: PipeStop[] = [{ kind: 'cmd', id: c.commandId }]
+      const head = ch[0]
+      if (head !== undefined) stops.push({ kind: 'task', id: head.taskId })
+      else stops.push({ kind: 'task', id: c.commandId, forming: true })
+      const liveA = ch.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome === null).map(a => a.sessionId))[0]
+      if (liveA !== undefined) stops.push({ kind: 'exec', id: liveA })
+      const settledA = ch.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome !== null && a.endedAt !== null).map(a => a.sessionId)).slice(-1)[0]
+      if (settledA !== undefined) stops.push({ kind: 'report', id: settledA })
+      // map 态弦锚：战线绑定的星球（首代任务的工作区）——overlay 经 __wz 投影取屏幕位。
+      return { rootId: c.chain.rootId, hueSlot: c.chain.hueSlot, stops, stage: stageIndexOf(c), wsKey: head !== undefined ? wsKeyOf(head.workspacePath) : null }
+    })
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = focusCommandId ?? hoverFamily
+    const activeCmd = traceActive !== null ? commands.find(c => c.commandId === traceActive) ?? null : null
+    const activePipeRoot = activeCmd !== null ? activeCmd.chain.rootId : null
     // V10.1 舰长定：◎ 再点同卡=退出聚焦（toggle）；点他卡=换聚焦。
     const traceFor = (familyId: string | null): CardTrace => ({ familyId, active: hoverFamilyOn ? traceActive : null, onHover: hoverFamilyOn ? setHoverFamily : () => {}, onFocus: id => { setFocusCommandId(cur => cur === id ? null : id) } })
     // V10.1 对抗审查 P0-1：外部挂载卡随 field 隐退会人间蒸发——地图态改驻任务舱尾（台账语义）。
@@ -2354,7 +2479,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : null,
       lineageOf(t.taskId), openCommand, traceFor(lineageOf(t.taskId)?.commandId ?? null),
       (() => { const f = taskFront.get(t.taskId); return f !== undefined ? bfNameOf(f.battlefield) : null })())
-    const tasksSorted = [...tasks].sort((a, b) => {
+    const tasksSorted = [...tabTasks].sort((a, b) => {
       const la = lineageOf(a.taskId), lb = lineageOf(b.taskId)
       if (la === null && lb === null) return 0
       if (la === null) return 1
@@ -2381,7 +2506,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // 成形卡：归所属多代战线（深化中的新代置组首），无多代归属维持置顶台账。
     const flatForming: ReactNode[] = []
     const formingByFront = new Map<string, ReactNode>()
-    for (const c of commandsNewest) {
+    for (const c of tabCommandsNewest) {
       const v = formingVariantOf(c, chainOf(c))
       if (v === null) continue
       const node = FormingCard(c, v, () => { openCommand(c.commandId, 'plan') }, traceFor(c.commandId))
@@ -2475,6 +2600,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         : commands.length === 0 && tasks.length === 0
           ? OnboardPanel(() => { setComposerOpen(true) })
           : createElement('div', { className: `war-board${mapView ? ' war-mapmode' : ''}`, style: { '--war-dock-h': `${boardBox.dockH}px` } as React.CSSProperties },
+          // V17 族系管网 overlay：管走沟槽不穿卡体；流动只跑到生命条 now 段。
+          createElement(PipeOverlay, { key: 'pipes', families: pipeFamilies, activeRootId: activePipeRoot, mapMode: mapView }),
           // V10.1 TITP 化（舰长示意图定案）：星域=界面本体，board 级铺满为底；
           // 任务/任务回报列转贴边浮舱压图；命令坞满宽压底。列表态=原三列不动。
           ...(mapView ? [no3d
@@ -2584,6 +2711,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           createElement(DispatchStrip, {
             key: 'dispatch',
             onCompose: () => { setComposerOpen(true) },
+            tab: cmdTab,
+            onTab: setCmdTab,
+            tabCounts: {
+              active: commands.filter(c => tabOf(c) === 'active').length,
+              settled: commands.filter(c => tabOf(c) === 'settled').length,
+              archived: commands.filter(c => tabOf(c) === 'archived').length,
+            },
           },
             // V12.2 critique P1 整改：调度轨道按活跃/收官分段（竖排小铭牌）——
             // 命令量增长后回访扫读不必整轨滚完；仅一段在场时不挂牌（空板无噪音）。
@@ -2642,6 +2776,18 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         chainMembers: cmdFront.get(detailCommand.commandId)?.generations ?? [detailCommand],
         origin: cmdFront.get(detailCommand.commandId)?.origin ?? null,
         onOpenCommand: id => { setDetailCommandId(id) },
+        onArchive: () => {
+          void archiveCommand(detailCommand.commandId).then(r => {
+            if (r.ok) {
+              setActionError(null)
+              setCmdTab('archived')
+              setDetailCommandId(null)
+              refresh()
+            } else {
+              setActionError(r.error ?? activeCopy().actions.failToast('归档'))
+            }
+          })
+        },
         onContinue: () => { setContinueSeed(detailCommand.commandId); setComposerOpen(true) },
         statuses,
         hqSessionId,
@@ -2682,11 +2828,24 @@ export function warView(services: ClientServicesFace): () => ReactNode {
 export function WarDockPill(): ReactNode {
   const { data } = useWar()
   useSyncExternalStore(subscribeSkin, skinId)
+  // V17：岛计数随页签（所见即所数）；✉ 徽标与到访摘要保持全局。
+  const tab = useSyncExternalStore(subscribeCmdTab, cmdTabId)
   if (data === null || !data.active) return null
-  const pending = data.commands.filter(c => c.status === 'received' || c.status === 'talking').length
-  const active = data.tasks.filter(t => t.status === 'in_progress').length
-  const waiting = data.tasks.filter(t => t.status === 'published').length
-  const failed = data.tasks.filter(t => t.status === 'failed').length
+  const tasksAll = data.tasks
+  const tabOfPill = (c: BoardCommand): CmdTab => {
+    if (c.archived !== null) return 'archived'
+    const ch = commandTasks(c, tasksAll)
+    return c.status !== 'cancelled' && !(ch.length > 0 && ch.every(t => t.status === 'closed' || t.status === 'failed')) ? 'active' : 'settled'
+  }
+  const pillCmdIds = new Set(data.commands.filter(c => tabOfPill(c) === tab).map(c => c.commandId))
+  const lineageCmdOf = (taskId: string): string => {
+    for (const c of data.commands) if (commandTasks(c, tasksAll).some(t => t.taskId === taskId)) return c.commandId
+    return ''
+  }
+  const pending = data.commands.filter(c => (c.status === 'received' || c.status === 'talking') && pillCmdIds.has(c.commandId)).length
+  const active = data.tasks.filter(t => t.status === 'in_progress' && pillCmdIds.has(lineageCmdOf(t.taskId))).length
+  const waiting = data.tasks.filter(t => t.status === 'published' && pillCmdIds.has(lineageCmdOf(t.taskId))).length
+  const failed = data.tasks.filter(t => t.status === 'failed' && pillCmdIds.has(lineageCmdOf(t.taskId))).length
   let lastSeen = 0
   try { lastSeen = Date.parse(localStorage.getItem('warroom-last-seen') ?? '') || 0 } catch { lastSeen = 0 }
   const fresh = (iso: string | null | undefined): boolean => iso !== undefined && iso !== null && Date.parse(iso) > lastSeen

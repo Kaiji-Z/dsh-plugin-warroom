@@ -34,6 +34,8 @@ export interface SessionsApiFace {
  * idempotent over an existing directory). */
 export interface WorkspaceApiFace {
   create(request: { rpcId: string; payload: { path: string } }): Promise<{ result: { ok: true; value: { workspace: { workspaceId: string } } } | { ok: false; error: { code: string; message: string } } }>
+  /** V17 归档：宿主 registry 全局归档集（分组面隐藏；日志与记账保留，无恢复）。 */
+  archiveSession(request: { rpcId: string; payload: { sessionId: string } }): Promise<{ result: { ok: true; value: unknown } | { ok: false; error: { code: string; message: string } } }>
 }
 
 /** Wiring the command fuse needs. The sessions face arrives LATER via

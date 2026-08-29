@@ -728,6 +728,8 @@ export class WarzoneScene {
   /** 悬停/聚焦高亮星域（V11.5f 舰长令）：光晕增亮 + HQ↔星球虚线轨迹。 */
   private readonly hlWs = new Set<string>()
   private hlLines: THREE.Line[] = []
+  /** V17 管网压暗（舰长令：星域高亮时其余内容 ×0.35——现状只亮不暗）。 */
+  private dimActive = false
   /** 三键相机态：cur 阻尼趋近 target；center=屏幕锚（平移推动它，旋转绕它）。 */
   private camCur: WzCamState = { ...WZ_CAM_HOME }
   private camTar: WzCamState = { ...WZ_CAM_HOME }
@@ -1606,6 +1608,12 @@ export class WarzoneScene {
     this.rebuildHlLines()
   }
 
+  /** V17 管网压暗开关：高亮族存在时，非命中星球（光晕/环/名牌）与编队 alpha×0.35，
+   *  HQ 本体不压（弦线中转站必须常亮）。由 starfield3d 帧环随 hlList 联动。 */
+  setDim(v: boolean): void {
+    this.dimActive = v
+  }
+
   /** V13.4 常驻行星名牌（critique R3 P2：识别不该靠悬停换——行星是固定参照系
    *  V11.5a，低透明度常驻不抢戏不破空间记忆；挂 mesh 子级随 applyTheme 重建换色）。 */
   private addPlanetLabel(p: WzPlanet): void {
@@ -1728,6 +1736,13 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
+  /** V17 管网弦线锚：HQ（世界原点星舰）的屏幕投影——overlay 直连 HQ↔星球弦用。 */
+  hqScreen(w: number, h: number): { x: number; y: number } | null {
+    _v1.set(0, -6, 0).project(this.camera)
+    if (_v1.z > 1 || _v1.z < -1) return null
+    return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
+  }
+
   /** V13.5 常屏幕尺寸标签：屏幕高恒定（worldH ∝ 相机距离）——远行星 5-8px 字
    *  读不了的根治（critique R4 P1-1）；近景上限防爆炸、远景下限防隐形。 */
   private fitScreenLabel(s: THREE.Sprite): void {
@@ -1777,10 +1792,12 @@ export class WarzoneScene {
           _c1.lerp(_c2.copy(this.cHeld), 0.4)
           op = 0.34
         }
-        if (this.hlWs.has(p.wsPath)) { op = 0.58; _c1.lerp(_c2.copy(this.cHl), 0.35) }
+        const hl = this.hlWs.has(p.wsPath)
+        if (hl) { op = 0.58; _c1.lerp(_c2.copy(this.cHl), 0.35) }
+        else if (this.dimActive) op *= 0.35
         p.halo.material.color.lerp(_c1, 0.08)
         p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
-        const hov = this.hlWs.has(p.wsPath) ? 1.16 : 1
+        const hov = hl ? 1.16 : 1
         p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
       } else if (p.ring !== null) {
         // V12 浅色：辉光失效——基座环+执行光柱接班状态语义（光柱=王国之泪语言）
@@ -1798,7 +1815,14 @@ export class WarzoneScene {
           else { rm.color.copy(this.cWait); rm.opacity = 0.26 }
         }
         if (this.hlWs.has(p.wsPath)) { rm.color.copy(this.cHl); rm.opacity = 0.85 }
+        else if (this.dimActive) {
+          rm.opacity *= 0.35
+          if (p.pillar !== null && p.pillar.visible) (p.pillar.material as THREE.MeshBasicMaterial).opacity *= 0.35
+        }
       }
+      // V17 压暗：常驻名牌随星球同乘（非命中才暗——名牌是主要「其他内容」）。
+      const lb = p.mesh.children.find(c => (c as THREE.Sprite).isSprite) as THREE.Sprite | undefined
+      if (lb !== undefined) (lb.material as THREE.SpriteMaterial).opacity = (this.isDarkTheme ? 0.62 : 0.8) * (this.dimActive && !this.hlWs.has(p.wsPath) ? 0.35 : 1)
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
       const s = this.squads[i]!
@@ -1828,7 +1852,8 @@ export class WarzoneScene {
           if (s.battleT <= 0) this.capturePlanet(s.target, s)
         }
       }
-      s.glowMat.opacity = glow
+      // V17 压暗：非命中星球的编队辉光 ×0.35（命中族编队保持呼吸亮度）。
+      s.glowMat.opacity = glow * (this.dimActive && !this.hlWs.has(s.target.wsPath) ? 0.35 : 1)
       s.proxy.position.copy(s.group.position)
     }
     this.updateRings(dt, this.camera)
@@ -1996,6 +2021,11 @@ export class WarzoneTactical {
 
   private get zoom(): number { return Number(this.canvas.dataset.zoom ?? 1) }
 
+  /** V17 管网弦锚：雷达 HQ 符号的屏幕坐标（盘心；首帧前 null）。 */
+  hqPoint(): { x: number; y: number } | null {
+    return this.w === 0 ? null : { x: this.cx, y: this.cy }
+  }
+
   resize(w: number, h: number): void {
     const dpr = Math.min(devicePixelRatio, 2)
     this.w = w; this.h = h
@@ -2006,8 +2036,9 @@ export class WarzoneTactical {
 
 
   /** 帧绘制（V11.5f 舰长令）：雷达画进围合中央自由区；名册/态势/速报/顶底栏
-   * 文字全部休眠——只剩盘+符号+高亮；扫描波束动态动画此前已休眠。 */
-  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>): void {
+   * 文字全部休眠——只剩盘+符号+高亮；扫描波束动态动画此前已休眠。
+   * V17 dim：管网高亮族在场时，非命中星球/编队 alpha×0.35（HQ/盘面常亮）。 */
+  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>, dim?: boolean): void {
     const g = this.g
     const w = this.w, h = this.h
     const S = safe ?? { x: 0, y: 0, w, h }
@@ -2079,6 +2110,8 @@ export class WarzoneTactical {
     hits.push({ x: s1.x, y: s1.y, r: 26, ref: { kind: 'hq' } })
     // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹）
     planets.forEach(p => {
+      // V17 压暗：非命中星球整体 ×0.35（名签/刻度环随 globalAlpha 同乘）。
+      g.globalAlpha = dim === true && !(hl !== undefined && hl.has(p.wsPath)) ? 0.35 : 1
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
       const col = p.status === '执行中' ? P.stBattle : p.status === '已占领' ? P.stHeld : P.stWait
       const rr = Math.max(7, p.radius * 0.9)
@@ -2126,9 +2159,12 @@ export class WarzoneTactical {
         g.fillText(`达成 ${p.garrison}`, s1.x, s1.y + rr + 13)  /* V16.4-R5：LV·艘 机器黑话退役——用板面自己的词汇（达成数） */
       }
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
+      g.globalAlpha = 1
     })
     // 编队符号 + 虚线航迹
     squads.forEach(s => {
+      // V17 压暗：编队按其目标星球是否命中定暗亮。
+      g.globalAlpha = dim === true && !(hl !== undefined && hl.has(s.target.wsPath)) ? 0.35 : 1
       W2S(s.group.position.x, s.group.position.z, s1)
       const ph = s.phase
       const col = ph === 'battle' ? P.sqBattle : ph === 'return' ? P.sqRet : ph === 'deployed' ? P.sqDep : P.sqHold
@@ -2154,6 +2190,7 @@ export class WarzoneTactical {
       g.fillStyle = col; g.fill()
       g.restore()
       hits.push({ x: s1.x, y: s1.y, r: 12, ref: s })
+      g.globalAlpha = 1
     })
     // V11.5f（舰长令）：名册/态势/速报/顶底栏文字全部休眠——只剩盘+符号+高亮。
     const B = 26, M = 14

@@ -341,6 +341,10 @@ export function apply(ctx: Context, config: Config): void {
   // V5-R4: the apiProxy sessions face binds LATE — wake/quota fuses read it
   // lazily through this ref (declared up front; bound in the apiProxy inject).
   const sessionsRef: { face?: SessionsApiFace } = {}
+  // V17 归档：workspace 面晚绑定（archiveSession 扇出经 dashboard deps 取用）。
+  const workspaceRef: { face?: WorkspaceApiFace } = {}
+  // V17 归档 RPC 号序数（并行扇出下 Date.now() 毫秒会撞号——响应按 rpcId 关联）。
+  let archiveSeq = 0
   // V4-R3 (troop-scheduler): the 30s fallback fuse — mutation kicks cover the
   // common path; this sweep catches troops that idled without completing.
   // (the host's idle edges are not exposed to our structural slice; the
@@ -521,6 +525,7 @@ export function apply(ctx: Context, config: Config): void {
     commander.bindRelay(api.sessions, api.workspace)
     commandFuse.bind(api.sessions, api.workspace)
     sessionsRef.face = api.sessions
+    workspaceRef.face = api.workspace
     // V9.11 演示织换（config.demoWeave，smoke overlay 专用）：faces 就绪即把种子
     // 假会话号换成宿主真会话（建在当前工作区——web 跳转只认当前工作区会话表）。
     // best-effort，失败只记日志绝不进事件循环。
@@ -603,6 +608,30 @@ export function apply(ctx: Context, config: Config): void {
       // V9.11 R2 执行卡实时活动：session/event → 动词滚动表（只读；盐随动词
       // 变化进 revision，SSE 仍只发 rev）。
       activity: activityTracker,
+      // V17 归档扇出：逐会话调宿主 workspaces.archiveSession（不可逆——宿主
+      // 无恢复 RPC，dashboard 侧已有链全终局闸）。宿主 RPC 层冷启动有长扫描窗
+      // （演示板首分钟内 registry/list 操作可达数十秒）——必须加界但不误伤：
+      // 60s 超时按该会话失败记账（不假装成、也不无限挂起）。
+      archiveSession: async sessionId => {
+        const workspace = workspaceRef.face
+        if (workspace === undefined) return { ok: false, code: 'E_NO_FACE', message: 'apiProxy workspace 面缺席' }
+        try {
+          const r = await withTimeout(
+            workspace.archiveSession({ rpcId: `warroom-archive-${archiveSeq++}`, payload: { sessionId } }),
+            90_000,
+          )
+          return r.result.ok ? { ok: true } : { ok: false, code: r.result.error.code, message: r.result.error.message }
+        } catch {
+          return { ok: false, code: 'E_TIMEOUT', message: '宿主归档 RPC 超时（registry 操作队拥塞）' }
+        }
+      },
+      // V17 归档核查（只读）：宿主当前会话 id 清单；list 面缺席如实报 null。
+      listSessions: async () => {
+        const sessions = sessionsRef.face
+        if (sessions?.list === undefined) return null
+        const r = await sessions.list({ rpcId: `warroom-host-sessions-${Date.now()}`, payload: {} })
+        return r.result.ok ? [...r.result.value.items.map(i => i.id)] : null
+      },
       ...(spike === undefined ? {} : { spike }),
     })
     webCtx.effect(() => disposeDashboard, 'warroom.dashboard()')
@@ -610,6 +639,15 @@ export function apply(ctx: Context, config: Config): void {
 }
 
 export { Config }
+
+/** V17 归档扇出加界：宿主 registry 操作队拥塞时 RPC 可排队分钟级——超时即败，
+ *  让路由能如实记账（部分失败）而不是无限挂起。 */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`timeout ${ms}ms`)), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }, e => { clearTimeout(t); reject(e) })
+  })
+}
 
 // VERIFICATION.md §8.3 (P0-3): feature flags ship as package API — new
 // features gate behind WARROOM_FEATURES with OFF == pre-change behavior.

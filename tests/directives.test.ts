@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { appendDirectiveEvent, chainHueSlot, deriveContinuation, dueScheduledDirectives, foldChains, foldDirectives, loadDirectives, newDirectiveId, pendingDirectives, readDirectiveEvents } from '../src/directives.ts'
+import { appendDirectiveEvent, chainHueSlot, deriveContinuation, dueScheduledDirectives, foldChains, foldDirectives, loadDirectives, newDirectiveId, pendingDirectives, readDirectiveEvents, type DirectiveEvent } from '../src/directives.ts'
 
 function tmpStateDir(): string {
   return mkdtempSync(join(tmpdir(), 'warroom-dir-'))
@@ -222,4 +222,18 @@ test('V10 deriveContinuation：大副未成形拒绝；败仗 retry；成功/clo
   assert.deepEqual(pivot, { mode: 'pivot', targetSessionId: 'ses-live' })
   // published 排队中无执行会话 → 明确拒绝。
   assert.match(say(deriveContinuation({ status: 'approved', taskId: 't1' }, { status: 'published' })), /排队/)
+})
+
+test('V17 归档：directive_archived 折出 archived 痕迹（不改 status；重入档 last-wins）', () => {
+  const events: DirectiveEvent[] = [
+    { type: 'directive_created', ts: '2026-08-29T00:00:00Z', directiveId: 'cmd-arch-1', text: '收官了的命令' },
+    { type: 'directive_received', ts: '2026-08-29T00:01:00Z', directiveId: 'cmd-arch-1', staffSessionId: 'sec-a' },
+    { type: 'directive_approved', ts: '2026-08-29T00:02:00Z', directiveId: 'cmd-arch-1', taskId: 't-arch' },
+    { type: 'directive_archived', ts: '2026-08-29T03:00:00Z', directiveId: 'cmd-arch-1', sessions: ['sec-a', 'sess-x'] },
+  ]
+  const [d] = foldDirectives(events)
+  assert.equal(d.status, 'approved', 'archived 不改 status')
+  assert.deepEqual(d.archived, { at: '2026-08-29T03:00:00Z', sessions: ['sec-a', 'sess-x'] })
+  const [d2] = foldDirectives([...events, { type: 'directive_archived', ts: '2026-08-29T04:00:00Z', directiveId: 'cmd-arch-1', sessions: ['sec-a'] }])
+  assert.equal(d2.archived?.sessions.length, 1, '重入档 last-wins')
 })

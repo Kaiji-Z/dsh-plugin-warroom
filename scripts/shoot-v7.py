@@ -180,8 +180,20 @@ with sync_playwright() as p:
     page.evaluate("() => { document.querySelector('.war-dispatch-track').scrollLeft = 0 }")
     assert page.locator(".war-col.zone-commands").count() == 0, "commands column should be gone (V9: dispatch strip)"
     assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
+    # V17 页签切片（元首定：切页签换全部栏）：收官卡住已收官页签——圆满/挫败
+    # 一词一面在已收官页签下检查，检查完切回进行中（后续断言按进行中页签走）。
+    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+        if "已收官" in (_l or ""):
+            page.locator(".war-cmdtab").nth(_i).click()
+            page.wait_for_timeout(700)
+            break
     report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()
-    assert any("圆满" in c for c in report_chips) and any("挫败" in c for c in report_chips), f"report column must merge succeeded+failed (V16.4-R7 一词一面: 圆满/挫败): {report_chips}"
+    assert any("圆满" in c for c in report_chips) and any("挫败" in c for c in report_chips), f"report column must merge succeeded+failed (V16.4-R7 一词一面: 圆满/挫败; V17 已收官页签下): {report_chips}"
+    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+        if "进行中" in (_l or ""):
+            page.locator(".war-cmdtab").nth(_i).click()
+            page.wait_for_timeout(700)
+            break
     assert any("待翻阅" in c for c in page.locator(".war-col.zone-tasks .war-chip").all_inner_texts()), "tasks column should hold non-terminal tasks"
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
@@ -205,11 +217,24 @@ with sync_playwright() as p:
     assert approved_f.count() == 1 and "任务待发布" in approved_f.first.inner_text(), "approved-awaiting-publish command must surface its forming card"
     assert forming.filter(has_text="算了").count() == 0, "cancelled command must not surface a forming card"
     assert forming.filter(has_text="12 月 1 日早上 9 点").count() == 0, "scheduled command must not surface a forming card (not yet relayed)"
-    settled = ledger.locator(".war-card.settled")
+    # V17 页签切片：终局任务书卡（failed t3 + closed t6）住已收官页签的台账——
+    # 去那边点数，完事回来（后续断言按进行中页签走）。
+    def _switch_tab(label: str) -> None:
+        for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+            if label in (_l or ""):
+                page.locator(".war-cmdtab").nth(_i).click()
+                page.wait_for_timeout(700)
+                return
+        raise AssertionError(f"tab {label} missing")
+    _switch_tab("已收官")
+    ledger_s = page.locator(".war-col.zone-tasks")
+    settled = ledger_s.locator(".war-card.settled")
     assert settled.count() == 2, f"ledger must keep BOTH terminal task cards (failed t3 + closed t6), got {settled.count()}"
     settled_txt = settled.all_inner_texts()
     # V16.4：任务卡裸 taskId 降级为 title（critique：机器 ID 不占人读行）——定位改按任务标题。
     assert any("修复 Flaky 的登录重定向测试" in t for t in settled_txt) and any("修复分页参数 off-by-one" in t for t in settled_txt), f"terminal cards must be t3(failed)+t6(closed): {settled_txt}"
+    _switch_tab("进行中")
+    page.wait_for_timeout(350)
     t1_card = ledger.locator(".war-card", has_text="做一个「每日一句」CLI 小工具").first
     assert "settled" not in (t1_card.get_attribute("class") or ""), "reported task must stay fully lit (review action pending)"
     d3_cmd = page.locator(".war-dispatch .war-command-card", has_text="要一个能记每日一句的命令行小工具")
@@ -274,6 +299,15 @@ with sync_playwright() as p:
     assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell channel: sustained view past 800ms must mark seen"
     # 正名分野：d7 败链的重试 CTA 在主界面任务卡（败因卡按钮）与聚焦页任务环
     # 展开面板（任务回报段对无任务回报败链诚实给「尚无任务回报」，不硬造卡）。
+    # V17 页签切片：d7 败链住已收官页签——任务卡/聚焦页检查先切过去，完事切回。
+    def _switch_tab2(label: str) -> None:
+        for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+            if label in (_l or ""):
+                page.locator(".war-cmdtab").nth(_i).click()
+                page.wait_for_timeout(700)
+                return
+        raise AssertionError(f"tab {label} missing")
+    _switch_tab2("已收官")
     t3_card = page.locator(".war-col.zone-tasks .war-card", has_text="修复 Flaky 的登录重定向测试").first
     assert "去下重试令 · 大副会话" in t3_card.inner_text(), "main-board failed task card must carry the retry-order copy"
     assert "去验收" not in t3_card.inner_text(), "failed task card must NOT offer the review copy"
@@ -285,6 +319,8 @@ with sync_playwright() as p:
     assert page.locator(".war-modal .war-subdetail", has_text="去下重试令 · 大副会话").count() == 1, "failed chain task panel must carry the renamed copy (去下重试令)"
     assert page.locator(".war-modal .war-subdetail", has_text="去验收 · 大副会话").count() == 0, "failed chain must NOT offer the review copy"
     page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    _switch_tab2("进行中")
     page.wait_for_timeout(250)
     page.screenshot(path=f"{OUT}/v912-review-retry.png")
     print("V9.12 R2: seen three channels (segment-direct / expand-click / 60%+800ms dwell) + review/retry copy split verified")
@@ -706,12 +742,15 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
     # 已取消命令（d4）：任务段灰提示分岔——「已取消」，不再出现「起草」。
+    # V17 页签切片：已取消住已收官页签——切过去点，完事切回进行中。
+    _switch_tab2("已收官")
     page.locator(".war-dispatch .war-command-card", has_text="算了，先不要动 CI").first.click()
     page.wait_for_selector(".war-modal", timeout=3000)
     ctask = page.locator(".war-modal [data-stage='task']").inner_text()
     assert "已取消" in ctask and "起草" not in ctask, f"cancelled command task hint must split: {ctask!r}"
     page.keyboard.press("Escape")
     page.wait_for_timeout(250)
+    _switch_tab2("进行中")
     # 定时待发分岔：起草器下达一条 cron 命令 → 聚焦页任务段给 ⏰ 提示（非「起草」）。
     page.keyboard.press("n")
     page.wait_for_selector(".war-modal", timeout=3000)

@@ -118,6 +118,11 @@ export interface DashboardDeps {
     salt(): string
     snapshot(sessionId: string): { verb: string; label: string; ts: string } | null
   }
+  /** V17 归档扇出：逐会话调宿主 workspaces.archiveSession（不可逆）。
+   *  缺席 → /warroom/api/archive 报「宿主归档通道未接入」（Stop-if 探针）。 */
+  archiveSession?: (sessionId: string) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
+  /** V17 归档核查（只读）：宿主当前会话 id 清单（A-③ 判据用）。缺席返回 null。 */
+  listSessions?: () => Promise<string[] | null>
 }
 
 const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in_progress: 1, reported: 2, draft: 3, failed: 4, closed: 5 }
@@ -273,6 +278,8 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
         return { generation: gen, rootId, length, hueSlot: chainHueSlot(rootId) }
       })(),
       continuation: d.continuation === undefined ? null : { mode: d.continuation.mode },
+      // V17 归档（未入档为 null）：宿主会话已 archiveSession 的账面痕迹。
+      archived: d.archived === undefined ? null : { at: d.archived.at, sessions: d.archived.sessions },
     }
   })
 }
@@ -512,6 +519,89 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           deps.pushToStaff(directive.staffSessionId, decision === 'approve' ? planApprovedNotice(note) : planRejectedNotice(note ?? '请修订重呈'))
         }
         send(200, { ok: true, commandId, decision })
+        return
+      }
+      if (r.method === 'POST' && pathname === '/warroom/api/archive') {
+        // V17 归档：链全终局的命令批量 archiveSession 全部相关会话并落
+        // directive_archived。三道闸：存在 → 未入档 → 链全终局；扇出逐会话
+        // 记账，部分失败如实返回（不假装全成）。
+        if (deps.archiveSession === undefined) {
+          send(501, { ok: false, error: '宿主归档通道未接入（archiveSession 面缺席）。' })
+          return
+        }
+        const body = JSON.parse(await readBody(r)) as { commandId?: unknown }
+        const commandId = typeof body.commandId === 'string' ? body.commandId.trim() : ''
+        if (commandId === '') {
+          send(400, { ok: false, error: '缺少命令号。' })
+          return
+        }
+        const directives = loadDirectives(deps.stateDir)
+        const directive = directives.find(d => d.id === commandId)
+        if (directive === undefined) {
+          send(404, { ok: false, error: `命令 ${commandId} 不存在。` })
+          return
+        }
+        if (directive.archived !== undefined) {
+          send(400, { ok: false, error: `命令 ${commandId} 已归档。` })
+          return
+        }
+        // 链全终局闸：链上每条命令要么 cancelled，要么其任务已 closed/failed。
+        const chains = foldChains(directives)
+        const rootId = chains.rootByCommand.get(commandId) ?? commandId
+        const members = chains.membersOfRoot.get(rootId) ?? [commandId]
+        const campaigns = new Map(listCampaignIds(deps.stateDir).map(id => [id, loadCampaign(deps.stateDir, id)]))
+        const memberTerminal = (m: { status: string; taskId?: string }): boolean => {
+          if (m.status === 'cancelled') return true
+          if (m.taskId === undefined) return false
+          const st = campaigns.get(m.taskId)?.status
+          return st === 'closed' || st === 'failed'
+        }
+        const membersView = members.map(id => directives.find(d => d.id === id)).filter(d => d !== undefined)
+        const notTerminal = membersView.filter(m => !memberTerminal(m))
+        if (notTerminal.length > 0) {
+          send(400, { ok: false, error: `战线未全终局，不可归档（卡在：${notTerminal.map(m => m.id).join('、')}）。` })
+          return
+        }
+        // 会话清单：每条成员的大副会话 + 任务全部尝试会话（外部挂载 thread 不动）。
+        const sessions: string[] = []
+        for (const m of membersView) {
+          if (m.staffSessionId !== undefined) sessions.push(m.staffSessionId)
+          if (m.taskId !== undefined) {
+            for (const a of campaigns.get(m.taskId)?.attemptLog ?? []) {
+              if (a.sessionId !== '') sessions.push(a.sessionId)
+            }
+          }
+        }
+        const unique = [...new Set(sessions)]
+        const failed: Array<{ sessionId: string; code: string; message: string }> = []
+        const done: string[] = []
+        // V17：扇出并行（会话互不依赖；宿主 registry 内部自会串行落盘）——
+        // 单 RPC 有 15s 超时界（index 侧），整链最坏 ≈ 一个超时窗而非逐会话累加。
+        const results = await Promise.all(unique.map(async sessionId => ({ sessionId, r: await deps.archiveSession(sessionId) })))
+        for (const { sessionId, r } of results) {
+          if (r.ok) done.push(sessionId)
+          else failed.push({ sessionId, code: r.code, message: r.message })
+        }
+        if (unique.length > 0 && done.length === 0) {
+          send(502, { ok: false, error: '宿主归档全部失败。', failed })
+          return
+        }
+        appendDirectiveEvent(deps.stateDir, { type: 'directive_archived', ts: new Date().toISOString(), directiveId: commandId, sessions: done })
+        send(200, { ok: true, commandId, archived: done.length, failed })
+        return
+      }
+      if (r.method === 'GET' && pathname === '/warroom/api/host-sessions') {
+        // V17 归档核查（只读）：宿主当前会话 id 清单——归档后这些 id 应消失。
+        if (deps.listSessions === undefined) {
+          send(501, { ok: false, error: '宿主会话清单未接入（listSessions 面缺席）。' })
+          return
+        }
+        const ids = await deps.listSessions()
+        if (ids === null) {
+          send(501, { ok: false, error: '宿主会话清单缺席（sessions.list 面不可用）。' })
+          return
+        }
+        send(200, { ok: true, sessions: ids })
         return
       }
       if (r.method === 'GET' && pathname === '/warroom/api/events') {

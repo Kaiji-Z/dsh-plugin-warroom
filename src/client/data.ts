@@ -67,6 +67,8 @@ export interface BoardCommand {
   schedule: { cron: string; dispatchedAt: string | null; nextRunAt: string | null } | null
   /** V10 战线链身份（服务端 foldChains 单点计算；初代也给对象，generation=1）。 */
   chain: { generation: number; rootId: string; length: number; hueSlot: number }
+  /** V17 归档（未入档为 null）：宿主会话已 archiveSession 的账面痕迹。 */
+  archived?: { at: string; sessions: string[] } | null
   /** V10 续接意图（初代为 null）。 */
   continuation: { mode: 'deepen' | 'retry' | 'pivot' } | null
 }
@@ -181,6 +183,20 @@ export async function regradeCommand(commandId: string, grade: 'L0' | 'L1' | 'L2
 }
 
 /** V5-R3 计划判定：舰长批准/驳回待批计划。 */
+/** V17 归档：链全终局的命令批量归档全部相关会话（服务端同闸；不可逆）。 */
+export async function archiveCommand(commandId: string): Promise<{ ok: boolean; archived?: number; failed?: Array<{ sessionId: string; code: string; message: string }>; error?: string }> {
+  try {
+    const r = await fetch('/warroom/api/archive', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ commandId }),
+    })
+    return (await r.json()) as { ok: boolean; archived?: number; failed?: Array<{ sessionId: string; code: string; message: string }>; error?: string }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 export async function decidePlan(commandId: string, decision: 'approve' | 'reject', note?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/warroom/api/commands/plan', {

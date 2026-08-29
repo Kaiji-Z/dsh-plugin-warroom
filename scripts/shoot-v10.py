@@ -126,7 +126,20 @@ with sync_playwright() as p:
     assert n_badge >= 1, f"调度条应挂出 Ⅱ 代徽标，got {n_badge}"
     grp = page.locator(".war-cmd-group[data-war-group]")
     assert grp.count() >= 1, "同链命令必须聚成卡牌组"
-    assert page.locator(".war-front-head").count() == 2, "两段多代战线应各挂组头（A 两代收官 / B 两代含成形）"
+    # V17 页签切片：战线组头随页签过滤——进行中只有 B（含成形代）；A 两代全收官，
+    # 组头在已收官页签（那边点数=1）。
+    assert page.locator(".war-front-head").count() == 1, "进行中页签应只挂 B 战线组头（A 全收官住已收官页签）"
+
+    def _v10_tab(label: str) -> None:
+        for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
+            if label in (_l or ""):
+                page.locator(".war-cmdtab").nth(_i).click()
+                page.wait_for_timeout(700)
+                return
+        raise AssertionError(f"tab {label} missing")
+    _v10_tab("已收官")
+    assert page.locator(".war-front-head").count() == 1, "已收官页签应挂 A 战线组头"
+    _v10_tab("进行中")
     g1 = grp.first
     face = g1.locator(".war-cmd-group-face .war-command-card")
     # V10.1 卡组三改：坞里只摆最新代卡面（叠缘 50px 露出机制休眠）
@@ -186,8 +199,10 @@ with sync_playwright() as p:
     btn_txt = page.locator(".war-wz-toggle").inner_text()
     assert "3D 视图" in btn_txt and "2D 视图" in btn_txt, f"切换钮应为 3D 视图/2D 视图：{btn_txt}"
     wz = page.evaluate("() => { const w = window.__wz; const ps = w.scene.planets; return { n: ps.length, names: ps.map(p=>p.name), squads: w.scene.squads.length, log: w.scene.log.length, modes: ps.map(p=>p.status) } }")
-    ws_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return new Set(b.tasks.map(t => t.workspacePath).filter(Boolean)).size }")
-    assert wz["n"] == ws_n, f"warzone 星球数应==去重 workspace 数 {ws_n}，got {wz['n']}"
+    # V17 页签切片：星球=进行中页签任务的去重 workspace（终局 failed/closed 的任务
+    # 随命令住已收官页签，星球不数它们）。
+    ws_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return new Set(b.tasks.filter(t => t.status !== 'failed' && t.status !== 'closed').map(t => t.workspacePath).filter(Boolean)).size }")
+    assert wz["n"] == ws_n, f"warzone 星球数应==进行中页签去重 workspace 数 {ws_n}，got {wz['n']}"
     assert all(' · W-' in n for n in wz['names']), f"星球命名应=目录名·W-编号：{wz['names'][:2]}"
     assert wz["squads"] >= 1 and wz["log"] >= 1, f"编队/日志未跑起来：{wz}"
     # V13 战线世代环：环==锚定战线（A alpha 两代收官 / B beta 两代在打 / S1 未分组单代）
@@ -202,13 +217,21 @@ with sync_playwright() as p:
         return { rings: s.frontGroup.children.length, anchored: anchored.length, markers,
                  gens: anchored.reduce((n, f) => n + Math.max(f.gens, 1), 0), lastBig, glows,
                  pick: s.frontPickables.length, ungrp: un ? un.name : null } }""")
-    assert fr["rings"] == fr["anchored"] == 3, f"世代环应==锚定战线 3：{fr}"
+    # V17 页签切片：环==进行中页签锚定战线（A 两代全收官→住已收官页签；
+    # S1 已 close 同理）——B beta 一条环，两代。
+    assert fr["rings"] == fr["anchored"] == 1, f"世代环应==进行中页签锚定战线 1（V17 页签过滤）：{fr}"
+    assert fr["gens"] == 2, f"B 战线应两代：{fr}"
     # V15.2b 环语义重铸（一星球一环、分段=战线数）：世代点/末代辉光已休眠（代数是
     # 卡片层信息）——旧 markers/lastBig/glows 断言随 V13/V14 语义一并退役。
     segs_total = page.evaluate("() => { const s = window.__wz.scene; let n = 0; for (const g of s.frontGroup.children) n += g.children.length; return n }")
     assert segs_total == fr["anchored"], f"环分段总数应==战线数 {fr['anchored']}（V15.2b 一星球一环），got {segs_total}"
     assert fr["pick"] == 0, f"世代标记休眠后应无可拾取标记：{fr}"
-    assert fr["ungrp"] and "未分组" in fr["ungrp"], f"合成沙盒应聚合为未分组行星：{fr}"
+    # V17 页签切片：S1 已 close→住已收官页签，其未分组合成行星跟过去——去那边点名。
+    _v10_tab("已收官")
+    page.wait_for_timeout(1200)
+    fr_s = page.evaluate("() => { const s = window.__wz.scene; const un = s.planets.find(p => p.wsPath === '__war_ungrouped__'); return un ? un.name : null }")
+    assert fr_s and "未分组" in fr_s, f"已收官页签应聚合未分组行星（S1 已收官，V17）：{fr_s!r}"
+    _v10_tab("进行中")
     # V11.5f 执行中卡片覆盖层：live attempt 数 == 执行卡数（连线钉星球屏位）
     live_n = page.evaluate("async () => { const b = await (await fetch('/warroom/api/board')).json(); return b.tasks.reduce((n, t) => n + (t.attemptLog ?? []).filter(a => a.outcome === null).length, 0) }")
     assert sf.locator(".war-wz-xcard").count() == live_n, f"执行卡数应==live attempts {live_n}，got {sf.locator('.war-wz-xcard').count()}"
@@ -305,6 +328,8 @@ with sync_playwright() as p:
     print("P3 back-to-list ok")
 
     # --- P4 聚焦页族谱 -----------------------------------------------------------
+    # V17 页签切片：A 战线两代全收官，Ⅱ 代卡住已收官页签——切过去点，完事切回。
+    _v10_tab("已收官")
     page.locator(".war-dispatch .war-command-card").filter(has_text="顺势补一份 README").first.click()
     page.wait_for_selector(".war-cd-modal", timeout=5000)
     crumb = page.locator(".war-cd-chain[data-war-chain-length='2']")
@@ -315,6 +340,7 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUT / "v10-focus-chain.png"))
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
+    _v10_tab("进行中")
     print("P4 focus chain ok")
 
     # --- P5 pivot 双证 ------------------------------------------------------------

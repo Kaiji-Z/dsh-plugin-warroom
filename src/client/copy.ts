@@ -369,6 +369,18 @@ export interface WarCopy {
     /** V10.1 审查：收件箱新增的礼貌播报（视觉隐藏 live 区）。 */
     announceInbox: (n: number) => string
   }
+  /** V17 三页签全局切片 + 归档。 */
+  cmdTabs: { active: string; settled: string; archived: string; aria: string; countTitle: (label: string, n: number) => string }
+  archive: {
+    button: string
+    gate: string
+    confirmTitle: string
+    irreversible: string
+    confirmOk: string
+    cancel: string
+    done: (n: number) => string
+    badge: string
+  }
   dock: {
     label: string
     titleLine: (counts: { pending: number; waiting: number; active: number; failed: number }) => string
@@ -777,6 +789,17 @@ export const warCopy: WarCopy = {
     expandTitle: '悬停展开 · 点击钉住',
     announceInbox: n => `作战室新增 ${n} 件等你发落`,
   },
+  cmdTabs: { active: '进行中', settled: '已收官', archived: '已归档', aria: '战况切片', countTitle: (label, n) => `${label} · ${n} 条命令` },
+  archive: {
+    button: '归档此命令',
+    gate: '战线全终局（收官/挫败/取消）后才可归档',
+    confirmTitle: '归档这条命令？',
+    irreversible: '不可逆：相关会话将从侧栏隐藏（日志保留），板面移入已归档。',
+    confirmOk: '确认归档',
+    cancel: '取消',
+    done: n => `已归档（${n} 个会话入档）`,
+    badge: '已归档',
+  },
   dock: {
     label: '作战室',
     titleLine: c => `等·参谋 ${c.pending} · 等·指挥官 ${c.waiting} · 进行中 ${c.active}${c.failed > 0 ? ` · 已失败 ${c.failed}` : ''} —— 点击回到作战室`,
@@ -1182,6 +1205,17 @@ export const plainCopy: WarCopy = {
     unpin: '取消钉住',
     expandTitle: '悬停展开 · 点击钉住',
     announceInbox: n => `工作台新增 ${n} 件待处理`,
+  },
+  cmdTabs: { active: '进行中', settled: '已收官', archived: '已归档', aria: '看板切片', countTitle: (label, n) => `${label} · ${n} 条` },
+  archive: {
+    button: '归档这条事项',
+    gate: '全部结束（完成/失败/取消）后才可归档',
+    confirmTitle: '归档这条事项？',
+    irreversible: '不可恢复：相关会话将从列表隐藏（记录保留），看板移入已归档。',
+    confirmOk: '确认归档',
+    cancel: '取消',
+    done: n => `已归档（${n} 个会话入档）`,
+    badge: '已归档',
   },
   dock: {
     label: '工作台',
