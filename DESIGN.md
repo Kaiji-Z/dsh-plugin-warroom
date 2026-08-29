@@ -707,3 +707,8 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 ①**页签组竖排**：图标 button group 改 column，`align-self:stretch` 与＋钮同高（三枚 flex:1 均分），选中亮条改左缘 inset。②**调度栏定高 218px**（舰长令：横滚条不得撑高栏体）——卡区=卡高 168+细滚条位 8（track padding 10/12、align-items:flex-start 顶对齐），滚动条出现/消失不改栏高、卡锚 y 恒定；map 态 track/dispatch 的旧 padding 覆盖删除（基规则统管）。③**分段铭牌退役**：`war-track-seg`（竖排虚线「已收官」路标，V12.2 critique P1 引入）与页签语义重复且被误读为幽灵标签——拆除，分段只保留排序（活跃优先）。④⑤**回报腿阶段门**：管线随战况生长——map 态上行段（任务出端口→竖干→顶沟→战报卡）整体只在 stage≥3 画；**常显基管同步按 stage 截段**（列表态 buildD(min(stage,…)) 同门）——根因是族 stops 的 report 锚取全链末次结算，链上前代遗留的已收官 attempt 会让进行中命令提前亮出回报管（元首指认「已收官的管线出现在进行中」+「任务卡只有进没有出」）。实证：进行中页签 map 管全部只剩命令腿，战报卡零管脚；已收官页签 rep_hit=0px 不变。
 坑：icon 页签后 shooter 全名断言走 aria-label；基管截段后 ⑧ 路径数下降（>=2 弹性断言兜住）。
 机检：verify PASS + shoot-v17 全绿；目检 `.goal/evidence/v17/v176-active-map-noreport.png`（进行中+map：竖排页签组/定高栏/无回报腿）。
+
+## V17.8 管线仅 hover 可见 + 页签去计数 + 沟位 8px 锚定（2026-08-29，元首四反馈）
+
+①**不虚显常驻**：管线默认全隐（opacity 0——非 display:none，几何仍可测取证不破），仅 hover/聚焦族 100%+流动；旧「常显 12%/其余压 5%」退役，verify 针脚同步（默认全隐 + has-active g.on=1 两枚）。②**页签去计数**：图标页签只剩图标，全名+计数走 title/aria-label。③**map 沟位锚定面板缘外 8px**（舰长令「和栏间隔一致」）：竖干=任务列右缘+8、回报腿竖段=回报列左缘-8、底沟=调度栏上缘-8（顶沟 topY=8 沿用）；旧竖干贴卡缘+24/底沟取坞卡中点——随卡宽卡高漂移。④**坑（抓真 bug 一枚）**：底沟锚曾沿用旧查询 `.war-ops`——它根本不是调度栏（top 与 overlay 齐平），channelY 算出 **-8**，命令腿从卡顶一路穿出板外再折返，竖段贴 HQ 50px 被 shooter 新量测当场抓获；改锚 `.war-dispatch` 后 311px。shooter ⑨ 其余管断言收紧为 ==0；⑩ hq_dist/rep_hit 量测前先滚动+hover 汇报族（管线仅 hover 可见后，无 hover 量测是空集）。
+机检：verify PASS + shoot-v17 全绿；实测默认 0 可见管、hover 单族显形，沟位数值咬合（trunk 338=zone+8 / channel 650=opsTop-8 / legX 1102=zone-8）；目检 `.goal/evidence/v17/v178-hover-pipe.png`。

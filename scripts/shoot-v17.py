@@ -176,7 +176,7 @@ with sync_playwright() as p:
       return { on: on ? getComputedStyle(on).opacity : null, off: off ? getComputedStyle(off).opacity : null }
     }""")
     assert ops_["on"] == "1", f"hover 族管应 100%：{ops_}"
-    assert ops_["off"] is not None and float(ops_["off"]) <= 0.06, f"其余族管应压 5%：{ops_}"
+    assert ops_["off"] is not None and float(ops_["off"]) == 0, f"非 hover 族管应全隐（V17.8 不虚显）：{ops_}"
     page.emulate_media(reduced_motion="reduce")
     page.wait_for_timeout(300)
     anim = page.evaluate("() => { const p = document.querySelector('.war-pipe-flowing'); return p ? getComputedStyle(p).animationName : 'absent' }")
@@ -230,22 +230,6 @@ with sync_playwright() as p:
     assert drops, f"可采样的非命中星球缺席：all={all_ws} hl={hl_set} pre={pre} post={post}"
     best_drop = max(drops.values())
     assert best_drop > 4, f"非命中星球应被压暗/提亮（|亮度差|）：{ {k: round(v, 1) for k, v in drops.items()} }"
-    # 管线不绕 HQ：map 管段不得靠近 HQ 投影点（HQ 接点/星球弦已退役）
-    hq = page.evaluate("() => window.__wz.hqScreen()")
-    hq_dist = page.evaluate("""(hq) => {
-      let best = 1e9
-      for (const path of document.querySelectorAll('.war-pipe-svg path[d]')) {
-        const dattr = path.getAttribute('d') || ''
-        if (!dattr.trim()) continue
-        const L = path.getTotalLength()
-        for (let i = 0; i <= 120; i++) {
-          const p = path.getPointAtLength(L * i / 120)
-          best = Math.min(best, Math.hypot(p.x - hq.x, p.y - hq.y))
-        }
-      }
-      return Math.round(best)
-    }""", hq)
-    assert hq_dist > 60, f"map 管线不得绕 HQ：最近距离 {hq_dist}px"
     # 战报腿在场：map 管段应触及在场战报卡左缘。汇报族（bravo）的命令卡默认
     # 卷出调度条、任务卡在任务列折叠线下——「站台缺席不画」是设计行为，先把
     # 两处滚动到位（卡心进可视区）再等重算 tick，然后量测。
@@ -271,6 +255,10 @@ with sync_playwright() as p:
       roll('[data-pipe-cmd$="0905-dd04"]')
       roll('[data-pipe-task="20260823-bravo"]')
     }""")
+    # V17.8 起管线仅 hover 族可见——hover 汇报族命令卡让该族管线显形再量测
+    bravo_card = page.locator('[data-pipe-cmd$="0905-dd04"]').first
+    bravo_card.hover()
+    page.wait_for_timeout(900)
     page.wait_for_timeout(2000)
     rep_hit = page.evaluate("""() => {
       const svg = document.querySelector('.war-pipe-svg')
@@ -294,6 +282,22 @@ with sync_playwright() as p:
       return Math.round(best)
     }""")
     assert rep_hit != -1 and rep_hit <= 20, f"map 回报腿应触战报卡左缘：rep_hit={rep_hit}px"
+    # 管线不绕 HQ：map 管段不得靠近 HQ 投影点（HQ 接点/星球弦已退役）
+    hq = page.evaluate("() => window.__wz.hqScreen()")
+    hq_dist = page.evaluate("""(hq) => {
+      let best = 1e9
+      for (const path of document.querySelectorAll('.war-pipe-svg path[d]')) {
+        const dattr = path.getAttribute('d') || ''
+        if (!dattr.trim()) continue
+        const L = path.getTotalLength()
+        for (let i = 0; i <= 120; i++) {
+          const p = path.getPointAtLength(L * i / 120)
+          best = Math.min(best, Math.hypot(p.x - hq.x, p.y - hq.y))
+        }
+      }
+      return Math.round(best)
+    }""", hq)
+    assert hq_dist > 60, f"map 管线不得绕 HQ：最近距离 {hq_dist}px"
     print(f"⑩ map pipes ok: hlLines={hl_lines}, hq dist={hq_dist}px (不绕 HQ), report leg={rep_hit}px")
 
     # 星球悬停 → 相关卡片族高亮；点击 → 粘性聚焦（移开鼠标仍在）；再点同星球

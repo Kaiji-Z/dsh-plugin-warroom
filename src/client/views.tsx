@@ -1921,9 +1921,8 @@ function DispatchStrip(props: { onCompose: () => void; tab: CmdTab; onTab: (t: C
       'aria-label': activeCopy().dispatch.addTitle,
       onClick: onCompose,
     }, '＋'),
-    // V17 三页签全局切片：＋旁**图标页签组**（V17.6 舰长令：竖排铭牌撑高整条
-    // 调度栏，改紧凑 button group——图标+计数，全名走 title 悬停提示），切换
-    // 整个板（三列+调度条+星域）的命令集合。
+    // V17 三页签全局切片：＋旁**图标页签组**（V17.8 舰长令：不显计数，全名
+    // +计数走 title 悬停提示），切换整个板（三列+调度条+星域）的命令集合。
     createElement('div', { className: 'war-cmdtabs', role: 'tablist', 'aria-label': activeCopy().cmdTabs.aria },
       ...(['active', 'settled', 'archived'] as const).map(t => createElement('button', {
         key: t, type: 'button', role: 'tab',
@@ -1934,7 +1933,6 @@ function DispatchStrip(props: { onCompose: () => void; tab: CmdTab; onTab: (t: C
         onClick: () => { onTab(t) },
       },
         createElement('span', { className: 'war-cmdtab-ico', 'aria-hidden': 'true' }, CMD_TAB_ICONS[t]),
-        createElement('span', { className: 'war-cmdtab-n' }, String(tabCounts[t])),
       ))),
     createElement('div', { className: 'war-dispatch-track', ref, onKeyDown: onTrackKey }, ...children),
   )

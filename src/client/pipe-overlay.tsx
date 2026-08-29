@@ -158,26 +158,37 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           if (ti < 0) return ''
           const tIn = entry(ti), tOut = exit(ti)
           if (tIn === null || tOut === null) return ''
-          const trunkX = tIn.x + 24
+          // V17.8 舰长令：map 沟一律走**面板缘外 8px**——竖干=任务列右缘外、
+          // 回报腿竖段=回报列左缘外、底沟=调度栏上缘外（顶沟 topY=8 沿用）。
+          // 旧版竖干贴卡缘+24/底沟取坞卡中点——随卡宽卡高漂移，沟位不定。
+          const EDGE = 8
+          const zoneOf = (sel: string): DOMRect | null => {
+            const el = svg.parentElement?.querySelector(sel)
+            return el != null ? el.getBoundingClientRect() : null
+          }
+          const taskZone = zoneOf('.war-zone.war-tasks')
+          const reportZone = zoneOf('.war-zone.war-report')
+          const ops = zoneOf('.war-dispatch')
+          const trunkX = taskZone !== null ? taskZone.right - box.left + EDGE : tIn.x + 24
           const topY = 8
           let d = ''
           const e0 = ci >= 0 ? entry(ci) : null
           if (e0 !== null) {
-            const ops = svg.parentElement?.querySelector('.war-ops')
-            const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : e0.y - 10
-            const channelY = Math.max(opsBottom + 3, Math.min(e0.y - 4, opsBottom + (e0.y - opsBottom) / 2))
-            // 命令腿：坞 → 坞顶横沟向左 → 竖干上行 → 入端口进卡即止。
+            const channelY = ops !== null ? ops.top - box.top - EDGE : e0.y - 10
+            // 命令腿：坞 → 底沟向左 → 竖干上行 → 入端口进卡即止。
             d += `M ${e0.x} ${e0.y} L ${e0.x} ${channelY} L ${trunkX} ${channelY} L ${trunkX} ${tIn.y} L ${tIn.x} ${tIn.y}`
           }
-          // 上行段（V17.6 舰长令：**回报阶段才接出管**）——未到任务回报的阶段
-          // 任务卡「只有进没有出」；到段后出端口出卡 → 竖干续行 → 板顶横沟右行
-          // → 回报列左外下行 → 战报卡左缘入（卡位段不画线——「进卡再出来」）。
+          // 上行段（V17.6 舰长令：回报阶段才接出管）——出端口出卡 → 竖干续行 →
+          // 板顶横沟右行 → 回报列左外竖段下行 → 战报卡左缘入。
           if (toReport) {
             d += ` M ${tOut.x} ${tOut.y} L ${trunkX} ${tOut.y} L ${trunkX} ${topY}`
             const ri = stops.findIndex(s => s.kind === 'report')
             if (ri > ti) {
               const rp = entry(ri)
-              if (rp !== null) d += ` L ${rp.x - 12} ${topY} L ${rp.x - 12} ${rp.y} L ${rp.x} ${rp.y}`
+              if (rp !== null) {
+                const legX = reportZone !== null ? reportZone.left - box.left - EDGE : rp.x - 12
+                d += ` L ${legX} ${topY} L ${legX} ${rp.y} L ${rp.x} ${rp.y}`
+              }
             }
           }
           return d

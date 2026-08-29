@@ -290,9 +290,8 @@ gate('bundle', () => {
     [client, 'archiveCommand', 'V17 archive POST helper'],
     [client, '不可逆', 'V17 archive irreversible warning copy (host has no unarchive)'],
     // V17-B 族系管网（舰长令：推翻 V7「零几何」定案）。
-    [client, '.war-pipe-svg path{fill:none;stroke:var(--chain-hue,#888);stroke-width:2;stroke-linejoin:round;opacity:.12', 'V17-B faint pipes always-on at 12% (utility-grid metaphor: pipes visible without hover)'],
+    [client, '.war-pipe-svg path{fill:none;stroke:var(--chain-hue,#888);stroke-width:2;stroke-linejoin:round;opacity:0', 'V17-B pipes hidden by default (V17.8: no always-on faint grid, hover-only visibility)'],
     [client, '.war-pipe-svg.has-active g.on path{opacity:1}', 'V17-B hovered family pipe at 100%'],
-    [client, '.war-pipe-svg.has-active path{opacity:.05}', 'V17-B non-hovered family pipes dimmed to 5%'],
     [client, 'setDim', 'V17-B starfield global dim switch (canvas follows family highlight)'],
     [client, 'dimActive', 'V17-B dim multiplier applied to non-highlight entities (halo/ring/label/squad)'],
     [client, 'p.active ? p.dProg : p.d', 'V17-B flow progress rides the lifecycle now-segment prefix (dProg)'],
