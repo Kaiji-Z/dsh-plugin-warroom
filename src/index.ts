@@ -99,7 +99,19 @@ function createConscriptor(deps: {
   let workspaceApi: WorkspaceApiFace | undefined
   const board = (): CampaignState[] => listCampaignIds(deps.stateDir).map(id => loadCampaign(deps.stateDir, id)).filter(t => t.startedAt !== '')
   const rpc = (): string => `warroom-${crypto.randomUUID()}`
-  const conscriptTask = async (task: CampaignState, signal: AbortSignal): Promise<{ spawned: true; childId: string } | { spawned: false; reason: string }> => {
+  // V16.5④ 征召拒因日志（变化去抖）：巡检 60s 一轮，同一任务同一拒因只记一次——
+  // 满编/占用等排队语义不刷屏，状态翻转（新拒因/成功）必有一行。V16.3 首跑实锤
+  // 静默跳过 25 分钟零线索的诊疗盲区。
+  const lastSkip = new Map<string, string>()
+  const noteSkip = (taskId: string, reason: string): void => {
+    if (lastSkip.get(taskId) === reason) return
+    lastSkip.set(taskId, reason)
+    console.log(`[warroom] 征召跳过 ${taskId}：${reason}`)
+  }
+  // V16.5③ 孤儿会话自愈：简报投递失败时已建的会话记入此表——重试复用同一会话
+  // 再投（而非再建一个），不再堆孤儿（cmdr-1 实锤：4 行只建未用的会话）。
+  const orphanSessions = new Map<string, string>()
+  const runConscript = async (task: CampaignState, signal: AbortSignal): Promise<{ spawned: true; childId: string } | { spawned: false; reason: string }> => {
     if (task.status !== 'published') return { spawned: false, reason: `任务状态为 ${task.status}，只有待领取任务可征召。` }
     if (relay === undefined || workspaceApi === undefined) return { spawned: false, reason: 'apiProxy 未接入（无会话创建通道）。' }
     // Lazy prune: a spawned task that left the board frees its guard slot.
@@ -113,11 +125,18 @@ function createConscriptor(deps: {
     if (inflight >= deps.maxCommanders) return { spawned: false, reason: `在役外勤小队满编（${inflight}/${deps.maxCommanders}），稍后由巡检补征。` }
     // Bind the commander session to the task workspace (sandbox root).
     const wsPath = task.workspacePath ?? deps.warRoot
-    const ws = await workspaceApi.create({ rpcId: rpc(), payload: { path: wsPath } })
-    if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败（${ws.result.error.code}）：${ws.result.error.message}` }
-    const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
-    if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
-    const sessionId = created.result.value.sessionId
+    // 孤儿复用：上一轮简报投递失败留下的会话直接续用（同工作区绑定已就位）。
+    let sessionId = orphanSessions.get(task.campaignId)
+    if (sessionId === undefined) {
+      const ws = await workspaceApi.create({ rpcId: rpc(), payload: { path: wsPath } })
+      if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败（${ws.result.error.code}）：${ws.result.error.message}` }
+      const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
+      if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
+      sessionId = created.result.value.sessionId
+    } else {
+      orphanSessions.delete(task.campaignId)
+      console.log(`[warroom] 复用孤儿会话 ${sessionId} 重投简报（任务 ${task.campaignId}）`)
+    }
     const title = `外勤·${displayTitleOf(task.title ?? task.intent).slice(0, 14)}`
     void relay.rename({ rpcId: rpc(), payload: { sessionId, title } }).catch(() => undefined)
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
@@ -151,11 +170,25 @@ function createConscriptor(deps: {
       ...(chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${chainBrief}`] : []),
       '',
       '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（星域写工作区内相对路径）。',
+      // V16.5②（仅续接令）：e2e 体检实锤外勤会去翻宿主会话记录/服务日志/全盘文件
+      // 「求证」上代上下文——前情里产物路径+关键值都在，点明直接读工作区文件。
+      ...(chainBrief !== '' ? ['前情点名的上代产物（相对路径）就在本工作区内——直接读文件，不要去检索宿主会话记录、服务日志或工作区之外的任何文件。'] : []),
     ].join('\n')
     const prompted = await relay.prompt({ rpcId: rpc(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: order }] } })
-    if (!prompted.result.ok) return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}` }
+    if (!prompted.result.ok) {
+      orphanSessions.set(task.campaignId, sessionId)
+      return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}——会话 ${sessionId} 已留待复用（下轮重投，不再另建）` }
+    }
     spawned.add(task.campaignId)
     return { spawned: true, childId: sessionId }
+  }
+  // V16.5④ 单点拒因日志：所有征召入口（发布/收官接力/重派/巡检）共用——
+  // 成功必记一行，跳过按「同任务同拒因只记一次」去抖。
+  const conscriptTask = async (task: CampaignState, signal: AbortSignal): Promise<{ spawned: true; childId: string } | { spawned: false; reason: string }> => {
+    const r = await runConscript(task, signal)
+    if (r.spawned) { lastSkip.delete(task.campaignId); console.log(`[warroom] 外勤小队已派遣 ${task.campaignId} → 会话 ${r.childId}`) }
+    else noteSkip(task.campaignId, r.reason)
+    return r
   }
   return {
     bindRelay(sessions, workspace) {
@@ -192,8 +225,9 @@ function createConscriptor(deps: {
           for (const t of waiting) {
             try {
               await conscriptTask(loadCampaign(deps.stateDir, t.taskId), signal)
-            } catch {
-              // Patrol never throws into the timer.
+            } catch (err) {
+              // Patrol never throws into the timer — but never silent either.
+              console.error(`[warroom] 巡检征召异常 ${t.taskId}：`, err instanceof Error ? err.message : err)
             }
             if (board().filter(x => x.status === 'in_progress').length >= deps.maxCommanders) return
           }

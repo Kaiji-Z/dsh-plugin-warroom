@@ -315,6 +315,9 @@ gate('bundle', () => {
     [client, '星际迷航', 'V16 trek skin label (default)'],
     [client, 'TREK_LEXICON', 'V16 trek lexicon derivation layer (terms vary by skin)'],
     [host, '外勤任务简报', 'V16 trek canonical conscript briefing (host-side)'],
+    [host, '完整复制、不要截断', 'V16.5 full-form attempt token in claim receipt (e2e: LLM copied 8-char truncation)'],
+    [host, '不要去检索宿主会话记录', 'V16.5 away-team scope guidance (e2e: dug host internals for parent context)'],
+    [host, '征召跳过', 'V16.5 conscript skip logging with change-dedupe'],
     // v3 R2: per-command staff sessions, instant relay, thread attach API.
     [host, 'directive_session_opened', 'per-command staff session event'],
     [host, '大副·', 'per-command staff session title'],

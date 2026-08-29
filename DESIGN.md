@@ -642,3 +642,11 @@ exam-v15 范式常驻化：`pnpm verify:e2e` → scripts/run-e2e.mjs 编排（�
 **首跑结果（2026-08-29 02:00）**：门机械链全对（前置→五段→FAIL 退出码），实弹抓到真问题——**任务 task_published 后 25 分钟无 task_claimed**（征召器/patrol 静默跳过，server.log 零线索：conscriptTask 拒因不上日志）。现场保留（.smoke-state 20260829-020104-9061.jsonl 未清，操场勿重播）待下轮诊断：查 conscriptTask 各 return reason（工作区冲突/满编/spawned 集合泄漏）+ 给 patrol 拒因补日志。
 
 **V16.4 后复跑（2026-08-29 11:17，最新构建）**：E2E-EXAM **PASS（C1-C8 全过）**——两代续接链真实 LLM 全通（代1 token=b9ee2a5e 现场随机→代2 summary 逐字引用，链档案双通道归因 staff=True/commander=True），workspaceKind=bound 双证，KillCredit 双代自动收官；maxCommanders 8 修复生效（操场 3 条假 in_progress 并存下征召正常）。门就此常态化：`pnpm verify:e2e`（前置=活服，约 10 分钟）。证据 .goal/evidence/e2e/。
+
+## V16.5 e2e 体检四修（2026-08-29，元首令「仔细调研计划后来修」）
+
+**调研结论**（外勤/大副原生会话 transcript 解码）：①war_claim 回执自己截断令牌（`attemptId.slice(0,8)}…`）——两代外勤抄回执短号被拒 3 次（子任务认领却给全形，不一致）；②【战线前情】其实喂全了（产物路径+token 值都在）——外勤是过度求证，18 次 pwsh 近半在翻 ~/.dsh/sessions/projcache/server 日志/.smoke-state 账本；③孤儿会话（简报投递失败后已建会话被弃，巡检重试再建新的=堆孤儿）；④征召拒因零日志（V16.3 静默排队 25 分钟同根）。
+
+**修复**：①claim 回执全形令牌+「完整复制、不要截断」提示；submit/fail 拒因加 UUID 全形格式说明（令牌校验红线不动，是展示面在诱导犯错）。②征召令（仅续接令）加指引行「上代产物就在本工作区内——直接读文件，不要检索宿主会话记录/服务日志/工作区之外」。③孤儿自愈：prompt 失败把会话记入 orphanSessions，重试复用同会话重投不再另建。④单点拒因日志（runConscript 包装：成功必记+跳过按同任务同拒因去抖，四入口发布/接力/重派/巡检全覆盖）。
+
+**复跑实锤**（E2E-EXAM PASS C1-C8）：最新外勤会话 **war_claim×1/war_submit×1、令牌不匹配 0 次**（修前 2-3 次）；**pwsh×2、翻宿主内部 0 次**（修前 ~8 次），全程 7 次工具调用收官（修前 ~34 次）；server.log 上线「征召跳过（原因）」去抖行+「外勤小队已派遣」行——顺带暴露操场种子引用不存在的 D:/smoke 路径（巡检每轮去抖尝试，无害，种子候选改进）。verify+三针脚（全形令牌/指引行/跳过日志）。

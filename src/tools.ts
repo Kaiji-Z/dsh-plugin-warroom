@@ -577,7 +577,7 @@ export function warTools(deps: WarToolsDeps) {
           acceptance: { type: 'string' },
         },
       },
-      render: (_args, value) => [{ type: 'text', text: `已领取 ${value.taskId}（第 ${value.attempt} 次尝试，令牌 ${value.attemptId.slice(0, 8)}…）。任务书与验收标准已附上；工作区：${value.workspacePath ?? '（未建）'}。开始执行。` }],
+      render: (_args, value) => [{ type: 'text', text: `已领取 ${value.taskId}（第 ${value.attempt} 次尝试）。本次尝试令牌（war_submit / war_fail 时原样携带，完整复制、不要截断）：${value.attemptId}。任务书与验收标准已附上；工作区：${value.workspacePath ?? '（未建）'}。开始执行。` }],
     },
     async execute(args, rawExec) {
       const exec = rawExec as unknown as WarToolExec
@@ -638,7 +638,7 @@ export function warTools(deps: WarToolsDeps) {
         throw new Error(`任务 ${args.task_id} 状态为 ${task.status}，只有进行中任务可提交汇报。`)
       }
       if (task.attempt === undefined || args.attempt_id !== task.attempt.id) {
-        throw new Error(`令牌不匹配：这不是任务 ${args.task_id} 当前尝试的令牌（任务可能已被重派或重新领取）。请重新 war_claim 领取并使用新令牌；若任务已不在进行中，用 war_board 查看状态。`)
+        throw new Error(`令牌不匹配：这不是任务 ${args.task_id} 当前尝试的令牌。注意 attempt_id 必须是 war_claim 回执里完整令牌（UUID 全形，不要截断）；若确实换了尝试，请重新 war_claim 领取并使用新令牌；若任务已不在进行中，用 war_board 查看状态。`)
       }
       const verdict = parseEvidence(args.evidence)
       if (!verdict.ok) throw new Error(verdict.reason)
@@ -687,7 +687,7 @@ export function warTools(deps: WarToolsDeps) {
         throw new Error(`任务 ${args.task_id} 状态为 ${task.status}，只有进行中任务可上报失败。`)
       }
       if (task.attempt === undefined || args.attempt_id !== task.attempt.id) {
-        throw new Error('令牌不匹配：这不是当前尝试的令牌。请重新 war_claim 后再操作。')
+        throw new Error('令牌不匹配：这不是当前尝试的令牌（attempt_id 须为 war_claim 回执的完整令牌，UUID 全形）。请重新 war_claim 后再操作。')
       }
       const attempts = task.attempts
       appendEvent(deps.stateDir, { type: 'task_attempt_failed', ts: new Date().toISOString(), campaignId: args.task_id, reason: args.reason, from: commander.id })

@@ -2,7 +2,7 @@
 """v15 实弹考题驱动（真实 LLM：两代续接链，验 V15 三件套的行为价值）。
 
 考题设计（因果链）：
-  代1 命令（带【战场：】标记 + !!直接做）→ 参谋 L0 直发 → 指挥官在真实工作区
+  代1 命令（带【星球：】标记 + !!直接做）→ 参谋 L0 直发 → 指挥官在真实工作区
       创建 manifest/e2e-manifest.json（token 由 LLM 现场随机生成——任何命令原文
       都不含它）→ 提交 evidence.files → KillCredit 自动收官。
   代2 命令（continuesFrom 代1 + 战线名「exam战线」）→ deepen 续接：
