@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""README screenshot shooter: dark theme, .war-root element shots (host sidebar
-never visible in frame — no layout surgery, zero reflow risk).
+"""README screenshot shooter — ALL shots dark + starfield view (元首令 2026-08-30).
 
-Usage: python scripts/shoot-readme.py
 Server must run the playground seed (scripts/seed-playground.py) on :3080.
-Shots land in docs/readme-*.png.
+Shots land in docs/readme-*.png. The auto starfield capture goes to
+.goal/evidence/ — the README hero is the 元首's own screenshot, never overwritten.
 """
 import sys
 
@@ -46,15 +45,29 @@ def enter(page, view):
         if ((b.textContent || '').includes('忽略')) b.click()
       })
     }""")
-    page.wait_for_timeout(500)
-    # dim the host shell around the plugin board so element shots have clean edges
+    page.wait_for_timeout(400)
+    page.wait_for_timeout(800)
     page.evaluate("""() => {
       const root = document.querySelector('.war-root')
       for (let el = root.parentElement; el !== document.body; el = el.parentElement) {
         el.style.background = '#0b0d12'
       }
     }""")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(200)
+
+
+def enter_map3d(page):
+    """map view + 3D mode + zoomed out a touch for framing."""
+    enter(page, 'map')
+    page.wait_for_selector('canvas', timeout=20000)
+    page.evaluate("() => document.querySelector('[data-wz-mode=\"3d\"]').click()")
+    page.wait_for_timeout(2500)
+    page.mouse.move(720, 450)
+    for _ in range(2):
+        page.mouse.wheel(0, 300)
+        page.wait_for_timeout(140)
+    page.mouse.move(120, 950)  # park off-canvas (dispatch area)
+    page.wait_for_timeout(2600)
 
 
 def root_shot(page, path):
@@ -62,16 +75,17 @@ def root_shot(page, path):
     print(f'shot: {path}')
 
 
+PAGER_WS = 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/ws/projB/pager'
+
 with sync_playwright() as pw:
     browser = pw.chromium.launch()
     page = browser.new_page(viewport={'width': 1720, 'height': 1000})
 
-    # ---- shot 1: list board (island + three zones + dispatch) ----
-    enter(page, 'list')
-    assert page.locator('.war-board:not(.war-mapmode)').count() == 1, 'expected list view'
+    # ---- shot 1: starfield board (pods over the 3D field) ----
+    enter_map3d(page)
     root_shot(page, 'docs/readme-board.png')
 
-    # ---- shot 2: composer (templates + fused planet/front + alarm) ----
+    # ---- shot 2: composer modal over the starfield ----
     page.locator('.war-dispatch-add').click()
     page.wait_for_selector('.war-composer-modal', timeout=3000)
     page.wait_for_timeout(250)
@@ -84,50 +98,44 @@ with sync_playwright() as pw:
     page.keyboard.press('Escape')
     page.wait_for_timeout(250)
 
-    # ---- shot 3: focus page (first dock card — plan-pending command) ----
-    page.locator('.war-card', has_text='多本账本').first.click()
+    # ---- shot 3: focus page over the starfield (L1 plan-pending) ----
+    page.locator('.war-dispatch .war-command-card', has_text='多本账本').first.click()
     page.wait_for_selector('.war-modal', timeout=3000)
     page.wait_for_timeout(500)
     root_shot(page, 'docs/readme-focus.png')
     page.keyboard.press('Escape')
     page.wait_for_timeout(250)
 
-    # ---- shot 4: 3D starfield hero ----
-    enter(page, 'map')
-    assert page.locator('.war-mapmode').count() >= 1, 'expected map view'
-    page.wait_for_selector('canvas', timeout=20000)
-    page.evaluate("() => document.querySelector('[data-wz-mode=\"3d\"]').click()")
-    page.wait_for_timeout(2500)
-    page.mouse.move(720, 450)
-    for _ in range(4):
-        page.mouse.wheel(0, 340)
-        page.wait_for_timeout(140)
-    page.mouse.move(780, 150)  # park cursor on empty canvas (page coords: root starts at x=280)
-    page.wait_for_timeout(3200)
-    root_shot(page, '.goal/evidence/v18/shoot-readme-starfield.png')  # 自动镜头不入 docs——README hero 用元首实拍（元首文件重跑会覆盖）
-
-    # ---- shot 5: 2D tactical view (default cmd mode of the map) ----
-    enter(page, 'map')
-    page.wait_for_selector('canvas', timeout=20000)
-    page.wait_for_timeout(2500)
-    root_shot(page, 'docs/readme-2d.png')
-
-    # ---- shot 6: hover family (list view; hover a 3-gen chain card -> pipes + highlight) ----
-    enter(page, 'list')
-    card = page.locator('.war-dispatch .war-command-card', has_text='compose').first
-    card.hover()
-    page.wait_for_timeout(1200)
+    # ---- shot 4: planet hover -> family highlight (starfield native) ----
+    ppos = page.evaluate("""(ws) => {
+      const root = document.querySelector('.war-starfield')
+      const r = root.getBoundingClientRect()
+      const p = window.__wz.planetScreen(ws)
+      return p === null ? null : { x: r.x + p.x, y: r.y + p.y }
+    }""", PAGER_WS)
+    assert ppos is not None, 'pager planet not on screen'
+    page.mouse.move(ppos['x'], ppos['y'], steps=4)
+    page.wait_for_timeout(1500)
     root_shot(page, 'docs/readme-hover.png')
+    page.mouse.move(120, 950)
+    page.wait_for_timeout(400)
 
-    # ---- shot 7: island pinned/expanded (点击钉住——展开浮层在岛元素框外，须区域裁剪) ----
-    enter(page, 'list')
+    # ---- shot 5: island pinned over the starfield ----
     page.locator('.war-island').hover()
     page.wait_for_timeout(700)
     page.locator('.war-island').click()
     page.wait_for_timeout(700)
     box = page.locator('.war-island').first.bounding_box()
-    clip = {'x': max(0, box['x'] - 8), 'y': max(0, box['y'] - 8), 'width': min(1700 - box['x'], box['width'] + 760), 'height': min(box['y'] + box['height'] + 560, 990 - box['y'])}
+    clip = {'x': max(0, box['x'] - 8), 'y': max(0, box['y'] - 8),
+            'width': min(1700 - box['x'], box['width'] + 760),
+            'height': min(box['y'] + box['height'] + 560, 990 - box['y'])}
     page.screenshot(path='docs/readme-island.png', clip=clip)
     print('shot: docs/readme-island.png')
+
+    # ---- shot 6: 2D tactical radar ----
+    enter(page, 'map')
+    page.wait_for_selector('canvas', timeout=20000)
+    page.wait_for_timeout(2500)
+    root_shot(page, 'docs/readme-2d.png')
 
     browser.close()
