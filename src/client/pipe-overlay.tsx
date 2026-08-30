@@ -237,7 +237,11 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           : buildD(Math.min(fam.stage, stops.length - 1))
         if (d === '') continue // 站位全缺（滚动出视界等）——不渲染空 path
         out.push({
-          key: fam.rootId,
+          // V18.9.1 修：键=根+锚命令 id（fam.stops[0] 恒为 {kind:'cmd'}）——
+          // 旧键=裸 rootId，续接/拆解链一个根多条命令时撞键，React 协调错乱
+          // 把上一族的 `.on` 残留在 DOM 上（元首实抓：悬停 pager 后任何星球
+          // 悬停/空白都有管线残留）。active 按 root 匹配不变（族系语义=根）。
+          key: `${fam.rootId}:${fam.stops[0]?.id ?? ''}`,
           d,
           dProg,
           hueSlot: fam.hueSlot,
