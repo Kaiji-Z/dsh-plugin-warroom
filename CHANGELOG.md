@@ -16,6 +16,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+### Added
+- **npm 发布机制就绪（参考 LookatStudy 同款）** —— `scripts/release.mjs` 一条命令发版（verify 门→净树门→bump→tag→push→轮询 npm；关键词双轨：milestone/major=里程碑、iteration/minor=迭代、knife/patch=刀）+ `.github/workflows/publish.yml` GitHub OIDC 可信发布（零 npm token 存储，v* tag 触发，普通 push 永不发版）。首次发布前需在 npmjs.com 预登记 pending publisher。
+
 ## [0.18.9-6] - 2026-08-30
 
 ### Changed
