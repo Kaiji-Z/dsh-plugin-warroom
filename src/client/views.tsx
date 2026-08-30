@@ -1942,25 +1942,38 @@ function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; ti
       .catch(e => { setBusy(null); setErr(String(e)) })
   }
   // V18.9.2 修（元首实抓：HQ 弹窗「不是项目里的弹窗」）——此前裸渲染 war-modal
-  // div，缺 war-modal-backdrop 包装：无 fixed 定位/无遮罩/不居中，弹窗以文档流
-  // 内联在星域容器里。补齐全项目统一的 背板+停传播+layer 焦点圈 结构。
+  // div，缺 war-modal-backdrop 包装。V18.9.4 布局重排（元首令「很乱」）：可注册/
+  // 已在星域 两组分区（列头带计数），行卡两行式（名称+按钮在上、路径整行在下），
+  // 已注册行 done 令牌绿染——对齐起草器/卡片的设计语言。
+  const regRows = (rows ?? []).filter(w => !regSet.has(w.path))
+  const doneRows = (rows ?? []).filter(w => regSet.has(w.path))
+  const group = (label: string, list: Array<{ workspaceId: string; path: string; title: string }>, isReg: boolean): ReactNode => {
+    if (list.length === 0) return null
+    return createElement('div', { key: label },
+      createElement('div', { className: 'war-hq-picker-group' }, label),
+      ...list.map(w => createElement('div', { key: w.workspaceId, className: `war-hq-row${isReg ? ' is-reg' : ''}` },
+        createElement('div', { className: 'war-hq-row-main' },
+          createElement('span', { className: 'war-hq-row-name', title: w.title }, w.title),
+          isReg
+            ? createElement('span', { className: 'war-hq-row-done' }, `✓ ${activeCopy().starfield.hqPickerRegistered}`)
+            : createElement('button', { type: 'button', className: 'war-btn war-hq-row-btn', disabled: busy === w.path, onClick: () => { register(w.path, w.title) } }, busy === w.path ? '…' : activeCopy().starfield.hqPickerRegister),
+        ),
+        createElement('div', { className: 'war-hq-row-path', title: w.path }, w.path),
+      )),
+    )
+  }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal', role: 'dialog', 'aria-label': activeCopy().starfield.hqPickerTitle, onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       createElement('div', { className: 'war-hq-picker' },
         createElement('div', { className: 'war-hq-picker-head' },
-          createElement('span', { className: 'war-hq-picker-title' }, activeCopy().starfield.hqPickerTitle),
+          createElement('div', { className: 'war-modal-title' }, activeCopy().starfield.hqPickerTitle),
           createElement('button', { type: 'button', className: 'war-hq-picker-x', 'aria-label': '关闭', autoFocus: true, onClick: onClose }, '✕')),
         createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerHint),
         err !== null ? createElement('p', { className: 'war-hq-picker-err' }, err) : null,
         rows === null && err === null ? createElement('p', { className: 'war-hq-picker-hint' }, '…') : null,
         rows !== null && rows.length === 0 ? createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerEmpty) : null,
-        ...(rows ?? []).map(w => createElement('div', { key: w.workspaceId, className: 'war-hq-picker-row' },
-          createElement('span', { className: 'war-hq-picker-name' }, w.title),
-          createElement('span', { className: 'war-hq-picker-path' }, w.path),
-          regSet.has(w.path)
-            ? createElement('span', { className: 'war-hq-picker-done' }, activeCopy().starfield.hqPickerRegistered)
-            : createElement('button', { type: 'button', className: 'war-btn', disabled: busy === w.path, onClick: () => { register(w.path, w.title) } }, busy === w.path ? '…' : activeCopy().starfield.hqPickerRegister),
-        )),
+        group(activeCopy().starfield.hqPickerRegGroup(regRows.length), regRows, false),
+        group(activeCopy().starfield.hqPickerDoneGroup(doneRows.length), doneRows, true),
       )))
 }
 

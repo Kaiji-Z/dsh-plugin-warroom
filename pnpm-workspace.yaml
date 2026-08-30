@@ -1,2 +1,6 @@
 allowBuilds:
+  '@playwright/browser-chromium': set this to true or false
+  '@swc/core': set this to true or false
   esbuild: true
+  protobufjs: set this to true or false
+  sharp: set this to true or false

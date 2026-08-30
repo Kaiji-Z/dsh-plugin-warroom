@@ -532,16 +532,22 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-cmdtab.on{color:var(--war-select-name);background:var(--war-select-tint);box-shadow:inset 2px 0 0 var(--war-run-border)}
 .war-cmdtab-ico{font-size:11px;line-height:1}
 /* V18 HQ 工作区注册弹窗。 */
-.war-hq-picker{display:flex;flex-direction:column;gap:8px;min-width:380px;max-width:520px;max-height:60vh;overflow-y:auto}
+/* V18.9.4 重排（元首令「很乱」）：分组列头 + 两行行卡（名称/按钮在上、路径整行
+ * 在下）+ done 令牌绿染已注册行——对齐起草器/卡片的设计语言，告别三列挤压。 */
+.war-hq-picker{display:flex;flex-direction:column;gap:10px;min-width:440px;max-width:560px;max-height:calc(80vh - 72px);overflow-y:auto} /* 43+ 行工作区必须内滚——V16.4 弹窗内滚口径 */
 .war-hq-picker-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.war-hq-picker-title{font-size:14px;font-weight:600;color:var(--war-text-1)}
 .war-hq-picker-x{cursor:pointer;background:transparent;border:none;color:var(--war-text-2);font-size:14px;padding:2px 6px}
 .war-hq-picker-x:hover{color:var(--war-text-1)}
-.war-hq-picker-hint{margin:0;font-size:12px;color:var(--war-text-2)}
+.war-hq-picker-hint{margin:-6px 0 0;font-size:12px;line-height:1.6;color:var(--war-text-2)}
 .war-hq-picker-err{margin:0;font-size:12px;color:var(--war-fail)}
-.war-hq-picker-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border:1px solid var(--war-border);border-radius:var(--war-r-sm)}
-.war-hq-picker-name{flex:0 0 auto;font-size:13px;font-weight:600;color:var(--war-text-1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.war-hq-picker-path{flex:1 1 auto;min-width:0;font-size:12px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.war-hq-picker-group{font-size:12px;font-weight:600;color:var(--war-text-2);letter-spacing:.02em}
+.war-hq-row{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--war-border);border-radius:var(--war-r-md);background:var(--war-card-bg)}
+.war-hq-row.is-reg{background:var(--war-done-tint);border-color:color-mix(in srgb, var(--war-done-border) 45%, transparent)}
+.war-hq-row-main{display:flex;align-items:center;gap:8px}
+.war-hq-row-name{flex:1 1 auto;min-width:0;font-size:13px;font-weight:600;color:var(--war-text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-hq-row-btn{flex:0 0 auto}
+.war-hq-row-done{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--war-done)}
+.war-hq-row-path{font-size:12px;color:var(--war-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
 .war-hq-picker-done{flex:0 0 auto;font-size:12px;color:var(--war-done)}
 /* V17 归档行/确认条（聚焦页决策带下方）。 */
 .war-archive-row{display:flex;align-items:center;gap:8px;margin-top:6px}

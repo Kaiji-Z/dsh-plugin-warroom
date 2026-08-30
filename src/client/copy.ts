@@ -48,6 +48,9 @@ export interface WarCopy {
     hqPickerRegister: string
     hqPickerRegistered: string
     hqPickerEmpty: string
+    /** V18.9.4 分组列头（带计数）。 */
+    hqPickerRegGroup: (n: number) => string
+    hqPickerDoneGroup: (n: number) => string
     xcardPrefix: string
     footStat: (squads: number, planets: number, fronts: number) => string
     kbGroupAria: string
@@ -681,6 +684,8 @@ export const warCopy: WarCopy = {
     hqPickerRegister: '注册为星球',
     hqPickerRegistered: '已注册',
     hqPickerEmpty: '宿主侧暂无工作区（或清单未就绪）',
+    hqPickerRegGroup: n => `可注册（${n}）`,
+    hqPickerDoneGroup: n => `已在星域（${n}）`,
     xcardPrefix: '作战中：',
     footStat: (sq, pl, fr) => `${sq} 队在外 · ${pl} 战场 · ${fr} 战线`,
     kbGroupAria: '战场清单（键盘直达战线面板）',
@@ -1145,6 +1150,8 @@ export const plainCopy: WarCopy = {
     hqPickerRegister: '添加',
     hqPickerRegistered: '已添加',
     hqPickerEmpty: '暂无工作区（或清单未就绪）',
+    hqPickerRegGroup: n => `可登记（${n}）`,
+    hqPickerDoneGroup: n => `已在看板（${n}）`,
     xcardPrefix: '进行中：',
     footStat: (sq, pl, fr) => `${sq} 个进行中 · ${pl} 个项目 · ${fr} 条线`,
     kbGroupAria: '项目清单（键盘直达战线面板）',
