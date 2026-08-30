@@ -201,8 +201,11 @@ gate('bundle', () => {
     [client, 'war-switch', 'settings toggle switches (persist localStorage)'],
     [client, 'war-dispatch-add', 'dispatch-dock compose button (sticky lead)'],
     [client, 'war-sched-card', 'composer schedule option cards'],
-    [client, 'war-cron-input', 'composer cron input + presets'],
-    [client, 'cronPresets', 'cron preset lexicon (both skins)'],
+    [client, 'war-cron-input', 'composer advanced cron input (alarm UI generates cron by default)'],
+    [client, 'buildAlarmCron', 'V18.8 alarm-style cron builder (modes+time -> 5-field cron)'],
+    [client, 'war-alarm-mode', 'V18.8 alarm repeat-mode chips (once/daily/weekday/weekly)'],
+    [client, 'data-war-front-pick', 'V18.8 fused planet->front selector (front chips per planet)'],
+    [client, 'war-tpl', 'V18.8 command template chips fill the draft'],
     [host, 'directive_dispatched', 'scheduled command dispatch event'],
     [host, 'dueScheduledDirectives', 'scheduled command due calculator'],
     // V9.3（复评 27/40 整改）：Esc 层协调器 + 弹窗 dialog 语义/焦点圈禁 +
@@ -271,8 +274,6 @@ gate('bundle', () => {
     // composer 二级削层 + side-tab 侧条退役 + 聚焦页 URL hash。
     [client, 'displayTitleOf', 'V16.4 protocol marker stripped from human title surfaces (H1/chips/cards)'],
     [client, 'war-island-badge.wait', 'V16.4 amber=waiting-for-you moved to inbox badge (machine counts neutral)'],
-    [client, 'war-bf-more', 'V16.4 composer battlefield tiering (parent context + expandable rest)'],
-    [client, 'war-recent-toggle', 'V16.4 composer recent-orders collapsed by default'],
     [client, 'hitsRect', 'V16.4 starfield xcard lane avoidance around planet nameplates'],
     [client, 'war-wz-kbplanet', 'V16.4-R2 keyboard mirror buttons for planet front panels (canvas was pointer-only)'],
     [client, 'war-map-hint-x', 'V16.4-R2 map-hint toast dismissible + dock-aware position'],
@@ -322,7 +323,7 @@ gate('bundle', () => {
     // V14 战线范式收口：本地计代/origin 溯源/composer 星球/星球战线清单/写侧引导。
     [client, 'localGenOf', 'V14 front-local generation numbering'],
     [client, 'originChip', 'V14 origin trace chip (续接自 源星球·源战线)'],
-    [client, 'bfSection', 'V14 composer explicit battlefield picker'],
+    [client, 'planetSection', 'V14->V18.8 composer planet picker (fused with front selection)'],
     [client, '【星球：', 'V14 battlefield protocol marker (cross-skin token)'],
     [client, 'war-wz-tipfront', 'V18.3 front rows inside the pinned hover card (bfpanel popup retired)'],
     [client, 'focusWs', 'V18.3 focus as display master: hover card pins to the focused planet'],

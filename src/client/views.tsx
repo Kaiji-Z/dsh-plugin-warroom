@@ -13,7 +13,7 @@
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { archiveCommand, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type ContinueCandidate } from './data.ts'
+import { archiveCommand, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type FrontChoice } from './data.ts'
 import { activeCopy, setSkin, skinId, subscribeSkin, type SkinId } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
@@ -24,7 +24,7 @@ import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type
 import { commandTasks, frontsOf, frontOfTaskMap, greedyRootHues, wsKeyOf, UNGROUPED_WS_KEY, type WarFront, type WzBridgeFrontLite } from './front.ts'
 import { warLogKindColor } from './war-tokens.ts'
 import { PipeOverlay, type PipeFamily, type PipeStop } from './pipe-overlay.tsx'
-import { nextRunOf, parseCron } from '../schedule.ts'
+import { buildAlarmCron, nextRunOf, parseCron, type AlarmSpec } from '../schedule.ts'
 import { waitKindOf } from './waithint.ts'
 import { QUALITY_TIERS } from '../types.ts'
 
@@ -688,8 +688,8 @@ function CommandGroupCard(props: { rootId: string; cards: BoardCommand[]; render
  * 选项卡——自主度（放权多少）与发布时机（立即 / cron 定时，到点 tick 自动
  * 下达、一次有效）。档位标记仍拼入命令文本（机制不变）；Ctrl+Enter 提交。
  * 真组件（createElement 挂载）：hooks 各归各实例（#310 教训）。 */
-function CommandComposer(props: { recent: string[]; onClose: () => void; refresh: () => void; /** V10 战线续接：可选接续目标候选（已成形仗，新→旧 ≤5）。 */ continueCandidates?: ContinueCandidate[]; /** 预选接续目标（任务回报卡「下续战令」播种）。 */ initialContinueId?: string | null; /** V14 显式星球（现存星球清单；续接默认带父战线星球）。 */ battlefields?: Array<{ key: string; name: string }> }): ReactNode {
-  const { recent, onClose, refresh, continueCandidates = [], initialContinueId = null } = props
+function CommandComposer(props: { onClose: () => void; refresh: () => void; /** V18.8 全板战线（星球→战线融合选择器选项）。 */ fronts?: FrontChoice[]; /** 预选接续（任务回报卡「下续战令」播种：命令 id + 所属星球键）。 */ initialContinueId?: string | null; initialBattlefield?: string | null; /** 星球清单（现存星球，创建序）。 */ battlefields?: Array<{ key: string; name: string }> }): ReactNode {
+  const { onClose, refresh, fronts = [], initialContinueId = null, initialBattlefield = null } = props
   const layer = useModalLayer(onClose, activeCopy().composer.title)
   // V10.1 critique P1-3：焦点直落 textarea（此前停在弹窗容器 DIV，多按一次 Tab）。
   const taRef = useRef<HTMLTextAreaElement | null>(null)
@@ -699,27 +699,27 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
   const [text, setText] = useState(() => { try { return localStorage.getItem('warroom-draft') ?? '' } catch { return '' } })
   const [grade, setGrade] = useState<ComposerGrade>('auto')
   const [sched, setSched] = useState<'now' | 'cron'>('now')
-  const [cronExpr, setCronExpr] = useState('')
-  // V10 战线续接：接到哪条旧令后面（null=开新战线）。
+  // V18.8 闹钟式定时（元首令：裸 cron 对人不友好）：模式+时刻为源，cron 由
+  // buildAlarmCron 派生；「高级」面板直写表达式时打 override（用户明确知道 cron）。
+  const [alarm, setAlarm] = useState<AlarmSpec>(() => {
+    const t = new Date(Date.now() + 24 * 3600 * 1000)
+    const pad = (n: number): string => String(n).padStart(2, '0')
+    return { mode: 'once', time: '09:00', date: `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`, dows: [1] }
+  })
+  const [cronOverride, setCronOverride] = useState<string | null>(null)
+  const alarmEdit = (patch: Partial<AlarmSpec>): void => { setAlarm(a => ({ ...a, ...patch })); setCronOverride(null) }
+  const cronExpr = cronOverride ?? buildAlarmCron(alarm)
+  // V18.8 星球→战线融合选择器（元首令：续接必随前战线的星球）——星球与战线
+  // 一个控件：cont 非空时 bfPick 即战线所属星球，结构性排除「续接 A 却选星球 B」。
+  const [bfPick, setBfPick] = useState<string | null>(initialBattlefield)
   const [cont, setCont] = useState<string | null>(initialContinueId)
-  // V14 显式星球（null=大副定）：续接选中时默认带父战线星球——改选即宣告新战线。
-  const [bfPick, setBfPick] = useState<string | null>(null)
   // V15 战线名（可选；不填=命令原文）。
   const [name, setName] = useState('')
-  // V16.4 critique P2-3：选项墙削层——星球全列与最近命令默认收进二级（picker
-  // 本体仍常驻，V14.1 定案不翻）；续接时星球行只摆「父战线」语境项。
-  const [bfExpanded, setBfExpanded] = useState(false)
-  const [recentOpen, setRecentOpen] = useState(false)
-  // V18 critique A2：续接候选折叠——平铺 ≤4（新战线+3 最近），其余进折叠（全板唯一 >4 决策簇的收口）。
-  const [contOpen, setContOpen] = useState(false)
-  const bfChoices = props.battlefields
-  const pickCont = (id: string | null): void => {
-    setCont(id)
-    const cand = id !== null ? (props.continueCandidates ?? []).find(c => c.commandId === id) : undefined
-    setBfPick(cand?.bf ?? null)
-  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const bfChoices = props.battlefields ?? []
+  const planetFronts = fronts.filter(f => f.bf === bfPick)
+  const pickPlanet = (key: string | null): void => { setBfPick(key); setCont(null) }
   const cronErr: string | null = useMemo(() => {
     if (sched !== 'cron' || cronExpr.trim() === '') return null
     try {
@@ -729,6 +729,12 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
       return err instanceof Error ? err.message : String(err)
     }
   }, [sched, cronExpr])
+  // 单次时刻已过去（本地钟）：不拦会滚到明年同日——就地报错更诚实。
+  const oncePast: boolean = useMemo(() => {
+    if (sched !== 'cron' || cronOverride !== null || alarm.mode !== 'once') return false
+    const t = new Date(`${alarm.date}T${alarm.time}:00`)
+    return Number.isNaN(t.getTime()) || t.getTime() <= Date.now()
+  }, [sched, cronOverride, alarm])
   const nextPreview: string | null = useMemo(() => {
     if (sched !== 'cron' || cronErr !== null || cronExpr.trim() === '') return null
     try {
@@ -739,7 +745,7 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
     }
   }, [sched, cronErr, cronExpr])
   const submit = (): void => {
-    if (busy || text.trim() === '' || cronErr !== null) return
+    if (busy || text.trim() === '' || cronErr !== null || oncePast) return
     if (sched === 'cron' && cronExpr.trim() === '') return
     setBusy(true)
     setError(null)
@@ -785,6 +791,54 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         onChange: e => { setText((e.target as HTMLTextAreaElement).value) },
         onKeyDown: e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit() },
       }),
+      // V18.8 常用命令模板：贴着输入框——点击即填，填完仍可改（比空着猜格式快）。
+      createElement('div', { className: 'war-tpl-row', role: 'group', 'aria-label': copy.templatesLabel },
+        createElement('span', { className: 'war-tpl-label' }, copy.templatesLabel),
+        copy.templates.map(t => createElement('button', {
+          key: t.label, type: 'button', className: 'war-tpl', title: t.text, 'data-war-tpl': t.label,
+          onClick: () => { setText(t.text) },
+        }, t.label)),
+      ),
+      // 星球→战线两级一体：先选星球（参谋定/现存星球），选中才展开战线行。
+      createElement('div', { className: 'war-cp-section' }, copy.planetSection),
+      createElement('div', { className: 'war-continue-row' },
+        createElement('button', {
+          key: 'planet-auto', type: 'button',
+          className: `war-continue-chip${bfPick === null ? ' on' : ''}`,
+          title: copy.planetAutoHint,
+          'data-war-bf-auto': 'true',
+          onClick: () => { pickPlanet(null) },
+        }, copy.planetAuto),
+        ...bfChoices.map(b => createElement('button', {
+          key: b.key, type: 'button',
+          className: `war-continue-chip${bfPick === b.key ? ' on' : ''}`,
+          title: b.key,
+          'data-war-bf': b.key,
+          onClick: () => { pickPlanet(bfPick === b.key ? null : b.key) },
+        }, b.name)),
+      ),
+      bfPick !== null
+        ? createElement('div', { key: 'front-block' },
+          createElement('div', { className: 'war-front-sub' }, copy.frontSub),
+          createElement('div', { className: 'war-continue-row' },
+            createElement('button', {
+              key: 'front-new', type: 'button',
+              className: `war-continue-chip${cont === null ? ' on' : ''}`,
+              title: copy.frontNewHint,
+              'data-war-front-new': 'true',
+              onClick: () => { setCont(null) },
+            }, copy.frontNew),
+            ...planetFronts.map(f => createElement('button', {
+              key: f.rootCommandId, type: 'button',
+              className: `war-continue-chip war-chain-hue-${f.hueSlot}${cont !== null && f.members.includes(cont) ? ' on' : ''}${f.live ? ' war-front-live' : ''}`,
+              title: `${f.label} · ${f.gens} 代${f.live ? '（进行中）' : '（已收官）'}`,
+              'data-war-front-pick': f.contId,
+              onClick: () => { setBfPick(f.bf); setCont(f.contId) },
+            }, `${f.label.slice(0, 12)}${f.label.length > 12 ? '…' : ''}${f.gens > 1 ? ` ·${f.gens}代` : ''}${f.live ? copy.frontLiveSuffix : ''}`)),
+          ),
+          planetFronts.length === 0 ? createElement('div', { className: 'war-cp-note' }, copy.frontEmpty) : null,
+        )
+        : null,
       createElement('div', { className: 'war-cp-section' }, copy.nameSection),
       createElement('input', {
         className: 'war-name-input', type: 'text', value: name, maxLength: 24,
@@ -803,135 +857,58 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
         optionCard('cron', sched === 'cron', copy.schedCron, 'war-sched-card', () => { setSched('cron') }),
       ),
       sched === 'cron'
-        ? createElement('div', { className: 'war-cron-block' },
-          createElement('div', { className: 'war-cron-presets' },
-            copy.cronPresets.map(pr => createElement('button', {
-              key: pr.cron, type: 'button',
-              className: `war-cron-preset${cronExpr.trim() === pr.cron ? ' on' : ''}`,
-              title: pr.cron,
-              onClick: () => { setCronExpr(pr.cron) },
-            }, pr.label)),
+        ? createElement('div', { className: 'war-alarm-block' },
+          createElement('div', { className: 'war-alarm-row' },
+            copy.alarmModes.map(m => createElement('button', {
+              key: m.id, type: 'button',
+              className: `war-continue-chip war-alarm-mode${alarm.mode === m.id && cronOverride === null ? ' on' : ''}`,
+              title: m.hint,
+              'data-war-alarm': m.id,
+              onClick: () => { alarmEdit({ mode: m.id }) },
+            }, m.name)),
           ),
-          createElement('input', {
-            className: 'war-cron-input',
-            type: 'text',
-            value: cronExpr,
-            placeholder: copy.cronPlaceholder,
-            'aria-label': copy.cronLabel,
-            onChange: e => { setCronExpr((e.target as HTMLInputElement).value) },
-          }),
+          createElement('div', { className: 'war-alarm-row' },
+            ...(alarm.mode === 'once' ? [createElement('input', {
+              key: 'd', className: 'war-alarm-date', type: 'date', value: alarm.date,
+              'aria-label': copy.alarmDateLabel,
+              onChange: e => { alarmEdit({ date: (e.target as HTMLInputElement).value }) },
+            })] : []),
+            createElement('input', {
+              key: 't', className: 'war-alarm-time', type: 'time', value: alarm.time,
+              'aria-label': copy.alarmTimeLabel,
+              onChange: e => { alarmEdit({ time: (e.target as HTMLInputElement).value }) },
+            }),
+            ...(alarm.mode === 'weekly' ? [createElement('div', { key: 'dows', className: 'war-dow-row', role: 'group', 'aria-label': copy.alarmTimeLabel },
+              copy.dowNames.map((n, i) => createElement('button', {
+                key: n, type: 'button',
+                className: `war-continue-chip war-dow${alarm.dows.includes(i + 1) ? ' on' : ''}`,
+                'aria-pressed': alarm.dows.includes(i + 1),
+                onClick: () => { alarmEdit({ dows: alarm.dows.includes(i + 1) ? alarm.dows.filter(d => d !== i + 1) : [...alarm.dows, i + 1] }) },
+              }, n)),
+            )] : []),
+          ),
+          oncePast ? createElement('div', { className: 'war-err' }, copy.pastTime) : null,
           cronErr !== null ? createElement('div', { className: 'war-err' }, copy.cronError(cronErr)) : null,
           nextPreview !== null ? createElement('div', { className: 'war-cron-next' }, copy.nextRun(nextPreview)) : null,
+          createElement('details', { className: 'war-cron-adv' },
+            createElement('summary', null, copy.alarmAdvanced),
+            createElement('input', {
+              className: 'war-cron-input',
+              type: 'text',
+              value: cronExpr,
+              placeholder: copy.cronPlaceholder,
+              'aria-label': copy.cronLabel,
+              onChange: e => { setCronOverride((e.target as HTMLInputElement).value) },
+            }),
+          ),
         )
-        : null,
-      continueCandidates.length > 0
-        ? createElement('div', { className: 'war-cp-section' }, copy.continueSection)
-        : null,
-      continueCandidates.length > 0
-        ? createElement('div', { className: 'war-continue-row' },
-          createElement('button', {
-            key: 'cont-none', type: 'button',
-            className: `war-continue-chip${cont === null ? ' on' : ''}`,
-            onClick: () => { pickCont(null) },
-          }, copy.continueNone),
-          ...continueCandidates
-            .filter((c, i) => contOpen || cont === c.commandId || i < 3)
-            .map(c => createElement('button', {
-            key: c.commandId, type: 'button',
-            className: `war-continue-chip war-chain-hue-${c.hueSlot}${cont === c.commandId ? ' on' : ''}`,
-            title: `${c.text}（${c.live ? activeCopy().chain.tags.pivot : activeCopy().chain.tags.deepen}）`,
-            'aria-label': `${genLabel(c.generation) === '' ? 'Ⅰ' : genLabel(c.generation)}·${displayTitleOf(c.text)}${c.live ? '（进行中）' : ''}`,
-            'data-war-cont': c.commandId,
-            onClick: () => { pickCont(cont === c.commandId ? null : c.commandId) },
-          }, `${genLabel(c.generation) === '' ? 'Ⅰ' : genLabel(c.generation)}·${displayTitleOf(c.text).slice(0, 12)}${c.text.length > 12 ? '…' : ''}${c.live ? ' ⚡' : ''}`)),
-          ...(continueCandidates.length > 3
-            ? [createElement('button', {
-              key: 'cont-more', type: 'button',
-              // V18.2 正名：此前复用 war-recent-toggle 造成一类双用（shoot-v7 抓到
-              // count==1 断言双值）——接续折叠钮独立类名，样式与 recent 开关同源。
-              className: 'war-continue-toggle',
-              onClick: () => { setContOpen(o => !o) },
-            }, contOpen ? copy.contFoldLess : copy.contFoldMore(continueCandidates.length - 3))] : []),
-        )
-        : null,
-      bfChoices !== undefined && bfChoices.length > 0
-        ? (() => {
-          // V16.4 P2-3：续接中=父星球语境项优先（改选=新战线，走「其他▾」二级）；
-          // 新战线=只摆前 4 颗+「其他▾」。选中键不在一级也要可见（如最老的星球）。
-          const contParentBf = cont !== null ? continueCandidates.find(c => c.commandId === cont)?.bf ?? null : null
-          const primary = cont !== null && contParentBf !== null
-            ? bfChoices.filter(b => b.key === contParentBf)
-            : bfChoices.slice(0, 4)
-          const rest = bfChoices.filter(b => !primary.some(p => p.key === b.key))
-          const shown = [
-            ...primary,
-            ...(bfPick !== null && !primary.some(p => p.key === bfPick) ? bfChoices.filter(b => b.key === bfPick) : []),
-          ]
-          return createElement('div', { key: 'bf-section' },
-            createElement('div', { className: 'war-cp-section' }, copy.bfSection),
-            createElement('div', { className: 'war-continue-row' },
-              createElement('button', {
-                key: 'bf-auto', type: 'button',
-                className: `war-continue-chip${bfPick === null ? ' on' : ''}`,
-                title: copy.bfAutoHint,
-                onClick: () => { setBfPick(null) },
-              }, copy.bfAuto),
-              ...shown.map(b => createElement('button', {
-                key: b.key, type: 'button',
-                className: `war-continue-chip${bfPick === b.key ? ' on' : ''}`,
-                title: b.key,
-                'data-war-bf': b.key,
-                onClick: () => { setBfPick(bfPick === b.key ? null : b.key) },
-              }, b.name)),
-              ...(rest.length > 0 && !bfExpanded
-                ? [createElement('button', {
-                  key: 'bf-more', type: 'button',
-                  className: 'war-continue-chip war-bf-more',
-                  'aria-expanded': false,
-                  title: copy.bfMore,
-                  onClick: () => { setBfExpanded(true) },
-                }, copy.bfMore)]
-                : []),
-              ...(bfExpanded ? rest.map(b => createElement('button', {
-                key: b.key, type: 'button',
-                className: `war-continue-chip${bfPick === b.key ? ' on' : ''}`,
-                title: b.key,
-                'data-war-bf': b.key,
-                onClick: () => { setBfPick(bfPick === b.key ? null : b.key) },
-              }, b.name)) : []),
-            ),
-            cont !== null
-              ? createElement('div', { className: 'war-cp-note' }, copy.bfContNote)
-              : null,
-          )
-        })()
-        : null,
-      recent.length > 0
-        ? (recentOpen
-          ? createElement('div', { className: 'war-recent-row' },
-            createElement('span', { className: 'war-recent-label' }, copy.recentLabel),
-            recent.map((r, i) => createElement('button', {
-              key: `recent-${i}`,
-              type: 'button',
-              className: 'war-recent-item',
-              title: r,
-              onClick: () => { setText(r) },
-            }, r)),
-          )
-          : createElement('button', {
-            key: 'recent-toggle', type: 'button',
-            className: 'war-recent-toggle',
-            'aria-expanded': false,
-            title: copy.recentLabel,
-            onClick: () => { setRecentOpen(true) },
-          }, copy.recentToggle))
         : null,
       error !== null ? createElement('div', { className: 'war-err' }, error) : null,
       createElement('div', { className: 'war-modal-actions' },
         createElement('button', { className: 'war-btn', onClick: onClose }, copy.cancel),
         createElement('button', {
           className: 'war-btn primary',
-          disabled: busy || text.trim() === '' || cronErr !== null || (sched === 'cron' && cronExpr.trim() === ''),
+          disabled: busy || text.trim() === '' || cronErr !== null || oncePast || (sched === 'cron' && cronExpr.trim() === ''),
           onClick: submit,
         }, busy ? copy.busy : sched === 'cron' ? copy.submitScheduled : copy.submit),
       ),
@@ -2423,17 +2400,25 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       g.cards.push(c)
     }
     for (const g of dispatchGroups) g.cards.sort((a, b) => a.chain.generation - b.chain.generation)
-    // V10 起草器续接候选：已批准且任务已成形（新→旧 ≤5）；live=有未收束 attempt。
-    const continueCandidates: ContinueCandidate[] = commandsNewest
-      .filter(c => c.status === 'approved' && c.taskId !== null)
-      .slice(0, 5)
-      .map(c => ({
-        commandId: c.commandId,
-        text: c.text,
-        generation: localGenOf(c), // V14：composer 说战线的话（本地代序），不再报链代
-        hueSlot: chainHueOf(c),
-        live: chainOf(c).some(t => t.attemptLog.some(a => a.endedAt === null)),
-        bf: cmdFront.get(c.commandId)?.battlefield ?? null,
+    // V18.8 起草器融合选择器：星球→战线两级一体。contId=段内最新令（continuesFrom
+    // 落点，与旧 continueCandidates 同语义：commandsNewest 首个命中即段内最新）；
+    // members=段内全部命令 id——下续战令播种可能指到段中代，选中高亮要认得出。
+    const frontCont = new Map<string, string>()
+    for (const c of commandsNewest) {
+      const f = cmdFront.get(c.commandId)
+      if (f !== undefined && f.battlefield !== null && !frontCont.has(f.rootCommandId)) frontCont.set(f.rootCommandId, c.commandId)
+    }
+    const frontChoices: FrontChoice[] = fronts
+      .filter(f => f.battlefield !== null)
+      .map(f => ({
+        rootCommandId: f.rootCommandId,
+        contId: frontCont.get(f.rootCommandId) ?? f.generations[f.generations.length - 1]!.commandId,
+        bf: f.battlefield as string,
+        label: displayTitleOf(f.title),
+        live: f.generations.some(cmdActive),
+        gens: f.generations.length,
+        hueSlot: f.hueSlot,
+        members: f.generations.map(g => g.commandId),
       }))
     // V10-R3a 星域投影（纯）：workspace 创建序→同心椭圆；活体 attempt 上近地轨道。
     // 坐标全确定性推导——SSE revision 翻新零抖动。
@@ -3018,7 +3003,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           ),
         ),
       hqPickerOpen ? createElement(HqWorkspacePicker, { key: 'hqpicker', registered: registeredPlanets, onClose: () => { setHqPickerOpen(false) }, onRegistered: refresh }) : null,
-      composerOpen ? createElement(CommandComposer, { key: 'composer', recent: [...new Set(commandsNewest.map(c => c.text))].slice(0, 3), continueCandidates, initialContinueId: continueSeed, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
+      composerOpen ? createElement(CommandComposer, { key: 'composer', fronts: frontChoices, initialContinueId: continueSeed, initialBattlefield: continueSeed !== null ? cmdFront.get(continueSeed)?.battlefield ?? null : null, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,

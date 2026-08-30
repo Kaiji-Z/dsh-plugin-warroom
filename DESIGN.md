@@ -791,3 +791,25 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **③2D 战线环（舰长令「战线也用环形段数来区分」）**：draw 签名加 fronts 参数（starfield3d 传 frontsRef）——每星球一环、分段=战线数、环色=星球身份色（黄金角 (pi+1)·0.618 轮转，深 72/55 浅 62/38，与 3D rebuildFrontLines 同式），半径 rr+4.5、线宽 2、角隙 0.35；dim 随星球 globalAlpha 同乘。至此 2D/3D 星域符号语言完全对齐（元首四可读+战线环）。
 
 **验证**：verify PASS + shoot-v17/v7/theme 全绿 + 2D 实拍（名签上方+身份色分段环）/3D 远界实拍（放平弧回归）。取证 shots-v182/v186-*。
+
+## V18.7 星球高亮名签退役（2026-08-30，元首令）
+
+悬停星球时贴着星球下缘的 `.war-wz-pname` 高亮名签整个退役（元首定案：悬停卡已含星球名与状态，名签冗余）。starfield3d 的 pname nameRef/帧内 DOM 更新块删除；styles.ts 的 pname 令牌与规则删除；probe-warzone 的 pname 断言改 hlWs.size 检查。星域高亮语义不变（悬停 preview→页签切片+族系高亮，聚焦钉住）。
+
+**验证**：verify PASS + shoot-v17/v7 全绿。
+
+## V18.8 起草器重设计：模板 + 星球→战线融合选择器 + 闹钟式定时（2026-08-30，元首五条令）
+
+元首定案五条：①定时改闹钟式操作（裸 cron "0 9 * * *" 不直观）②星球与战线融合成一个选项（续接必随前战线星球，选冲突要在结构上不可能）③最近命令退役（分散注意）④新增常用命令模板⑤布局按操作习惯重排。
+
+**①常用命令模板**：textarea 贴身一排 5 枚 chips（每周总结/依赖巡检/测试巡检/文档同步/代码审查，文本按本项目开发编排工具的性格撰写：小版本直接动+拿不准只报告的边界语义），点击即填草稿可再改；`copy.composer.templates` 三皮肤随词典（平话皮肤独立措辞）。最近命令三连根除：views props/CSS `.war-recent-*`/词典键全清。
+
+**②星球→战线融合选择器**：旧「战线续接（≤5 候选 chips）」+「战场选择器（auto+星球+其他▾二级）」两个拼不顺的区块合并为一个控件——先选星球（「参谋定」auto 或现存星球），选中星球才展开「这颗星球的战线」行（「新战线」chip 默认选中 + 该星球全部战线 chips，进行中 ⚡ 在前、已收官在后，链色 hueSlot 随战线）。数据源换 `frontsOf` 全量战线（旧 continueCandidates 只看得到 ≤5 条最新已批准命令），views 派生 `FrontChoice{rootCommandId, contId, bf, label, live, gens, hueSlot, members}`——contId=段内最新令（continuesFrom 落点，与旧候选同语义）；members=段内全部命令 id（下续战令播种可能指到段中代，选中高亮要认得出）。**结构性保证**：cont 非空时 bfPick 即该战线所属星球——选星球即清 cont、选战线即带星球，「续接 A 星球战线却发布到 B 星球」在 UI 上不可表达。`data-war-front-pick`/`data-war-front-new`/`data-war-bf-auto` 新钩子。
+
+**③闹钟式定时**：`src/schedule.ts` 增 `buildAlarmCron(AlarmSpec)` 纯函数（mode once/daily/weekday/weekly + time HH:MM + once 日期 + weekly 周几集合 → 5 段 cron；无效输入返回空串禁提交；周日=7 靠 parseField 归 0）。UI：重复模式四 chips（单次/每天/工作日/每周…）+ 原生 `type=date`/`type=time` 输入 + 周七多选 chips；下一次触发预览常驻；「单次时刻已过去」就地报错（nextRunOf 会静默滚到明年同日——不拦更不诚实）；cron 生成默认接管，`<details>` 高级面板保留直写 cron（override 语义：手写后模式 chips 让位，改任一闹钟字段即收回 override）。旧 cronPresets 退役。
+
+**④布局**：textarea → 模板 chips → 星球与战线（含战线行）→ 战线名 → 自主度 → 发布时机 → 动作，与「写什么→落哪→放多少权→何时发」的操作顺序一致。
+
+**坑**：`buildAlarmCron` 只被 client 引用——host bundle tree-shake 掉，verify 针脚要指 client；probe 自检「零周几禁提交」时双击 toggle=恒等操作（周一默认已开，点两下回原样）——断言要按真实初始态推演。
+
+**验证**：verify PASS（新增 buildAlarmCron/war-alarm-mode/data-war-front-pick/war-tpl/planetSection 五针脚，撤 cronPresets/war-bf-more/war-recent-toggle/bfSection）+ schedule.test 7/7 + probe-v188 全过（模板填充/星球→战线联动高亮/闹钟四模式/过去时刻拦截/零周几禁提交/高级 cron 报错与恢复/每周定时端到端下达/trek+plain 皮肤词条）+ shoot-v7（Phase G 重写）/shoot-v17 全绿。取证 `.goal/evidence/v18/v188-*`。

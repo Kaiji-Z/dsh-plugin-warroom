@@ -413,15 +413,6 @@ body[data-ds-dark-theme] .war-root{
 .war-card-note.is-fail{color:var(--war-fail)}
 .war-preflight-text{flex:1 1 auto;min-width:0;font-size:12px;color:var(--war-wait);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-preflight-btn{padding:2px 8px;font-size:12px;line-height:18px;flex:0 0 auto}
-.war-recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
-.war-recent-label{font-size:12px;color:var(--war-text-3);flex:0 0 auto}
-.war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
-.war-recent-item:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
-/* V16.4 critique P2-3：选项墙削层——收起态开关钮（最近命令/其他星球二级展开）。 */
-/* V18.2：war-continue-toggle（接续候选折叠钮）与 recent 开关同款式——V18.1 曾
- * 复用同类名造成一类双用（选择器语义失效，shoot-v7 抓到）。 */
-.war-recent-toggle,.war-continue-toggle{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;margin-top:8px} /* V16.4-R2：text-3 浅色 3.71:1 不达 4.5（probe 抓）——升 text-2 */
-.war-recent-toggle:hover,.war-continue-toggle:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 
 /* --- V7-⑥ 空板首用引导 -------------------------------------------------------- */
 .war-onboard{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px 20px;text-align:center}
@@ -584,11 +575,17 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-grade-card.on .war-grade-card-name{color:var(--war-select-name)}
 .war-grade-card.on .war-grade-card-name::before,.war-sched-card.on .war-grade-card-name::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px}
 .war-grade-card-hint{font-size:12px;line-height:1.5;color:var(--war-text-2)}
-.war-cron-block{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.war-cron-presets{display:flex;gap:6px;flex-wrap:wrap}
-.war-cron-preset{font-size:12px;line-height:20px;padding:2px 10px;border-radius:var(--war-r-sm);border:1px solid var(--war-border);color:var(--war-text-2);background:var(--war-card-bg);cursor:pointer;font-family:var(--war-font)}
-.war-cron-preset:hover{border-color:var(--war-border-hover)}
-.war-cron-preset.on{color:var(--war-select-name);border-color:var(--war-run-border);background:var(--war-select-tint);font-weight:600}
+/* V18.8 闹钟式定时（替代 cron presets）：模式 chips + 原生 date/time + 周几组。 */
+.war-alarm-block{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.war-alarm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.war-alarm-time,.war-alarm-date{font-family:var(--war-font);font-size:13px;color:var(--war-text-1);background:var(--war-well-bg);border:1px solid var(--war-border);border-radius:var(--war-r-md);padding:4px 10px;outline:none}
+.war-alarm-time:focus,.war-alarm-date:focus{border-color:var(--war-run-border)}
+body[data-ds-dark-theme] .war-root .war-alarm-time,body[data-ds-dark-theme] .war-root .war-alarm-date{color-scheme:dark}
+.war-dow-row{display:flex;gap:4px;flex-wrap:wrap}
+.war-cron-adv{margin-top:2px;font-size:12px}
+.war-cron-adv summary{cursor:pointer;color:var(--war-text-2);line-height:20px;width:fit-content}
+.war-cron-adv summary:hover{color:var(--war-text-1)}
+.war-cron-adv input{margin-top:6px}
 .war-cron-input{width:100%;font-family:var(--war-font-code);font-size:13px;color:var(--war-text-1);background:var(--war-well-bg);border:1px solid var(--war-border);border-radius:var(--war-r-md);padding:8px 12px;outline:none}
 .war-cron-input:focus{border-color:var(--war-run-border)}
 .war-cron-next{font-size:12px;color:var(--war-text-2)}
@@ -665,7 +662,13 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
 .war-cd-chain-item{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid color-mix(in srgb,var(--chain-hue,#888) 35%,transparent);background:color-mix(in srgb,var(--chain-hue,#888) 8%,transparent);color:var(--war-text-2);font-size:12px;line-height:18px;padding:1px 8px;border-radius:var(--war-r-pill);cursor:pointer;text-align:left;font-family:var(--war-font)}
 .war-cd-chain-item.now{font-weight:700;color:color-mix(in srgb,var(--chain-hue,#888) var(--war-chain-strength),var(--war-chain-mixto));border-color:color-mix(in srgb,var(--chain-hue,#888) 60%,transparent);cursor:default}
 .war-cd-chain-item:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
-/* 起草器续接排：独立类（勿混用 war-recent-item——V7 取证脚本按它定位，混类=针脚事故） */
+/* V18.8 常用命令模板：贴输入框的一排填充 chips（dashed=可点但不喧宾）。 */
+.war-tpl-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.war-tpl-label{font-size:12px;color:var(--war-text-3);flex:0 0 auto}
+.war-tpl{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;font-family:var(--war-font)} /* V16.4-R2 口径：text-3 底线以下不再用 */
+.war-tpl:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
+.war-front-sub{font-size:12px;line-height:20px;color:var(--war-text-3);margin-top:6px}
+/* 起草器续接排：独立类（勿混用 war-tpl——一类一用，V18.1 针脚事故口径） */
 .war-continue-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .war-continue-chip{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-family:var(--war-font)}
 .war-continue-chip.on{border-style:solid;border-color:var(--war-focus);color:var(--war-text-1);font-weight:600;background:var(--war-run-tint)}

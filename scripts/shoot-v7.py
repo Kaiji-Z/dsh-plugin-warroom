@@ -442,48 +442,64 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     assert page.locator(".war-island-focus").count() == 0, "blank click did not exit focus mode"
 
-    # --- Phase G: 起草器重设计（入口=调度坞左端 ＋；档位/时机选项卡 + cron 定时）。 ---
+    # --- Phase G: 起草器 V18.8 重设计（常用命令模板 + 星球→战线融合选择器 + 闹钟式定时）。 ---
     page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
     assert page.locator(".war-grade-card").count() == 3, "composer autonomy option cards missing"
     assert page.locator(".war-sched-card").count() == 2, "composer schedule option cards missing"
+    assert page.locator(".war-tpl").count() == 5, "command template chips missing"
+    assert page.locator(".war-recent-toggle, .war-recent-item").count() == 0, "recent-commands feature must stay retired"
+    assert page.locator("[data-war-front-pick]").count() == 0, "front rows must hide before a planet is picked"
+    # 模板点击即填草稿。
+    page.locator(".war-tpl").first.click()
+    assert page.locator(".war-composer").input_value() != "", "template did not fill the draft"
     page.locator(".war-composer").fill("取证：档位开关应把标记拼进命令文本")
-    page.locator(".war-grade-card", has_text="直接做").click()
+    # 融合选择器：选星球 → 展开该星球战线行；选战线 → 星球与战线同时高亮（续接必随星球）。
+    page.locator("[data-war-bf]").first.click()
+    page.wait_for_timeout(200)
+    assert page.locator("[data-war-front-new]").count() == 1, "front-new chip missing after planet pick"
     page.screenshot(path=f"{OUT}/v7-composer.png")
-    print("shot: v7-composer.png (option cards + cron scheduling)")
+    print("shot: v7-composer.png (templates + fused planet->front selector)")
+    if page.locator("[data-war-front-pick]").count() > 0:
+        page.locator("[data-war-front-pick]").first.click()
+        page.wait_for_timeout(150)
+        assert page.locator(".war-continue-chip.on[data-war-front-pick]").count() == 1, "picked front not highlighted"
+        assert page.locator(".war-continue-chip.on[data-war-bf]").count() == 1, "planet not highlighted together with front"
+        page.locator("[data-war-front-new]").click()
+        page.wait_for_timeout(100)
+    page.locator(".war-grade-card", has_text="直接做").click()
     page.locator(".war-modal-actions button.primary").click()
     page.wait_for_timeout(1500)
     assert page.locator(".war-command-card", has_text="!!直接做 取证").count() == 1, "grade marker did not ride the created command"
-    # 定时下达：preset 选中 → cron 输入同步 → 提交后调度坞出现 ⏰ 待发卡。
+    # 闹钟式定时：模式 chips + 时刻输入 → 提交后调度坞出现 ⏰ 待发卡。
     page.locator(".war-dispatch-add").click()
     page.wait_for_selector(".war-modal", timeout=3000)
-    # V16.4 critique P2-3：最近命令默认收进二级开关（选项墙削层）——点开才见条目。
-    assert page.locator(".war-recent-toggle").count() == 1, "recent commands collapsed toggle missing"
-    page.locator(".war-recent-toggle").click()
-    assert page.locator(".war-recent-item").count() >= 1, "recent commands row missing after expand"
     page.locator(".war-sched-card", has_text="定时").click()
-    assert page.locator(".war-cron-presets").count() == 1, "cron presets missing after choosing 定时"
-    page.locator(".war-cron-preset").first.click()
-    assert page.locator(".war-cron-input").input_value().strip() == "0 9 * * *", "preset did not fill the cron input"
-    assert page.locator(".war-cron-next").count() == 1, "next-run preview missing for a valid cron"
-    # 非法 cron 就地报错且提交被禁（错误预防）。
+    page.wait_for_timeout(200)
+    assert page.locator(".war-alarm-mode").count() == 4, "alarm repeat-mode chips missing"
+    assert page.locator(".war-alarm-date").count() == 1 and page.locator(".war-alarm-time").count() == 1, "once mode must show date+time inputs"
+    assert page.locator(".war-cron-next").count() == 1, "next-run preview missing for the default alarm"
+    # 单次时刻已过去 → 就地报错 + 提交禁用（nextRunOf 会滚到明年，就地拦更诚实）。
+    page.locator(".war-alarm-date").fill("2020-01-01")
+    page.wait_for_timeout(200)
+    assert page.locator(".war-err").count() >= 1, "past-time alarm must show an inline error"
+    assert page.locator(".war-modal-actions button.primary").is_disabled(), "submit must be disabled on past once"
+    # 每天：日期输入退场；高级 cron 直写非法值 → 报错禁用，改回合法 → 预览回归。
+    page.locator('[data-war-alarm="daily"]').click()
+    page.wait_for_timeout(200)
+    assert page.locator(".war-alarm-date").count() == 0 and page.locator(".war-alarm-time").count() == 1, "daily mode must drop the date input"
+    page.locator(".war-cron-adv summary").click()
     page.locator(".war-cron-input").fill("99 * * * *")
     page.wait_for_timeout(200)
     assert page.locator(".war-err").count() >= 1, "invalid cron must show an inline error"
     assert page.locator(".war-modal-actions button.primary").is_disabled(), "submit must be disabled on invalid cron"
     page.locator(".war-cron-input").fill("0 9 * * *")
+    page.wait_for_timeout(200)
+    assert page.locator(".war-cron-next").count() == 1, "next-run preview missing after cron override"
     page.locator(".war-composer").fill("取证：定时命令到点自动下达")
     page.locator(".war-modal-actions button.primary").click()
     page.wait_for_timeout(1500)
     assert page.locator(".war-chip.sched").count() >= 1, "scheduled command card must carry the ⏰ chip"
-    # 最近命令重发仍可用（V16.4：composer 重开默认收起——先展开再点）。
-    page.locator(".war-dispatch-add").click()
-    page.wait_for_selector(".war-modal", timeout=3000)
-    page.locator(".war-recent-toggle").click()
-    page.locator(".war-recent-item").first.click()
-    assert page.locator(".war-composer").input_value() != "", "recent re-send did not fill the composer"
-    page.locator(".war-modal-actions button", has_text="取消").click()
-    page.wait_for_timeout(200)
 
     # --- Phase G2: 设置抽屉（⚙：皮肤/图例/行为开关/连接）。 ---
     page.locator(".war-island-gear").click()
@@ -765,7 +781,10 @@ with sync_playwright() as p:
     page.wait_for_selector(".war-modal", timeout=3000)
     page.locator(".war-composer").fill("定时取证：每周一早看看依赖有没有新版本")
     page.locator(".war-sched-card", has_text="定时").click()
-    page.locator(".war-cron-preset", has_text="每周一 9 点").click()
+    page.wait_for_timeout(150)
+    page.locator('[data-war-alarm="weekly"]').click()
+    page.wait_for_timeout(150)
+    assert page.locator(".war-dow-row .war-dow").count() == 7, "weekly mode must show 7 dow chips"
     page.locator(".war-modal-actions .war-btn.primary", has_text="定时下达").click()
     page.wait_for_selector(".war-command-card:has-text('定时取证')", timeout=8000)
     page.locator(".war-command-card", has_text="定时取证").first.click()

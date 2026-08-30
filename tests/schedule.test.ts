@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { appendEvent, loadCampaign } from '../src/events.ts'
 import { boardProjection, dueBounties } from '../src/dashboard.ts'
-import { nextRunOf, parseCron, CronParseError } from '../src/schedule.ts'
+import { buildAlarmCron, nextRunOf, parseCron, CronParseError } from '../src/schedule.ts'
 
 function tmpStateDir(): string {
   return mkdtempSync(join(tmpdir(), 'warroom-sched-'))
@@ -75,4 +75,22 @@ test('dueBounties: busy rounds skip, finished rounds reopen, gap never backfills
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('buildAlarmCron: once pins day+month, daily/weekday emit ranges, weekly emits sorted list', () => {
+  assert.equal(buildAlarmCron({ mode: 'once', time: '9:05', date: '2026-12-01', dows: [] }), '5 9 1 12 *')
+  assert.equal(buildAlarmCron({ mode: 'daily', time: '09:00', date: '', dows: [] }), '0 9 * * *')
+  assert.equal(buildAlarmCron({ mode: 'weekday', time: '09:30', date: '', dows: [] }), '30 9 * * 1-5')
+  assert.equal(buildAlarmCron({ mode: 'weekly', time: '09:00', date: '', dows: [3, 1, 5] }), '0 9 * * 1,3,5')
+  // 周日=7 → parseField 归 0；表达式必须可被 parseCron 接受且周日可达。
+  const sunday = buildAlarmCron({ mode: 'weekly', time: '08:00', date: '', dows: [7] })
+  assert.equal(sunday, '0 8 * * 7')
+  assert.ok(nextRunOf(sunday, new Date(2026, 7, 23, 12, 0).getTime()) !== undefined)
+})
+
+test('buildAlarmCron: invalid time/date/empty-dows return empty string (submit disabled)', () => {
+  assert.equal(buildAlarmCron({ mode: 'daily', time: '9:0', date: '', dows: [] }), '')
+  assert.equal(buildAlarmCron({ mode: 'daily', time: '25:00', date: '', dows: [] }), '')
+  assert.equal(buildAlarmCron({ mode: 'once', time: '09:00', date: '2026-13-01', dows: [] }), '')
+  assert.equal(buildAlarmCron({ mode: 'weekly', time: '09:00', date: '', dows: [] }), '')
 })

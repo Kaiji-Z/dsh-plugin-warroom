@@ -337,25 +337,29 @@ export interface WarCopy {
     cronPlaceholder: string
     cronError: (err: string) => string
     nextRun: (t: string) => string
-    cronPresets: ReadonlyArray<{ label: string; cron: string }>
-    /** V10 战线续接排：接续目标候选区标题 / 「开新战线」chip。 */
-    continueSection: string
-    continueNone: string
-    /** V14 显式战场选择（类似宿主新对话选工作区）。 */
-    bfSection: string
-    bfAuto: string
+    /** V18.8 常用命令模板（点击填入草稿，可再改）。 */
+    templates: ReadonlyArray<{ label: string; text: string }>
+    templatesLabel: string
+    /** V18.8 星球→战线融合选择器（舰长令：先选星球，再选续接哪条战线或新开；
+     *  续接必随该星球——星球与战线一个控件，不再可能选冲突）。 */
+    planetSection: string
+    planetAuto: string
+    planetAutoHint: string
+    frontSub: string
+    frontNew: string
+    frontNewHint: string
+    frontEmpty: string
+    frontLiveSuffix: string
+    /** V18.8 闹钟式定时：重复模式四选 + 时刻/日期/周几，cron 内部生成。 */
+    alarmModes: ReadonlyArray<{ id: 'once' | 'daily' | 'weekday' | 'weekly'; name: string; hint: string }>
+    alarmDateLabel: string
+    alarmTimeLabel: string
+    dowNames: ReadonlyArray<string>
+    alarmAdvanced: string
+    pastTime: string
     /** V15 战线命名（可选输入）。 */
     nameSection: string
     namePlaceholder: string
-    bfAutoHint: string
-    bfContNote: string
-    /** V16.4 critique P2-3：二级展开（星球全列）/ 最近命令收起态的开关钮。 */
-    bfMore: string
-    recentToggle: string
-    /** V18 critique A2：续接候选折叠（>3 收进折叠，平铺新战线+3）。 */
-    contFoldMore: (n: number) => string
-    contFoldLess: string
-    recentLabel: string
     kbdHint: string
   }
   attach: {
@@ -780,29 +784,40 @@ export const warCopy: WarCopy = {
     gradeL2: { name: '?? 先看方案', hint: '先呈计划待批，点头后才动工，适合大动作' },
     scheduleSection: '发布时机（何时出发）',
     schedNow: { name: '立即', hint: '下达即转达参谋' },
-    schedCron: { name: '定时', hint: '按 cron 到点自动下达（一次有效）' },
+    schedCron: { name: '定时', hint: '到点自动下达（一次有效）' },
     cronLabel: '触发时刻（cron：分 时 日 月 周）',
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
     cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，仅一次）`,
-    cronPresets: [
-      { label: '每天 9 点', cron: '0 9 * * *' },
-      { label: '工作日 9 点', cron: '0 9 * * 1-5' },
-      { label: '每周一 9 点', cron: '0 9 * * 1' },
+    templatesLabel: '常用命令（点击填入，可再改）',
+    templates: [
+      { label: '每周总结', text: '总结本周战况：列出本周完成的任务与产出、失败的任务与原因、遗留问题，形成一份周报。' },
+      { label: '依赖巡检', text: '巡检本项目的依赖：列出可升级项与已知风险，给出建议；小版本直接升级并跑测试验证，大版本只报告不动。' },
+      { label: '测试巡检', text: '跑一遍本项目的全部测试，汇总失败项与原因；有把握的小问题直接修复并复跑验证，其余报告。' },
+      { label: '文档同步', text: '对照最近的代码变更，找出 README/DESIGN 等文档里已过时的描述并更新；只改确凿过时的部分，拿不准的列出来。' },
+      { label: '代码审查', text: '审查本仓库最近的改动：找出潜在 bug、边界遗漏与明显坏味道，逐条给出文件位置、问题与修复建议；不做任何修改。' },
     ],
-    recentLabel: '最近命令（点击填入草稿）',
-    continueSection: '战线续接（可选）：这道令接到哪条旧令后面？',
-    continueNone: '新战线',
+    planetSection: '星球与战线（可选）：这道令落在哪颗星球、接续哪条战线？',
+    planetAuto: '参谋定',
+    planetAutoHint: '不指定——参谋按任务性质选择或新建星球',
+    frontSub: '这颗星球的战线：',
+    frontNew: '新战线',
+    frontNewHint: '在这颗星球上新开一条战线',
+    frontEmpty: '这颗星球还没有战线——将新开一条。',
+    frontLiveSuffix: ' ⚡',
+    alarmModes: [
+      { id: 'once', name: '单次', hint: '在指定日期时刻下达一次' },
+      { id: 'daily', name: '每天', hint: '每天同一时刻下达' },
+      { id: 'weekday', name: '工作日', hint: '周一到五，每天这个时刻下达' },
+      { id: 'weekly', name: '每周…', hint: '自选周几，到点下达' },
+    ],
+    alarmDateLabel: '日期',
+    alarmTimeLabel: '时刻',
+    dowNames: ['一', '二', '三', '四', '五', '六', '日'],
+    alarmAdvanced: '高级：直接写 cron 表达式',
+    pastTime: '所选时刻已过去——请改到未来的时间。',
     nameSection: '战线名（可选）',
     namePlaceholder: '不填则用命令原文当代线名（≤24 字）',
-    bfSection: '战场（可选）：这道令落在哪片战场？',
-    bfAuto: '参谋定',
-    bfAutoHint: '不指定——参谋按任务性质选择工作区',
-    bfContNote: '续接默认随父战线所在战场；改选即宣告另起新战线（原战线留在原战场）',
-    bfMore: '其他战场 ▾',
-    recentToggle: '⌁ 最近命令 ▾',
-    contFoldMore: n => `⌁ 其余续接 ${n} ▾`,
-    contFoldLess: '⌁ 收起续接 ▴',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {
@@ -1238,24 +1253,35 @@ export const plainCopy: WarCopy = {
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
     cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，只一次）`,
-    cronPresets: [
-      { label: '每天 9 点', cron: '0 9 * * *' },
-      { label: '工作日 9 点', cron: '0 9 * * 1-5' },
-      { label: '每周一 9 点', cron: '0 9 * * 1' },
+    templatesLabel: '常用命令（点击填入，可再改）',
+    templates: [
+      { label: '每周总结', text: '总结本周进展：列出本周完成的事项与产出、没做成的事项与原因、遗留问题，形成一份周报。' },
+      { label: '依赖巡检', text: '检查本项目的依赖：列出可升级项与已知风险，给出建议；小版本直接升级并跑测试验证，大版本只报告不动。' },
+      { label: '测试巡检', text: '跑一遍本项目的全部测试，汇总失败项与原因；有把握的小问题直接修复并复跑验证，其余报告。' },
+      { label: '文档同步', text: '对照最近的代码变更，找出 README/DESIGN 等文档里已过时的描述并更新；只改确凿过时的部分，拿不准的列出来。' },
+      { label: '代码审查', text: '检查本仓库最近的改动：找出潜在 bug、边界遗漏与明显坏味道，逐条给出文件位置、问题与修复建议；不做任何修改。' },
     ],
-    recentLabel: '最近命令（点击填入）',
-    continueSection: '接着做（可选）：这次跟进接在哪件事后面？',
-    continueNone: '全新事项',
+    planetSection: '项目与事项线（可选）：这件事在哪个项目里做、接在哪条线后面？',
+    planetAuto: '自动',
+    planetAutoHint: '不指定——规划 Agent 按任务性质选择或新建项目',
+    frontSub: '这个项目的事项线：',
+    frontNew: '新事项线',
+    frontNewHint: '在这个项目里另起一条线',
+    frontEmpty: '这个项目还没有事项线——将新起一条。',
+    frontLiveSuffix: ' ⚡',
+    alarmModes: [
+      { id: 'once', name: '一次', hint: '在指定日期时间下达一次' },
+      { id: 'daily', name: '每天', hint: '每天同一时间下达' },
+      { id: 'weekday', name: '工作日', hint: '周一到五，每天这个时间下达' },
+      { id: 'weekly', name: '每周…', hint: '自选周几，到点下达' },
+    ],
+    alarmDateLabel: '日期',
+    alarmTimeLabel: '时间',
+    dowNames: ['一', '二', '三', '四', '五', '六', '日'],
+    alarmAdvanced: '高级：直接写 cron 表达式',
+    pastTime: '所选时间已过去——请改到未来的时间。',
     nameSection: '事项线名（可选）',
     namePlaceholder: '不填则用命令原文当代线名（≤24 字）',
-    bfSection: '工作区（可选）：这件事在哪个项目里做？',
-    bfAuto: '自动',
-    bfAutoHint: '不指定——规划 Agent 按任务性质选择项目',
-    bfContNote: '跟进默认在原事项的项目里；改选即在别的项目另起一条新线',
-    bfMore: '更多项目 ▾',
-    recentToggle: '⌁ 最近命令 ▾',
-    contFoldMore: n => `⌁ 其余续接 ${n} ▾`,
-    contFoldLess: '⌁ 收起续接 ▴',
     kbdHint: 'n 新建命令 · Ctrl+Enter 提交 · Esc 关闭（草稿自动保留）',
   },
   attach: {

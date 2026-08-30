@@ -126,15 +126,20 @@ export interface BoardData {
   rosterErrors: string[]
 }
 
-/** V10 起草器「战线续接」候选：已批准且挂了任务的命令（新→旧 ≤5，live=有未收束 attempt）。 */
-export interface ContinueCandidate {
-  commandId: string
-  text: string
-  generation: number
-  hueSlot: number
-  live: boolean
-  /** V14：候选所属战线的星球键（composer 星球选择器续接默认带出；null=未锚定）。 */
-  bf: string | null
+/** V18.8 起草器「星球→战线」融合选择器选项（views 派生）。 */
+export interface FrontChoice {
+  /** 战线锚命令（本地Ⅰ代）——键与聚焦路由同源。 */
+  readonly rootCommandId: string
+  /** 段内最新令（continuesFrom 落点）。 */
+  readonly contId: string
+  /** 战线绑定的星球键（未锚定战线不入选项）。 */
+  readonly bf: string
+  readonly label: string
+  readonly live: boolean
+  readonly gens: number
+  readonly hueSlot: number
+  /** 段内全部命令 id——下续战令播种可能指到段中代，选中高亮要认得出。 */
+  readonly members: ReadonlyArray<string>
 }
 
 /** 命令区 + 按钮 → 建一张 draft 命令卡（命令引信 15s 内转交大副）。 */

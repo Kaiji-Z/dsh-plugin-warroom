@@ -106,3 +106,37 @@ export function nextRunMs(fields: CronFields, afterMs: number): number | undefin
 export function nextRunOf(expr: string, afterMs: number): number | undefined {
   return nextRunMs(parseCron(expr), afterMs)
 }
+
+/** V18.8 闹钟式定时（元首令：cron 裸串对人不友好）：起草器的重复模式 + 时刻
+ *  选择 → 5 段 cron。纯函数零时钟依赖；无效输入返回空串（提交按钮禁用）。
+ *  @param mode once=指定日一次 / daily=每天 / weekday=周一至五 / weekly=自选周几 */
+export interface AlarmSpec {
+  readonly mode: 'once' | 'daily' | 'weekday' | 'weekly'
+  /** HH:MM（24 小时制，本地时）。 */
+  readonly time: string
+  /** once 用：YYYY-MM-DD（本地日）。 */
+  readonly date: string
+  /** weekly 用：ISO 周几（1=一 … 7=日；7 由 parseField 归 0=周日）。 */
+  readonly dows: ReadonlyArray<number>
+}
+
+export function buildAlarmCron(a: AlarmSpec): string {
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(a.time)
+  if (tm === null) return ''
+  const H = Number(tm[1])
+  const M = Number(tm[2])
+  if (H > 23 || M > 59) return ''
+  if (a.mode === 'daily') return `${M} ${H} * * *`
+  if (a.mode === 'weekday') return `${M} ${H} * * 1-5`
+  if (a.mode === 'weekly') {
+    const dows = [...new Set(a.dows)].filter(d => Number.isInteger(d) && d >= 1 && d <= 7).sort((x, y) => x - y)
+    if (dows.length === 0) return ''
+    return `${M} ${H} * * ${dows.join(',')}`
+  }
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a.date)
+  if (dm === null) return ''
+  const mon = Number(dm[2])
+  const day = Number(dm[3])
+  if (mon < 1 || mon > 12 || day < 1 || day > 31) return ''
+  return `${M} ${H} ${day} ${mon} *`
+}
