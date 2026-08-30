@@ -78,7 +78,9 @@ function elbowPath(pts: Pt[], r = 8): string {
     const p0 = pts[i - 1]!, p1 = pts[i]!, p2 = pts[i + 1]!
     const v1 = { x: Math.sign(p1.x - p0.x), y: Math.sign(p1.y - p0.y) }
     const v2 = { x: Math.sign(p2.x - p1.x), y: Math.sign(p2.y - p1.y) }
-    const rr = Math.min(r, Math.abs(p1.x - p0.x) / 2, Math.abs(p1.y - p0.y) / 2, Math.abs(p2.x - p1.x) / 2, Math.abs(p2.y - p1.y) / 2)
+    // V18.9.5 修（评审 B 实证死代码）：按**段长**取 min——旧式按轴 delta 取 min，
+    // 正交折线上必有单轴 delta=0，rr 恒 0，圆角弯头从未渲染过（Q 全部退化）。
+    const rr = Math.min(r, Math.hypot(p1.x - p0.x, p1.y - p0.y) / 2, Math.hypot(p2.x - p1.x, p2.y - p1.y) / 2)
     d += ` L ${p1.x - v1.x * rr} ${p1.y - v1.y * rr} Q ${p1.x} ${p1.y} ${p1.x + v2.x * rr} ${p1.y + v2.y * rr}`
   }
   const last = pts[pts.length - 1]!
@@ -112,8 +114,12 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
         // （入=下位 +10、出=上位 -10）；执行/回报卡=左缘入（进卡）——绝不穿卡体。
         const stops: Array<{ el: Element; kind: PipeStop['kind'] }> = []
         for (const stop of fam.stops) {
-          const el = document.querySelector(`[${attrOf(stop)}="${CSS.escape(stop.id)}"]`)
-          if (el === null) continue
+          // V18.9.5 修（评审 A/B 双实锤 P1）：`.war-group-panel` 内的历史卡**不做锚**——
+          // 面板打开时锚会落到面板卡上，管线垂直穿卡/被面板(z60)遮断。同名锚取
+          // 面板外的第一张（列 Pod 本卡在 DOM 序先于面板，仍需过滤兜底）。
+          const el = Array.from(document.querySelectorAll(`[${attrOf(stop)}="${CSS.escape(stop.id)}"]`))
+            .find(c => c.closest('.war-group-panel') === null)
+          if (el === undefined) continue
           stops.push({ el, kind: stop.kind })
         }
         if (stops.length < 2) continue
@@ -135,7 +141,20 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             // 报告的 rect 偏大——贴 cmd 顶 -12 会撞进列卡下半截）。
             const ops = svg.parentElement?.querySelector('.war-ops')
             const opsBottom = ops !== null && ops !== undefined ? ops.getBoundingClientRect().bottom - box.top : a.y - 10
-            const channelY = Math.max(opsBottom + 3, Math.min(a.y - 4, opsBottom + (a.y - opsBottom) / 2))
+            let hi = Math.min(a.y - 4, opsBottom + (a.y - opsBottom) / 2)
+            // V18.9.5 修（评审 A/B 双实锤 P1）：开着的组面板下缘若压进沟带，沟抬到
+            // 面板上缘之上；面板把沟带全占（hi < 沟底）→ 命令腿不画——面板本身就是
+            // 族的表达，绝不为管线穿面板卡。
+            for (const panel of svg.parentElement?.querySelectorAll('.war-group-panel') ?? []) {
+              const pr = panel.getBoundingClientRect()
+              const pTop = pr.top - box.top
+              const pBottom = pr.bottom - box.top
+              if (pBottom <= opsBottom + 3) continue
+              if (pr.right - box.left < Math.min(a.x, b.x) || pr.left - box.left > Math.max(a.x, b.x)) continue
+              hi = Math.min(hi, pTop - 4)
+            }
+            if (hi < opsBottom + 3) return []
+            const channelY = Math.max(opsBottom + 3, hi)
             const trunkX = b.x + 5
             return [{ x: a.x, y: channelY }, { x: trunkX, y: channelY }, { x: trunkX, y: b.y }]
           }
@@ -151,7 +170,10 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
             // 卡矩形可宽于列盒（col-body 负边距/滚动条带）——沟取「卡缘↔列缘」更外侧。
             const trunkX = Math.max(a.x + 5, tz !== null ? tz.right - box.left + 5 : a.x + 5)
             const legX = Math.min(b.x - 5, rz !== null ? rz.left - box.left - 5 : b.x - 12)
-            const topY = ez !== null ? Math.max(6, ez.top - box.top + 4) : Math.min(a.y, b.y) - 14
+            // V18.9.5 修（评审 A P2）：顶沟原贴列头带内 4px——钳到列头下缘之下。
+            const chd = svg.parentElement?.querySelector('.war-zone.war-field .war-col-head')
+            const headBottom = chd !== null ? chd.getBoundingClientRect().bottom - box.top : 6
+            const topY = ez !== null ? Math.max(headBottom + 4, 6) : Math.min(a.y, b.y) - 14
             return [{ x: a.x, y: a.y }, { x: trunkX, y: a.y }, { x: trunkX, y: topY }, { x: legX, y: topY }, { x: legX, y: b.y }]
           }
           const g = (a.x + b.x) / 2
@@ -224,7 +246,9 @@ export function PipeOverlay(props: { families: PipeFamily[]; activeRootId: strin
           for (let i = 2; i <= through; i++) {
             const a = exit(i - 1), b = entry(i)
             if (a === null || b === null) continue
-            parts.push(elbowPath([a, ...leg(i), b]))
+            const pts = leg(i)
+            if (pts.length === 0) continue // V18.9.5：沟带被面板全占→此腿不画（不退化成斜线穿卡）
+            parts.push(elbowPath([a, ...pts, b]))
           }
           return parts.join(' ')
         }

@@ -831,3 +831,26 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **坑**：探针双 observer 压主题互搏**死锁页面**（一个 remove 一个 add 互相触发）——单一 observer+可切模式才是正解（probe-v189 INSTALL）；宿主 presenter 会抢回自设主题，取证脚本必须持握主题（shoot-theme 同 tick 摘的口径在等场景收敛的 3D 探针不够用）。
 
 **验证**：verify PASS（buildFortress→buildSkyShip 针脚换血）+ probe-v188 全过 + shoot-v7/v17 全绿（深色 halo 断言不受影响）+ probe-v189 双主题起草器目检 + probe-light3d 浅色远景云/旗舰/铭牌/平垫环实拍（`.goal/evidence/v18/light3d-after*.png`）。
+
+## V18.9.4 HQ 注册弹窗布局重排（2026-08-30，元首令「现在很乱」）
+
+结构=war-modal-title 头（题+✕）→ hint → 分组两段（「已在星域」done-chip 灰行 /「可注册」按钮行）→ war-hq-picker 内滚（max-height calc(80vh-72px)）。行卡两行制：主行=星球名+注册钮/已在星域 chip，副行=路径 12px 三号字。全套项目令牌（--war-done-tint/--war-done-border 等），双主题随令牌自动适配。验证：probe-hqmodal + shoot-v17 ⑥b（注册星球 6→7）。
+
+## V18.9.5 列表视图 impeccable 审查整改（双子代理 A/B + 管线五连，2026-08-30）
+
+审查口径：A=设计评审（Nielsen 0-4 计分：令牌纪律/卡位模型/解释行），B=探针实测（DOM/几何取证）。综合 31/40，P1 全修：
+
+- **①族系去重（一根一族）**——旧 map 一命令一族，续接/拆解链一个根多命令派多族；根坞卡缺席（只有列区卡）时画出**无命令锚的穿空幽灵干线**（V17.6 骂过的形态）。views 改 for+pipeRootSeen，首令代表族。
+- **②组面板卡不做锚**——面板(z60)开时同名锚落面板内历史卡→管线垂直穿面板。锚查找过滤 `.war-group-panel` 内命中（列 Pod 本卡 DOM 序在先，过滤是兜底）。
+- **③沟带全占让位**——面板下缘压进沟带→沟抬到面板上缘；占满→命令腿整条不画（面板本身是族的表达，绝不退化成斜线穿卡）。buildD 空腿跳过。
+- **④顶沟钳列头下**——任务→战报顶沟原贴列头带内 4px，钳到 .war-col-head 下缘+4。
+- **⑤弯头 rr 死代码修复**——旧按轴 delta 取 min，正交折线必有单轴 0→rr 恒 0：圆角弯头自 V17 起从未渲染过。改按段长 hypot 取 min。
+- 定时 chip 暗色对比 4.17→≥4.5：`--war-sched-text` 下沉令牌层（暗色块 mix #fff 28%，同 --war-fail 白档先例；war-tokens 哨兵抓组件区裸 hex 才落对地方）。已归档空态渲染 war-empty 安神行（旧空盒）。
+
+**调试插曲（勘误）**：修后 playground 板 gTotal=1 且 hover 链尾不亮，疑回归——`__pipeDbg` 埋点实证**非回归**：13 族全在（去重正常），「消失」的是旧幽灵族；f606 hover 不亮因其族任务锚（链头 charlie）滚出任务列视界——V17.5 可见性规则（两端可见才出管）设计内行为。probe 最初预期写错，改候选重试式。
+
+验证：verify PASS（war-tokens 哨兵先红后绿）+ probe-pipefix 8 断言全绿（自洽纯 DOM：去重≥10 / hover 恰 1 管亮 / 180 采样 0 穿卡 ×2 / 面板开 / 色相一致 / 零残留）+ shoot-v17 ⑧（8 paths 0 穿卡）+ shoot-theme 11×2。**坑：shoot-v17 的归档写把败局卡挪进已归档页签——shoot-theme 必须先跑或重播种再跑（「跑批互相换板」第二例）。**
+
+## V18.9.6 浅色 3D 云中心淡出二修（2026-08-30，元首再报「还有云飘过来遮挡」）
+
+远景环（950-1500）结构上不进前场，但 φ≈180° 的云**投影正落画面中心**（相机沿看穿原点方向取景）。修=逐帧 NDC 中心淡出带：云投影点距屏幕中心 <0.55→opacity 0，0.55-0.80 线性恢复（dt×3 平滑），baseOpacity 建造时存 userData。云照常漂它的环，只是路过正中时隐身。验证：8 朝向扫描截图全净（`.goal/evidence/v18/cloudfix-scan-*.png`）+ verify PASS。

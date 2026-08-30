@@ -1673,9 +1673,10 @@ export class WarzoneScene {
    *  极慢漂移 |x|>1600 环回。 */
   private buildClouds(): void {
     for (let i = 0; i < 12; i++) {
-      const mat = new THREE.SpriteMaterial({ map: cloudPuffTexture(i % 3), color: 0xffffff, transparent: true, opacity: det(`cd:${i}`, 0.5, 0.85), depthWrite: false, fog: false })
+      const mat = new THREE.SpriteMaterial({ map: cloudPuffTexture(i % 3), color: 0xffffff, transparent: true, opacity: det(`cd:${i}`, 0.4, 0.7), depthWrite: false, fog: false })
       const sp = new THREE.Sprite(mat)
       sp.renderOrder = -1
+      sp.userData.baseOpacity = mat.opacity
       const r = det(`cr:${i}`, 950, 1500), a = det(`ca:${i}`, 0, PI2)
       sp.position.set(Math.cos(a) * r, det(`cy:${i}`, 30, 210), Math.sin(a) * r)
       const sc = det(`cs:${i}`, 280, 560)
@@ -2021,10 +2022,21 @@ export class WarzoneScene {
     this.starGroup.rotation.y += dt * 0.004
     this.belt.rotation.y += dt * 0.01
     if (this.cloudGroup.visible) {
+      // V18.9.6 修（元首再报云遮挡）：远景环上的云在相机对侧（φ≈180°）时**正对
+      // 画面中央投影**——几何在岛后，视觉是盖住主要内容的前景雾。正解=每帧把云
+      // 投影到屏面，落进中心区（NDC 距视心 <0.55）即淡出，只在地平线带/边缘存活。
+      _v1.set(0, 0, 0).project(this.camera)
+      const cxN = _v1.x, cyN = _v1.y
       for (const c of this.cloudGroup.children) {
         c.position.x += (c.userData.drift as number) * dt
         if (c.position.x > 1600) c.position.x = -1600
         else if (c.position.x < -1600) c.position.x = 1600
+        _v2.copy(c.position).project(this.camera)
+        const dN = Math.hypot(_v2.x - cxN, _v2.y - cyN)
+        const mat = (c as THREE.Sprite).material as THREE.SpriteMaterial
+        const base = (c.userData.baseOpacity as number) ?? 0.5
+        const target = dN < 0.55 ? 0 : base * Math.min(1, (dN - 0.55) / 0.25)
+        mat.opacity += (target - mat.opacity) * Math.min(1, dt * 3)
       }
     }
   }

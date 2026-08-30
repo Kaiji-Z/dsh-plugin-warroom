@@ -1646,7 +1646,9 @@ function Zone(key: string, title: string, count: number, empty: string, children
       extra,
     ),
     createElement('div', { className: 'war-col-body' },
-      count === 0 ? createElement('div', { className: 'war-empty' }, empty) : children,
+      // V18.9.5 修（评审 A P2）：归档页签传空串安神=「调度条横幅已说过一次」——
+      // 空串不再渲染空虚线框（418×26 的假盒子）。
+      count === 0 && empty !== '' ? createElement('div', { className: 'war-empty' }, empty) : children,
     ),
   )
 }
@@ -2655,7 +2657,13 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const now = lifecycleOf(c, chainOf(c), reportSeenAtOf(c.commandId)).now
       return now === 'command' ? 0 : now === 'task' ? 1 : now === 'battle' ? 2 : 3
     }
-    const pipeFamilies: PipeFamily[] = tabCmds.map(c => {
+    // V18.9.5 修（评审 A/B 双实锤 P1）：同根多命令只出**一根**管（组=视觉单位，
+    // 锚与 stage 取最新代）——旧版每命令一管，组面板一开同根多管齐亮齐穿卡。
+    const pipeFamilies: PipeFamily[] = []
+    const pipeRootSeen = new Set<string>()
+    for (const c of tabCmds) {
+      if (pipeRootSeen.has(c.chain.rootId)) continue
+      pipeRootSeen.add(c.chain.rootId)
       const ch = chainOf(c)
       const stops: PipeStop[] = [{ kind: 'cmd', id: c.commandId }]
       const head = ch[0]
@@ -2666,8 +2674,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const settledA = ch.flatMap(t => (t.attemptLog ?? []).filter(a => a.outcome !== null && a.endedAt !== null).map(a => a.sessionId)).slice(-1)[0]
       if (settledA !== undefined) stops.push({ kind: 'report', id: settledA })
       // map 态弦锚：战线绑定的星球（首代任务的工作区）——overlay 经 __wz 投影取屏幕位。
-      return { rootId: c.chain.rootId, hueSlot: c.chain.hueSlot, stops, stage: stageIndexOf(c), wsKey: head !== undefined ? wsKeyOf(head.workspacePath) : null }
-    })
+      pipeFamilies.push({ rootId: c.chain.rootId, hueSlot: c.chain.hueSlot, stops, stage: stageIndexOf(c), wsKey: head !== undefined ? wsKeyOf(head.workspacePath) : null })
+    }
     // V7-③ trace 注入器：命令卡 family=自身；任务/会话卡 family=源命令；外部挂载 null（只压暗）。
     const traceActive = focusCommandId ?? hoverFamily
     const activeCmd = traceActive !== null ? commands.find(c => c.commandId === traceActive) ?? null : null

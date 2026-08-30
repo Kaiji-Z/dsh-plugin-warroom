@@ -46,6 +46,7 @@ export const WAR_CSS = `
    * 深色用宿主 primary 原值（为深底调的明度，实测 4.8-7.3:1）。 */
   --war-run: color-mix(in srgb, var(--dsw-alias-state-business-primary) 62%, #000);
   --war-run-strong: color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #000);
+  --war-sched-text: var(--war-run-strong);
   --war-wait: color-mix(in srgb, var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)) 58%, #000);
   --war-done: color-mix(in srgb, var(--dsw-alias-state-success-label, var(--dsw-alias-state-success-primary)) 58%, #000);
   --war-fail: color-mix(in srgb, var(--dsw-alias-state-error-label, var(--dsw-alias-state-error-primary)) 58%, #000);
@@ -154,6 +155,7 @@ body[data-ds-dark-theme] .war-root{
   --war-pop-bg: var(--dsw-alias-bg-layer-3);
   --war-run: var(--dsw-alias-state-business-primary);
   --war-run-strong: var(--dsw-alias-state-business-primary);
+  --war-sched-text: color-mix(in srgb, var(--dsw-alias-state-business-primary) 72%, #fff); /* V18.9.5：定时 chip 暗色 4.17→≥4.5（B 实测）；白档混合同 --war-fail 先例 */
   --war-wait: var(--dsw-alias-state-warn-primary);
   --war-done: var(--dsw-alias-state-success-primary);
   --war-fail: color-mix(in srgb, var(--dsw-alias-state-error-primary) 75%, #fff); /* V13：红基色天生暗于琥珀/绿，86% 白档在 well 底仅 4.29:1——败因行 12px 正文要 4.5+ */
@@ -566,7 +568,7 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-dispatch-add:focus-visible{outline:2px solid var(--war-focus);outline-offset:2px}
 
 /* --- V9.2 定时命令角标 ------------------------------------------------------ */
-.war-chip.sched{color:var(--war-run-strong);border-color:var(--war-run-border);border-style:dashed;background:var(--war-run-tint);font-weight:600}
+.war-chip.sched{color:var(--war-sched-text);border-color:var(--war-run-border);border-style:dashed;background:var(--war-run-tint);font-weight:600} /* V18.9.5 修：前景下沉令牌层（暗色块提亮，B 实测 4.17→≥4.5） */
 
 /* --- V9.2 起草器重设计（说明 + 档位/时机选项卡 + cron）---------------------- */
 .war-composer-modal{max-width:640px;max-height:80vh;overflow-y:auto}
@@ -815,7 +817,10 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-settings-body{padding-bottom:32px}
 @media (max-width:899px){
   /* V12.2 critique P1：窄窗（含 200% 缩放）列表态单列堆叠——星域态 <900px
-   * 自动回列表的先例延伸到列表自身；每区 44vh 内滚，不再三列挤省略号。 */
+   * 自动回列表的先例延伸到列表自身；每区 44vh 内滚，不再三列挤省略号。
+   * V18.9.5 修（评审 A P1-2）：root 开纵滚——旧版坞压住执行/回报两区且
+   * scroll 不可达（根高钳死），200% 缩放拿到的是一块截断的板。 */
+  .war-root{overflow-y:auto}
   .war-ops{display:flex;flex-direction:column;gap:10px}
   .war-ops .war-zone{flex:0 0 auto}
   .war-ops .war-col-body{max-height:44vh}
