@@ -1626,64 +1626,90 @@ export class WarzoneScene {
     this.dimActive = v
   }
 
-  /** V18.4 铭文（舰长令二稿）：文字处于星球**外**、悬在星球**上方**——沿星球
-   *  上缘外的弧排布（环刻语言），固定屏幕 12px（参照悬停卡路径字号），sprite
-   *  面向镜头+depthTest 关（不被星球遮挡）；星球屏半径缩到接近像素点（<8px）
-   *  才隐——文字在星球外不要求塞进星球宽度，大星球不该丢名字。失败红缀保留。 */
+  /** V18.5 铭文（舰长令三稿）：文字处于星球**外**、悬在星球**上方**，固定屏幕
+   *  12px（参照悬停卡路径字号）；**弧半径动态适配星球屏半径**（贴 limb 外 4px，
+   *  缩放跨过阈值即重绘画布）——恒定曲率会让长名弧文与星球边缘脱锚（元首实测
+   *  圈认）。星球屏半径 <8px（接近像素点）才隐。失败红缀保留。sprite 面向镜头
+   *  +depthTest 关（不被星球遮挡）。 */
   private addPlanetLabel(p: WzPlanet): void {
     const cv = document.createElement('canvas')
     let c2: CanvasRenderingContext2D | null = null
     try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过铭文 */ }
     if (c2 === null) return
-    const W = 360, H = 170, CX = W / 2, CY = 120, R = 104
+    const W = 360, H = 170
     cv.width = W; cv.height = H
     c2 = cv.getContext('2d')
     if (c2 === null) return
-    const dark = this.darkTheme !== false
     const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
-    // 逐字沿**上缘外**弧（±42° 扇区，圆心=星球中心）：canvas Y 向下，上弧左→右
-    // = 角度自 -π/2-δ **递增**（与下弧相反），字随切线 rotate(a+π/2) 保持头朝外。
+    // 字号一次性定版（长名缩字号出 84° 扇区，下限 15）；曲率 Rc 由
+    // refreshLabelCurvature 按星球屏半径动态重绘（初值=标称 104）。
+    c2.font = '600 26px system-ui, sans-serif'
     const span = Math.PI * 84 / 180
-    const measure = (text: string, size: number): number => {
-      c2!.font = `600 ${size}px system-ui, sans-serif`
-      let w = 0
-      for (const ch of [...text]) w += c2!.measureText(ch).width
-      return w
-    }
-    let fs = 26
-    const w0 = measure(p.name + suf, 26)
-    if (w0 / R > span) fs = Math.max(15, Math.floor(26 * span / (w0 / R)))
-    const total = measure(p.name + suf, fs)
-    c2.textBaseline = 'middle'
-    const drawArc = (text: string, color: string, start: number): number => {
-      c2!.font = `600 ${fs}px system-ui, sans-serif`
-      c2!.fillStyle = color
-      let ang = start
-      for (const ch of [...text]) {
-        const w = c2!.measureText(ch).width
-        const mid = ang + (w / 2) / R
-        c2!.save()
-        c2!.translate(CX + Math.cos(mid) * R, CY + Math.sin(mid) * R)
-        c2!.rotate(mid + Math.PI / 2)
-        c2!.textAlign = 'center'
-        c2!.fillText(ch, 0, 0)
-        c2!.restore()
-        ang += w / R
-      }
-      return ang
-    }
-    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', -Math.PI / 2 - total / R / 2)
-    if (suf !== '') drawArc(suf, '#e5484d', ang)
-    // depthTest 关：sprite 钉星球中心（弧文悬在上缘外），本体半球会遮中心位。
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.72 : 0.85, depthWrite: false, depthTest: false, fog: false }))
+    let w0 = 0
+    for (const ch of [...(p.name + suf)]) w0 += c2.measureText(ch).width
+    const fs = w0 / 104 > span ? Math.max(15, Math.floor(26 * span / (w0 / 104))) : 26
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: this.darkTheme !== false ? 0.72 : 0.85, depthWrite: false, depthTest: false, fog: false }))
     sprite.renderOrder = 10
     sprite.userData.labelPlanet = p.radius
     sprite.userData.labelW = W
     sprite.userData.labelH = H
-    sprite.userData.labelArcR = R
-    sprite.userData.labelFs = fs   // 画布字号随长名收缩，fit 需要它反推屏幕字号
+    sprite.userData.labelCanvas = cv
+    sprite.userData.labelTopY = 26
+    sprite.userData.labelFs = fs
+    sprite.userData.labelSuf = suf
+    sprite.userData.labelDark = this.darkTheme !== false
     sprite.position.set(0, 0, 0)
     p.mesh.add(sprite)
+  }
+
+  /** 铭文重绘（曲率适配）：Rc = (星球屏半径+4)/缩放系数——弧线贴 limb 外 4px；
+   *  下限 104（小星球弧更贴会有「环绕感」，放平悬在上方更合理），上限 400。
+   *  弧顶点固定画布位 (CX, TOP_Y)，圆心 (CX, TOP_Y+Rc)。 */
+  private refreshLabelCurvature(s: THREE.Sprite, p: WzPlanet, planetPx: number): void {
+    const cv = s.userData.labelCanvas as HTMLCanvasElement
+    const W = s.userData.labelW as number
+    const CX = W / 2
+    const TOP_Y = s.userData.labelTopY as number
+    const fs = s.userData.labelFs as number
+    const suf = s.userData.labelSuf as string
+    const dark = s.userData.labelDark as boolean
+    const TEXT_PX = 12
+    const scale = TEXT_PX / fs
+    const Rc = Math.min(400, Math.max(104, (planetPx + 4) / scale))
+    const c2 = cv.getContext('2d')
+    if (c2 === null) return
+    c2.clearRect(0, 0, cv.width, cv.height)
+    c2.textBaseline = 'middle'
+    const CY = TOP_Y + Rc
+    const measure = (text: string): number => {
+      c2.font = `600 ${fs}px system-ui, sans-serif`
+      let w = 0
+      for (const ch of [...text]) w += c2.measureText(ch).width
+      return w
+    }
+    const total = measure(p.name + suf)
+    // 上弧：canvas Y 向下，左→右 = 角度自 -π/2-δ **递增**（rotate(a+π/2) 头朝外）。
+    const drawArc = (text: string, color: string, start: number): number => {
+      c2.font = `600 ${fs}px system-ui, sans-serif`
+      c2.fillStyle = color
+      let ang = start
+      for (const ch of [...text]) {
+        const w = c2.measureText(ch).width
+        const mid = ang + (w / 2) / Rc
+        c2.save()
+        c2.translate(CX + Math.cos(mid) * Rc, CY + Math.sin(mid) * Rc)
+        c2.rotate(mid + Math.PI / 2)
+        c2.textAlign = 'center'
+        c2.fillText(ch, 0, 0)
+        c2.restore()
+        ang += w / Rc
+      }
+      return ang
+    }
+    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', -Math.PI / 2 - total / Rc / 2)
+    if (suf !== '') drawArc(suf, '#e5484d', ang)
+    ;(s.material as THREE.SpriteMaterial).map!.needsUpdate = true
+    s.userData.labelDrawnPr = planetPx
   }
 
   /** V13 战线世代环（舰长定案：战线=血脉∩星球，锚定单星球）：每条战线在其星球
@@ -1776,13 +1802,13 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
-  /** V18.4 铭文定位（舰长令二稿）：屏幕恒定 12px；文字悬在星球**上缘外**
-   *  （弧半径压着 limb 外 4px——星球更小时整体上移保持弧线在星球外，不要求
-   *  塞进星球宽度）；星球屏半径 <8px（接近像素点）才隐。 */
+  /** V18.5 铭文定位：屏幕恒定 12px；文字悬在星球**上缘外**（弧顶压 limb 外
+   *  4px），**曲率动态适配星球屏半径**——缩放跨过阈值（max(3px, 8%)）重绘画布，
+   *  弧线始终贴着当前大小的星球边缘（恒定曲率会让长名弧与星球边缘脱锚）。 */
   private fitPlanetLabel(s: THREE.Sprite, p: WzPlanet): void {
-    const R = s.userData.labelArcR as number
     const W = s.userData.labelW as number
     const H = s.userData.labelH as number
+    const TOP_Y = s.userData.labelTopY as number
     const fs = s.userData.labelFs as number
     const TEXT_PX = 12
     s.getWorldPosition(_v1)
@@ -1791,11 +1817,17 @@ export class WarzoneScene {
     const planetPx = p.radius * pxPerWorld
     if (planetPx < 8) { s.visible = false; return }
     s.visible = true
+    const drawnPr = s.userData.labelDrawnPr as number | undefined
+    if (drawnPr === undefined || Math.abs(planetPx - drawnPr) > Math.max(3, planetPx * 0.08)) {
+      this.refreshLabelCurvature(s, p, planetPx)
+    }
     const k = (TEXT_PX / fs) / pxPerWorld   // canvas px → 世界单位（屏字号恒定）
     s.scale.set(W * k, H * k, 1)
-    const arcPx = R * (TEXT_PX / fs)
-    const offScreen = arcPx - planetPx - 4  // 弧线圆心距星球中心 = planetPx+4（外 4px）
-    s.position.set(0, -offScreen / pxPerWorld, 0)
+    // 弧顶点在画布固定位 (CX, TOP_Y)——屏上它相对画布中心上移 (H/2-TOP_Y)·scale。
+    // 要它压在 limb 外 4px：sprite 中心 = 星球中心 + (0, -(Pr+4) + 顶点内偏移)。
+    const topOff = (H / 2 - TOP_Y) * (TEXT_PX / fs)
+    const dyScreen = -(planetPx + 4) + topOff
+    s.position.set(0, -dyScreen / pxPerWorld, 0)
   }
 
   /** 帧推进（demo animate 的模拟半边）：星舰呼吸/星球轨道与状态/编队/特效/调度。 */
