@@ -82,7 +82,7 @@ overlay 变体（`cordis.*.yml`）：`dev` 常规联调；`dev-on` 强制战时�
 - **v5-spike 探针定案保留**（2026-08-25，非一次性脚手架）：它是唯一能在运行时复检宿主面结构契约的工具（goals/sessions/agents 可达性、toolFilter 接受性、错误面 code）。flag 默认 off、路由缺省不注册（404）、off 时零成本——保留不碍事，删了就要靠考古 R1 证据。宿主 deepseek-harness 升级后：`WARROOM_FEATURES=v5-spike` 起服 + `GET /warroom/api/v5-spike` 一键复检（probe 会话/goal 用后即清，见 K15 残留自愈）。
 - 考题残留可清：`C:/Users/kaiji/vibecodingKJ/temp/exam-wsA`、`exam-wsB`、`exam-v3-ws`；`scripts/seed-smoke.ts --clear` 可重置演示数据。
 - **模拟作战室（playground）协议（2026-08-25 起，元首要常驻演示板）**：给元首把玩 UI/操作的演示板。必须**停服 → 播种 → 起服**三步：运行中的服务器会用内存旧态落盘覆盖种子（已实测：起服后播种，几分钟后 directives.jsonl 被清空、板变空）。播种命令 `python scripts/seed-playground.py`（只动隔离 `.smoke-state`，与 shoot-v7.py Phase 0+C 同源：全要素演示板 + L1 计划待批命令），然后按本地起服节重启 cordis.smoke.yml 服。验证：`GET /warroom/api/board` 应返回 commands 非空且 3 分钟不消失。
-- **CHANGELOG 纪律（2026-08-30 元首令，固化）**：每个版本交付必须在 `CHANGELOG.md` 顶层 `[Unreleased]` 下记一条——Keep a Changelog 1.1 格式（Added/Changed/Fixed/Removed 分组，一条=一项用户/开发者可感变化，验收证据随条目附注），风格参照 `LookatStudy/CHANGELOG.md`；发布时把 `[Unreleased]` 改为版本号+日期。README 不维护版本史，只留指向 CHANGELOG 的链接。
+- **CHANGELOG 纪律（2026-08-30 元首令，固化）**：每个版本交付必须在 `CHANGELOG.md` 顶层 `[Unreleased]` 下记一条——Keep a Changelog 1.1 格式（Added/Changed/Fixed/Removed 分组，一条=一项用户/开发者可感变化，验收证据随条目附注），风格参照 `LookatStudy/CHANGELOG.md`；**版本号一律 0.x.y**（`0.<里程碑>.<刀数>`，如 0.18.9——元首令 2026-08-30：pre-1.0 用 0 前缀区分正式版）；发布时把 `[Unreleased]` 改为版本号+日期。README 不维护版本史，只留指向 CHANGELOG 的链接。
 - git-bash curl POST 中文 JSON 会乱码入账——API 抽查一律走浏览器 fetch 或 node fetch。
 - 浏览器自动化一律 Playwright（domcontentloaded + 选择器等待，SSE 挡住 networkidle）；dsh 决策卡是分页提问卡，卡等待期聊天不推进，必须点按钮。
 

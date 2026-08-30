@@ -106,4 +106,28 @@ with sync_playwright() as pw:
     page.wait_for_timeout(3200)
     root_shot(page, 'docs/readme-starfield.png')
 
+    # ---- shot 5: 2D tactical view (default cmd mode of the map) ----
+    enter(page, 'map')
+    page.wait_for_selector('canvas', timeout=20000)
+    page.wait_for_timeout(2500)
+    root_shot(page, 'docs/readme-2d.png')
+
+    # ---- shot 6: hover family (list view; hover a 3-gen chain card -> pipes + highlight) ----
+    enter(page, 'list')
+    card = page.locator('.war-dispatch .war-command-card', has_text='compose').first
+    card.hover()
+    page.wait_for_timeout(1200)
+    root_shot(page, 'docs/readme-hover.png')
+
+    # ---- shot 7: island pinned/expanded (点击钉住——展开浮层在岛元素框外，须区域裁剪) ----
+    enter(page, 'list')
+    page.locator('.war-island').hover()
+    page.wait_for_timeout(700)
+    page.locator('.war-island').click()
+    page.wait_for_timeout(700)
+    box = page.locator('.war-island').first.bounding_box()
+    clip = {'x': max(0, box['x'] - 8), 'y': max(0, box['y'] - 8), 'width': min(1700 - box['x'], box['width'] + 760), 'height': min(box['y'] + box['height'] + 560, 990 - box['y'])}
+    page.screenshot(path='docs/readme-island.png', clip=clip)
+    print('shot: docs/readme-island.png')
+
     browser.close()
