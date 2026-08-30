@@ -104,7 +104,7 @@ with sync_playwright() as pw:
         page.wait_for_timeout(140)
     page.mouse.move(780, 150)  # park cursor on empty canvas (page coords: root starts at x=280)
     page.wait_for_timeout(3200)
-    root_shot(page, 'docs/readme-starfield.png')
+    root_shot(page, '.goal/evidence/v18/shoot-readme-starfield.png')  # 自动镜头不入 docs——README hero 用元首实拍（元首文件重跑会覆盖）
 
     # ---- shot 5: 2D tactical view (default cmd mode of the map) ----
     enter(page, 'map')
