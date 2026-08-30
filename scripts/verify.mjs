@@ -324,7 +324,8 @@ gate('bundle', () => {
     [client, 'originChip', 'V14 origin trace chip (续接自 源星球·源战线)'],
     [client, 'bfSection', 'V14 composer explicit battlefield picker'],
     [client, '【星球：', 'V14 battlefield protocol marker (cross-skin token)'],
-    [client, 'war-wz-bfpanel', 'V14 battlefield fronts panel (click planet → front list)'],
+    [client, 'war-wz-tipfront', 'V18.3 front rows inside the pinned hover card (bfpanel popup retired)'],
+    [client, 'focusWs', 'V18.3 focus as display master: hover card pins to the focused planet'],
     [client, 'war-bf-chip', 'V14.1 battlefield chip on flat (single-gen) task cards'],
     // V15 needles：续接闭环 + workspaceKind + 战线命名。
     [client, 'workspaceKind', 'V15 workspace binding kind (projection rides board, kind-aware wsKeyOf)'],

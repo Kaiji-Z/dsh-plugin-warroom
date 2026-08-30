@@ -2615,6 +2615,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       }
     }
     const wzLog = warLogOf(wzLogFeed)
+    // V18.3 聚焦态总控（舰长令）：粘性聚焦星球的 wsKey——星域悬停卡在聚焦态钉住
+    // 该星球并内嵌战线清单（bfpanel 退役）。wsKey=聚焦命令链首任务的工作区键。
+    const focusWs = focusCommandId !== null
+      ? (() => { const fc = commands.find(c => c.commandId === focusCommandId); const ch = fc !== undefined ? chainOf(fc) : []; return ch.length > 0 ? wsKeyOf(ch[0]!.workspacePath) : null })()
+      : null
     // V11.5f 高亮联动：悬停/聚焦战线的全部星域（去重）→ 对应星球亮起+名签+HQ 轨迹线。
     const highlightWs = familyCmdIds.size > 0
       ? [...new Set(tabTasks
@@ -2868,6 +2873,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 },
                 orbIdleLabel: activeCopy().starfield.orbIdle,
                 onUnavailable: () => { setNo3d(true) },
+                focusWs,
               })] : []),
           // V9 板体 = 纵向 flex：上三列局势墙（.war-ops 网格）+ 下全宽命令调度条。
           // 调度条必须是 .war-ops 的兄弟而非网格第 4 项——塞进三列网格会被放到

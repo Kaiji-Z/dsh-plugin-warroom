@@ -177,6 +177,9 @@ export interface StarfieldProps {
   readonly hqTitleLit: string
   readonly hqTitleDark: string
   readonly onOpenCommand?: (commandId: string) => void
+  /** V18.3：点星球直通该星球最新源命令聚焦页（bfpanel 弹窗退役后的唯一战线入口；
+   *  此前 views 已传此 prop 但组件未声明——旧行为实际是 no-op 走 bfpanel）。 */
+  readonly onPlanetOpen?: (wsPath: string) => void
   /** V10-R4 族链联动：光点悬停→点亮其源命令全族（CardTrace 同一状态机）。 */
   readonly onOrbHover?: (sourceCommandId: string | null) => void
   /** V10.1 昔日阵地：hover 族链时已结算 attempts 的 ghost 光点（平时不留常驻位）。 */
@@ -198,12 +201,11 @@ export interface StarfieldProps {
 /** 星域画布（真组件，createElement 挂载）：只有「现在」——活体光点、恒星开关、
  * 轨道与星；过去不留常驻位（达成印记走行星角标计数），追问看聚焦页族谱。 */
 export function StarfieldMap(props: StarfieldProps): ReactNode {
-  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onOrbHover, ghosts = [], orbIdleLabel = 'exec', mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
+  const { active, planets, troops, ariaLabel, hqTitleLit, hqTitleDark, onOpenCommand, onPlanetOpen, onOrbHover, ghosts = [], orbIdleLabel = 'exec', mapLegend, untracedLabel, ungroupedLabel, fronts = [] } = props
   // V13：未分组行星标签词典化（其余行星仍走目录名）。
   const labelOf = (ws: string): string => ws === UNGROUPED_WS_KEY ? (ungroupedLabel ?? '未分组') : planetLabel(ws)
   const posOf = new Map(planets.map(p => [p.spec.wsPath, p.spec] as const))
   // V14 点星球看战线（2D 同源）：被点星球 wsPath。
-  const [bfPanel, setBfPanel] = useState<string | null>(null)
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
   for (let r = 1; r <= maxRing; r++) {
@@ -255,8 +257,10 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         style: { left: `${spec.xPct}%`, top: `${spec.yPct}%` },
         title: `${labelOf(spec.wsPath)} · ${activeCopy().starfield.garrisonTitle(garrison.orbs.length, garrison.awaiting, garrison.triumphs, garrison.failing)}`,
         'aria-label': activeCopy().starfield.garrisonAria(labelOf(spec.wsPath), garrison.orbs.length, garrison.awaiting, garrison.triumphs, garrison.failing),
-        onClick: () => { setBfPanel(spec.wsPath) },
-        onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBfPanel(spec.wsPath) } },
+        // V18.3：bfpanel 弹窗退役（主星域并入聚焦态钉住悬停卡）——2D 回落态点星球
+        // 直通该星球最新源命令聚焦页（onPlanetOpen 既有通道）。
+        onClick: () => { onPlanetOpen?.(spec.wsPath) },
+        onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanetOpen?.(spec.wsPath) } },
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
       createElement('span', { className: 'war-planet-label' }, `${labelOf(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
@@ -312,21 +316,6 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         'aria-hidden': 'true',
       }),
     ),
-    // V14 点星球看战线（2D 同源）：星球⊃战线 清单浮层。
-    bfPanel !== null ? createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': '星球战线清单' },
-      createElement('div', { className: 'war-wz-bfpanel-head' },
-        createElement('span', { className: 'war-wz-bfpanel-title' }, labelOf(bfPanel)),
-        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', onClick: () => setBfPanel(null) }, '✕')),
-      ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
-        key: f.rootCommandId, type: 'button',
-        className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,
-        onClick: () => { setBfPanel(null); onOpenCommand?.(f.rootCommandId) },
-      },
-        createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
-        createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
-        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? '推进中' : '已收官'}`))),
-      fronts.filter(f => f.battlefield === bfPanel).length === 0
-        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, '该星球暂无战线（任务待成形）')
-        : null) : null,
+    /* V18.3：bfpanel 战线弹窗退役——战线入口统一为「点星球→聚焦」（onPlanetOpen）。 */
   )
 }

@@ -47,7 +47,7 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
       : ent.state === 'failed' ? 'st-failed' : 'st-idle'
     return `<div class="tt-head"><span class="dot" style="background:#${ent.baseGlow.getHexString()}"></span>
       <span class="tt-name">${ent.name}</span><span class="war-wz-chip ${chipCls}">${st}</span></div>
-      <div class="tt-desc" title="${ent.wsPath}">${ent.wsPath}</div>`
+      <div class="tt-desc">${ent.wsPath}</div>`
   }
   const s = ent as WzSquad
   const ph = s.phase === 'outbound' ? sf.phOutbound(Math.min(99, s.t * 100) | 0)
@@ -60,6 +60,18 @@ function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
     <span class="tt-name">${s.cname}</span><span class="tt-tag">${sf.sqTag} ${s.code}</span></div>
     <div class="tt-row"><span>${sf.targetLabel}</span><b>${tgt}</b></div>
     <div class="tt-row"><span>${sf.phaseLabel}</span><b class="tt-emph">${ph}</b></div>`
+}
+
+/** V18.3 聚焦态钉住卡内嵌战线清单（bfpanel 退役并入）：链色点+战线名+N 代·聚合态，
+ *  整行按钮（data-wz-front 事件委托→聚焦页）。词面走既有 front 词典键。 */
+function frontRowsHtml(ws: string, fronts: ReadonlyArray<WzBridgeFrontLite>): string {
+  const mine = fronts.filter(f => f.battlefield === ws)
+  if (mine.length === 0) return ''
+  return mine.map(f => `<button type="button" class="war-wz-tipfront war-chain-hue-${f.hueSlot}" data-wz-front="${f.rootCommandId}">
+    <span class="war-front-dot" aria-hidden="true"></span>
+    <span class="war-wz-tipfront-name">${f.label}</span>
+    <span class="war-wz-tipfront-meta">${activeCopy().front.genN(f.gens)} · ${f.live ? activeCopy().front.stateLive : activeCopy().front.stateSettled}</span>
+  </button>`).join('')
 }
 
 export interface WarzoneProps {
@@ -87,10 +99,14 @@ export interface WarzoneProps {
   readonly orbIdleLabel: string
   /** WebGL 不可用/初始化失败：父级整棵回落 2D 星域（底线）。 */
   readonly onUnavailable: () => void
+  /** V18.3 聚焦态总控（舰长令）：粘性聚焦星球的 wsKey——悬停卡在聚焦态钉住该
+   *  星球（锚星球投影、无需悬停）并内嵌战线列表（可点击进聚焦页）；
+   *  bfpanel 战线弹窗由此退役。null=无聚焦（悬停卡回到纯悬停行为）。 */
+  readonly focusWs: string | null
 }
 
 export function Warzone(props: WarzoneProps): ReactNode {
-  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, onPlanetHover, onPlanetClick, onVoidClick, onHqClick, orbIdleLabel, onUnavailable } = props
+  const { ariaLabel, active, planets, squads, log, fronts, highlightWs, onOpenCommand, onPlanetHover, onPlanetClick, onVoidClick, onHqClick, orbIdleLabel, onUnavailable, focusWs } = props
   const rootRef = useRef<HTMLDivElement | null>(null)
   const c3dRef = useRef<HTMLCanvasElement | null>(null)
   const c2dRef = useRef<HTMLCanvasElement | null>(null)
@@ -103,12 +119,13 @@ export function Warzone(props: WarzoneProps): ReactNode {
   const hlWsRef = useRef(highlightWs)
   const hoverWsRef = useRef<string | null>(null)
   const hlKeyRef = useRef('')
+  // V18.3 聚焦态总控：钉住星球 ws + 战线清单走 ref（帧环读，不重挂 effect）。
+  const focusWsRef = useRef(focusWs)
+  const frontsRef = useRef(fronts)
   /** V11.5g：2D 态执行卡拖放偏移（sessionId→dx/dy，相对安全区锚位；会话级内存不落盘）。 */
   const cardOffRef = useRef(new Map<string, { dx: number; dy: number }>())
   const [failed, setFailed] = useState(false)
   const [cmd, setCmd] = useState(true)
-  // V14 点星球看战线：被点行星的 wsPath（null=面板关）。
-  const [bfPanel, setBfPanel] = useState<string | null>(null)
 
   useEffect(() => {
     const root = rootRef.current
@@ -220,14 +237,15 @@ export function Warzone(props: WarzoneProps): ReactNode {
       if (mode === 'cmd') {
         const best = pickAt(e.clientX - rect.left, e.clientY - rect.top)
         if (best !== null && best.kind === 'hq') { onHqClick?.(); return }
-        if (best !== null && best.kind === 'planet') { setBfPanel((best as WzPlanet).wsPath); onPlanetClick?.((best as WzPlanet).wsPath); return }
+        // V18.3：点星球=粘性聚焦（悬停卡钉住并内嵌战线清单）——bfpanel 弹窗退役。
+        if (best !== null && best.kind === 'planet') { onPlanetClick?.((best as WzPlanet).wsPath); return }
         onVoidClick?.()
         return
       }
       const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
       if (hit !== null && hit.kind === 'hq') { onHqClick?.(); return }
       if (hit !== null && hit.kind === 'front') { onOpenCommand?.((hit as WzFrontNode).rootCommandId); return }
-      if (hit !== null && hit.kind === 'planet') { setBfPanel((hit as WzPlanet).wsPath); onPlanetClick?.((hit as WzPlanet).wsPath); return }
+      if (hit !== null && hit.kind === 'planet') { onPlanetClick?.((hit as WzPlanet).wsPath); return }
       onVoidClick?.()
     }
     const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }
@@ -279,6 +297,15 @@ export function Warzone(props: WarzoneProps): ReactNode {
     cardsEl?.addEventListener('pointerup', onCardUp)
     cardsEl?.addEventListener('pointercancel', onCardUp)
     cardsEl?.addEventListener('click', onCardClickCap, true)
+    // V18.3 悬停卡交互（舰长令）：战线行点击→聚焦页（事件委托，行内 data-wz-front）。
+    // 卡体任何点击 stopPropagation——不落回星域 click（误触空处会退出聚焦）。
+    const tipEl = tipRef.current
+    const onTipClick = (e: MouseEvent): void => {
+      e.stopPropagation()
+      const row = (e.target as HTMLElement).closest('[data-wz-front]')
+      if (row !== null) onOpenCommand?.(row.getAttribute('data-wz-front') ?? '')
+    }
+    tipEl?.addEventListener('click', onTipClick)
     root.addEventListener('mousemove', onMove)
     root.addEventListener('mouseleave', onLeave)
     root.addEventListener('contextmenu', onCtx)
@@ -341,25 +368,64 @@ export function Warzone(props: WarzoneProps): ReactNode {
       // V18 critique A2：safe 带底部让出 foot（图例/操作行）高度——3D 执行卡
       // 车道避让不再压住最容易被盖的操作教学行。
       const safe = { x: x0, y: y0, w: Math.max(220, x1 - x0), h: Math.max(170, y1 - y0) - (mode === '3d' ? 46 : 0) }
-      // 信息卡（内容变化或每 0.5s 刷新——兵力/状态实时变）
+      // 信息卡（内容变化或每 0.5s 刷新——兵力/状态实时变）。
+      // V18.3 聚焦态总控（舰长令）：悬停优先，无悬停时回落钉住卡——聚焦星球
+      // 的信息卡无需悬停常驻（锚星球投影下方），内嵌战线清单可点击进聚焦页；
+      // 退出聚焦（点空/再点同星球）即回到纯悬停行为。
       const tip = tipRef.current
       if (tip !== null) {
-        const key = hovered ? hovered.kind + ('id' in hovered ? String(hovered.id) : '') : ''
-        if (hovered !== null && tip !== null) {
+        // 星球屏幕位（tip 块局部版——posOf 声明在后方卡片区，提前引用会 TDZ）。
+        const planetPos = (ws: string): { x: number; y: number } | null => {
+          if (mode === '3d') return scene.planetScreen(ws, rw, rh)
+          const h = hits.find(q => (q.ref as { wsPath?: string }).wsPath === ws)
+          return h === undefined ? null : { x: h.x, y: h.y }
+        }
+        const focusWs = focusWsRef.current
+        const hoveredWs = hovered !== null && hovered.kind === 'planet' ? (hovered as WzPlanet).wsPath : null
+        const pinnedWs = hovered === null ? focusWs : null
+        const tipPlanetWs = hoveredWs ?? pinnedWs
+        // 内容键：悬停实体 / 钉住星球；0.5s 实时刷新两态共用。聚焦态入键——
+        // 同星悬停下点星球要立刻刷出战线行（否则等 0.5s 定时器）。
+        const key = hovered !== null ? hovered.kind + ('id' in hovered ? String(hovered.id) : '') + (hoveredWs !== null && hoveredWs === focusWs ? '#F' : '')
+          : tipPlanetWs !== null ? 'pin:' + tipPlanetWs : ''
+        if (key !== '') {
           ttTimer -= dt
           if (key !== hoverKey || ttTimer <= 0) {
             hoverKey = key; ttTimer = 0.5
-            tip.innerHTML = hovered.kind === 'hq' ? buildCard({ kind: 'hq' }, scene) : buildCard(hovered, scene)
+            let html: string
+            if (hovered !== null) {
+              html = hovered.kind === 'hq' ? buildCard({ kind: 'hq' }, scene) : buildCard(hovered, scene)
+              if (hoveredWs !== null && hoveredWs === focusWs) html += frontRowsHtml(hoveredWs, frontsRef.current)
+            } else {
+              const pin = scene.planets.find(q => q.wsPath === tipPlanetWs)
+              html = pin !== undefined ? buildCard(pin, scene) + frontRowsHtml(tipPlanetWs!, frontsRef.current) : ''
+            }
+            tip.innerHTML = html
           }
-          tip.style.display = 'block'
-          const w = tip.offsetWidth, h = tip.offsetHeight
-          let x = mx + 18, y = my + 16
-          if (x + w > safe.x + safe.w - 8) x = mx - w - 16
-          if (y + h > safe.y + safe.h - 8) y = my - h - 14
-          x = Math.min(Math.max(x, safe.x + 8), Math.max(safe.x + 8, safe.x + safe.w - w - 8))
-          y = Math.min(Math.max(y, safe.y + 8), Math.max(safe.y + 8, safe.y + safe.h - h - 8))
-          tip.style.transform = `translate(${x.toFixed(0)}px,${y.toFixed(0)}px)`
-          root.style.cursor = 'pointer'
+          if (tip.innerHTML !== '') {
+            tip.style.display = 'block'
+            const w = tip.offsetWidth, h = tip.offsetHeight
+            let x: number, y: number
+            if (hovered !== null) {
+              x = mx + 18; y = my + 16
+              if (x + w > safe.x + safe.w - 8) x = mx - w - 16
+              if (y + h > safe.y + safe.h - 8) y = my - h - 14
+            } else {
+              // 钉住态：锚星球投影正下方（行星移动跟卡），居中。
+              const pos = planetPos(tipPlanetWs!)
+              if (pos === null) { tip.style.display = 'none'; hoverKey = '' }
+              else { x = pos.x - w / 2; y = pos.y + 14 }
+            }
+            if (tip.style.display === 'block') {
+              x = Math.min(Math.max(x, safe.x + 8), Math.max(safe.x + 8, safe.x + safe.w - w - 8))
+              y = Math.min(Math.max(y, safe.y + 8), Math.max(safe.y + 8, safe.y + safe.h - h - 8))
+              tip.style.transform = `translate(${x.toFixed(0)}px,${y.toFixed(0)}px)`
+              root.style.cursor = hovered !== null ? 'pointer' : 'default'
+            }
+          } else {
+            tip.style.display = 'none'
+            root.style.cursor = mode === '3d' ? 'grab' : 'default'
+          }
         } else {
           tip.style.display = 'none'
           hoverKey = ''
@@ -526,6 +592,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
       cardsEl?.removeEventListener('pointerup', onCardUp)
       cardsEl?.removeEventListener('pointercancel', onCardUp)
       cardsEl?.removeEventListener('click', onCardClickCap, true)
+      tipEl?.removeEventListener('click', onTipClick)
       window.removeEventListener('keydown', onKey)
       for (const b of Array.from(root.querySelectorAll<HTMLElement>('[data-wz-mode]'))) b.removeEventListener('click', onBtn)
       applyMode('3d')
@@ -541,8 +608,10 @@ export function Warzone(props: WarzoneProps): ReactNode {
   useEffect(() => {
     squadsRef.current = squads
     hlWsRef.current = highlightWs
+    focusWsRef.current = focusWs
+    frontsRef.current = fronts
     sceneRef.current?.syncBoard({ active, planets, squads, log, fronts })
-  }, [active, planets, squads, log, fronts, highlightWs])
+  }, [active, planets, squads, log, fronts, highlightWs, focusWs])
 
   if (failed) return null
   return createElement('div', {
@@ -589,9 +658,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
         ? activeCopy().starfield.hintCmd
         : activeCopy().starfield.hint3d)),
     createElement('div', { ref: tipRef, className: 'war-wz-tip' }),
-    // V16.4-R2 critique P2：键盘镜像——行星→战线面板此前纯指针可达（canvas 拾取）。
-    // 视觉隐藏的星球按钮列（Tab 顺序=轨道序，focus-visible 时显形）补齐键盘路径；
-    // 与列表态的键盘严谨对齐（Sam 画像）。
+    // V16.4-R2 critique P2：键盘镜像——行星→战线此前纯指针可达（canvas 拾取）。
+    // 视觉隐藏的星球按钮列（Tab 顺序=轨道序，focus-visible 时显形）补齐键盘路径。
+    // V18.3：bfpanel 退役——键盘直达改走与点击同路的粘性聚焦（钉住卡内嵌战线）。
     createElement('div', { className: 'war-wz-kbplanets', role: 'group', 'aria-label': activeCopy().starfield.kbGroupAria },
       ...planets.map(pl => {
         // V16.4-R8 critique B：桥接星球无 name 字段——此前渲染字面 undefined（B8 实证）；
@@ -601,23 +670,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
         return createElement('button', {
           key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
           'data-wz-kb-ws': pl.wsPath,
-          onClick: () => { setBfPanel(pl.wsPath) },
+          onClick: () => { onPlanetClick?.(pl.wsPath) },
         }, `${dirLabel(pl.wsPath)}（${stText}${pl.failing > 0 ? activeCopy().starfield.failSuffix(pl.failing) : ''}）`)
       })),
-    ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': activeCopy().starfield.bfPanelAria, onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
-      createElement('div', { className: 'war-wz-bfpanel-head' },
-        createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),
-        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': activeCopy().settings.close, autoFocus: true, onClick: () => setBfPanel(null) }, '✕')  /* V16.4-R3 critique B：焦点移入 dialog——键盘镜像开启后 Esc 才可达（probe-b3 抓的死路）；V18.2 关闭词入典 */),
-      ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
-        key: f.rootCommandId, type: 'button',
-        className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,
-        onClick: () => { setBfPanel(null); onOpenCommand?.(f.rootCommandId) },
-      },
-        createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
-        createElement('span', { className: 'war-wz-bfpanel-name' }, f.label),
-        createElement('span', { className: 'war-wz-bfpanel-meta' }, `${f.gens} 代 · ${f.live ? activeCopy().front.stateLive : activeCopy().front.stateSettled}`))),  /* V16.4-R7：战线聚合态并词典（一词一面） */
-      fronts.filter(f => f.battlefield === bfPanel).length === 0
-        ? createElement('div', { className: 'war-wz-bfpanel-empty' }, activeCopy().starfield.bfPanelEmpty)
-        : null)] : []),
+    /* V18.3：bfpanel 战线弹窗退役——战线清单并入聚焦态钉住悬停卡（frontRowsHtml） */
   )
 }

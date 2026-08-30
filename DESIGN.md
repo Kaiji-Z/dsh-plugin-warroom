@@ -749,3 +749,15 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **断更期产物清理（shoot-v7 自 V17.6 页签图标化起未跑过，其后断言全部未经检验）**：①页签切换三处 text_content 匹配图标字形永远落空 → aria-label（shoot-v7 两 helper+一处内联、shoot-theme 一处）；②战报已阅停留通道实为**真产品回归**：V17/V18 聚焦页变长，940 高视口下回报段初始仅 ~51% 可见 <0.6 阈值，IO 停留计时永不启动（IO 实测 ratio 0.51）——0.6 是 V9.12 刻意收紧不放水，shooter 按通道③本义先 scrollIntoView 再计时；③**类名撞车**：V18.1 接续候选折叠钮复用 `war-recent-toggle`（一类双用，count==1 断言双值）→ 独立 `war-continue-toggle`（样式同源共享）；④probe-warzone 两处 V18 前词面（' · W-' 编号/凯旋）更新到现现实。
 
 **验证**：verify PASS（245 测+V18.2 针脚 8 条：setCmdTabPreview/cmdTabShown/wsTierTab/stPlanetActive/failSuffix/fitPlanetLabel/drawArcText/st-settled）+ shoot-v17 全绿 14 相位 + shoot-v7 全绿 + shoot-theme 11 对×2 主题全绿 + probe-v182 7/7（瘦身卡无旧字段/pager 低档悬停自动切已收官页签/混档不切/离开还原/2D 态/无 pageerror）。取证 `shots-v182/`（3D 弧刻/2D 弧刻/瘦身卡/悬停切档）。
+
+## V18.3 悬停卡定宽换行 + 聚焦态总控钉住卡 + 铭文定字号（2026-08-30，元首三条令）
+
+**①悬停卡定宽换行**：tip max-width 300→360（高度不限），路径行去省略号/title——`white-space:normal;overflow-wrap:anywhere` 完整换行（舰长令：完整路径不省略）。
+
+**②聚焦态=显示逻辑总控（舰长令）**：点星球聚焦后，悬停卡**钉住**该星球（锚星球屏幕投影正下方、随行星移动、无需悬停），内容加挂**战线清单**（`war-wz-tipfront` 行：链色点+战线名+N代·聚合态，`data-wz-front` 事件委托→聚焦页）；悬停其他实体时 tip 让位悬停卡（hover 优先），离开回落钉住卡；退出聚焦（点空/再点同星球）即回纯悬停行为。**bfpanel 战线弹窗全域退役**（主星域 + 旧版 2D 回落 StarfieldMap——后者顺带修了一个潜伏死 prop：`onPlanetOpen` 自 V10.1 就被 views 传入但组件从未声明，旧「点星球」实际走 bfpanel；今正名接通，点星球=直通该星球最新源命令聚焦页）；键盘镜像 kbplanet 同步改走粘性聚焦；bfPanelAria/bfPanelEmpty 词典键退役。**坑**：tip 内容键必须把聚焦态编进去（`#F` 后缀）——同星悬停下点星球，key 不变会让战线行等 0.5s 定时器才出现；tip 改 `pointer-events:auto` + 卡体点击 stopPropagation（防落回星域 click 误退聚焦）；onOpenCommand 虽是首帧闭包但其实现只调 setter，安全。
+
+**③铭文定字号（舰长令）**：弃 V18.2「随星球本体等比缩放+屏高夹取」——改**屏幕恒定 12px**（参照悬停卡路径字号）：`k=(12/fs)/pxPerWorld`，各星球字面同高；sprite 天性面向镜头+depthTest:false 不被星球遮挡（已有）；**隐显门槛**=星球屏半径 < 弧半径（`planetPx < arcPx`，arcPx=R·12/fs）→ 弧文放不进星球宽度直接消失，放大过门槛即现，逐星按各自到相机距离判定；可见时弧底外推贴 limb（`off=max(0, planetPx·1.16−arcPx)`）。**2D 图示整体放大一档**（元首令）：星球 `max(7,r·0.9)→max(11,r·1.25)`、HQ 八角 13→16/脉冲 16+12→20+14/核 4.5→6/标签 11→13px、编队箭 7/4→9/5、命中圈同步、名签 10→12px（高亮 13 bold）、弧半径 rr+9→rr+12、达成弧 rr+5→rr+7。
+
+**shoot-v17 断言随语义演进**：bfpanel 两断言改「退役负断言+钉住卡战线行正断言+战线行点击开聚焦页+退聚焦钉住卡消失」；归档后「已归档坞含刚归档卡」改 10s 轮询（切页签与数据刷新两拍，曾竞态假红）；**宿主噪声过滤定案**：`/api/*.describe`、`agentPreset.list`、events.mux 竞态=宿主壳层能力探测在宿主命名空间的 404/断连（环境噪声），按命名空间过滤——`/warroom/` 前缀与 pageerror 仍算真故障（shoot-v17/v7 同款 `_host_noise`）。
+
+**验证**：verify PASS（245 测+V18.3 针脚 war-wz-tipfront/focusWs）+ shoot-v17 全绿 + shoot-v7 全绿 + shoot-theme 11 对×2 全绿 + 钉住卡五步手测（聚焦显战线行/行点击开聚焦页/移开钉住常驻/完整路径无省略/退聚焦消失）。取证 shots-v182/v183-*。

@@ -756,13 +756,15 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-legend .lg-held{background:var(--war-wz-held)}
 .war-wz-legend .lg-hl{background:var(--war-wz-hl)}
 .war-wz-hint{font:12px/1.5 var(--war-font);color:var(--war-wz-hint)}
-.war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:300px;display:none;background:var(--war-wz-tip-bg);border:1px solid var(--war-wz-tip-border);border-radius:var(--war-r-md);padding:12px 14px;backdrop-filter:blur(8px);box-shadow:var(--war-wz-tip-shadow);color:var(--war-wz-tip-text);font:12px/1.65 var(--war-font);pointer-events:none}
+/* V18.3：定宽 360（高度不限，长路径换行不省略）；pointer-events auto——聚焦态
+ * 钉住卡内嵌战线行可点击（事件委托 data-wz-front，卡体点击不落回星域）。 */
+.war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:360px;display:none;background:var(--war-wz-tip-bg);border:1px solid var(--war-wz-tip-border);border-radius:var(--war-r-md);padding:12px 14px;backdrop-filter:blur(8px);box-shadow:var(--war-wz-tip-shadow);color:var(--war-wz-tip-text);font:12px/1.65 var(--war-font);pointer-events:auto}
 .war-wz-tip .tt-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .war-wz-tip .dot{width:9px;height:9px;border-radius:50%;background:var(--war-wz-tip-dot);box-shadow:0 0 5px var(--war-wz-tip-dot-glow);flex:none}
 .war-wz-tip .dot.warm{background:var(--war-wz-tip-dot-warm)}
 .war-wz-tip .tt-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--war-wz-tip-name);white-space:nowrap}
 .war-wz-tip .tt-tag{margin-left:auto;font-size:12px;color:var(--war-wz-tip-tag);border:1px solid var(--war-wz-tip-tag-border);padding:1px 7px;border-radius:99px;white-space:nowrap}
-.war-wz-tip .tt-desc{color:var(--war-wz-tip-desc);font-size:12px;margin-bottom:8px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.war-wz-tip .tt-desc{color:var(--war-wz-tip-desc);font-size:12px;margin-bottom:8px;white-space:normal;overflow-wrap:anywhere}  /* V18.3：完整路径换行不省略（舰长令） */
 .war-wz-tip .tt-row{display:flex;justify-content:space-between;gap:18px;padding:2.5px 0;border-top:1px dashed var(--war-wz-tip-row-line)}
 .war-wz-tip .tt-row span{color:var(--war-wz-tip-label)}
 .war-wz-tip .tt-row b{color:var(--war-wz-tip-value);font-weight:600;font-family:var(--war-font-code);white-space:nowrap}
@@ -973,17 +975,13 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-front-badge2d{position:absolute;transform:translate(-50%,-50%);z-index:1;font-size:12px;font-weight:600;line-height:1;padding:2px 7px;border-radius:var(--war-r-pill);color:var(--war-text-1);background:color-mix(in srgb,var(--chain-hue,#888) 30%,var(--war-pop-bg));border:1px solid color-mix(in srgb,var(--chain-hue,#888) 55%,transparent);pointer-events:none}
 .war-front-badge2d.settled{opacity:.55}
 /* V14 点星球看战线：星球⊃战线 清单浮层（3D/2D 同类名同形） */
-.war-wz-bfpanel{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:6;min-width:340px;max-width:480px;padding:10px 12px;border-radius:var(--war-r-lg);background:var(--war-pop-bg);border:1px solid var(--war-border);box-shadow:0 12px 32px rgba(0,0,0,.22)}
-.war-wz-bfpanel-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.war-wz-bfpanel-title{font-size:13px;font-weight:600;color:var(--war-text-1);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.war-wz-bfpanel-x{flex:none;border:none;background:none;cursor:pointer;font-size:13px;color:var(--war-text-2);padding:2px 6px;border-radius:var(--war-r-sm)}
-.war-wz-bfpanel-x:hover{color:var(--war-text-1);background:var(--war-well-bg)}
-.war-wz-bfpanel-row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;margin:0 0 4px;border:1px solid transparent;border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 6%,transparent);cursor:pointer;font-family:var(--war-font);font-size:12px;color:var(--war-text-1)} /* V16.4：侧条退役——行内 war-front-dot 已 carry 链色 */
-.war-wz-bfpanel-row:hover{background:color-mix(in srgb,var(--chain-hue,#888) 14%,transparent)}
-.war-wz-bfpanel-row:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
-.war-wz-bfpanel-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.war-wz-bfpanel-meta{flex:none;color:var(--war-text-2)}
-.war-wz-bfpanel-empty{font-size:12px;color:var(--war-text-2);padding:4px 2px}
+/* V18.3 聚焦态钉住悬停卡内嵌战线清单（bfpanel 弹窗退役并入；行样式承 bfpanel-row
+ * 血统：链色底染+hover 加深，链色经行上 war-chain-hue-N 类的 --chain-hue 变量）。 */
+.war-wz-tipfront{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 8px;margin:6px 0 0;border:1px solid transparent;border-radius:var(--war-r-sm);background:color-mix(in srgb,var(--chain-hue,#888) 6%,transparent);cursor:pointer;font-family:var(--war-font);font-size:12px;color:var(--war-text-1)}
+.war-wz-tipfront:hover{background:color-mix(in srgb,var(--chain-hue,#888) 14%,transparent)}
+.war-wz-tipfront:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
+.war-wz-tipfront-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.war-wz-tipfront-meta{flex:none;color:var(--war-text-2);font-size:11px}
 /* V14 溯源 chip + 起草器星球注 */
 .war-bf-chip{flex:none;font-size:12px;line-height:18px;padding:0 7px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}

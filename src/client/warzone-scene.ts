@@ -1682,6 +1682,7 @@ export class WarzoneScene {
     sprite.userData.labelW = W
     sprite.userData.labelH = H
     sprite.userData.labelArcR = R
+    sprite.userData.labelFs = fs   // V18.3：画布字号随长名收缩，fit 需要它反推屏幕字号
     sprite.position.set(0, 0, 0)
     p.mesh.add(sprite)
   }
@@ -1776,28 +1777,28 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
-  /** V18.2 铭文随星球等比缩放（本体的一部分，替代 V13.5 常屏幕尺寸）：
-   *  worldSize ∝ 星球半径（弧贴下缘）；远景夹 15px 屏高下限（可读性保底），
-   *  近景夹 30px 上限并把弧沿 -Y 外推回 limb 外（缩水不陷进星球面）。 */
+  /** V18.3 铭文定版（舰长令）：屏幕字号恒定 12px（参照悬停卡路径字号），始终
+   *  面向镜头（sprite 天性）且 depthTest 关不被星球遮挡；星球屏半径不足以容纳
+   *  整段弧文时直接消失，放大过门槛才出现；可见时弧底外推贴 limb（贴边不进面）。 */
   private fitPlanetLabel(s: THREE.Sprite, p: WzPlanet): void {
     const R = s.userData.labelArcR as number
     const W = s.userData.labelW as number
     const H = s.userData.labelH as number
-    const k = (p.radius * 1.16) / R
-    let sw = W * k, sh = H * k
+    const fs = s.userData.labelFs as number
+    const TEXT_PX = 12
     s.getWorldPosition(_v1)
     const dist = this.camera.position.distanceTo(_v1)
     const pxPerWorld = this.viewH / (2 * Math.tan((55 * Math.PI) / 360) * dist)
-    const hPx = sh * pxPerWorld
-    let off = 0
-    if (hPx < 15) { const f = 15 / hPx; sw *= f; sh *= f }
-    else if (hPx > 30) {
-      const f = 30 / hPx
-      sw *= f; sh *= f
-      off = Math.min(0, R * (sh / H) - p.radius)
-    }
-    s.scale.set(sw, sh, 1)
-    s.position.set(0, off, 0)
+    const planetPx = p.radius * pxPerWorld
+    // 门槛：文字按 12px 渲染时弧宽（弦 ≈ 2·arcPx·sin42°）须落在星球屏宽内——
+    // 即星球屏半径 ≥ arcPx（弧半径）。放不下的星球直接隐，放大过门槛才出现。
+    const arcPx = R * (TEXT_PX / fs)
+    if (planetPx < arcPx) { s.visible = false; return }
+    s.visible = true
+    const k = (TEXT_PX / fs) / pxPerWorld   // canvas px → 世界单位（屏字号恒定）
+    s.scale.set(W * k, H * k, 1)
+    const off = Math.max(0, planetPx * 1.16 - arcPx)
+    s.position.set(0, -off / pxPerWorld, 0)
   }
 
   /** 帧推进（demo animate 的模拟半边）：星舰呼吸/星球轨道与状态/编队/特效/调度。 */
@@ -2152,30 +2153,30 @@ export class WarzoneTactical {
     const s1 = { x: 0, y: 0 }, s2 = { x: 0, y: 0 }
     W2S(0, 0, s1)
     const pk = (t * 0.7) % 1
-    g.beginPath(); g.arc(s1.x, s1.y, 16 + 12 * pk, 0, PI2)
+    g.beginPath(); g.arc(s1.x, s1.y, 20 + 14 * pk, 0, PI2)  // V18.3：2D 图示整体放大一档（元首令：符号+弧文更舒服）
     g.strokeStyle = `rgba(${P.hqPulse},${0.55 * (1 - pk)})`; g.lineWidth = 1.5; g.stroke()
     g.save(); g.translate(s1.x, s1.y); g.rotate(t * 0.3)
     g.beginPath()
     for (let i = 0; i < 8; i++) {
-      const a = i / 8 * PI2, px = Math.cos(a) * 13, py = Math.sin(a) * 13
+      const a = i / 8 * PI2, px = Math.cos(a) * 16, py = Math.sin(a) * 16
       if (i) g.lineTo(px, py); else g.moveTo(px, py)
     }
     g.closePath()
     g.fillStyle = P.hqFill; g.fill()
     g.strokeStyle = P.hq; g.lineWidth = 1.6; g.stroke()
-    g.beginPath(); g.arc(0, 0, 4.5, 0, PI2); g.fillStyle = P.hqCore; g.fill()
+    g.beginPath(); g.arc(0, 0, 6, 0, PI2); g.fillStyle = P.hqCore; g.fill()
     g.restore()
-    g.fillStyle = P.hqLabel; g.font = 'bold 11px Consolas,"Microsoft YaHei"'
+    g.fillStyle = P.hqLabel; g.font = 'bold 13px Consolas,"Microsoft YaHei"'
     g.textAlign = 'center'; g.textBaseline = 'alphabetic'
-    g.fillText('HQ', s1.x, s1.y + 32)
-    hits.push({ x: s1.x, y: s1.y, r: 26, ref: { kind: 'hq' } })
-    // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹）
+    g.fillText('HQ', s1.x, s1.y + 38)
+    hits.push({ x: s1.x, y: s1.y, r: 30, ref: { kind: 'hq' } })
+    // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹；V18.3 图示放大一档）
     planets.forEach(p => {
       // V17 压暗：非命中星球整体 ×0.35（名签/刻度环随 globalAlpha 同乘）。
       g.globalAlpha = dim === true && !(hl !== undefined && hl.has(p.wsPath)) ? 0.35 : 1
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
       const col = p.state === 'active' ? tac.active : p.state === 'settled' ? tac.settled : p.state === 'failed' ? tac.failed : P.stWait
-      const rr = Math.max(7, p.radius * 0.9)
+      const rr = Math.max(11, p.radius * 1.25)
       const isHl = hl !== undefined && hl.has(p.wsPath)
       if (isHl) {
         g.setLineDash([5, 6])
@@ -2185,24 +2186,24 @@ export class WarzoneTactical {
       }
       if (p.state === 'active') {
         const k = (t * 1.4 + p.seed) % 1
-        g.beginPath(); g.arc(s1.x, s1.y, rr + 4 + k * 16, 0, PI2)
+        g.beginPath(); g.arc(s1.x, s1.y, rr + 5 + k * 19, 0, PI2)
         g.strokeStyle = `rgba(${P.battlePulse},${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()
       }
       g.beginPath(); g.arc(s1.x, s1.y, rr, 0, PI2)
       g.fillStyle = col + '2e'; g.fill()
       g.strokeStyle = isHl ? P.hl : col; g.lineWidth = isHl ? 2.6 : 1.6; g.stroke()
-      g.beginPath(); g.arc(s1.x, s1.y, 2.2, 0, PI2); g.fillStyle = col; g.fill()
+      g.beginPath(); g.arc(s1.x, s1.y, 3.2, 0, PI2); g.fillStyle = col; g.fill()
       if (p.garrison > 0) {
-        g.beginPath(); g.arc(s1.x, s1.y, rr + 5, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
-        g.strokeStyle = P.garrison; g.lineWidth = 2; g.stroke()
+        g.beginPath(); g.arc(s1.x, s1.y, rr + 7, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
+        g.strokeStyle = P.garrison; g.lineWidth = 2.5; g.stroke()
       }
       // V18.2 铭文语言与 3D 同源（舰长令：名牌变成星球的一部分）：名字沿星球
       //  下缘弧排布（环刻），替换上方悬浮直排；达成数标注退役（达成弧+悬停卡
       //  在场）——盘面保持 元首四可读：星球名/战斗状态/战线环/执行卡。
       const nm = p.name.split(' ·')[0]!
-      g.font = isHl ? 'bold 11px "Microsoft YaHei",Consolas' : '10px "Microsoft YaHei",Consolas'
+      g.font = isHl ? 'bold 13px "Microsoft YaHei",Consolas' : '12px "Microsoft YaHei",Consolas'
       const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
-      const arcR = rr + 9
+      const arcR = rr + 12
       const arcW = (text: string): number => {
         let w = 0
         for (const ch of [...text]) w += g.measureText(ch).width
@@ -2254,10 +2255,10 @@ export class WarzoneTactical {
         ang = rel + Math.PI / 2 * (s.orbitSpd >= 0 ? 1 : -1)
       }
       g.save(); g.translate(s1.x, s1.y); g.rotate(ang)
-      g.beginPath(); g.moveTo(7, 0); g.lineTo(-4, 4); g.lineTo(-4, -4); g.closePath()
+      g.beginPath(); g.moveTo(9, 0); g.lineTo(-5, 5); g.lineTo(-5, -5); g.closePath()  // V18.3：编队符号放大一档
       g.fillStyle = col; g.fill()
       g.restore()
-      hits.push({ x: s1.x, y: s1.y, r: 12, ref: s })
+      hits.push({ x: s1.x, y: s1.y, r: 14, ref: s })
       g.globalAlpha = 1
     })
     // V11.5f（舰长令）：名册/态势/速报/顶底栏文字全部休眠——只剩盘+符号+高亮。

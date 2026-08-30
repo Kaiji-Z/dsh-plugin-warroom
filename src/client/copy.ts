@@ -43,8 +43,6 @@ export interface WarCopy {
     toggle3d: string
     toggle2d: string
     toggleAria: string
-    bfPanelAria: string
-    bfPanelEmpty: string
     hqPickerTitle: string
     hqPickerHint: string
     hqPickerRegister: string
@@ -674,8 +672,6 @@ export const warCopy: WarCopy = {
     toggle3d: '3D 视图',
     toggle2d: '2D 视图',
     toggleAria: '视图切换',
-    bfPanelAria: '战场战线清单',
-    bfPanelEmpty: '该战场暂无战线（任务待成形）',
     hqPickerTitle: '注册工作区为星球',
     hqPickerHint: '选取宿主侧已建立的工作区——注册后作为星球进入星域',
     hqPickerRegister: '注册为星球',
@@ -1129,8 +1125,6 @@ export const plainCopy: WarCopy = {
     toggle3d: '3D 视图',
     toggle2d: '2D 视图',
     toggleAria: '视图切换',
-    bfPanelAria: '项目战线清单',
-    bfPanelEmpty: '该项目暂无战线（任务待成形）',
     hqPickerTitle: '添加工作区',
     hqPickerHint: '选取已有工作区——添加后进入看板地图',
     hqPickerRegister: '添加',
