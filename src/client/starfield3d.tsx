@@ -114,7 +114,6 @@ export function Warzone(props: WarzoneProps): ReactNode {
   const sceneRef = useRef<WarzoneScene | null>(null)
   const cardsRef = useRef<HTMLDivElement | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const nameRef = useRef<HTMLDivElement | null>(null)
   const squadsRef = useRef(squads)
   const hlWsRef = useRef(highlightWs)
   const hoverWsRef = useRef<string | null>(null)
@@ -549,23 +548,8 @@ export function Warzone(props: WarzoneProps): ReactNode {
             pl.line.setAttribute('y2', String(pl.y))
           }
         }
-        // 高亮名签：第一颗高亮星球上方（同样钳进安全区）
-        const nameEl = nameRef.current
-        if (nameEl !== null) {
-          const firstWs = hlList[0]
-          const pos = firstWs !== undefined ? posOf(firstWs) : null
-          if (pos !== null) {
-            const p = scene.planets.find(q => q.wsPath === firstWs)
-            nameEl.textContent = p?.name ?? ''
-            const nhw = nameEl.offsetWidth / 2 + 4
-            const nx = Math.min(Math.max(pos.x, safe.x + nhw), safe.x + safe.w - nhw)
-            const ny = Math.min(pos.y + 16, safe.y + safe.h - 26)
-            nameEl.style.visibility = ''
-            nameEl.style.transform = `translate(-50%,0) translate(${nx.toFixed(1)}px,${ny.toFixed(1)}px)`
-          } else {
-            nameEl.style.visibility = 'hidden'
-          }
-        }
+        // V18.7：高亮名签（war-wz-pname）退役——常驻弧形铭文恒显星球名，
+        // 高亮的增量表达（压暗+轨迹线+卡片高亮）不依赖名签。
       }
       raf = requestAnimationFrame(frame)
     }
@@ -662,7 +646,6 @@ export function Warzone(props: WarzoneProps): ReactNode {
         createElement('span', { className: 'war-wz-xdot' }),
         createElement('span', { className: 'war-wz-xverb' }, s.verb ?? orbIdleLabel),
         s.sourceLabel !== null ? createElement('span', { className: 'war-wz-xsrc' }, s.sourceLabel) : null))),
-    createElement('div', { ref: nameRef, className: 'war-wz-pname', 'aria-hidden': 'true' }),
     createElement('div', { className: 'war-wz-toggle', role: 'group', 'aria-label': activeCopy().starfield.toggleAria },
       createElement('button', { type: 'button', 'data-wz-mode': '3d', className: cmd ? '' : 'on' }, activeCopy().starfield.toggle3d),
       createElement('button', { type: 'button', 'data-wz-mode': 'cmd', className: cmd ? 'on' : '' }, activeCopy().starfield.toggle2d)),

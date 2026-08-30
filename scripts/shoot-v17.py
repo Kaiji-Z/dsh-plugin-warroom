@@ -562,7 +562,7 @@ def _host_noise(e: str) -> bool:
         return False
     if "/warroom/" in e:
         return False
-    return ("Failed to load resource" in e) or ("HTTP 404" in e and "/api/" in e) or ("events.mux" in e)
+    return ("Failed to load resource" in e) or ("HTTP 404" in e and "/api/" in e) or ("/api/events." in e)
 real = [e for e in errors if not _host_noise(e)]
 assert not real, f"console/page errors: {real} (raw={len(errors)})"
 print("V17 SHOTS OK")

@@ -90,8 +90,6 @@ export const WAR_CSS = `
   --war-wz-card-hover-border: #b07800; --war-wz-card-hover-text: #0b2b4a;
   --war-wz-card-shadow: 0 1px 8px rgba(30,60,100,.18); --war-wz-card-hover-shadow: 0 2px 12px rgba(30,60,100,.28);
   --war-wz-dot: #d9480f; --war-wz-dot-glow: rgba(217,72,15,.7);
-  --war-wz-pname-bg: rgba(252,253,255,.94); --war-wz-pname-border: rgba(14,116,144,.55); --war-wz-pname-text: #0b3a53;
-  --war-wz-pname-shadow: 0 1px 8px rgba(30,60,100,.2);
   --war-wz-toggle-bg: rgba(255,255,255,.78); --war-wz-toggle-border: rgba(28,78,128,.45); --war-wz-toggle-text: #33506e;
   --war-wz-toggle-on-bg: linear-gradient(180deg,rgba(25,113,194,.24),rgba(25,113,194,.08));
   --war-wz-toggle-on-text: #0b3a63; --war-wz-toggle-hover-text: #0b3a63;
@@ -180,8 +178,6 @@ body[data-ds-dark-theme] .war-root{
   --war-wz-card-hover-border: rgba(255,179,92,.9); --war-wz-card-hover-text: #eef8ff;
   --war-wz-card-shadow: 0 0 14px rgba(0,140,255,.14); --war-wz-card-hover-shadow: 0 0 18px rgba(0,140,255,.3);
   --war-wz-dot: #6fe3ff; --war-wz-dot-glow: #6fe3ff;
-  --war-wz-pname-bg: rgba(8,14,28,.82); --war-wz-pname-border: rgba(111,227,255,.5); --war-wz-pname-text: #9fdcff;
-  --war-wz-pname-shadow: 0 0 12px rgba(0,140,255,.2);
   --war-wz-toggle-bg: rgba(8,14,28,.6); --war-wz-toggle-border: rgba(111,227,255,.4); --war-wz-toggle-text: #8fb6dd;
   --war-wz-toggle-on-bg: linear-gradient(180deg,rgba(60,140,255,.3),rgba(60,140,255,.1));
   --war-wz-toggle-on-text: #eaf6ff; --war-wz-toggle-hover-text: #dff2ff;
@@ -738,7 +734,6 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-xdot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--war-wz-dot);box-shadow:0 0 5px var(--war-wz-dot-glow);animation:war-wz-breathe 1.6s ease-in-out infinite}
 .war-wz-xverb{font-weight:600}
 .war-wz-xsrc{color:var(--war-wz-card-dim)}
-.war-wz-pname{position:absolute;left:0;top:0;z-index:7;pointer-events:none;padding:2px 10px;border-radius:6px;background:var(--war-wz-pname-bg);border:1px solid var(--war-wz-pname-border);color:var(--war-wz-pname-text);font:bold 12px/1.6 var(--war-font);white-space:nowrap;box-shadow:var(--war-wz-pname-shadow)}
 @keyframes war-wz-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.82)}}
 .war-wz-toggle{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:15;display:flex;border:1px solid var(--war-wz-toggle-border);border-radius:var(--war-r-sm);overflow:hidden;backdrop-filter:blur(6px);background:var(--war-wz-toggle-bg)} /* 顶中——右上角是任务回报浮舱列头的地盘（.war-ops z=2 层叠上下文），落那儿点不到 */
 .war-wz-toggle button{appearance:none;border:0;padding:8px 16px;cursor:pointer;transition:.18s;font:12px var(--war-font);letter-spacing:.1em;color:var(--war-wz-toggle-text);background:transparent}

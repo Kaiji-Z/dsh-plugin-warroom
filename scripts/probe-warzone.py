@@ -172,7 +172,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
         hl = page.evaluate("() => ({ n: window.__wz.scene.hlWs.size, lines: window.__wz.scene.hlLines.length })")
         ok('悬停执行卡→星球高亮+HQ 轨迹线', hl['n'] >= 1 and hl['lines'] >= 1, f"hlWs={hl['n']} lines={hl['lines']}")
-        ok('高亮名签在场（星球名）', page.locator('.war-wz-pname').is_visible() and len(page.locator('.war-wz-pname').inner_text().strip()) > 0)  # V18 起星球名=目录名（W-NN 编号退役）
+        ok('星球高亮在场（hlWs 非空）', page.evaluate("() => window.__wz.scene.hlWs.size") >= 1)  # V18.7：pname 名签退役——星球名由常驻弧形铭文恒显（canvas 无 DOM）
         page.mouse.move(8, 8)
         page.wait_for_timeout(400)
         ok('移出后高亮退场', page.evaluate("() => window.__wz.scene.hlWs.size") == 0)
