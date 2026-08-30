@@ -25,6 +25,7 @@ Thumbs.db
 # ---- python bytecode ----
 __pycache__/
 
-# ---- impeccable 运行痕迹（live-server 缓存，快照目录 .impeccable/critique 保留入库）----
-.impeccable/live/
-.goal/evidence/e2e/
+# ---- agent 工作过程目录（本地开发状态，公开发布不入库；磁盘保留继续迭代用）----
+.goal/
+.impeccable/
+shots-v182/

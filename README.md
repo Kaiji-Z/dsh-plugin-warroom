@@ -2,6 +2,10 @@
 
 RTS 思维的 vibecoding 编排插件（DeepSeek Harness / dsh）：**你是元首，只在指挥中心下大白话命令；贴身参谋把每道命令转成带验收标准的任务书；按工作区征召的指挥官带多 agent 部队自主作战。作战室不是替代 thread，而是元首管理多 thread 的另一种工作方式。**
 
+![星域视图：星球=工作区，浮空岛/状态环/编队管线](docs/screenshot-starfield.png)
+
+![舰桥：灵动岛 + 三列局势墙 + 底部命令调度条](docs/screenshot-board.png)
+
 ```
 ┌─ 灵动岛（收件箱 / 到访摘要 / 聚焦 / ＋下达 / ⚙ 设置）──────────────────────┐
 ├─ 三列局势墙 ──────────────────────────────────────────────────────────────┤
@@ -113,7 +117,9 @@ pnpm dsh --profile web --patch D:/.../dsh-plugin-warroom/cordis.dev.yml --port 3
 | **V14 战线范式收口** | **血脉除名——战场⊃战线⊃命令** / 聚焦页本地计代+溯源 chip / 链色绑战线 / composer 显式战场选择（续接带父战场）/ 点战场看战线清单 / 写侧引导 | **239 测 + V14 七针脚 + 五 shooter 全绿** |
 | **V15 续接闭环+战场正名+战线命名** | 链档案三档注入（staff 1500/征召令 600/pivot 400：上代战报+产物路径+diffstat）/ workspaceKind 投影（kind 感知战场键，auto-worktree 归未分组治误判）/ 战线命名（下达时可选 ≤24 字，name??原文，本轮不可改） | **verify+V15 六针脚 + shoot-v13 命名断言 + 五 shooter 全绿** |
 | **V16 星际迷航语义统一** | **舰长—大副—外勤小队**（原元首—参谋—指挥官）/ 舰桥/星球/任务令/任务回报/星舰/出航入坞全套词表 / 术语随皮肤派生（TREK_LEXICON 运行时变换，军事/平话保留可切） | **verify + shoot-v13/v7/theme 全绿 + 三皮肤实测** |
+| V17 页签+归档+管网 | 进行中/已收官/已归档三页签 / 命令归档 / 族系管网（hover 显形+随战况生长） | verify + shoot-v17 全绿 |
+| **V18 星域语义重铸+起草器重铸** | 星球=真实工作区 / 悬停卡+聚焦钉住 / 弧形铭文 / 浅色天空旗舰+状态色环垫 / 起草器（常用命令模板+星球→战线融合选择+闹钟式定时） | **verify + probe/shoot 全绿 + 双主题实拍** |
 
 **后续候选**：路由冷恢复桥、调度轮转优化、飞书遥控、git worktree 隔离、战绩/声望、多参谋、战场游戏化、npm 发布（release.mjs + OIDC）。
 
-规格书与坑录见 `.goal/SPEC.md`（现为 v9）；实现决策录 `DESIGN.md`（改 UI 前必读）；给迭代 agent 的开局指引 `AGENTS.md`；验证协议正本 `VERIFICATION.md`。历史规格归档 `.goal/SPEC-v1.md` … `SPEC-v5.md`。
+实现决策录见 `DESIGN.md`（改 UI 前必读）；给迭代 agent 的开局指引 `AGENTS.md`；验证协议正本 `VERIFICATION.md`。
