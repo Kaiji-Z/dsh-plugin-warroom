@@ -702,6 +702,13 @@ const _c1 = new THREE.Color(), _c2 = new THREE.Color()
 
 /** 星域 3D 引擎（demo §1-§9 全量）：渲染栈/灯光/星海/星云/碎石带/星舰/16 星/
  * 编队模拟/冲击波环/加派组员循环。 */
+function measureArcText(c2: CanvasRenderingContext2D, fs: number, text: string): number {
+  c2.font = `600 ${fs}px system-ui, sans-serif`
+  let w = 0
+  for (const ch of [...text]) w += c2.measureText(ch).width
+  return w
+}
+
 export class WarzoneScene {
   readonly renderer: THREE.WebGLRenderer
   readonly scene = new THREE.Scene()
@@ -1626,11 +1633,10 @@ export class WarzoneScene {
     this.dimActive = v
   }
 
-  /** V18.5 铭文（舰长令三稿）：文字处于星球**外**、悬在星球**上方**，固定屏幕
-   *  12px（参照悬停卡路径字号）；**弧半径动态适配星球屏半径**（贴 limb 外 4px，
-   *  缩放跨过阈值即重绘画布）——恒定曲率会让长名弧文与星球边缘脱锚（元首实测
-   *  圈认）。星球屏半径 <8px（接近像素点）才隐。失败红缀保留。sprite 面向镜头
-   *  +depthTest 关（不被星球遮挡）。 */
+  /** V18.6 铭文（舰长令四稿）：文字**绕着星球走**——弧半径恒等于星球屏半径
+   *  +4px（贴 limb 外 4px），任何缩放档都贴合边缘；远界星球缩小时文字沿球面
+   *  向两侧延展（真「环绕」，元首定案），仅受「字符不自我重叠」的周长下限约束。
+   *  屏幕字号恒定 12px；sprite 面向镜头+depthTest 关；星球屏半径 <8px 才隐。 */
   private addPlanetLabel(p: WzPlanet): void {
     const cv = document.createElement('canvas')
     let c2: CanvasRenderingContext2D | null = null
@@ -1662,9 +1668,9 @@ export class WarzoneScene {
     p.mesh.add(sprite)
   }
 
-  /** 铭文重绘（曲率适配）：Rc = (星球屏半径+4)/缩放系数——弧线贴 limb 外 4px；
-   *  下限 104（小星球弧更贴会有「环绕感」，放平悬在上方更合理），上限 400。
-   *  弧顶点固定画布位 (CX, TOP_Y)，圆心 (CX, TOP_Y+Rc)。 */
+  /** 铭文重绘（曲率适配，V18.5 定案回归）：Rc = clamp((星球屏半径+4)/缩放系数,
+   *  104, 400)——弧线贴 limb 外 4px；下限 104 = 远界放平悬在上方（元首定案：
+   *  曲率下限挺好），上限 400。弧顶点固定画布位 (CX, TOP_Y)，圆心 (CX, TOP_Y+Rc)。 */
   private refreshLabelCurvature(s: THREE.Sprite, p: WzPlanet, planetPx: number): void {
     const cv = s.userData.labelCanvas as HTMLCanvasElement
     const W = s.userData.labelW as number
@@ -1675,20 +1681,14 @@ export class WarzoneScene {
     const dark = s.userData.labelDark as boolean
     const TEXT_PX = 12
     const scale = TEXT_PX / fs
-    const Rc = Math.min(400, Math.max(104, (planetPx + 4) / scale))
     const c2 = cv.getContext('2d')
     if (c2 === null) return
+    const Rc = Math.min(400, Math.max(104, (planetPx + 4) / scale))
+    const total = measureArcText(c2, fs, p.name + suf)
     c2.clearRect(0, 0, cv.width, cv.height)
     c2.textBaseline = 'middle'
     const CY = TOP_Y + Rc
-    const measure = (text: string): number => {
-      c2.font = `600 ${fs}px system-ui, sans-serif`
-      let w = 0
-      for (const ch of [...text]) w += c2.measureText(ch).width
-      return w
-    }
-    const total = measure(p.name + suf)
-    // 上弧：canvas Y 向下，左→右 = 角度自 -π/2-δ **递增**（rotate(a+π/2) 头朝外）。
+    // 上弧起笔，沿圆周排（超出 ±90° 继续向下绕——小星球×长名=真环绕）。
     const drawArc = (text: string, color: string, start: number): number => {
       c2.font = `600 ${fs}px system-ui, sans-serif`
       c2.fillStyle = color
@@ -1818,7 +1818,7 @@ export class WarzoneScene {
     if (planetPx < 8) { s.visible = false; return }
     s.visible = true
     const drawnPr = s.userData.labelDrawnPr as number | undefined
-    if (drawnPr === undefined || Math.abs(planetPx - drawnPr) > Math.max(3, planetPx * 0.08)) {
+    if (drawnPr === undefined || Math.abs(planetPx - drawnPr) > Math.max(2, planetPx * 0.06)) {
       this.refreshLabelCurvature(s, p, planetPx)
     }
     const k = (TEXT_PX / fs) / pxPerWorld   // canvas px → 世界单位（屏字号恒定）
@@ -2129,7 +2129,7 @@ export class WarzoneTactical {
     if (text !== this.legend) this.legend = text
   }
 
-  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>, dim?: boolean): void {
+  draw(t: number, planets: ReadonlyArray<WzPlanet>, squads: ReadonlyArray<WzSquad>, hits: TacHit[], safe?: { x: number; y: number; w: number; h: number }, hl?: ReadonlySet<string>, dim?: boolean, fronts?: ReadonlyArray<WzBridgeFrontLite>): void {
     const g = this.g
     const w = this.w, h = this.h
     const S = safe ?? { x: 0, y: 0, w, h }
@@ -2200,7 +2200,9 @@ export class WarzoneTactical {
     g.fillText('HQ', s1.x, s1.y + 38)
     hits.push({ x: s1.x, y: s1.y, r: 30, ref: { kind: 'hq' } })
     // 星球符号（V11.5f：高亮=粗环+亮名+HQ 虚线轨迹；V18.3 图示放大一档）
-    planets.forEach(p => {
+    const frontN = new Map<string, number>()
+    for (const f of fronts ?? []) frontN.set(f.battlefield, (frontN.get(f.battlefield) ?? 0) + 1)
+    planets.forEach((p, pi) => {
       // V17 压暗：非命中星球整体 ×0.35（名签/刻度环随 globalAlpha 同乘）。
       g.globalAlpha = dim === true && !(hl !== undefined && hl.has(p.wsPath)) ? 0.35 : 1
       W2S(p.mesh.position.x, p.mesh.position.z, s1)
@@ -2226,6 +2228,21 @@ export class WarzoneTactical {
         g.beginPath(); g.arc(s1.x, s1.y, rr + 7, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
         g.strokeStyle = P.garrison; g.lineWidth = 2.5; g.stroke()
       }
+      // V18.6 战线环 2D 同语言（V15.2 语义）：一星球一环、分段=战线数，环色=
+      // 星球身份色（黄金角轮转，与 3D rebuildFrontLines 同式）。
+      const fn = frontN.get(p.wsPath) ?? 0
+      if (fn > 0) {
+        const hue = (((pi + 1) * 0.61803398875) % 1) * 360
+        const sat = this.isDarkTheme ? 72 : 62
+        const li = this.isDarkTheme ? 55 : 38
+        const seg = (Math.PI * 2) / fn, gap = 0.35
+        g.strokeStyle = `hsl(${hue.toFixed(0)}, ${sat}%, ${li}%)`
+        g.lineWidth = 2
+        for (let i = 0; i < fn; i++) {
+          const a0 = i * seg + gap / 2
+          g.beginPath(); g.arc(s1.x, s1.y, rr + 4.5, a0, a0 + seg - gap); g.stroke()
+        }
+      }
       // V18.2 铭文语言与 3D 同源（舰长令：名牌变成星球的一部分）：名字沿星球
       //  下缘弧排布（环刻），替换上方悬浮直排；达成数标注退役（达成弧+悬停卡
       //  在场）——盘面保持 元首四可读：星球名/战斗状态/战线环/执行卡。
@@ -2238,23 +2255,25 @@ export class WarzoneTactical {
         for (const ch of [...text]) w += g.measureText(ch).width
         return w
       }
+      // V18.6：名签与 3D 同语言——星球**上方**外弧（canvas Y 向下，上弧左→右=
+      // 角度自 -π/2-δ 递增，rotate(a+π/2) 头朝外）。
       const drawArcText = (text: string, color: string, start: number): number => {
         g.fillStyle = color
         let a = start
         for (const ch of [...text]) {
           const w = g.measureText(ch).width
-          const mid = a - (w / 2) / arcR   // canvas Y 向下：左→右=角度递减（同 3D 铭文，防镜像）
+          const mid = a + (w / 2) / arcR
           g.save()
           g.translate(s1.x + Math.cos(mid) * arcR, s1.y + Math.sin(mid) * arcR)
-          g.rotate(mid - Math.PI / 2)
+          g.rotate(mid + Math.PI / 2)
           g.textAlign = 'center'; g.textBaseline = 'middle'
           g.fillText(ch, 0, 0)
           g.restore()
-          a -= w / arcR
+          a += w / arcR
         }
         return a
       }
-      let aa = drawArcText(nm, isHl ? P.nameHl : P.name, Math.PI / 2 + arcW(nm + suf) / arcR / 2)
+      let aa = drawArcText(nm, isHl ? P.nameHl : P.name, -Math.PI / 2 - arcW(nm + suf) / arcR / 2)
       if (suf !== '') drawArcText(suf, '#e5484d', aa)
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
       g.globalAlpha = 1

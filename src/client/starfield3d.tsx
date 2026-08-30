@@ -467,7 +467,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
         scene.render()
       } else {
         tac.setLegend(activeCopy().starfield.mapLegend)
-        tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet, hlList.length > 0)
+        tac.draw(t, scene.planets, scene.squads, hits, safe, hlSet, hlList.length > 0, frontsRef.current)
       }
       // V11.5f 执行卡覆盖层：活体编队卡钉在星球屏幕位 + SVG 连线 + 高亮名签
       const cards = cardsRef.current
@@ -487,7 +487,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
           const pos = posOf(p.wsPath)
           if (pos === null) continue
           const bw = Math.min(320, p.name.length * 11 + 20)
-          bands.push({ x: pos.x - bw / 2, y: pos.y + 6, w: bw, h: 22 })
+          bands.push({ x: pos.x - bw / 2, y: pos.y - 28, w: bw, h: 22 })  // V18.6：名签在星球上方，禁区随之上移
         }
         // 两段式落位：先各算基础位（拖过的卡自由摆放不动），再按 DOM 序做车道
         // 避让——横向挪位优先（线端点跟随 cx2/cy2，随时可挪），7 车道占满仍撞
