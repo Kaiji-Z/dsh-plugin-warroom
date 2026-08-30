@@ -564,8 +564,8 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 
 /* --- V9.2 起草器重设计（说明 + 档位/时机选项卡 + cron）---------------------- */
 .war-composer-modal{max-width:640px;max-height:80vh;overflow-y:auto}
-.war-composer-modal .war-modal-actions,.war-composer-modal .war-cp-kbd{position:sticky;bottom:0;background:var(--war-card-bg)} /* V16.4-R7：滚动时提交行/快捷键行不裁 */ /* V16.4-R5 critique P2：cron/星球二级全展开会越 80vh——节体可滚，不再裁按钮行 */
-.war-cp-section{font-size:13px;font-weight:600;color:var(--war-text-2);margin:12px 0 6px}
+.war-composer-modal .war-modal-actions,.war-composer-modal .war-cp-kbd{position:sticky;bottom:0;background:var(--war-pop-bg)} /* V16.4-R7：滚动时提交行/快捷键行不裁 */ /* V16.4-R5 critique P2：cron/星球二级全展开会越 80vh——节体可滚，不再裁按钮行 */
+.war-cp-section{font-size:12px;font-weight:600;color:var(--war-text-2);letter-spacing:.02em;margin:16px 0 6px}
 .war-grade-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .war-grade-cards.war-sched-cards{grid-template-columns:repeat(2,1fr)}
 .war-grade-card,.war-sched-card{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:8px 10px;border-radius:var(--war-r-md);border:1px solid var(--war-border);background:var(--war-card-bg);cursor:pointer;font-family:var(--war-font);transition:border-color .12s ease,background .12s ease}
@@ -576,13 +576,14 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 .war-grade-card.on .war-grade-card-name::before,.war-sched-card.on .war-grade-card-name::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px}
 .war-grade-card-hint{font-size:12px;line-height:1.5;color:var(--war-text-2)}
 /* V18.8 闹钟式定时（替代 cron presets）：模式 chips + 原生 date/time + 周几组。 */
-.war-alarm-block{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.war-alarm-block{display:flex;flex-direction:column;gap:8px;margin-top:8px;background:var(--war-well-bg);border:1px solid var(--war-border-soft);border-radius:var(--war-r-md);padding:10px 12px 12px}
 .war-alarm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.war-alarm-time,.war-alarm-date{font-family:var(--war-font);font-size:13px;color:var(--war-text-1);background:var(--war-well-bg);border:1px solid var(--war-border);border-radius:var(--war-r-md);padding:4px 10px;outline:none}
+.war-alarm-time,.war-alarm-date{font-family:var(--war-font);font-size:13px;color:var(--war-text-1);background:var(--war-card-bg);border:1px solid var(--war-border);border-radius:var(--war-r-md);padding:4px 10px;outline:none}
 .war-alarm-time:focus,.war-alarm-date:focus{border-color:var(--war-run-border)}
 body[data-ds-dark-theme] .war-root .war-alarm-time,body[data-ds-dark-theme] .war-root .war-alarm-date{color-scheme:dark}
 .war-dow-row{display:flex;gap:4px;flex-wrap:wrap}
 .war-cron-adv{margin-top:2px;font-size:12px}
+.war-cron-adv input{width:100%}
 .war-cron-adv summary{cursor:pointer;color:var(--war-text-2);line-height:20px;width:fit-content}
 .war-cron-adv summary:hover{color:var(--war-text-1)}
 .war-cron-adv input{margin-top:6px}
@@ -984,7 +985,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 .war-bf-chip{flex:none;font-size:12px;line-height:18px;padding:0 7px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .war-cd-origin{flex:none;font-size:12px;padding:2px 9px;border-radius:var(--war-r-pill);border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;cursor:pointer;font-family:var(--war-font)}
 .war-cd-origin:hover{color:var(--war-text-1);border-color:var(--war-border-hover,var(--war-border))}
-.war-name-input{width:100%;font-size:13px;line-height:20px;padding:6px 10px;border-radius:var(--war-r-md);border:1px solid var(--war-border);color:var(--war-text-1);background:var(--war-card-bg);font-family:var(--war-font);margin-bottom:2px}
+.war-name-input{width:100%;font-size:13px;line-height:20px;padding:6px 10px;border-radius:var(--war-r-md);border:1px solid var(--war-border);color:var(--war-text-1);background:var(--war-well-bg);font-family:var(--war-font);margin-bottom:2px}
 .war-name-input:focus-visible{outline:2px solid var(--war-focus);outline-offset:1px}
 .war-cp-note{font-size:12px;color:var(--war-text-2);margin-top:4px;line-height:1.5}
 .war-front-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}

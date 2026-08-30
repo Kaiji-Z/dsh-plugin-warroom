@@ -141,7 +141,7 @@ gate('bundle', () => {
     [client, 'archetypeOf', 'V11.5h NASA natural-color six-archetype planets'],
     [client, 'HemisphereLight', 'V11.5i visible sun + hemisphere fill light'],
     [client, 'addSkyIsland', 'V12 light paradigm: sky islands (TotK slabs + dangling rocks)'],
-    [client, 'buildFortress', 'V12 light paradigm: sky fortress HQ + status ring/pillar'],
+    [client, 'buildSkyShip', 'V12->V18.9 light paradigm: sky ship HQ + flat state pad/pillar'],
     [client, 'war-wz-xcard', 'V11.5f executing-card overlay pinned at planet screen position'],
     [client, 'setHighlight', 'V11.5f highlight link: hover/focus card lights planet + HQ trajectory'],
     [client, 'HEADQUARTERS', 'V11.4 HQ mothership + tooltip card ported'],

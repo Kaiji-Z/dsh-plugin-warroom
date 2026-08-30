@@ -445,6 +445,44 @@ const TEX_W = 512, TEX_H = 256
 interface PaintedMaps { map: THREE.CanvasTexture; bump: THREE.CanvasTexture }
 const texCache = new Map<string, PaintedMaps>()
 const cloudCache = new Map<string, THREE.CanvasTexture>()
+/** V18.9 积云剪影贴图（舰长令「形状更像云朵」）：平底 + 中段隆起的圆簇轮廓，
+ *  底缘淡青灰影出体积；3 变体缓存（确定性散布，无运行时随机）。 */
+const puffCache = new Map<string, THREE.CanvasTexture>()
+function cloudPuffTexture(variant: number): THREE.CanvasTexture {
+  const key = `puff:${variant}`
+  let t = puffCache.get(key)
+  if (t !== undefined) return t
+  const cv = document.createElement('canvas')
+  cv.width = 256
+  cv.height = 144
+  const g = cv.getContext('2d')
+  if (g !== null) {
+    const rng = (salt: string, lo: number, hi: number): number => det(`pf:${variant}:${salt}`, lo, hi)
+    const baseY = 112
+    g.fillStyle = 'rgba(186,201,219,0.5)'
+    g.beginPath()
+    g.ellipse(128, baseY - 5, 94, 13, 0, 0, PI2)
+    g.fill()
+    const puffs = 6 + Math.floor(rng('n', 0, 3))
+    for (let i = 0; i < puffs; i++) {
+      const fx = puffs === 1 ? 0.5 : i / (puffs - 1)
+      const cx = 36 + fx * 184 + rng(`x${i}`, -12, 12)
+      const r = 18 + Math.sin(fx * Math.PI) * (24 + rng(`r${i}`, 0, 12)) + rng(`q${i}`, 0, 8)
+      const cy = baseY - 7 - Math.sin(fx * Math.PI) * 20 - rng(`y${i}`, 0, 14)
+      const grad = g.createRadialGradient(cx, cy, r * 0.12, cx, cy, r)
+      grad.addColorStop(0, 'rgba(255,255,255,1)')
+      grad.addColorStop(0.72, 'rgba(255,255,255,0.92)')
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grad
+      g.beginPath()
+      g.arc(cx, cy, r, 0, PI2)
+      g.fill()
+    }
+  }
+  t = new THREE.CanvasTexture(cv)
+  puffCache.set(key, t)
+  return t
+}
 const ringCache = new Map<string, THREE.CanvasTexture>()
 
 /** 贴图缓存（模块级，key=kind:wsPath）：syncPlanets 随 SSE 高频重建网格，但
@@ -768,7 +806,7 @@ export class WarzoneScene {
   private readonly shipAccMat = new THREE.MeshStandardMaterial({ color: 0x51427e, metalness: 0.7, roughness: 0.35, flatShading: true })
   private readonly shipEngMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.15, 0.45) })
   private hqGroup: THREE.Group | null = null
-  private hqVariant: 'ship' | 'fortress' | null = null
+  private hqVariant: 'ship' | 'skyship' | null = null
   private hqProxy: THREE.Mesh | null = null
   private lastBridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry> } | null = null
   /** V13 战线航迹层：链色管道串起各代星球 + 代际标记（兼拾取代理）+ 活体端点辉光。
@@ -988,11 +1026,21 @@ export class WarzoneScene {
       const mo = add(new THREE.BoxGeometry(R * 0.06, R * 0.3, R * 0.06), new THREE.MeshBasicMaterial({ color: 0x35a8e8 }), R * 0.2 + R * 0.15)
       mo.position.x = Math.cos(a) * dr; mo.position.z = Math.sin(a) * dr
     }
-    // 状态件：基座环（水线位）+ 执行光柱（王国之泪光柱语言）
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 1.08, Math.max(0.5, R * 0.05), 6, 42), new THREE.MeshBasicMaterial({ color: 0xb07800, transparent: true, opacity: 0.3, depthWrite: false }))
-    ring.rotation.x = Math.PI / 2
-    ring.position.y = R * 0.08
-    group.add(ring)
+    // 状态件（V18.9 浅色语义盘，舰长令「浅色不能靠发光」）：**平铺色环垫**——
+    // 面积读色，日光下细管环不可见的正解；细缘环同材质双件随帧同色。
+    // 执行光柱保留（王国之泪光柱语言）。色彩源=cActive/Settled/Failed/Wait 令牌。
+    const stMat = new THREE.MeshBasicMaterial({ color: 0xb07800, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide })
+    const padGeo = new THREE.RingGeometry(R * 1.18, R * 1.9, 48, 1)
+    const pad = new THREE.Mesh(padGeo, stMat)
+    pad.rotation.x = -Math.PI / 2
+    pad.position.y = R * 0.02
+    group.add(pad)
+    this.disposables.push(padGeo, stMat)
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(R * 1.14, Math.max(0.3, R * 0.03), 6, 48), stMat)
+    rim.rotation.x = Math.PI / 2
+    rim.position.y = R * 0.06
+    group.add(rim)
+    const ring = pad
     const pillar = new THREE.Mesh(
       new THREE.CylinderGeometry(R * 0.14, R * 0.3, 62, 8, 1, true),
       new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, fog: false }),
@@ -1022,83 +1070,92 @@ export class WarzoneScene {
     return p
   }
 
-  /** 空中要塞（V12 浅色态 HQ）：八角石台+中央塔楼+角楼+停机坪环标+信标灯——
-   * 与星舰同契约（userData.beacon + hqEngines 脉动槽位），update 无需分支。 */
-  private buildFortress(): THREE.Group {
+  /** 空中旗舰（V18.9 浅色态 HQ，舰长令「暗色 HQ 的浅色重制版」）：与深空星舰
+   * buildHq **同轮廓同契约**——八角舰体塔+上层建筑+天线信标+大环+双层舷窗带+
+   * 环缘航行灯+6 浮筒+4 引擎短舱，userData.beacon/hqEngines 槽位不变（update
+   * 零分支）。材质换白昼语系：暖纸白舰体（对亮天留剪影，白石对白天=白上白的
+   * V12.1 教训）+石板蓝饰件+实色深蓝舷窗（白昼里窗=深色才读得出）+引擎羽流改
+   * normal 混合琥珀软雾（加法辉光亮底漂白失效）。 */
+  private buildSkyShip(): THREE.Group {
     const hq = new THREE.Group()
-    // V12.1（舰长令：浅色要塞也太暗淡）：石面提亮 + 金饰环/青光坪环/信标辉光/
-    // 塔顶天光柱——白天不需要 bloom 也能读出「这是中枢」。
-    // 暖沙石 vs 青天=冷暖分离；底锥深石=悬浮剪影（白石对白天是白上白，首版实拍抓的根因）
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0xc9d2dd, flatShading: true, roughness: 0.82, metalness: 0.04 })
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0xead9b8, flatShading: true, roughness: 0.8 })
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x2d4a72, flatShading: true, roughness: 0.65 })
-    const underMat = new THREE.MeshStandardMaterial({ color: 0x64748a, flatShading: true, roughness: 0.9 })
-    const padMat = new THREE.MeshBasicMaterial({ color: 0x2f9de0 })
-    const goldMat = new THREE.MeshBasicMaterial({ color: 0xf0c060 })
-    this.disposables.push(stoneMat, wallMat, roofMat, padMat, goldMat, underMat)
-    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, y = 0): THREE.Mesh => {
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0xe4eaf2, metalness: 0.18, roughness: 0.5, flatShading: true })
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x93a5bb, metalness: 0.2, roughness: 0.62, flatShading: true })
+    const accMat = new THREE.MeshStandardMaterial({ color: 0xbccadb, metalness: 0.15, roughness: 0.55, flatShading: true })
+    const winMat = new THREE.MeshBasicMaterial({ color: 0x1e6fae })
+    const engMat = new THREE.MeshBasicMaterial({ color: 0xd98a12 })
+    const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
+    const hitGeo = new THREE.SphereGeometry(1, 8, 6)
+    this.disposables.push(hullMat, darkMat, accMat, winMat, engMat, hitMat, hitGeo)
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, y = 0, ry = 0): THREE.Mesh => {
       const m = new THREE.Mesh(geo, mat)
-      m.position.y = y; hq.add(m); this.disposables.push(geo)
+      m.position.y = y; m.rotation.y = ry; hq.add(m)
+      this.disposables.push(geo)
       return m
     }
-    add(new THREE.CylinderGeometry(15, 18, 5, 8), stoneMat)
-    add(new THREE.CylinderGeometry(13, 3.5, 11, 8), underMat, -7.8) // 浮空底锥（暖石台上深石底——白天剪影）
-    add(new THREE.CylinderGeometry(5.5, 7.5, 13, 8), wallMat, 8.5)
-    add(new THREE.ConeGeometry(6, 6, 8), roofMat, 18)
-    for (let i = 0; i < 4; i++) {
-      const a = i / 4 * PI2 + Math.PI / 4
-      const t = add(new THREE.CylinderGeometry(1.8, 2.2, 6, 6), wallMat, 4.5)
-      t.position.x = Math.cos(a) * 12; t.position.z = Math.sin(a) * 12
-      const tr = add(new THREE.ConeGeometry(2.3, 2.6, 6), roofMat, 8.7)
-      tr.position.x = t.position.x; tr.position.z = t.position.z
+    add(new THREE.CylinderGeometry(11, 15, 26, 8), hullMat)
+    add(new THREE.CylinderGeometry(6.5, 10, 12, 8), hullMat, 18)
+    add(new THREE.CylinderGeometry(2.5, 4.5, 7, 6), accMat, 27)
+    const beacon = add(new THREE.SphereGeometry(2.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1173b4 }), 31)
+    add(new THREE.SphereGeometry(3.2, 8, 8), darkMat, 37.5)
+    add(new THREE.SphereGeometry(0.8, 6, 6), winMat, 41) // 塔尖天线灯
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(24, 2.4, 8, 28), darkMat)
+    ring.rotation.x = Math.PI / 2; ring.position.y = -2; hq.add(ring)
+    this.disposables.push(ring.geometry)
+    // 双层连续舷窗带（甲板灯带——白昼里是深蓝玻璃带）
+    for (const wy of [-4, 8]) {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(wy < 0 ? 12.4 : 9.4, wy < 0 ? 12.4 : 9.4, 0.55, 8, 1, true), winMat)
+      band.position.y = wy; hq.add(band)
+      this.disposables.push(band.geometry)
     }
-    const pad = add(new THREE.TorusGeometry(9, 0.4, 6, 36), padMat, 2.6)
-    pad.rotation.x = Math.PI / 2
-    const pad2 = add(new THREE.TorusGeometry(6, 0.28, 6, 30), padMat, 2.6)
-    pad2.rotation.x = Math.PI / 2
-    const trim = add(new THREE.TorusGeometry(16.8, 0.32, 6, 40), goldMat, 2.4) // 台缘金饰环
-    trim.rotation.x = Math.PI / 2
-    const trim2 = add(new THREE.TorusGeometry(7.6, 0.3, 6, 28), goldMat, 15.4) // 塔身金饰环
-    trim2.rotation.x = Math.PI / 2
-    const beacon = add(new THREE.OctahedronGeometry(2.2), new THREE.MeshBasicMaterial({ color: 0x45b4f0, fog: false }), 22)
-    hq.userData.beacon = beacon
-    const bglow = this.glowSprite(new THREE.Color(0.45, 0.75, 0.95), 11, 0.55)
-    bglow.position.y = 22
-    hq.add(bglow)
-    // 天光柱（HQ 签名：白昼里的一束青白天光，永远在场）
-    const shaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(5.5, 9, 95, 10, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide, fog: false }),
-    )
-    shaft.position.y = 55
-    hq.add(shaft)
-    this.disposables.push(shaft.geometry, shaft.material as THREE.Material)
-    // 角楼旗枪（青色小旗——四角轮廓勾亮）
-    for (let i = 0; i < 4; i++) {
-      const a = i / 4 * PI2 + Math.PI / 4
-      const pole = add(new THREE.CylinderGeometry(0.14, 0.14, 3.4, 4), goldMat, 10.4)
-      pole.position.x = Math.cos(a) * 12; pole.position.z = Math.sin(a) * 12
-      const flag = add(new THREE.ConeGeometry(0.7, 1.6, 4), padMat, 11)
-      flag.position.x = Math.cos(a) * 12; flag.position.z = Math.sin(a) * 12
+    // 环缘航行灯（蓝/琥珀交替——8 点勾出外环轮廓）
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * PI2
+      const nl = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 6), k % 2 === 0 ? winMat : engMat)
+      nl.position.set(Math.cos(a) * 26, -2 + Math.sin(a * 2) * 1.5, Math.sin(a) * 26)
+      hq.add(nl)
+      this.disposables.push(nl.geometry)
     }
-    for (let i = 0; i < 4; i++) {
-      const sp = this.glowSprite(new THREE.Color(1.9, 1.45, 0.7), 5, 0.9)
-      sp.userData.base = 5
-      const a = i / 4 * PI2
-      sp.position.set(Math.cos(a) * 12, 2.6, Math.sin(a) * 12)
-      hq.add(sp)
-      this.hqEngines.push(sp)
+    // 舰底晨雾洗涤（normal 混合淡白软雾——把舰体从天幕里衬出来，非发光）
+    const wash = this.softSprite(0xeef4fb, 46, 0.5)
+    wash.position.y = -30
+    hq.add(wash)
+    for (let k = 0; k < 6; k++) {
+      const a = k / 6 * PI2
+      const p = new THREE.Mesh(new THREE.BoxGeometry(3, 1.6, 10), accMat)
+      p.position.set(Math.cos(a) * 17, -2, Math.sin(a) * 17)
+      p.rotation.y = -a; hq.add(p)
+      this.disposables.push(p.geometry)
     }
-    const fproxy = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))
-    fproxy.scale.setScalar(34)
-    fproxy.userData.ref = { kind: 'hq' as const }
-    hq.add(fproxy)
-    this.pickables.push(fproxy)
-    this.hqProxy = fproxy
+    for (let k = 0; k < 4; k++) {
+      const a = k / 4 * PI2 + Math.PI / 4, x = Math.cos(a) * 8.5, z = Math.sin(a) * 8.5
+      const nac = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 9, 6), accMat)
+      nac.position.set(x, -17.5, z); hq.add(nac)
+      this.disposables.push(nac.geometry)
+      const noz = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.4, 1, 6), engMat)
+      noz.position.set(x, -22.6, z); hq.add(noz)
+      this.disposables.push(noz.geometry)
+      const sp = this.softSprite(0xe0930f, 9, 0.8)
+      sp.userData.base = 9
+      sp.position.set(x, -24.5, z); hq.add(sp); this.hqEngines.push(sp)
+    }
+    for (let a = 0; a < 8; a++) {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 3.4), winMat)
+      w.position.set(Math.cos(a / 8 * PI2) * 11.6, -6 + (a % 3) * 6, Math.sin(a / 8 * PI2) * 11.6)
+      w.rotation.y = -a / 8 * PI2; hq.add(w)
+      this.disposables.push(w.geometry)
+    }
+    const bg = this.softSprite(0xdcebf8, 12, 0.55)
+    bg.position.y = 31; hq.add(bg)
     this.scene.add(hq)
+    const hqProxy = new THREE.Mesh(hitGeo, hitMat)
+    hqProxy.scale.setScalar(36)
+    hqProxy.userData.ref = { kind: 'hq' as const }
+    this.scene.add(hqProxy)
+    this.pickables.push(hqProxy)
+    this.hqProxy = hqProxy
+    hq.userData.beacon = beacon
     return hq
   }
-
   private buildStars(): void {
     const N = 2800
     const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), siz = new Float32Array(N), pha = new Float32Array(N)
@@ -1265,14 +1322,20 @@ export class WarzoneScene {
     return hq
   }
 
-  private glowSprite(color: THREE.ColorRepresentation, scale: number, opacity: number): THREE.Sprite {
+  private glowSprite(color: THREE.ColorRepresentation, scale: number, opacity: number, additive = true): THREE.Sprite {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({
       map: this.glowTex, color, transparent: true, opacity,
-      blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: false, fog: false,
     }))
     sp.scale.setScalar(scale)
     this.disposables.push(sp.material)
     return sp
+  }
+
+  /** V18.9 软雾 sprite（浅色专用）：normal 混合的实色柔雾——加法辉光在亮底上
+   *  漂白失效的白昼等价物（云雾/引擎羽流/信标衬光）。 */
+  private softSprite(color: THREE.ColorRepresentation, scale: number, opacity: number): THREE.Sprite {
+    return this.glowSprite(color, scale, opacity, false)
   }
 
   private makeShip(parent: THREE.Group, glowMat: THREE.SpriteMaterial): void {
@@ -1572,7 +1635,7 @@ export class WarzoneScene {
       else { s.glowMat.color.setRGB(1.95, 1.95, 2.05); s.glowMat.opacity = 0.55 }
     }
     // HQ 换皮：星舰 ↔ 空中要塞（同 beacon/engines/pick-proxy 契约；变体守卫防首贴空转）
-    const wantHq: 'ship' | 'fortress' = dark ? 'ship' : 'fortress'
+    const wantHq: 'ship' | 'skyship' = dark ? 'ship' : 'skyship'
     if (this.hqGroup !== null && this.hqVariant !== wantHq) {
       this.scene.remove(this.hqGroup)
       const seen = new Set<THREE.Material | THREE.BufferGeometry>()
@@ -1588,7 +1651,7 @@ export class WarzoneScene {
         if (pi >= 0) this.pickables.splice(pi, 1)
         this.hqProxy = null
       }
-      const hq = dark ? this.buildHq() : this.buildFortress()
+      const hq = dark ? this.buildHq() : this.buildSkyShip()
       this.hqGroup = hq
       this.hqVariant = wantHq
       const eng = this.hqEngines[0]?.material as THREE.SpriteMaterial | undefined
@@ -1604,17 +1667,20 @@ export class WarzoneScene {
     this.rebuildHlLines()
   }
 
-  /** 云层（浅色态氛围件）：确定性散布的宽软 sprite，极慢漂移（舰长放行——
-   * 云非地形，类似星闪呼吸感）；|x|>700 环回。 */
+  /** 云层（浅色态氛围件）V18.9 重制（舰长令：云别挡视线+要像云朵）：
+   *  积云剪影 sprite 推到星域**远景环**（半径 950-1500——星球轨道最远 ~310、
+   *  相机最拉 800，结构上不可能再飘进镜头与星球之间）；低不透明度当背景彩绘，
+   *  极慢漂移 |x|>1600 环回。 */
   private buildClouds(): void {
-    for (let i = 0; i < 10; i++) {
-      const mat = new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffffff, transparent: true, opacity: det(`cd:${i}`, 0.22, 0.42), depthWrite: false, fog: false })
+    for (let i = 0; i < 12; i++) {
+      const mat = new THREE.SpriteMaterial({ map: cloudPuffTexture(i % 3), color: 0xffffff, transparent: true, opacity: det(`cd:${i}`, 0.5, 0.85), depthWrite: false, fog: false })
       const sp = new THREE.Sprite(mat)
-      const r = det(`cr:${i}`, 180, 520), a = det(`ca:${i}`, 0, PI2)
-      sp.position.set(Math.cos(a) * r, det(`cy:${i}`, 40, 170), Math.sin(a) * r)
-      const sc = det(`cs:${i}`, 90, 220)
-      sp.scale.set(sc * 1.9, sc, 1)
-      sp.userData.drift = det(`cv:${i}`, 1.2, 3.2) * (detBool(`vd:${i}`, 0.5) ? 1 : -1)
+      sp.renderOrder = -1
+      const r = det(`cr:${i}`, 950, 1500), a = det(`ca:${i}`, 0, PI2)
+      sp.position.set(Math.cos(a) * r, det(`cy:${i}`, 30, 210), Math.sin(a) * r)
+      const sc = det(`cs:${i}`, 280, 560)
+      sp.scale.set(sc * 1.8, sc, 1)
+      sp.userData.drift = det(`cv:${i}`, 1.5, 3.5) * (detBool(`vd:${i}`, 0.5) ? 1 : -1)
       this.cloudGroup.add(sp)
       this.disposables.push(mat)
     }
@@ -1654,7 +1720,7 @@ export class WarzoneScene {
     let w0 = 0
     for (const ch of [...(p.name + suf)]) w0 += c2.measureText(ch).width
     const fs = w0 / 104 > span ? Math.max(15, Math.floor(26 * span / (w0 / 104))) : 26
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: this.darkTheme !== false ? 0.72 : 0.85, depthWrite: false, depthTest: false, fog: false }))
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: this.darkTheme !== false ? 0.72 : 0.95, depthWrite: false, depthTest: false, fog: false }))
     sprite.renderOrder = 10
     sprite.userData.labelPlanet = p.radius
     sprite.userData.labelW = W
@@ -1700,13 +1766,21 @@ export class WarzoneScene {
         c2.translate(CX + Math.cos(mid) * Rc, CY + Math.sin(mid) * Rc)
         c2.rotate(mid + Math.PI / 2)
         c2.textAlign = 'center'
+        if (!dark) c2.strokeText(ch, 0, 0)
         c2.fillText(ch, 0, 0)
         c2.restore()
         ang += w / Rc
       }
       return ang
     }
-    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', -Math.PI / 2 - total / Rc / 2)
+    if (!dark) {
+      // V18.9 浅色铭牌可读性（舰长令「看不见了」）：地图标签术——白描边垫底
+      // （strokeText 先行）+ 深墨 fill，任何背景（云/天/管线）上都立得起来。
+      c2.lineWidth = fs * 0.34
+      c2.strokeStyle = 'rgba(255,255,255,0.9)'
+      c2.lineJoin = 'round'
+    }
+    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#313842', -Math.PI / 2 - total / Rc / 2)
     if (suf !== '') drawArc(suf, '#e5484d', ang)
     ;(s.material as THREE.SpriteMaterial).map!.needsUpdate = true
     s.userData.labelDrawnPr = planetPx
@@ -1845,7 +1919,8 @@ export class WarzoneScene {
     const pulse = 1 + 0.18 * Math.sin(t * 5)
     this.hqEngines.forEach((sp, i) => sp.scale.setScalar(((sp.userData.base as number | undefined) ?? 9) * duty * (1 + 0.16 * Math.sin(t * 5 + i * 1.7))))
     this.hqEngineMat.opacity = (0.7 + 0.25 * pulse * 0.5) * duty
-    ;(this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
+    if (this.isDarkTheme) (this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
+    else (this.hqBeacon.material as THREE.MeshBasicMaterial).color.setHex(0x1173b4).multiplyScalar((0.9 + 0.25 * Math.sin(t * 3)) * duty)
     for (const p of this.planets) {
       const o = p.orbit
       // V11.5a（舰长定）：公转停——地形是固定参照系（空间记忆/拾取稳定/军图惯例），
@@ -1881,22 +1956,23 @@ export class WarzoneScene {
         const hov = hl ? 1.16 : 1
         p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
       } else if (p.ring !== null) {
-        // V12 浅色：辉光失效——基座环+执行光柱接班状态语义（光柱=王国之泪语言）
+        // V12 浅色：辉光失效——状态色环垫+执行光柱接班（V18.9 提强度：平垫面积
+        // 读色，active 脉冲/settled 绿/failed 红/idle 中性，高亮更亮一档）
         const rm = p.ring.material as THREE.MeshBasicMaterial
         if (p.state === 'active') {
           rm.color.copy(this.cActive)
-          rm.opacity = 0.5 + 0.25 * Math.sin(t * 7 + p.seed * 6)
+          rm.opacity = 0.62 + 0.2 * Math.sin(t * 7 + p.seed * 6)
           if (p.pillar !== null) {
             p.pillar.visible = true
-            ;(p.pillar.material as THREE.MeshBasicMaterial).opacity = 0.26 + 0.1 * Math.sin(t * 3.2 + p.seed)
+            ;(p.pillar.material as THREE.MeshBasicMaterial).opacity = 0.3 + 0.1 * Math.sin(t * 3.2 + p.seed)
           }
         } else {
           if (p.pillar !== null) p.pillar.visible = false
-          if (p.state === 'settled') { rm.color.copy(this.cSettled); rm.opacity = 0.45 }
-          else if (p.state === 'failed') { rm.color.copy(this.cFailed); rm.opacity = 0.42 }
+          if (p.state === 'settled') { rm.color.copy(this.cSettled); rm.opacity = 0.58 }
+          else if (p.state === 'failed') { rm.color.copy(this.cFailed); rm.opacity = 0.52 }
           else { rm.color.copy(this.cWait); rm.opacity = 0.26 }
         }
-        if (this.hlWs.has(p.wsPath)) { rm.color.copy(this.cHl); rm.opacity = 0.85 }
+        if (this.hlWs.has(p.wsPath)) { rm.color.copy(this.cHl); rm.opacity = 0.95 }
         else if (this.dimActive) {
           rm.opacity *= 0.35
           if (p.pillar !== null && p.pillar.visible) (p.pillar.material as THREE.MeshBasicMaterial).opacity *= 0.35
@@ -1905,7 +1981,7 @@ export class WarzoneScene {
       // V17 压暗：常驻铭文随星球同乘（非命中才暗）。V18.2 顺带修：此前 find 首
       // sprite 命中的是 halo——压暗每帧覆写 halo.opacity，把 V18 状态脉动打成常数。
       const lb = p.mesh.children.find(c => (c as THREE.Sprite).isSprite === true && (c.userData.labelPlanet !== undefined)) as THREE.Sprite | undefined
-      if (lb !== undefined) (lb.material as THREE.SpriteMaterial).opacity = (this.isDarkTheme ? 0.72 : 0.85) * (this.dimActive && !this.hlWs.has(p.wsPath) ? 0.35 : 1)
+      if (lb !== undefined) (lb.material as THREE.SpriteMaterial).opacity = (this.isDarkTheme ? 0.72 : 0.95) * (this.dimActive && !this.hlWs.has(p.wsPath) ? 0.35 : 1)
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
       const s = this.squads[i]!
@@ -1947,8 +2023,8 @@ export class WarzoneScene {
     if (this.cloudGroup.visible) {
       for (const c of this.cloudGroup.children) {
         c.position.x += (c.userData.drift as number) * dt
-        if (c.position.x > 700) c.position.x = -700
-        else if (c.position.x < -700) c.position.x = 700
+        if (c.position.x > 1600) c.position.x = -1600
+        else if (c.position.x < -1600) c.position.x = 1600
       }
     }
   }

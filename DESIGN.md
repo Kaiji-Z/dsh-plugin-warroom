@@ -813,3 +813,21 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **坑**：`buildAlarmCron` 只被 client 引用——host bundle tree-shake 掉，verify 针脚要指 client；probe 自检「零周几禁提交」时双击 toggle=恒等操作（周一默认已开，点两下回原样）——断言要按真实初始态推演。
 
 **验证**：verify PASS（新增 buildAlarmCron/war-alarm-mode/data-war-front-pick/war-tpl/planetSection 五针脚，撤 cronPresets/war-bf-more/war-recent-toggle/bfSection）+ schedule.test 7/7 + probe-v188 全过（模板填充/星球→战线联动高亮/闹钟四模式/过去时刻拦截/零周几禁提交/高级 cron 报错与恢复/每周定时端到端下达/trek+plain 皮肤词条）+ shoot-v7（Phase G 重写）/shoot-v17 全绿。取证 `.goal/evidence/v18/v188-*`。
+
+## V18.9 浅色星域重制 + 起草器视觉精修（2026-08-30，元首五条令）
+
+元首实测浅色 3D 五条：①云层遮视线+要像云 ②铭牌看不见 ③浅色 HQ 重做（暗色 HQ 的浅色重制版）④浅色不能靠发光区分状态，要另找机制 ⑤起草器布局视觉再用技能精修一遍。
+
+**①云层远景化 + 积云形状**：旧云=glowTex 径向光斑 sprite 散布半径 180-520（星球轨道带内）——大头白云飘进镜头与前场之间就是一片白洗。重制：`cloudPuffTexture(variant)` 积云剪影贴图（平底+中段隆起圆簇 6-9 瓣、底缘淡青灰影出体积；内芯 alpha 平顶让轮廓「瓣」得起来；3 变体确定性缓存）；散布推到**远景环 950-1500**（星球轨道最远 ~310、相机最拉 800——结构上不可能再进镜头与星球之间），renderOrder=-1 当背景彩绘，漂移环回 ±1600。
+
+**②浅色铭牌可读性**：旧浅色文字 #5b6167 悬在浅天上湮没。修=**地图标签术**：白描边垫底（每字 strokeText lineWidth=fs*0.34、rgba(255,255,255,.9)）+ 深墨 #313842 填色，任何背景（云/天/管网）都立得住；浅色 sprite 不透明度 0.85→0.95。深色不动（#c9cdd2 无描边）。
+
+**③浅色 HQ=空中旗舰（buildSkyShip 替代 buildFortress）**：舰长定案「暗色 HQ 的浅色重制版」——与深空星舰 buildHq **同轮廓同契约**（八角舰体塔/上层建筑/天线信标/大环/双层舷窗带/环缘航行灯/6 浮筒/4 引擎短舱；userData.beacon+hqEngines 槽位不变，update 零分支），材质换白昼语系：暖纸白舰体（对亮天留剪影——白石对白天=白上白的 V12.1 教训）+石板蓝饰件+**实色深蓝舷窗**（白昼里窗=深色才读得出）+引擎羽流/舰底晨雾改 **normal 混合软雾**（`softSprite`——加法辉光亮底漂白失效的白昼等价物）；信标帧脉冲分主题分支（深色 HDR 青/浅色实色蓝）。天光柱随要塞退役（洗白视线的元凶之一）。
+
+**④浅色状态语义=平垫环（发光的正解替代）**：细管基座环在日光下不可见（V17 挂账的「浅色 ring 死代码」观感根源）。升级为**平铺色环垫**（RingGeometry R×1.18-1.9 平铺岛缘）+细缘环**同材质双件**随帧同色——面积读色，日光下立得住：active=蓝脉冲+执行光柱（保留）、settled=绿、failed=红、idle=中性；高亮 0.95、压暗 ×0.35 同旧契约。色彩源仍是 cActive/Settled/Failed/Wait 令牌。
+
+**⑤起草器精修（impeccable craft-floor 口径）**：区块标题 12px+tracking 收成 mini-header（上 16 下 6 的呼吸节奏）；闹钟簇（模式+时刻+预览+高级）包进 well 面板读成**一个单位**；name 输入归队 well 底色（输入件一族一致）；sticky 提交条底色改 pop-bg（旧 card-bg 与弹窗面差半档的接缝）；alarm 输入件改 card-bg 在 well 内出对比。
+
+**坑**：探针双 observer 压主题互搏**死锁页面**（一个 remove 一个 add 互相触发）——单一 observer+可切模式才是正解（probe-v189 INSTALL）；宿主 presenter 会抢回自设主题，取证脚本必须持握主题（shoot-theme 同 tick 摘的口径在等场景收敛的 3D 探针不够用）。
+
+**验证**：verify PASS（buildFortress→buildSkyShip 针脚换血）+ probe-v188 全过 + shoot-v7/v17 全绿（深色 halo 断言不受影响）+ probe-v189 双主题起草器目检 + probe-light3d 浅色远景云/旗舰/铭牌/平垫环实拍（`.goal/evidence/v18/light3d-after*.png`）。
