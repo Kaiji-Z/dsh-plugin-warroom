@@ -234,18 +234,30 @@ export function Warzone(props: WarzoneProps): ReactNode {
       // V17.4（舰长令）：星球点击 → 粘性高亮聚焦（取代 V14 的 bf 面板直开——
       // 键盘镜像 kbplanet 仍可达面板）；点空处 → 取消聚焦。2D 用帧环 hits 拾取
       //（雷达布局与 3D 投影不同轴——scene.pick 在 2D 态会错位）。
+      // V18.4：聚焦态下非聚焦星球不产生任何事件（点击既不换聚焦也不算空处退出）
+      const focusLocked = focusWsRef.current
       if (mode === 'cmd') {
         const best = pickAt(e.clientX - rect.left, e.clientY - rect.top)
         if (best !== null && best.kind === 'hq') { onHqClick?.(); return }
         // V18.3：点星球=粘性聚焦（悬停卡钉住并内嵌战线清单）——bfpanel 弹窗退役。
-        if (best !== null && best.kind === 'planet') { onPlanetClick?.((best as WzPlanet).wsPath); return }
+        if (best !== null && best.kind === 'planet') {
+          const ws = (best as WzPlanet).wsPath
+          if (focusLocked !== null && ws !== focusLocked) return
+          onPlanetClick?.(ws)
+          return
+        }
         onVoidClick?.()
         return
       }
       const hit = scene.pick((e.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1, -((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1)
       if (hit !== null && hit.kind === 'hq') { onHqClick?.(); return }
       if (hit !== null && hit.kind === 'front') { onOpenCommand?.((hit as WzFrontNode).rootCommandId); return }
-      if (hit !== null && hit.kind === 'planet') { onPlanetClick?.((hit as WzPlanet).wsPath); return }
+      if (hit !== null && hit.kind === 'planet') {
+        const ws = (hit as WzPlanet).wsPath
+        if (focusLocked !== null && ws !== focusLocked) return
+        onPlanetClick?.(ws)
+        return
+      }
       onVoidClick?.()
     }
     const rect = { get left() { return root.getBoundingClientRect().left }, get top() { return root.getBoundingClientRect().top }, get width() { return root.clientWidth }, get height() { return root.clientHeight } }
@@ -327,6 +339,10 @@ export function Warzone(props: WarzoneProps): ReactNode {
     let last = performance.now()
     let t = 0
     let hoverKey = ''
+    // V18.4 钉住卡锚点：聚焦建立时冻结「当下悬停卡位置」（屏幕坐标），移动/缩放
+    // 镜头不跟随星球——就是悬停卡被固定住的体感。
+    let lastFocusWs: string | null = null
+    let pinnedAnchor: { x: number; y: number } | null = null
     let ttTimer = 0
     let hoverPlanetWs: string | null = null
     const hits: TacHit[] = []
@@ -335,7 +351,9 @@ export function Warzone(props: WarzoneProps): ReactNode {
       last = now
       t += dt
       scene.update(dt, t)
-      // 悬停拾取（拾取优先级见 pickAt）
+      // V18.4 聚焦态总控（舰长令）：聚焦下只对聚焦目标悬停/操作——非聚焦星球
+      // 从拾取中剔除（无悬停卡/无族高亮变化/光标保持抓取）；点击过滤在 onClickRoot。
+      const focusNow = focusWsRef.current
       let hovered: WzEntityRef | null = null
       if (mouseIn) {
         if (mode === 'cmd') {
@@ -344,6 +362,13 @@ export function Warzone(props: WarzoneProps): ReactNode {
           const r = root.getBoundingClientRect()
           hovered = scene.pick((mx / Math.max(r.width, 1)) * 2 - 1, -(my / Math.max(r.height, 1)) * 2 + 1) as WzEntityRef | null
         }
+        if (focusNow !== null && hovered !== null && hovered.kind === 'planet' && (hovered as WzPlanet).wsPath !== focusNow) hovered = null
+      }
+      // V18.4：聚焦建立/切换的瞬间，把钉住卡锚点冻结在当下悬停卡的位置
+      //（光标 +18/+16）——「悬停卡被固定住」的体感；此后移动缩放镜头锚点不动。
+      if (focusNow !== lastFocusWs) {
+        lastFocusWs = focusNow
+        pinnedAnchor = focusNow !== null ? { x: mx + 18, y: my + 16 } : null
       }
       // V17.4：星球悬停 → 父层高亮相关卡片族（与卡片悬停同路；变化沿才回调）。
       const planetWs = hovered !== null && hovered.kind === 'planet' ? (hovered as WzPlanet).wsPath : null
@@ -374,12 +399,6 @@ export function Warzone(props: WarzoneProps): ReactNode {
       // 退出聚焦（点空/再点同星球）即回到纯悬停行为。
       const tip = tipRef.current
       if (tip !== null) {
-        // 星球屏幕位（tip 块局部版——posOf 声明在后方卡片区，提前引用会 TDZ）。
-        const planetPos = (ws: string): { x: number; y: number } | null => {
-          if (mode === '3d') return scene.planetScreen(ws, rw, rh)
-          const h = hits.find(q => (q.ref as { wsPath?: string }).wsPath === ws)
-          return h === undefined ? null : { x: h.x, y: h.y }
-        }
         const focusWs = focusWsRef.current
         const hoveredWs = hovered !== null && hovered.kind === 'planet' ? (hovered as WzPlanet).wsPath : null
         const pinnedWs = hovered === null ? focusWs : null
@@ -411,10 +430,11 @@ export function Warzone(props: WarzoneProps): ReactNode {
               if (x + w > safe.x + safe.w - 8) x = mx - w - 16
               if (y + h > safe.y + safe.h - 8) y = my - h - 14
             } else {
-              // 钉住态：锚星球投影正下方（行星移动跟卡），居中。
-              const pos = planetPos(tipPlanetWs!)
-              if (pos === null) { tip.style.display = 'none'; hoverKey = '' }
-              else { x = pos.x - w / 2; y = pos.y + 14 }
+              // 钉住态（V18.4 舰长令）：锚点=点击聚焦瞬间冻结的屏幕位置（悬停卡
+              // 被固定住）——移动/缩放镜头锚点不动，不随星球投影漂移。
+              const a = pinnedAnchor
+              if (a === null) { tip.style.display = 'none'; hoverKey = '' }
+              else { x = a.x; y = a.y }
             }
             if (tip.style.display === 'block') {
               x = Math.min(Math.max(x, safe.x + 8), Math.max(safe.x + 8, safe.x + safe.w - w - 8))

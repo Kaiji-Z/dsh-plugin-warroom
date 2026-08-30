@@ -1626,25 +1626,26 @@ export class WarzoneScene {
     this.dimActive = v
   }
 
-  /** V18.2 铭文名牌（舰长令「名牌变成星球的一部分」）：名字沿星球下缘弧排布
-   *  ——环刻语言，刻在星球边缘的一圈小字，不再是悬浮的底板卡。随星球本体等比
-   *  缩放（远景夹屏高下限保可读，见 fitPlanetLabel）；失败星球红缀（V16.4-R2
-   *  保留，词面走词典）；挂 mesh 子级随 applyTheme 重建换色。 */
+  /** V18.4 铭文（舰长令二稿）：文字处于星球**外**、悬在星球**上方**——沿星球
+   *  上缘外的弧排布（环刻语言），固定屏幕 12px（参照悬停卡路径字号），sprite
+   *  面向镜头+depthTest 关（不被星球遮挡）；星球屏半径缩到接近像素点（<8px）
+   *  才隐——文字在星球外不要求塞进星球宽度，大星球不该丢名字。失败红缀保留。 */
   private addPlanetLabel(p: WzPlanet): void {
     const cv = document.createElement('canvas')
     let c2: CanvasRenderingContext2D | null = null
     try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过铭文 */ }
     if (c2 === null) return
-    const W = 360, H = 200, CX = W / 2, CY = 76, R = 104
+    const W = 360, H = 170, CX = W / 2, CY = 120, R = 104
     cv.width = W; cv.height = H
     c2 = cv.getContext('2d')
     if (c2 === null) return
     const dark = this.darkTheme !== false
     const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
-    // 逐字沿弧（下缘 ±42° 扇区，圆心=星球中心）：长名缩字号不出扇区。
+    // 逐字沿**上缘外**弧（±42° 扇区，圆心=星球中心）：canvas Y 向下，上弧左→右
+    // = 角度自 -π/2-δ **递增**（与下弧相反），字随切线 rotate(a+π/2) 保持头朝外。
     const span = Math.PI * 84 / 180
-    const measure = (text: string, fs: number): number => {
-      c2!.font = `600 ${fs}px system-ui, sans-serif`
+    const measure = (text: string, size: number): number => {
+      c2!.font = `600 ${size}px system-ui, sans-serif`
       let w = 0
       for (const ch of [...text]) w += c2!.measureText(ch).width
       return w
@@ -1654,35 +1655,33 @@ export class WarzoneScene {
     if (w0 / R > span) fs = Math.max(15, Math.floor(26 * span / (w0 / R)))
     const total = measure(p.name + suf, fs)
     c2.textBaseline = 'middle'
-    // canvas Y 轴向下：下缘弧从左到右 = 角度从 PI/2+δ 递减到 PI/2-δ（起步角在
-    // 左侧），否则整串从右往左排成镜像（首拍实拍抓到：projA→「Ajorp」）。
     const drawArc = (text: string, color: string, start: number): number => {
       c2!.font = `600 ${fs}px system-ui, sans-serif`
       c2!.fillStyle = color
       let ang = start
       for (const ch of [...text]) {
         const w = c2!.measureText(ch).width
-        const mid = ang - (w / 2) / R
+        const mid = ang + (w / 2) / R
         c2!.save()
         c2!.translate(CX + Math.cos(mid) * R, CY + Math.sin(mid) * R)
-        c2!.rotate(mid - Math.PI / 2)
+        c2!.rotate(mid + Math.PI / 2)
         c2!.textAlign = 'center'
         c2!.fillText(ch, 0, 0)
         c2!.restore()
-        ang -= w / R
+        ang += w / R
       }
       return ang
     }
-    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', Math.PI / 2 + total / R / 2)
+    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', -Math.PI / 2 - total / R / 2)
     if (suf !== '') drawArc(suf, '#e5484d', ang)
-    // depthTest 关：sprite 钉星球中心（弧文悬在下缘外侧），本体半球会遮中心位。
+    // depthTest 关：sprite 钉星球中心（弧文悬在上缘外），本体半球会遮中心位。
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.72 : 0.85, depthWrite: false, depthTest: false, fog: false }))
     sprite.renderOrder = 10
     sprite.userData.labelPlanet = p.radius
     sprite.userData.labelW = W
     sprite.userData.labelH = H
     sprite.userData.labelArcR = R
-    sprite.userData.labelFs = fs   // V18.3：画布字号随长名收缩，fit 需要它反推屏幕字号
+    sprite.userData.labelFs = fs   // 画布字号随长名收缩，fit 需要它反推屏幕字号
     sprite.position.set(0, 0, 0)
     p.mesh.add(sprite)
   }
@@ -1777,9 +1776,9 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
-  /** V18.3 铭文定版（舰长令）：屏幕字号恒定 12px（参照悬停卡路径字号），始终
-   *  面向镜头（sprite 天性）且 depthTest 关不被星球遮挡；星球屏半径不足以容纳
-   *  整段弧文时直接消失，放大过门槛才出现；可见时弧底外推贴 limb（贴边不进面）。 */
+  /** V18.4 铭文定位（舰长令二稿）：屏幕恒定 12px；文字悬在星球**上缘外**
+   *  （弧半径压着 limb 外 4px——星球更小时整体上移保持弧线在星球外，不要求
+   *  塞进星球宽度）；星球屏半径 <8px（接近像素点）才隐。 */
   private fitPlanetLabel(s: THREE.Sprite, p: WzPlanet): void {
     const R = s.userData.labelArcR as number
     const W = s.userData.labelW as number
@@ -1790,15 +1789,13 @@ export class WarzoneScene {
     const dist = this.camera.position.distanceTo(_v1)
     const pxPerWorld = this.viewH / (2 * Math.tan((55 * Math.PI) / 360) * dist)
     const planetPx = p.radius * pxPerWorld
-    // 门槛：文字按 12px 渲染时弧宽（弦 ≈ 2·arcPx·sin42°）须落在星球屏宽内——
-    // 即星球屏半径 ≥ arcPx（弧半径）。放不下的星球直接隐，放大过门槛才出现。
-    const arcPx = R * (TEXT_PX / fs)
-    if (planetPx < arcPx) { s.visible = false; return }
+    if (planetPx < 8) { s.visible = false; return }
     s.visible = true
     const k = (TEXT_PX / fs) / pxPerWorld   // canvas px → 世界单位（屏字号恒定）
     s.scale.set(W * k, H * k, 1)
-    const off = Math.max(0, planetPx * 1.16 - arcPx)
-    s.position.set(0, -off / pxPerWorld, 0)
+    const arcPx = R * (TEXT_PX / fs)
+    const offScreen = arcPx - planetPx - 4  // 弧线圆心距星球中心 = planetPx+4（外 4px）
+    s.position.set(0, -offScreen / pxPerWorld, 0)
   }
 
   /** 帧推进（demo animate 的模拟半边）：星舰呼吸/星球轨道与状态/编队/特效/调度。 */
