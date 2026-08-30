@@ -735,3 +735,17 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **结构性修复（影响全部弹窗）**：useModalLayer 的 prev 焦点快照从 effect 内移到**渲染期**（useRef 初始化）——原实现晚于子件 autoFocus，prev=弹窗内已卸载节点，关闭后焦点掉 body（起草器/聚焦页/HQ/设置抽屉四消费者的共性 P1，B2 焦点 log 实锤）。
 **坑**：①activity-dot reduce 守卫放基础规则之前会被同特异性后者打穿（层叠序）；②探测注入 autoScan 与手动 scanAsync 有 generation 竞态清空结果（`__IMPECCABLE_CONFIG__={autoScan:false}` 绕）；③shooter 断言随整改语义演进（安神行从 zones 移到调度条横幅、④改点有任务的命令验闸）。
 **机检**：verify PASS（245 测）+ shoot-v17 全绿（含新增③计数=0+安神横幅断言）；对比度双主题 22 项全 PASS；**舰长令否决备案**：R1 建议恢复页签计数/恢复 12% 常显均与 V17.8 明令冲突，未采纳。轨迹落 `.impeccable/critique/`（28→33→34）；34→36 剩余=图例 IA/键位帮助位/批量归档等产品打磨挂账。
+
+## V18.2 星域悬停重梳（2026-08-30，元首四条定案）
+
+**①悬停→页签档位联动（舰长定案）**：星球战线档位 live > settled > archived，取最高档所在页签。档位已在生效页签 → 只做族高亮不动页签（混档「只高亮进行中」即此案常态）；星球**只有低档**战线 → 页签**临态**切过去让相关卡片可见可高亮，悬停离开/点空处即还原，**手动切页签=收回预览权**。实现=模块级 `cmdTabPreview`（`planetPreviewWs` 承点击粘性）+ `cmdTabShown()` 生效页签 getter（= preview ?? 用户选定），全部消费方（三列/调度条/星域切片）统一走它；预览**永不落 localStorage**——悬停不覆写用户偏好。点击星球同享档位预览（粘性，聚焦在预览在）。**坑：onPlanetClick 等 starfield handler 被 starfield3d 的 mount-only effect 捕获（首帧闭包）**——直读 focusCommandId 永远 null，再点同星球取消不了聚焦（shoot-v17 ⑩ 实抓）；修复=`focusRef` 渲染期镜像现值，handler 调用时读 ref。
+
+**②悬停卡瘦身（舰长令：名字/路径/状态，其余是噪音）**：星球卡 5 行→2 行（身份点+名+**生命周期态 chip**（active 作战中/settled 已收官/failed 有折戟/idle 未开战，双主题三色新令牌 st-settled/st-failed/st-idle）/路径行 title+省略）；HQ 卡 7 行→2 行（hqRow=辖 N 战场·M 支编队在外·累计达成 K 仗）；编队卡 5 行→3 行（谁/目标/行动相位，砍 sessionId/源命令）；战线卡 3 行。等级标签（主力/活跃/前沿=历史任务量排名前2/前5/其余，LV=档位常数）退役出卡——该信息已由星球大小/轨道/浮空岛层数视觉编码，不再占词面。
+
+**③星域卡全皮肤化**：buildCard/执行卡 aria/键盘镜像星球/2D 雷达标注/bfpanel 关闭钮全部词面入典（`stPlanet*`/`failSuffix`/`phOut`…/`frontN`/`viewFront`/`hqRow` 等约 20 键，军事源串单源，trek 词表运行时派生+新词对 ['未开战','休眠']；plain 独立词面）；hqDesc 键退役。**坑：canvas 名牌/铭文的皮肤词面不随切换重绘**（挂在星球 mesh 上，只在 applyTheme/重建时重画）——切皮肤需重进板或翻主题才换词，挂账。
+
+**④常显名签→弧形铭文（舰长令「变成星球的一部分」）**：旧=悬浮底板卡（文字板悬在星球下方）；新=**环刻语言**——名字沿星球下缘弧排布（逐字沿弧旋转，±42° 扇区，长名自动缩字号），3D sprite 钉星球中心随本体等比缩放（远景夹 15px 屏高下限、近景夹 30px 上限并沿 -Y 外推回 limb 不陷面），2D 雷达同语言（弧刻沿下缘，替换上方直排+达成数标注退役）；失败红缀保留（V16.4-R2）。**坑：canvas Y 轴向下，下缘弧左→右=角度递减**——首版从 PI/2-δ 起步整串镜像（projA→「Ajorp」，首拍实抓）。**顺带修 halo 覆写潜伏 bug**：V17 名牌压暗 `find(isSprite)` 命中的是 halo（halo 先 add），每帧把 V18 状态脉动/压暗覆写成 label 公式恒值——改为按 `userData.labelPlanet` 精确命中；halo lerp 随之时间归一（dt*6≈旧 0.1/帧@60fps，低帧率 headless 收敛慢 6 倍曾是 shoot 断言靠 bug 恒值通过的原因，采样等待 1600→3000ms 校准）。
+
+**断更期产物清理（shoot-v7 自 V17.6 页签图标化起未跑过，其后断言全部未经检验）**：①页签切换三处 text_content 匹配图标字形永远落空 → aria-label（shoot-v7 两 helper+一处内联、shoot-theme 一处）；②战报已阅停留通道实为**真产品回归**：V17/V18 聚焦页变长，940 高视口下回报段初始仅 ~51% 可见 <0.6 阈值，IO 停留计时永不启动（IO 实测 ratio 0.51）——0.6 是 V9.12 刻意收紧不放水，shooter 按通道③本义先 scrollIntoView 再计时；③**类名撞车**：V18.1 接续候选折叠钮复用 `war-recent-toggle`（一类双用，count==1 断言双值）→ 独立 `war-continue-toggle`（样式同源共享）；④probe-warzone 两处 V18 前词面（' · W-' 编号/凯旋）更新到现现实。
+
+**验证**：verify PASS（245 测+V18.2 针脚 8 条：setCmdTabPreview/cmdTabShown/wsTierTab/stPlanetActive/failSuffix/fitPlanetLabel/drawArcText/st-settled）+ shoot-v17 全绿 14 相位 + shoot-v7 全绿 + shoot-theme 11 对×2 主题全绿 + probe-v182 7/7（瘦身卡无旧字段/pager 低档悬停自动切已收官页签/混档不切/离开还原/2D 态/无 pageerror）。取证 `shots-v182/`（3D 弧刻/2D 弧刻/瘦身卡/悬停切档）。

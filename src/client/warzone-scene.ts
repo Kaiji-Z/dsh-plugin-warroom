@@ -15,6 +15,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { hash01 } from './starfield.tsx'
+import { activeCopy } from './copy.ts'
 import { readTacPalette, warLogColors, TAC_FALLBACK_DARK, type WarTacPalette, type WzLogKind } from './war-tokens.ts'
 import { UNGROUPED_WS_KEY, type WzBridgeFrontLite } from './front.ts'
 
@@ -1625,45 +1626,63 @@ export class WarzoneScene {
     this.dimActive = v
   }
 
-  /** V13.4 常驻行星名牌（critique R3 P2：识别不该靠悬停换——行星是固定参照系
-   *  V11.5a，低透明度常驻不抢戏不破空间记忆；挂 mesh 子级随 applyTheme 重建换色）。 */
+  /** V18.2 铭文名牌（舰长令「名牌变成星球的一部分」）：名字沿星球下缘弧排布
+   *  ——环刻语言，刻在星球边缘的一圈小字，不再是悬浮的底板卡。随星球本体等比
+   *  缩放（远景夹屏高下限保可读，见 fitPlanetLabel）；失败星球红缀（V16.4-R2
+   *  保留，词面走词典）；挂 mesh 子级随 applyTheme 重建换色。 */
   private addPlanetLabel(p: WzPlanet): void {
     const cv = document.createElement('canvas')
     let c2: CanvasRenderingContext2D | null = null
-    let w = 60
-    try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过名牌 */ }
+    try { c2 = cv.getContext('2d') } catch { /* headless 无 2D——跳过铭文 */ }
     if (c2 === null) return
-    // V16.4-R2 critique P2：失败定位不退化——有败的星球名签缀红「N 挫败」
-    //（2D/3D 同源 p.failing），默认值班态也能 10 秒定位失败。
-    const label = p.failing > 0 ? `${p.name} ·${p.failing}挫败` : p.name
-    c2.font = '600 30px system-ui, sans-serif'
-    w = Math.min(Math.ceil(c2.measureText(label).width) + 26, 380)
-    cv.width = w; cv.height = 44
+    const W = 360, H = 200, CX = W / 2, CY = 76, R = 104
+    cv.width = W; cv.height = H
     c2 = cv.getContext('2d')
     if (c2 === null) return
     const dark = this.darkTheme !== false
-    c2.font = '600 30px system-ui, sans-serif'
-    c2.textAlign = 'center'; c2.textBaseline = 'middle'
-    if (p.failing > 0) {
-      const suf = ` ·${p.failing}挫败`
-      const nameW = c2.measureText(p.name).width
-      const sufW = c2.measureText(suf).width  /* V16.4-R8：量宽==绘制串（改名回归抓漏） */
-      const x0 = w / 2 - (nameW + sufW) / 2
-      c2.textAlign = 'left'
-      c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
-      c2.fillText(p.name, x0, 23)
-      c2.fillStyle = '#e5484d'
-      c2.fillText(suf, x0 + nameW, 23)
-    } else {
-      c2.fillStyle = dark ? '#c9cdd2' : '#5b6167'
-      c2.fillText(label, w / 2, 23)
+    const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
+    // 逐字沿弧（下缘 ±42° 扇区，圆心=星球中心）：长名缩字号不出扇区。
+    const span = Math.PI * 84 / 180
+    const measure = (text: string, fs: number): number => {
+      c2!.font = `600 ${fs}px system-ui, sans-serif`
+      let w = 0
+      for (const ch of [...text]) w += c2!.measureText(ch).width
+      return w
     }
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.62 : 0.8, depthWrite: false, fog: false }))
-    // V13.5 常屏幕尺寸：目标像素高 + 画布宽高比记进 userData，update 逐帧按相机距离补偿。
-    sprite.userData.labelH = 19
-    sprite.userData.labelAspect = w / 44
-    sprite.scale.set((w / 44) * 3.0, 3.0, 1)
-    sprite.position.set(0, -(p.radius + 4.6), 0)
+    let fs = 26
+    const w0 = measure(p.name + suf, 26)
+    if (w0 / R > span) fs = Math.max(15, Math.floor(26 * span / (w0 / R)))
+    const total = measure(p.name + suf, fs)
+    c2.textBaseline = 'middle'
+    // canvas Y 轴向下：下缘弧从左到右 = 角度从 PI/2+δ 递减到 PI/2-δ（起步角在
+    // 左侧），否则整串从右往左排成镜像（首拍实拍抓到：projA→「Ajorp」）。
+    const drawArc = (text: string, color: string, start: number): number => {
+      c2!.font = `600 ${fs}px system-ui, sans-serif`
+      c2!.fillStyle = color
+      let ang = start
+      for (const ch of [...text]) {
+        const w = c2!.measureText(ch).width
+        const mid = ang - (w / 2) / R
+        c2!.save()
+        c2!.translate(CX + Math.cos(mid) * R, CY + Math.sin(mid) * R)
+        c2!.rotate(mid - Math.PI / 2)
+        c2!.textAlign = 'center'
+        c2!.fillText(ch, 0, 0)
+        c2!.restore()
+        ang -= w / R
+      }
+      return ang
+    }
+    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#5b6167', Math.PI / 2 + total / R / 2)
+    if (suf !== '') drawArc(suf, '#e5484d', ang)
+    // depthTest 关：sprite 钉星球中心（弧文悬在下缘外侧），本体半球会遮中心位。
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: dark ? 0.72 : 0.85, depthWrite: false, depthTest: false, fog: false }))
+    sprite.renderOrder = 10
+    sprite.userData.labelPlanet = p.radius
+    sprite.userData.labelW = W
+    sprite.userData.labelH = H
+    sprite.userData.labelArcR = R
+    sprite.position.set(0, 0, 0)
     p.mesh.add(sprite)
   }
 
@@ -1757,25 +1776,35 @@ export class WarzoneScene {
     return { x: (_v1.x * 0.5 + 0.5) * w, y: (-_v1.y * 0.5 + 0.5) * h }
   }
 
-  /** V13.5 常屏幕尺寸标签：屏幕高恒定（worldH ∝ 相机距离）——远行星 5-8px 字
-   *  读不了的根治（critique R4 P1-1）；近景上限防爆炸、远景下限防隐形。 */
-  private fitScreenLabel(s: THREE.Sprite): void {
+  /** V18.2 铭文随星球等比缩放（本体的一部分，替代 V13.5 常屏幕尺寸）：
+   *  worldSize ∝ 星球半径（弧贴下缘）；远景夹 15px 屏高下限（可读性保底），
+   *  近景夹 30px 上限并把弧沿 -Y 外推回 limb 外（缩水不陷进星球面）。 */
+  private fitPlanetLabel(s: THREE.Sprite, p: WzPlanet): void {
+    const R = s.userData.labelArcR as number
+    const W = s.userData.labelW as number
+    const H = s.userData.labelH as number
+    const k = (p.radius * 1.16) / R
+    let sw = W * k, sh = H * k
     s.getWorldPosition(_v1)
     const dist = this.camera.position.distanceTo(_v1)
-    const worldH = ((s.userData.labelH as number) / Math.max(this.viewH, 1)) * 2 * Math.tan((55 * Math.PI) / 360) * dist
-    s.scale.set(worldH * (s.userData.labelAspect as number), worldH, 1)
+    const pxPerWorld = this.viewH / (2 * Math.tan((55 * Math.PI) / 360) * dist)
+    const hPx = sh * pxPerWorld
+    let off = 0
+    if (hPx < 15) { const f = 15 / hPx; sw *= f; sh *= f }
+    else if (hPx > 30) {
+      const f = 30 / hPx
+      sw *= f; sh *= f
+      off = Math.min(0, R * (sh / H) - p.radius)
+    }
+    s.scale.set(sw, sh, 1)
+    s.position.set(0, off, 0)
   }
 
   /** 帧推进（demo animate 的模拟半边）：星舰呼吸/星球轨道与状态/编队/特效/调度。 */
   update(dt: number, t: number): void {
     for (const p of this.planets) {
       for (const ch of p.mesh.children) {
-        if ((ch as THREE.Sprite).isSprite === true && ch.userData.labelH !== undefined) this.fitScreenLabel(ch as THREE.Sprite)
-      }
-    }
-    for (const g of this.frontGroup.children) {
-      for (const ch of g.children) {
-        if ((ch as THREE.Sprite).isSprite === true && ch.userData.labelH !== undefined) this.fitScreenLabel(ch as THREE.Sprite)
+        if ((ch as THREE.Sprite).isSprite === true && ch.userData.labelPlanet !== undefined) this.fitPlanetLabel(ch as THREE.Sprite, p)
       }
     }
     this.simT += dt
@@ -1815,7 +1844,10 @@ export class WarzoneScene {
         if (hl) { op = 0.58; _c1.lerp(_c2.copy(this.cHl), 0.35) }
         else if (this.dimActive) op *= 0.35
         p.halo.material.color.lerp(_c1, 0.08)
-        p.halo.material.opacity += (op - p.halo.material.opacity) * 0.1
+        // V18.2 修正：lerp 时间归一（dt*6 ≈ 旧 0.1/帧@60fps）——旧系数在低帧率
+        // （headless ≈10fps）下收敛慢 6 倍；V17 halo 断言此前靠 label 覆写恒值
+        // 通过（见下方 V18.2 fix 注），修复后必须真收敛才能达标。
+        p.halo.material.opacity += (op - p.halo.material.opacity) * Math.min(1, dt * 6)
         const hov = hl ? 1.16 : 1
         p.halo.scale.setScalar(p.halo.scale.x + (p.haloScale * hov - p.halo.scale.x) * 0.1)
       } else if (p.ring !== null) {
@@ -1840,9 +1872,10 @@ export class WarzoneScene {
           if (p.pillar !== null && p.pillar.visible) (p.pillar.material as THREE.MeshBasicMaterial).opacity *= 0.35
         }
       }
-      // V17 压暗：常驻名牌随星球同乘（非命中才暗——名牌是主要「其他内容」）。
-      const lb = p.mesh.children.find(c => (c as THREE.Sprite).isSprite) as THREE.Sprite | undefined
-      if (lb !== undefined) (lb.material as THREE.SpriteMaterial).opacity = (this.isDarkTheme ? 0.62 : 0.8) * (this.dimActive && !this.hlWs.has(p.wsPath) ? 0.35 : 1)
+      // V17 压暗：常驻铭文随星球同乘（非命中才暗）。V18.2 顺带修：此前 find 首
+      // sprite 命中的是 halo——压暗每帧覆写 halo.opacity，把 V18 状态脉动打成常数。
+      const lb = p.mesh.children.find(c => (c as THREE.Sprite).isSprite === true && (c.userData.labelPlanet !== undefined)) as THREE.Sprite | undefined
+      if (lb !== undefined) (lb.material as THREE.SpriteMaterial).opacity = (this.isDarkTheme ? 0.72 : 0.85) * (this.dimActive && !this.hlWs.has(p.wsPath) ? 0.35 : 1)
     }
     for (let i = this.squads.length - 1; i >= 0; i--) {
       const s = this.squads[i]!
@@ -2163,29 +2196,36 @@ export class WarzoneTactical {
         g.beginPath(); g.arc(s1.x, s1.y, rr + 5, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
         g.strokeStyle = P.garrison; g.lineWidth = 2; g.stroke()
       }
-      g.font = '10px "Microsoft YaHei",Consolas'; g.textAlign = 'center'
+      // V18.2 铭文语言与 3D 同源（舰长令：名牌变成星球的一部分）：名字沿星球
+      //  下缘弧排布（环刻），替换上方悬浮直排；达成数标注退役（达成弧+悬停卡
+      //  在场）——盘面保持 元首四可读：星球名/战斗状态/战线环/执行卡。
       const nm = p.name.split(' ·')[0]!
-      if (p.failing > 0) {
-        // V16.4-R2：失败星球名签红缀（与 3D 名牌同源同语义）
-        const nmW = g.measureText(nm).width
-        const suf = ` ·${p.failing}挫败`
-        const sufW = g.measureText(suf).width
-        g.textAlign = 'left'
-        g.fillStyle = isHl ? P.nameHl : P.name
-        g.fillText(nm, s1.x - (nmW + sufW) / 2, s1.y - rr - 6)
-        g.fillStyle = '#e5484d'
-        g.fillText(suf, s1.x - (nmW + sufW) / 2 + nmW, s1.y - rr - 6)
-        g.textAlign = 'center'
-      } else {
-        g.fillStyle = isHl ? P.nameHl : P.name
-        if (isHl) g.font = 'bold 12px "Microsoft YaHei",Consolas'
-        g.fillText(nm, s1.x, s1.y - rr - 6)
+      g.font = isHl ? 'bold 11px "Microsoft YaHei",Consolas' : '10px "Microsoft YaHei",Consolas'
+      const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
+      const arcR = rr + 9
+      const arcW = (text: string): number => {
+        let w = 0
+        for (const ch of [...text]) w += g.measureText(ch).width
+        return w
       }
-      if (p.garrison > 0) {
-        // V16.4-R3 critique P2-1：零值标签是纯噪音（九星九个 0艘）——garrison=0 不渲染
-        g.fillStyle = col; g.font = '9px Consolas'
-        g.fillText(`达成 ${p.garrison}`, s1.x, s1.y + rr + 13)  /* V16.4-R5：LV·艘 机器黑话退役——用板面自己的词汇（达成数） */
+      const drawArcText = (text: string, color: string, start: number): number => {
+        g.fillStyle = color
+        let a = start
+        for (const ch of [...text]) {
+          const w = g.measureText(ch).width
+          const mid = a - (w / 2) / arcR   // canvas Y 向下：左→右=角度递减（同 3D 铭文，防镜像）
+          g.save()
+          g.translate(s1.x + Math.cos(mid) * arcR, s1.y + Math.sin(mid) * arcR)
+          g.rotate(mid - Math.PI / 2)
+          g.textAlign = 'center'; g.textBaseline = 'middle'
+          g.fillText(ch, 0, 0)
+          g.restore()
+          a -= w / arcR
+        }
+        return a
       }
+      let aa = drawArcText(nm, isHl ? P.nameHl : P.name, Math.PI / 2 + arcW(nm + suf) / arcR / 2)
+      if (suf !== '') drawArcText(suf, '#e5484d', aa)
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
       g.globalAlpha = 1
     })

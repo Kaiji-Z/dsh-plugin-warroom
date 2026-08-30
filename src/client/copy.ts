@@ -30,7 +30,6 @@ export interface WarCopy {
      *  硬编码绕过 activeCopy——V16「改一处词典三皮肤同步」的结构性保证在地图半边失效）。 */
     hqName: string
     hqTag: string
-    hqDesc: string
     wzStWait: string
     wzStBattle: string
     wzStHeld: string
@@ -60,6 +59,27 @@ export interface WarCopy {
     logReview: string
     garrisonTitle: (active: number, awaiting: number, triumphs: number, failing: number) => string
     garrisonAria: (label: string, active: number, awaiting: number, triumphs: number, failing: number) => string
+    /** V18.2 悬停卡瘦身（舰长令：名字/路径/状态给最精简读数）+ 全词面入典：
+     * 星球态/编队相位/战线/HQ 行——军事源串为单一源，trek 词表运行时派生。 */
+    stPlanetActive: string
+    stPlanetSettled: string
+    stPlanetFailed: string
+    stPlanetIdle: string
+    failSuffix: (n: number) => string
+    tacGarrison: (n: number) => string
+    sqTag: string
+    targetLabel: string
+    phaseLabel: string
+    returnHq: string
+    phOutbound: (pct: number) => string
+    phBattle: (verb: string) => string
+    phDeployed: string
+    phPaused: string
+    phHolding: string
+    phReturn: (pct: number) => string
+    frontN: (n: number) => string
+    viewFront: string
+    hqRow: (planets: number, squads: number, triumphs: number) => string
   }
   /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
   front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string; originChip: (bf: string | null, title: string) => string }
@@ -641,7 +661,6 @@ export const warCopy: WarCopy = {
     ungrouped: '未分组',
     hqName: 'HEADQUARTERS',
     hqTag: '元首 · 指挥中枢',
-    hqDesc: '作战室旗舰「太空总部」——你的全部战场与执行编队由此投送调度。',
     wzStWait: '待进攻',
     wzStBattle: '执行中',
     wzStHeld: '已占领',
@@ -671,6 +690,25 @@ export const warCopy: WarCopy = {
     logReview: '任务回报待验收',
     garrisonTitle: (ac, aw, tr, fa) => `活跃 ${ac} · 待发 ${aw} · 达成 ${tr} · 折戟 ${fa}`,
     garrisonAria: (lb, ac, aw, tr, fa) => `战场 ${lb}：活跃 ${ac}、待发 ${aw}、达成 ${tr}、折戟 ${fa}——跳最近的源命令`,
+    stPlanetActive: '作战中',
+    stPlanetSettled: '已收官',
+    stPlanetFailed: '有折戟',
+    stPlanetIdle: '未开战',
+    failSuffix: n => ` ·${n}折戟`,
+    tacGarrison: n => `达成 ${n}`,
+    sqTag: '执行编队',
+    targetLabel: '目标战场',
+    phaseLabel: '行动',
+    returnHq: '返航 → 母舰',
+    phOutbound: pct => `出击 · 进度 ${pct}%`,
+    phBattle: verb => `作战中 · ${verb}`,
+    phDeployed: '待验收 · 驻泊巡护',
+    phPaused: '配额暂停 · 待命',
+    phHolding: '集结 · 待起跑',
+    phReturn: pct => `返航 · 进度 ${pct}%`,
+    frontN: n => `战线 · ${n} 代`,
+    viewFront: '点击查看这条战线',
+    hqRow: (pl, sq, tr) => `辖 ${pl} 战场 · ${sq} 支编队在外 · 累计达成 ${tr} 仗`,
   },
   front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, originChip: (bf, title) => `续接自 ${bf === null ? '别的战场' : bf}·${title}`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
@@ -1078,7 +1116,6 @@ export const plainCopy: WarCopy = {
     ungrouped: '杂项',
     hqName: 'HEADQUARTERS',
     hqTag: '我 · 指挥中枢',
-    hqDesc: '工作台总部——你的全部项目和执行中的活都从这里调度。',
     wzStWait: '待执行',
     wzStBattle: '进行中',
     wzStHeld: '已完成',
@@ -1108,6 +1145,25 @@ export const plainCopy: WarCopy = {
     logReview: '待验收',
     garrisonTitle: (ac, aw, tr, fa) => `进行中 ${ac} · 待执行 ${aw} · 完成 ${tr} · 失败 ${fa}`,
     garrisonAria: (lb, ac, aw, tr, fa) => `项目 ${lb}：进行中 ${ac}、待执行 ${aw}、完成 ${tr}、失败 ${fa}——跳最近的源命令`,
+    stPlanetActive: '进行中',
+    stPlanetSettled: '已完成',
+    stPlanetFailed: '有失败',
+    stPlanetIdle: '空闲',
+    failSuffix: n => ` ·${n}失败`,
+    tacGarrison: n => `完成 ${n}`,
+    sqTag: '干员',
+    targetLabel: '目标项目',
+    phaseLabel: '近况',
+    returnHq: '返回 → 总部',
+    phOutbound: pct => `出发 · 进度 ${pct}%`,
+    phBattle: verb => `进行中 · ${verb}`,
+    phDeployed: '干完了 · 等确认',
+    phPaused: '额度暂停 · 暂缓',
+    phHolding: '排队 · 待开始',
+    phReturn: pct => `返回 · 进度 ${pct}%`,
+    frontN: n => `同一条线 · ${n} 轮`,
+    viewFront: '点开看这条线',
+    hqRow: (pl, sq, tr) => `管 ${pl} 个项目 · ${sq} 名干员在外 · 累计完成 ${tr} 件`,
   },
   front: { genN: n => `${n} 代`, taskN: n => `${n} 件事`, originChip: (bf, title) => `来自 ${bf === null ? '别的项目' : bf}·${title}`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
@@ -1308,6 +1364,7 @@ const TREK_LEXICON: ReadonlyArray<readonly [string, string]> = [
   ['兵种', '组员'],
   ['战时', '出航'],
   ['停战', '入坞'],
+  ['未开战', '休眠'],
   ['凯旋', '达成'],
   ['败退', '挫败'],
   ['打赢了', '圆满'],

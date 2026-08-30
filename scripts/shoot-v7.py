@@ -182,18 +182,23 @@ with sync_playwright() as p:
     assert page.locator(".war-day-head").count() == 0, "day grouping should be gone (V9: merged report column)"
     # V17 页签切片（元首定：切页签换全部栏）：收官卡住已收官页签——圆满/挫败
     # 一词一面在已收官页签下检查，检查完切回进行中（后续断言按进行中页签走）。
-    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
-        if "已收官" in (_l or ""):
-            page.locator(".war-cmdtab").nth(_i).click()
-            page.wait_for_timeout(700)
-            break
+    # V17.6 页签图标化（V17.8 复确认）：全名只在 aria-label——text_content 只剩图标。
+    def tab_index(name: str) -> int:
+        tabs = page.locator(".war-cmdtab").all()
+        for _i, _t in enumerate(tabs):
+            if name in (_t.get_attribute("aria-label") or ""):
+                return _i
+        return -1
+    _i = tab_index("已收官")
+    assert _i >= 0, "已收官页签（aria-label）缺失"
+    page.locator(".war-cmdtab").nth(_i).click()
+    page.wait_for_timeout(700)
     report_chips = page.locator(".war-col.zone-report .war-chip").all_inner_texts()
     assert any("圆满" in c for c in report_chips) and any("挫败" in c for c in report_chips), f"report column must merge succeeded+failed (V16.4-R7 一词一面: 圆满/挫败; V17 已收官页签下): {report_chips}"
-    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
-        if "进行中" in (_l or ""):
-            page.locator(".war-cmdtab").nth(_i).click()
-            page.wait_for_timeout(700)
-            break
+    _i = tab_index("进行中")
+    assert _i >= 0, "进行中页签（aria-label）缺失"
+    page.locator(".war-cmdtab").nth(_i).click()
+    page.wait_for_timeout(700)
     assert any("待翻阅" in c for c in page.locator(".war-col.zone-tasks .war-chip").all_inner_texts()), "tasks column should hold non-terminal tasks"
     page.screenshot(path=f"{OUT}/v7-inbox.png")
     print(f"shot: v7-inbox.png (island + V9 ops wall + dispatch strip, {n_cmds} commands)")
@@ -220,8 +225,9 @@ with sync_playwright() as p:
     # V17 页签切片：终局任务书卡（failed t3 + closed t6）住已收官页签的台账——
     # 去那边点数，完事回来（后续断言按进行中页签走）。
     def _switch_tab(label: str) -> None:
-        for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
-            if label in (_l or ""):
+        # V17.6 页签图标化：全名只在 aria-label（text_content 只剩图标字形）。
+        for _i, _t in enumerate(page.locator(".war-cmdtab").all()):
+            if label in (_t.get_attribute("aria-label") or ""):
                 page.locator(".war-cmdtab").nth(_i).click()
                 page.wait_for_timeout(700)
                 return
@@ -287,12 +293,15 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     assert "done" in (report_label(d3_strip()).get_attribute("class") or ""), "expand-click channel must mark seen before the dwell window"
     # 通道③（停留）：再清 seen → 开聚焦页什么都不点 → 250ms 仍呼吸（上面已证）→
-    # 满过 800ms 停留窗 → 转绿。
+    # 满过 800ms 停留窗 → 转绿。V18.2 修正跑法：V17/V18 聚焦页变长，940 高视口下
+    # 回报段初始只 ~51% 可见（<0.6 阈值，产品语义=等你自行滚到）——先滚到再计时，
+    # 这才是通道③「自行滚到 ≥60% 可见且停留 ≥800ms」的本义（ratio 0.51 实测）。
     page.evaluate("() => localStorage.removeItem('warroom-report-seen')")
     d3_strip().click()
     page.wait_for_selector(".war-modal", timeout=3000)
     page.wait_for_timeout(250)
     assert "now" in (report_label(d3_strip()).get_attribute("class") or ""), "dwell window not elapsed yet — must still breathe"
+    page.evaluate("() => document.querySelector(\".war-modal .war-cd-stage[data-stage='report']\").scrollIntoView({ block: 'center' })")
     page.wait_for_timeout(1000)
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
@@ -301,8 +310,8 @@ with sync_playwright() as p:
     # 展开面板（任务回报段对无任务回报败链诚实给「尚无任务回报」，不硬造卡）。
     # V17 页签切片：d7 败链住已收官页签——任务卡/聚焦页检查先切过去，完事切回。
     def _switch_tab2(label: str) -> None:
-        for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
-            if label in (_l or ""):
+        for _i, _t in enumerate(page.locator(".war-cmdtab").all()):  # V17.6：aria-label 承全名
+            if label in (_t.get_attribute("aria-label") or ""):
                 page.locator(".war-cmdtab").nth(_i).click()
                 page.wait_for_timeout(700)
                 return

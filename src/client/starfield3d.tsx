@@ -22,59 +22,44 @@ const dirLabel = (wsPath: string): string => {
   return parts.length > 0 ? parts[parts.length - 1]! : wsPath
 }
 
-const statusChip = (st: string): string => {
-  const c = activeCopy().starfield
-  const text = st === '待进攻' ? c.wzStWait : st === '执行中' ? c.wzStBattle : c.wzStHeld
-  return `<span class="war-wz-chip ${st === '待进攻' ? 'st-wait' : st === '执行中' ? 'st-battle' : 'st-held'}">${text}</span>`
-}
-
-/** 信息卡（三卡结构承 demo，字段全为板面真值）。 */
+/** V18.2 信息卡瘦身（舰长令：悬停只想知道星球的名字/路径/状态——其余是噪音）：
+ * 星球卡两行（名+态 / 路径）、编队卡三行（谁/去哪/干什么）、战线卡三行、HQ 卡
+ * 两行；词面全走词典（一词一面，trek 词表运行时派生）。 */
 function buildCard(ent: WzEntityRef, scene: WarzoneScene): string {
+  const sf = activeCopy().starfield
   if (ent.kind === 'hq') {
     const st = hqStats(scene.planets, scene.squads)
-    const sf = activeCopy().starfield
     return `<div class="tt-head"><span class="dot"></span>
       <span class="tt-name">${sf.hqName}</span><span class="tt-tag">${sf.hqTag}</span></div>
-      <div class="tt-desc">${sf.hqDesc}</div>
-      <div class="tt-row"><span>星球</span><b>${scene.planets.length} 个</b></div>
-      <div class="tt-row"><span>起飞编队</span><b>${st.inbound} 支</b></div>
-      <div class="tt-row"><span>执行中编队</span><b>${st.battle} 支</b></div>
-      <div class="tt-row"><span>驻泊编队</span><b>${st.deployed} 支</b></div>
-      <div class="tt-row"><span>活跃会话</span><b>${st.ships} 个</b></div>
-      <div class="tt-row"><span>累计达成</span><b>${st.garrison} 仗</b></div>`
+      <div class="tt-row"><b>${sf.hqRow(scene.planets.length, st.inbound + st.battle + st.deployed, st.garrison)}</b></div>`
   }
   if (ent.kind === 'front') {
     const state = ent.live ? activeCopy().front.stateLive : activeCopy().front.stateSettled
     return `<div class="tt-head"><span class="dot chain war-chain-hue-${ent.hueSlot}"></span>
-      <span class="tt-name">战线 · ${ent.gens} 代</span><span class="tt-tag">${state}</span></div>
+      <span class="tt-name">${sf.frontN(ent.gens)}</span><span class="tt-tag">${state}</span></div>
       <div class="tt-desc">${ent.label}</div>
-      <div class="tt-row"><span>世代</span><b>${ent.gens} 代</b></div>
-      <div class="tt-row"><span>世代环</span><b class="tt-emph">点击查看这条战线</b></div>`
+      <div class="tt-row"><b class="tt-emph">${sf.viewFront}</b></div>`
   }
   if (ent.kind === 'planet') {
-    const clsName = ent.cls === 'large' ? '主力星球' : ent.cls === 'medium' ? '活跃星球' : '前沿星球'
+    const st = ent.state === 'active' ? sf.stPlanetActive : ent.state === 'settled' ? sf.stPlanetSettled
+      : ent.state === 'failed' ? sf.stPlanetFailed : sf.stPlanetIdle
+    const chipCls = ent.state === 'active' ? 'st-battle' : ent.state === 'settled' ? 'st-settled'
+      : ent.state === 'failed' ? 'st-failed' : 'st-idle'
     return `<div class="tt-head"><span class="dot" style="background:#${ent.baseGlow.getHexString()}"></span>
-      <span class="tt-name">${ent.name}</span><span class="tt-tag">${clsName}</span></div>
-      <div class="tt-desc">workspace 星球 · ${ent.wsPath}</div>
-      <div class="tt-row"><span>星球等级</span><b>LV.${ent.level} · ${clsName}</b></div>
-      <div class="tt-row"><span>活跃会话</span><b>${scene.squads.filter(q => q.target === ent && q.phase !== 'return').length} 个</b></div>
-      <div class="tt-row"><span>待发命令</span><b>${ent.inbound} 条</b></div>
-      <div class="tt-row"><span>达成 / 挫败</span><b>${ent.garrison} / ${ent.failing}</b></div>
-      <div class="tt-row"><span>执行状态</span>${statusChip(ent.status)}</div>`
+      <span class="tt-name">${ent.name}</span><span class="war-wz-chip ${chipCls}">${st}</span></div>
+      <div class="tt-desc" title="${ent.wsPath}">${ent.wsPath}</div>`
   }
   const s = ent as WzSquad
-  const tgt = s.phase === 'return' ? '返航 → 星舰' : s.target.name
-  const stTxt = s.phase === 'outbound' ? `出击 · 进度 ${Math.min(99, s.t * 100) | 0}%`
-    : s.phase === 'battle' ? `执行中 · ${s.verb ?? '工作中'}`
-    : s.phase === 'deployed' ? (s.paused ? '配额暂停 · 待命' : '待验收 · 驻泊巡护')
-    : s.phase === 'holding' ? '集结 · 待起跑'
-    : `返航 · 进度 ${Math.min(99, s.t * 100) | 0}%`
+  const ph = s.phase === 'outbound' ? sf.phOutbound(Math.min(99, s.t * 100) | 0)
+    : s.phase === 'battle' ? (s.verb !== null ? sf.phBattle(s.verb) : sf.orbIdle)
+    : s.phase === 'deployed' ? (s.paused ? sf.phPaused : sf.phDeployed)
+    : s.phase === 'holding' ? sf.phHolding
+    : sf.phReturn(Math.min(99, s.t * 100) | 0)
+  const tgt = s.phase === 'return' ? sf.returnHq : s.target.name
   return `<div class="tt-head"><span class="dot warm"></span>
-    <span class="tt-name">${s.cname}</span><span class="tt-tag">执行编队 ${s.code}</span></div>
-    <div class="tt-desc">执行会话 ${s.sessionId ?? ''}</div>
-    <div class="tt-row"><span>源命令</span><b>${s.sourceLabel ?? '未溯源'}</b></div>
-    <div class="tt-row"><span>目标星球</span><b>${tgt}</b></div>
-    <div class="tt-row"><span>行军状态</span><b class="tt-emph">${stTxt}</b></div>`
+    <span class="tt-name">${s.cname}</span><span class="tt-tag">${sf.sqTag} ${s.code}</span></div>
+    <div class="tt-row"><span>${sf.targetLabel}</span><b>${tgt}</b></div>
+    <div class="tt-row"><span>${sf.phaseLabel}</span><b class="tt-emph">${ph}</b></div>`
 }
 
 export interface WarzoneProps {
@@ -617,12 +602,12 @@ export function Warzone(props: WarzoneProps): ReactNode {
           key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
           'data-wz-kb-ws': pl.wsPath,
           onClick: () => { setBfPanel(pl.wsPath) },
-        }, `${dirLabel(pl.wsPath)}（${stText}${pl.failing > 0 ? ` ·${pl.failing}挫败` : ''}）`)
+        }, `${dirLabel(pl.wsPath)}（${stText}${pl.failing > 0 ? activeCopy().starfield.failSuffix(pl.failing) : ''}）`)
       })),
     ...(bfPanel !== null ? [createElement('div', { key: 'bfpanel', className: 'war-wz-bfpanel', role: 'dialog', 'aria-label': activeCopy().starfield.bfPanelAria, onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape') { e.stopPropagation(); setBfPanel(null) } } },
       createElement('div', { className: 'war-wz-bfpanel-head' },
         createElement('span', { className: 'war-wz-bfpanel-title' }, dirLabel(bfPanel)),
-        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': '关闭', autoFocus: true, onClick: () => setBfPanel(null) }, '✕')  /* V16.4-R3 critique B：焦点移入 dialog——键盘镜像开启后 Esc 才可达（probe-b3 抓的死路） */),
+        createElement('button', { type: 'button', className: 'war-wz-bfpanel-x', 'aria-label': activeCopy().settings.close, autoFocus: true, onClick: () => setBfPanel(null) }, '✕')  /* V16.4-R3 critique B：焦点移入 dialog——键盘镜像开启后 Esc 才可达（probe-b3 抓的死路）；V18.2 关闭词入典 */),
       ...fronts.filter(f => f.battlefield === bfPanel).map(f => createElement('button', {
         key: f.rootCommandId, type: 'button',
         className: `war-wz-bfpanel-row war-chain-hue-${f.hueSlot}`,

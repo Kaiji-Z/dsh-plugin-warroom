@@ -106,6 +106,10 @@ export const WAR_CSS = `
   --war-wz-chip-wait-text: #8a5f00; --war-wz-chip-wait-bg: rgba(176,120,0,.12); --war-wz-chip-wait-border: rgba(176,120,0,.5);
   --war-wz-chip-battle-text: #c2410c; --war-wz-chip-battle-bg: rgba(217,72,15,.1); --war-wz-chip-battle-border: rgba(217,72,15,.5);
   --war-wz-chip-held-text: #1971c2; --war-wz-chip-held-bg: rgba(25,113,194,.1); --war-wz-chip-held-border: rgba(25,113,194,.5);
+  /* V18.2 星球生命周期态 chip（与 V18 发光四档同源：settled 绿/failed 红/idle 中性） */
+  --war-wz-chip-settled-text: #2b7a3a; --war-wz-chip-settled-bg: rgba(47,158,68,.1); --war-wz-chip-settled-border: rgba(47,158,68,.5);
+  --war-wz-chip-failed-text: #b8322f; --war-wz-chip-failed-bg: rgba(201,42,42,.1); --war-wz-chip-failed-border: rgba(201,42,42,.5);
+  --war-wz-chip-idle-text: #5b6167; --war-wz-chip-idle-bg: rgba(120,130,140,.12); --war-wz-chip-idle-border: rgba(120,130,140,.45);
   /* 速报日志色（kind 化：order 下令/engage 接敌/triumph 达成/retreat 败退/
    * return 返航/review 待验收）——浅色压深保白蓝图对比，深色原亮值。 */
   --war-log-order: #8a5f00; --war-log-engage: #c2410c; --war-log-triumph: #1971c2;
@@ -192,6 +196,10 @@ body[data-ds-dark-theme] .war-root{
   --war-wz-chip-wait-text: #ffc24d; --war-wz-chip-wait-bg: rgba(255,176,32,.12); --war-wz-chip-wait-border: rgba(255,176,32,.45);
   --war-wz-chip-battle-text: #ff6a55; --war-wz-chip-battle-bg: rgba(255,64,48,.12); --war-wz-chip-battle-border: rgba(255,80,64,.5);
   --war-wz-chip-held-text: #66d4ff; --war-wz-chip-held-bg: rgba(77,163,255,.12); --war-wz-chip-held-border: rgba(77,163,255,.5);
+  /* V18.2 星球生命周期态 chip（深=V18 态色原亮值） */
+  --war-wz-chip-settled-text: #4cd98e; --war-wz-chip-settled-bg: rgba(76,217,142,.1); --war-wz-chip-settled-border: rgba(76,217,142,.45);
+  --war-wz-chip-failed-text: #ff5f56; --war-wz-chip-failed-bg: rgba(255,95,86,.1); --war-wz-chip-failed-border: rgba(255,95,86,.45);
+  --war-wz-chip-idle-text: #9aa7b4; --war-wz-chip-idle-bg: rgba(150,165,180,.1); --war-wz-chip-idle-border: rgba(150,165,180,.4);
   --war-log-order: #ffc98a; --war-log-engage: #ff7755; --war-log-triumph: #5fc4ff;
   --war-log-retreat: #ff5a5a; --war-log-return: #9a86ff; --war-log-review: #ffc24d;
   --war-tac-bg0: #04101f; --war-tac-bg1: #020812; --war-tac-bg2: #010409;
@@ -414,8 +422,10 @@ body[data-ds-dark-theme] .war-root{
 .war-recent-item{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .war-recent-item:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 /* V16.4 critique P2-3：选项墙削层——收起态开关钮（最近命令/其他星球二级展开）。 */
-.war-recent-toggle{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;margin-top:8px} /* V16.4-R2：text-3 浅色 3.71:1 不达 4.5（probe 抓）——升 text-2 */
-.war-recent-toggle:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
+/* V18.2：war-continue-toggle（接续候选折叠钮）与 recent 开关同款式——V18.1 曾
+ * 复用同类名造成一类双用（选择器语义失效，shoot-v7 抓到）。 */
+.war-recent-toggle,.war-continue-toggle{cursor:pointer;font-size:12px;line-height:18px;padding:0 8px;border-radius:9px;border:1px dashed var(--war-border);color:var(--war-text-2);background:transparent;margin-top:8px} /* V16.4-R2：text-3 浅色 3.71:1 不达 4.5（probe 抓）——升 text-2 */
+.war-recent-toggle:hover,.war-continue-toggle:hover{border-color:var(--war-run-border);color:var(--war-text-1)}
 
 /* --- V7-⑥ 空板首用引导 -------------------------------------------------------- */
 .war-onboard{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px 20px;text-align:center}
@@ -752,7 +762,7 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-tip .dot.warm{background:var(--war-wz-tip-dot-warm)}
 .war-wz-tip .tt-name{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--war-wz-tip-name);white-space:nowrap}
 .war-wz-tip .tt-tag{margin-left:auto;font-size:12px;color:var(--war-wz-tip-tag);border:1px solid var(--war-wz-tip-tag-border);padding:1px 7px;border-radius:99px;white-space:nowrap}
-.war-wz-tip .tt-desc{color:var(--war-wz-tip-desc);font-size:12px;margin-bottom:8px}
+.war-wz-tip .tt-desc{color:var(--war-wz-tip-desc);font-size:12px;margin-bottom:8px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .war-wz-tip .tt-row{display:flex;justify-content:space-between;gap:18px;padding:2.5px 0;border-top:1px dashed var(--war-wz-tip-row-line)}
 .war-wz-tip .tt-row span{color:var(--war-wz-tip-label)}
 .war-wz-tip .tt-row b{color:var(--war-wz-tip-value);font-weight:600;font-family:var(--war-font-code);white-space:nowrap}
@@ -761,6 +771,10 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-chip.st-wait{color:var(--war-wz-chip-wait-text);background:var(--war-wz-chip-wait-bg);border:1px solid var(--war-wz-chip-wait-border)}
 .war-wz-chip.st-battle{color:var(--war-wz-chip-battle-text);background:var(--war-wz-chip-battle-bg);border:1px solid var(--war-wz-chip-battle-border)}
 .war-wz-chip.st-held{color:var(--war-wz-chip-held-text);background:var(--war-wz-chip-held-bg);border:1px solid var(--war-wz-chip-held-border)}
+/* V18.2 星球生命周期态 chip（悬停卡状态位：settled 绿/failed 红/idle 中性） */
+.war-wz-chip.st-settled{color:var(--war-wz-chip-settled-text);background:var(--war-wz-chip-settled-bg);border:1px solid var(--war-wz-chip-settled-border)}
+.war-wz-chip.st-failed{color:var(--war-wz-chip-failed-text);background:var(--war-wz-chip-failed-bg);border:1px solid var(--war-wz-chip-failed-border)}
+.war-wz-chip.st-idle{color:var(--war-wz-chip-idle-text);background:var(--war-wz-chip-idle-bg);border:1px solid var(--war-wz-chip-idle-border)}
 /* V11.5：雷达=值班默认态，浮舱/坞是操作面恒在场（原 wz-cmd 全屏让位休眠） */
 .war-s3d-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .war-s3d-overlay{position:absolute;inset:0;pointer-events:none}

@@ -172,7 +172,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
         hl = page.evaluate("() => ({ n: window.__wz.scene.hlWs.size, lines: window.__wz.scene.hlLines.length })")
         ok('悬停执行卡→星球高亮+HQ 轨迹线', hl['n'] >= 1 and hl['lines'] >= 1, f"hlWs={hl['n']} lines={hl['lines']}")
-        ok('高亮名签在场（工作区名）', page.locator('.war-wz-pname').is_visible() and ' · W-' in page.locator('.war-wz-pname').inner_text())
+        ok('高亮名签在场（星球名）', page.locator('.war-wz-pname').is_visible() and len(page.locator('.war-wz-pname').inner_text().strip()) > 0)  # V18 起星球名=目录名（W-NN 编号退役）
         page.mouse.move(8, 8)
         page.wait_for_timeout(400)
         ok('移出后高亮退场', page.evaluate("() => window.__wz.scene.hlWs.size") == 0)
@@ -183,7 +183,7 @@ with sync_playwright() as p:
     page.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2)
     page.wait_for_timeout(700)
     tip = page.locator('.war-wz-tip')
-    ok('HQ 信息卡（真实战力行）', tip.is_visible() and '战场' in tip.inner_text() and '凯旋' in tip.inner_text(), tip.inner_text().split('\n')[0][:24] if tip.is_visible() else '-')
+    ok('HQ 信息卡（真实战力行）', tip.is_visible() and '星球' in tip.inner_text() and '达成' in tip.inner_text(), tip.inner_text().split('\n')[0][:24] if tip.is_visible() else '-')  # V18.2 瘦身卡：hqRow=辖 N 星球 · 累计达成（trek 词面）
     page.mouse.move(8, 8)
     ctx.close()
 

@@ -446,7 +446,7 @@ with sync_playwright() as p:
     page.evaluate("() => window.__wz.setMode('3d')")
     page.wait_for_timeout(600)
     card.hover()
-    page.wait_for_timeout(1600)
+    page.wait_for_timeout(3000)  # V18.2：halo 回归状态机+时间归一 lerp（旧=label 覆写恒值免等）——headless 低帧率下留足收敛
     halo = page.evaluate("""() => {
       const s = window.__wz.scene
       const dimmed = s.planets.filter(p => !s.hlWs.has(p.wsPath)).map(p => p.halo.material.opacity)

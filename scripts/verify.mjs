@@ -300,6 +300,15 @@ gate('bundle', () => {
     [client, 'prefers-reduced-motion:reduce){.war-pipe-svg g.on path.war-pipe-prog{animation:none}}', 'V17-B flow animation off under reduced-motion'],
     [client, 'hqScreen', 'V17-B HQ screen projection exit for map chords (2D=radar center / 3D=camera project)'],
     [client, 'war-pipe-map', 'V17-B map-mode pipe class (straight chord legs over the starfield)'],
+    // V18.2 星域悬停重梳：档位页签预览（临态）+ 悬停卡瘦身全皮肤化 + 弧形铭文名牌。
+    [client, 'setCmdTabPreview', 'V18.2 hover tab preview store (transient, never persists to localStorage)'],
+    [client, 'cmdTabShown', 'V18.2 effective tab getter (preview ?? user tab) all consumers ride'],
+    [client, 'wsTierTab', 'V18.2 planet front tier live>settled>archived (mixed tier highlights top, no tab flip)'],
+    [client, 'stPlanetActive', 'V18.2 slim hover card state words ride the lexicon (name/path/status only)'],
+    [client, 'failSuffix', 'V18.2 failing suffix one-face via lexicon (nameplate/kbplanet/2D radar)'],
+    [client, 'fitPlanetLabel', 'V18.2 arc-engraved nameplate scales with the planet (screen clamps, limb offset)'],
+    [client, 'drawArcText', 'V18.2 2D radar name engraved along the lower limb (same language as 3D)'],
+    [client, '.war-wz-chip.st-settled', 'V18.2 planet lifecycle chip classes (settled/failed/idle) both themes'],
     [client, "location.hash.match(/^#war-cmd-", 'V16.4 focus page state rides URL hash (refresh/share safe)'],
     // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。
     [client, '--war-text-1: var(--dsw-alias-label-primary)', 'text semantic middle layer (component rules stop piercing dsw aliases)'],

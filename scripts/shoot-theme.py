@@ -88,8 +88,9 @@ JS_RATIO = """
 
 
 def _theme_tab(page, label):
-    for _i, _l in enumerate([t.text_content().strip() for t in page.locator(".war-cmdtab").all()]):
-        if label in (_l or ""):
+    # V17.6 页签图标化：全名只在 aria-label（text_content 只剩图标字形）。
+    for _i, _t in enumerate(page.locator(".war-cmdtab").all()):
+        if label in (_t.get_attribute("aria-label") or ""):
             page.locator(".war-cmdtab").nth(_i).click()
             page.wait_for_timeout(700)
             return

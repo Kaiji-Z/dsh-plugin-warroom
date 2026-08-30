@@ -34,18 +34,38 @@ export type CmdTab = 'active' | 'settled' | 'archived'
 const CMD_TAB_KEY = 'warroom-cmd-tab'
 let cmdTabState: CmdTab = (() => {
   try { const v = localStorage.getItem(CMD_TAB_KEY); return v === 'settled' || v === 'archived' ? v : 'active' } catch { return 'active' }
-})()
+})();
+/** V18.2 星球悬停页签预览（舰长定案，临态）：悬停星球的战线档位只有低档
+ * （已收官/已归档）时自动把页签带到该档，让星球相关卡片可见可高亮；混档
+ * 只高亮最高档不动页签。预览不落 localStorage——悬停离开/手动切页签即还原，
+ * 用户偏好永远不被悬停覆写。 */
+let cmdTabPreview: CmdTab | null = null
+/** 星球点击粘性预览的星球键（点击=明确要看这颗星；手动切页签即收回）。 */
+let planetPreviewWs: string | null = null
 const cmdTabSubs = new Set<() => void>()
 export function subscribeCmdTab(fn: () => void): () => void {
   cmdTabSubs.add(fn)
   return () => { cmdTabSubs.delete(fn) }
 }
+/** 板面实际生效页签 = 悬停/点击预览 ?? 用户选定页签（所有消费方统一走这里）。 */
+export function cmdTabShown(): CmdTab { return cmdTabPreview ?? cmdTabState }
+export function setCmdTabPreview(t: CmdTab | null): void {
+  if (t === cmdTabPreview) return
+  cmdTabPreview = t
+  for (const fn of cmdTabSubs) fn()
+}
 export function cmdTabId(): CmdTab { return cmdTabState }
 export function setCmdTab(t: CmdTab): void {
-  if (t === cmdTabState) return
-  cmdTabState = t
-  try { localStorage.setItem(CMD_TAB_KEY, t) } catch { /* 隐私模式 */ }
-  for (const fn of cmdTabSubs) fn()
+  const changed = t !== cmdTabState
+  // V18.2：手动切页签=收回预览权（预览与粘性星球同时清场）。
+  const previewWas = cmdTabPreview !== null || planetPreviewWs !== null
+  cmdTabPreview = null
+  planetPreviewWs = null
+  if (changed) {
+    cmdTabState = t
+    try { localStorage.setItem(CMD_TAB_KEY, t) } catch { /* 隐私模式 */ }
+  }
+  if (changed || previewWas) for (const fn of cmdTabSubs) fn()
 }
 
 /** Structural slices of the framework services. */
@@ -827,7 +847,9 @@ function CommandComposer(props: { recent: string[]; onClose: () => void; refresh
           ...(continueCandidates.length > 3
             ? [createElement('button', {
               key: 'cont-more', type: 'button',
-              className: 'war-recent-toggle',
+              // V18.2 正名：此前复用 war-recent-toggle 造成一类双用（shoot-v7 抓到
+              // count==1 断言双值）——接续折叠钮独立类名，样式与 recent 开关同源。
+              className: 'war-continue-toggle',
               onClick: () => { setContOpen(o => !o) },
             }, contOpen ? copy.contFoldLess : copy.contFoldMore(continueCandidates.length - 3))] : []),
         )
@@ -2178,6 +2200,11 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // V7-③ 族系追踪：悬停即时预览（hover 优先），聚焦常驻（Esc/退出钮解除）。
     const [hoverFamily, setHoverFamily] = useState<string | null>(null)
     const [focusCommandId, setFocusCommandId] = useState<string | null>(null)
+    // V18.2：聚焦态镜像——onPlanetClick 等星域 handler 被 starfield3d 的 mount-only
+    // effect 捕获（首帧闭包），直读 focusCommandId 永远是 null（shoot ⑩ 实抓：
+    // 再点同星球取消不了聚焦）。ref 在每次渲染刷新，handler 调用时读到现值。
+    const focusRef = useRef<string | null>(null)
+    focusRef.current = focusCommandId
     // V7.1 审查整改：决策写操作失败的就地反馈（6 秒自清）。
     const [actionError, setActionError] = useState<string | null>(null)
     // V9.2 设置抽屉的看板行为开关（纯展示层偏好，localStorage 持久化）。
@@ -2260,7 +2287,9 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
     // V17 三页签：与 WarDockPill 同源；页签是客户端过滤器（板照旧全量投影）。
-    const cmdTab = useSyncExternalStore(subscribeCmdTab, cmdTabId)
+    // V18.2：板面吃「生效页签」=悬停/点击预览 ?? 用户选定——星球悬停切档时
+    // 三列+调度条+星域切片整体跟随，离开星球自动还原用户原页签。
+    const cmdTab = useSyncExternalStore(subscribeCmdTab, cmdTabShown)
     const tasks = data?.tasks ?? []
     const commands = data?.commands ?? []
     const threads = data?.threads ?? []
@@ -2595,6 +2624,24 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       : []
     // V17.4（舰长令）：星球悬停/点击 → 卡片族高亮/粘性聚焦（与卡片悬停同路）。
     const cmdIdForWs = (ws: string): string | null => commandsNewest.find(cc => chainOf(cc).some(t => wsKeyOf(t.workspacePath) === ws))?.commandId ?? null
+    // V18.2 星球战线档位（舰长定案）：live > settled > archived 取最高档所在页签。
+    // 档位已在生效页签 → 只高亮不切（混档「只高亮进行中」即此案的常态）；只有
+    // 低档战线 → 页签临态切过去，星球相关卡片才可见、族高亮才有落点。
+    const wsTierTab = (ws: string): CmdTab | null => {
+      let tier: CmdTab | null = null
+      for (const c of commands) {
+        if (!chainOf(c).some(t => wsKeyOf(t.workspacePath) === ws)) continue
+        const tb = tabOf(c)
+        if (tb === 'active') return 'active'
+        if (tier === null || (tb === 'settled' && tier === 'archived')) tier = tb
+      }
+      return tier
+    }
+    const applyTabPreview = (ws: string | null): void => {
+      if (ws === null) { setCmdTabPreview(null); return }
+      const tier = wsTierTab(ws)
+      setCmdTabPreview(tier !== null && tier !== cmdTabShown() ? tier : null)
+    }
     // V17 族系管网：每条在档战线一根管——锚=命令卡(坞)/任务卡/执行卡/回报卡；
     // stage=生命条 now 段（流动只跑到当前战况位）。activeRoot=hover/聚焦族的根。
     const stageIndexOf = (c: BoardCommand): number => {
@@ -2794,14 +2841,24 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 highlightWs,
                 onOpenCommand: id => { openCommand(id) },
                 onPlanetHover: ws => {
-                  if (!hoverFamilyOn) return
+                  if (!hoverFamilyOn) { setCmdTabPreview(null); return }
                   setHoverFamily(ws === null ? null : cmdIdForWs(ws))
+                  // V18.2：悬停优先带页签；离开星球回落到点击粘性星球的档位（若有）。
+                  applyTabPreview(ws ?? planetPreviewWs)
                 },
                 onPlanetClick: ws => {
                   const c = cmdIdForWs(ws)
-                  if (c !== null) setFocusCommandId(cur => cur === c ? null : c)
+                  if (c === null) return
+                  // V10.1 舰长定：再点同星球=退出粘性聚焦；点击星球同时粘住档位预览
+                  //（聚焦在、预览在；手动切页签/点空处即收回）。toggle 经 focusRef
+                  // 读现值——本 handler 是首帧闭包（见 focusRef 注）。
+                  const next = focusRef.current === c ? null : c
+                  focusRef.current = next
+                  setFocusCommandId(next)
+                  planetPreviewWs = next === null ? null : ws
+                  applyTabPreview(next === null ? null : ws)
                 },
-                onVoidClick: () => { setFocusCommandId(null) },
+                onVoidClick: () => { setFocusCommandId(null); planetPreviewWs = null; setCmdTabPreview(null) },
                 onHqClick: () => {
                   // V18 critique：触发件是 canvas（无可还焦点）——打开前把星域
                   // 容器设为焦点锚，关闭时 useModalLayer 归还到此而非 body。
@@ -3017,7 +3074,7 @@ export function WarDockPill(): ReactNode {
   const { data } = useWar()
   useSyncExternalStore(subscribeSkin, skinId)
   // V17：岛计数随页签（所见即所数）；✉ 徽标与到访摘要保持全局。
-  const tab = useSyncExternalStore(subscribeCmdTab, cmdTabId)
+  const tab = useSyncExternalStore(subscribeCmdTab, cmdTabShown)
   if (data === null || !data.active) return null
   const tasksAll = data.tasks
   const tabOfPill = (c: BoardCommand): CmdTab => {
