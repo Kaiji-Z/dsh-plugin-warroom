@@ -872,3 +872,23 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **坑（新入册）**：①探针双主题持握必须单 observer 可切模式——两个硬编码 observer（一个 force-dark 一个 force-light）同页互搏死锁页面（V18.9 坑复发，本次以更隐蔽形态：暗色页关闭后开浅色页，两 observer 遗留）；②Composer 色调映射管线里「输出亮度上限」是硬墙——任何「让芯更亮」的 HDR 思路都撞墙，只能让 surround 更暗或隐藏；③project() 对相机平面上的点返回 Inf/NaN，一切逐帧投影逻辑必须前置视空间/有限性检查；④服务器被反复强杀的浏览器会话楔死后症状是页面 mount 即 crash（syncing inspect providers failed）——先重启服务器再怀疑代码。
 
 **验证**：verify PASS + 太阳径向剖面（core 229 / r6-60 全 206-208，无白环）+ 暗色回归截图（星海/HQ/星球环全如旧）+ 云 opacity 全有限 + HQ 弹窗三断言（bodyScrollable/titleStable/sticky）+ 43 行滚动态截图。
+
+## B1 后端本职六件（2026-08-31，goal 驱动，元首边界定案）
+
+**边界总原则（元首定案，本轮宪法）**：会话外的状态机+守护+账本归我们；会话内只保留两个注入点（开场简报、停滞后唤醒再注入）+ 出口协议教学（不可裁剪）；执行期工具归宿主原生与用户自装，不包裹不复写。规格正本 `.goal/SPEC-B1.md`（六件实施方案）。
+
+**①提示词单一资产源+快照门禁**：宿主侧模板正文（relay 征召令/转达/战线档案段/外勤征召令组装 commanderOrderFor/rescue 续行提示）收拢 `src/prompts.ts`——persona/skill/chain-note 保持各自资产模块经其汇出，relay.ts re-export 保消费面。快照门=tests/prompts-snapshot.test.ts 全文 fixtures（`WARROOM_UPDATE_SNAPSHOTS=1` 再生成，随改动一并评审）+ verify 源级负针脚（relay/index 长文案字面量清零）+ 出口协议段点名断言（war_claim 令牌/war_submit/war_fail/war_comment/KillCredit 不可裁剪）。纪律固化 AGENTS.md。
+
+**②trace 端点**：`GET /warroom/api/trace?commandId=` → traceProjection 纯函数（命令摘要+directive/campaign 双时间线+板投影任务面+引信视角+征召视角）；征召器 snapshot()（spawned 守卫+去抖拒因）经 index 接线透出——「为什么还没动」机器可查，VERIFICATION §8 P2 挂账兑现。
+
+**③板读 mtime 指纹缓存**：`src/fold-cache.ts` readJsonlCached（mtime+size 指纹，append 必变 size）——四路装载器（events/directives/threads/planets）不再每次全量重读重解析；**只缓存解析后原始事件数组、不缓存 fold**（fold 纯 CPU 微秒级，缓存 fold 会共享可变对象，风险不成比例）；读计数器 foldCacheProbe 机检「未变更零重读/append 必失效」。
+
+**④测试补强**：征召器装配层（createConscriptor 开测试出口、patrolNow 改可 await；满编门/spawn-once/孤儿复用/占用排队/patrol 补征/relayTo 降级）+ dashboard 新路由（**archive 不可逆六态**、host-sessions/workspaces、planets POST）+ planets/state 纯函数。零覆盖的四块清账。
+
+**⑤会话生命周期闭环**（V10.1 挂账兑现）：spike=宿主源码考古（`~/.dsh/profiles/node_modules/@deepseek-ai/dsh-agent{,-loop}`）——`ctx.agents.resume({resumeSessionId})` 存在、owner=registry 自持（插件卸载不连带撕毁）、loop 起后持久队列自动重放；报告 `.goal/evidence/b1-resume-spike.md`。三断点：孤儿 GC（CommanderOps.forget 接 closeTaskInternal/war_fail 终态）+ orphans.json tiny-pointer 落盘（重启不失忆）+ patrol rescue 段（无活体 claimer 先 resume 续命+rescueNudgeFor 入队；**连败≥2 才判死回栏**——persistence 瞬时打嗝不烧 attempt；**面缺席只记拒因留置**——无法区分冷而健康与真死，误伤代价大于搁浅；quotaPaused 豁免）。
+
+**⑥worktree 收官清理**：触发点定案=**链归档**（directive_archived 扇出后）而非任务终态——auto+repo 任务产出活在 worktree 里，终态即删摧毁 deliverables 与 V15 续接前情；归档三道闸（链全终局+舰长明示+会话已归档）恰是「此战线永无续接」的唯一定义时刻。releaseTaskWorkspace 三道保险（物化根 tasks/ 路径范围/linked worktree 判据 git-dir≠common-dir/主仓 remove --force best-effort）；成败都落 `workspace_released` 事件（fold workspaceReleased 投影）随归档响应返回。
+
+**坑（新入册）**：①`pnpm-workspace.yaml` 的 allowBuilds 占位符文本（"set this to true or false"）被误提交后 pnpm 11.7 install 一律 ERR_PNPM_IGNORED_BUILDS、连带 `pnpm run`/verify 全挂——占位符必须填成显式布尔；②`export {x} from './m.ts'` 不产生本地绑定——relay.ts 迁移后本地仍需显式 import；③管道吃退出码（`pnpm verify | tail` 永远 exit 0）——验证一律重定向落盘再 grep。
+
+**验证**：六件各自单测（5+5+19+17 快照/3 断言+5+7）+ verify 针脚九条（bundle 正五+源级负二+存在性二）+ 全量 **291 测全绿**（基线 247，+44）+ 每件独立提交（f916898/87a6722/0ba363a/acfb044/f64bb63/8b911ac）。
