@@ -16,6 +16,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+### Fixed
+- **CI OIDC 发版流水线首跑打通（0.20.0 发版过程修复）** —— 两坑：①CI linux 上 `pnpm install` 撞 `onnxruntime-node` 构建脚本严格审批（promptfoo optional 原生链）——`allowBuilds` 显式补 false；②测试套首次在 linux 上跑，五处 Windows 路径假设平台参数化（工作区大小写归一仅 win/darwin、越界外部路径 posix 用 `/` 绝对式——语义零改动，win 本机 292 全绿 + linux CI 全绿双验证）。流水线自此从手动发布转 release.mjs 一条命令自动发。
+
 ## [0.20.0] - 2026-09-01
 
 本批（B1+B2，goal 驱动两轮）：后端本职六件全交付并实弹验证（板读缓存/trace 端点/
