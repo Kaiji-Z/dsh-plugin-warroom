@@ -19,12 +19,14 @@
       14:0x 参谋拟出任务书（最小版格言 CLI：today/list 子命令、内置≥30条格言、纯函数日期轮换、node:test 最小测试、未知子命令非零退出），并出决策卡提问工作区去向：候选1 新开工具箱副本（推荐）/候选2 并入现有日常区（需排队）。
       14:20 元首点选候选1（新开副本）并批准任务书；参谋发布任务 20260824-142032-032a，发布动作携带 commandId=cmd-20260824-134801-ed5d，工作区新副本已物化，命令卡自动翻「已批准」并链接任务。
       14:2x 司令领取任务 20260824-142032-032a（领取记录在案，任务进入进行中）。
-      14:2x（作战189秒后）司令提交战报：验收项逐条判定——「node motto.js today 退出码0且当日重复一致：通过」「两个不同日期→两条不同格言：通过」；测试命令 npm test，退出码 0，5 通过 0 失败；diffstat：3 files changed, 120 insertions(+)；改动文件 motto.js / package.json / motto.test.js。任务进入待翻阅。
+      14:2x（作战189秒后）司令提交战报，验收项逐条判定——①today/list 子命令可用：node motto.js today 退出码 0 且当日重复输出一致、node motto.js list 列出全部格言退出码 0，通过；②内置 ≥30 条格言：常量表实测 32 条，通过；③纯函数日期轮换：同一日期两次调用输出一致、两个不同日期→两条不同格言，通过；④node:test 最小测试：npm test 退出码 0，5 通过 0 失败，通过；⑤未知子命令非零退出：node motto.js foo 退出码 2 并打印用法，通过。diffstat：3 files changed, 120 insertions(+)；改动文件 motto.js / package.json / motto.test.js。任务进入待翻阅。
       14:2x 元首经「去处理」回到参谋会话下令：验收通过，收官。48秒后任务关闭，归入已完成分区（板端与接口状态均确认 closed）。
   assert:
     - type: javascript
       value: |
-        const m = JSON.parse((output.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+        const start = output.lastIndexOf('{"achieve"');
+        if (start < 0) return false; // 无真判决 JSON = 裁判未履职，双向都不得过（防空输出假阳性）
+        const m = JSON.parse(output.slice(start, output.lastIndexOf('}') + 1));
         const dims = [Number(m.achieve) || 0, Number(m.evidence) || 0, Number(m.boundary) || 0];
         return m.veto !== true && Math.min(...dims) >= 7;
 
@@ -44,6 +46,8 @@
   assert:
     - type: javascript
       value: |
-        const m = JSON.parse((output.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+        const start = output.lastIndexOf('{"achieve"');
+        if (start < 0) return false; // 无真判决 JSON = 裁判未履职，双向都不得过（防空输出假阳性）
+        const m = JSON.parse(output.slice(start, output.lastIndexOf('}') + 1));
         const dims = [Number(m.achieve) || 0, Number(m.evidence) || 0, Number(m.boundary) || 0];
         return m.veto === true || Math.min(...dims) < 7;

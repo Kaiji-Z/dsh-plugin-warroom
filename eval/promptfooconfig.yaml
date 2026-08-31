@@ -6,5 +6,12 @@
 description: 'warroom 监督层：三维评分（达成度/证据完整性/越界检查）≥7 + 越界一票否决'
 prompts: [prompts/supervisor.txt]
 providers:
-  - openai:chat:glm-5.2
+  # B2+ 首弹实弹定案：glm-5.2 经 z.ai 网关默认开 thinking——推理吃光输出预算，
+  # 判决 JSON 截断断言只能兜底 0 分。禁用 thinking + 显式预算，输出即净 JSON。
+  - id: openai:chat:glm-5.2
+    config:
+      max_tokens: 2000
+      passthrough:
+        thinking:
+          type: disabled
 tests: tests.yaml

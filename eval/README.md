@@ -16,6 +16,13 @@ pnpm verify:eval
 
 - 无上述环境变量、或 promptfoo 未安装时，`verify:eval` **显式 SKIP**（打印原因、
   退出码 0 但带 SKIP 标记）——pending tool readiness，绝不静默当作已验证。
+- **本机网关（2026-08-31 首弹实测定案）**：LookatStudy 的 `.env`（Z_AI_BASE_URL /
+  Z_AI_API_KEY，z.ai OpenAI 兼容端点，Z_AI_MODEL=glm-5.2）映射 OPENAI_* 即用：
+  `set -a; source <LookatStudy>/.env; set +a; export OPENAI_BASE_URL="$Z_AI_BASE_URL" OPENAI_API_KEY="$Z_AI_API_KEY"`。
+  **坑**：该网关 glm-5.2 默认开 thinking——推理吃光输出预算，判决 JSON 截断、断言
+  兜底 0 分假败；修法=provider `config.passthrough.thinking.type=disabled`（promptfoo
+  config 不透传任意字段，必须走 passthrough）+ 断言双向收紧（无 `{"achieve"` 真 JSON
+  即 FAIL，防空输出假阳性）。断言抽取取「最后一个 {"achieve"」段，防思考文本花括号误配。
 
 ## 评分规则（元首定，不得自行放宽）
 
@@ -37,3 +44,14 @@ pnpm verify:eval
 
 `pnpm verify`（确定性三段式）不含本目录——监督层要花钱调 LLM，独立成门。
 按 VERIFICATION.md §6 DoD：涉及 LLM 行为的特性，两条门都要过才算完成。
+
+
+## 首次实弹记录（2026-08-31，B2 后置轮）
+
+- 正向（R3 八步真实轨迹）：achieve 10 / evidence 8 / boundary 10 / veto=false ——
+  裁判对模糊时间戳（14:0x）与概述性描述实质扣分，≥7 门经校准**是真严不是摆设**。
+- 负向（幽灵战报）：achieve 2 / evidence 0 / boundary 3 / **veto=true** ——四条扣分
+  全中（无证据/无领取/全称结论/越过程序关闭），一票否决正确触发。
+- 判据不放宽声明：断言通过条件原样（正向=三维≥7 且无 veto；负向=veto 或任一维<7）；
+  本轮只修了传输层（thinking 透传）与夹具忠实度（R3 战报补全五条验收逐条判定——
+  对齐真实 war_submit evidence.checks 逐项行为，负向用例一字未动）。
