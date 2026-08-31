@@ -88,6 +88,10 @@ gate('bundle', () => {
     // B1-件⑥ worktree 收官清理（归档触发，三道保险）。
     [host, 'releaseTaskWorkspace', 'B1-件⑥ worktree release at archive (scoped/path/worktree triple gate)'],
     [host, 'workspace_released', 'B1-件⑥ release ledger event rides the fold'],
+    // B1-件⑤ 会话生命周期闭环（孤儿落盘 + 死会话 rescue）。
+    [host, 'rescueNudgeFor', 'B1-件⑤ rescue continuation nudge (prompts asset)'],
+    [host, 'orphans.json', 'B1-件⑤ orphan sessions tiny-pointer persistence'],
+    [host, '执行会话失联·巡检回收', 'B1-件⑤ dead-session requeue reason rides the ledger'],
     [client, '/warroom/api/events', 'client listens on the SSE channel'],
     [client, 'SAFETY_POLL_MS', 'fallback poll pacing'],
     [client, 'QUALITY_TIERS', 'rarity tiers shared from the domain model'],

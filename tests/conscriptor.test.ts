@@ -75,6 +75,7 @@ function makeRig(opts: { maxCommanders?: number; promptOk?: boolean } = {}): Rig
     warRoot: join(dir, 'war'),
     maxUnits: 2,
     maxCommanders: opts.maxCommanders ?? 3,
+    maxAttempts: 3,
     subagents: {} as never,
   })
   commander.bindRelay(faces.sessions, faces.workspaces)
@@ -187,7 +188,7 @@ test('件④: relayTo——投递失败（面抛错）降级 false 不上抛', a
     assert.equal(await rig.commander.relayTo('sess-x', 'hi'), true)
     const throwing = { ...rig.faces.sessions, prompt: () => { throw new Error('rpc dead') } } as SessionsApiFace
     const store = { get: () => ({ version: 2 as const, active: true }), save: () => {} }
-    const c2 = createConscriptor({ store: store as never, stateDir: rig.dir, warRoot: join(rig.dir, 'war'), maxUnits: 2, maxCommanders: 3, subagents: {} as never })
+    const c2 = createConscriptor({ store: store as never, stateDir: rig.dir, warRoot: join(rig.dir, 'war'), maxUnits: 2, maxCommanders: 3, maxAttempts: 3, subagents: {} as never })
     c2.bindRelay(throwing, rig.faces.workspaces)
     assert.equal(await c2.relayTo('sess-x', 'hi'), false)
   } finally {

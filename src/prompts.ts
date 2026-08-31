@@ -95,6 +95,14 @@ export function chainArchiveSection(gen: number, note: string): string {
   return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${note}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着星球走）；仅当命令明确要求换地点才换。`
 }
 
+/**
+ * B1-件⑤ 死会话 rescue 续行提示：patrol 对搁浅的 in_progress 任务 resume 成功后
+ * 入队——恢复的外勤小队必有一事可做（持久队列若有存量则先消费存量，本提示随后）。
+ */
+export function rescueNudgeFor(taskId: string): string {
+  return `【续行】你的执行会话曾被冻结、现已恢复。核对任务书与验收标准（war_board 可查任务 ${taskId} 全文）继续执行；上下文若有缺口，读工作区现状接着做，不重做已完成的部分。确实无法继续就 war_fail 附一句人话原因。`
+}
+
 /** 从挂链任务折出一行战况（纯；结构性切片，deepen/retry 的征召注入用）。 */
 export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; closedVerdict?: string }): string {
   if (task === undefined) return '未成形（尚未发布成任务）'

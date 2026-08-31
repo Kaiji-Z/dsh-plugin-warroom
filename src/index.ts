@@ -16,7 +16,7 @@
  */
 
 import { join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import { Config } from './config.ts'
 import { dueBounties, registerDashboard } from './dashboard.ts'
@@ -26,7 +26,7 @@ import { appendDirectiveEvent, dueScheduledDirectives, foldChains, loadDirective
 import { buildCommanderChainBrief, type ChainAncestor } from './chain-note.ts'
 import { readDossier } from './dossier.ts'
 import { staffPersonaText } from './persona.ts'
-import { commanderOrderFor } from './prompts.ts'
+import { commanderOrderFor, rescueNudgeFor } from './prompts.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
 import { createWakeEngine } from './wake.ts'
 import { createQuotaFuse, probeBackoffMs } from './quota.ts'
@@ -73,6 +73,21 @@ function createWarSurface(
   }
 }
 
+/** B1-件⑤：orphanSessions 的 tiny-pointer 落盘装载（<stateDir>/orphans.json；
+ *  坏文件/缺文件 → 空表，绝不阻塞起服）。 */
+function loadOrphanSessions(stateDir: string): Map<string, string> {
+  try {
+    const raw = JSON.parse(readFileSync(join(stateDir, 'orphans.json'), 'utf8')) as Record<string, unknown>
+    const out = new Map<string, string>()
+    for (const [k, v] of Object.entries(raw)) {
+      if (k !== '' && typeof v === 'string' && v !== '') out.set(k, v)
+    }
+    return out
+  } catch {
+    return new Map()
+  }
+}
+
 /**
  * The conscriptor (v2.0 征召制): every commander is a TOP-LEVEL session
  * created via the host apiProxy and bound to the TASK WORKSPACE (registry
@@ -93,7 +108,12 @@ function createConscriptor(deps: {
   warRoot: string
   maxUnits: number
   maxCommanders: number
+  maxAttempts: number
   subagents: SubagentsServiceFace
+  /** B1-件⑤ rescue 判据：会话是否有活体 agent（缺席 → rescue 段整体降级为拒因日志）。 */
+  resolveAgent?: (sessionId: string) => unknown
+  /** B1-件⑤ rescue 通道：宿主 agents.resume({resumeSessionId})（缺席 → 只记拒因不回栏）。 */
+  resumeAgent?: (sessionId: string) => Promise<unknown>
 }): CommanderOps & { bindRelay(sessions: SessionsApiFace, workspace: WorkspaceApiFace): void; patrolNow(): Promise<void>; snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } } {
   const spawned = new Set<string>()
   let relay: SessionsApiFace | undefined
@@ -111,7 +131,21 @@ function createConscriptor(deps: {
   }
   // V16.5③ 孤儿会话自愈：简报投递失败时已建的会话记入此表——重试复用同一会话
   // 再投（而非再建一个），不再堆孤儿（cmdr-1 实锤：4 行只建未用的会话）。
-  const orphanSessions = new Map<string, string>()
+  // B1-件⑤：orphanSessions 落盘 <stateDir>/orphans.json（tiny-pointer 模式，同
+  // state.json 先例）——插件重启不再失忆（旧孤儿会话变永久垃圾的洞补上）。
+  const orphanSessions = loadOrphanSessions(deps.stateDir)
+  const persistOrphans = (): void => {
+    try {
+      mkdirSync(deps.stateDir, { recursive: true })
+      writeFileSync(join(deps.stateDir, 'orphans.json'), `${JSON.stringify(Object.fromEntries(orphanSessions), null, 2)}\n`, 'utf8')
+    } catch {
+      // 落盘失败不阻塞征召（内存表仍生效，重启丢失=回到改前行为）。
+    }
+  }
+  // B1-件⑤ 死会话 rescue：resume 连续失败计数（跨巡检轮）——≥2 才判死回栏
+  //（回栏烧 attempt，persistence 后端打嗝不该烧）；成功即清零。
+  const rescueFailures = new Map<string, number>()
+  const rescuing = new Set<string>()
   const runConscript = async (task: CampaignState, signal: AbortSignal): Promise<{ spawned: true; childId: string } | { spawned: false; reason: string }> => {
     if (task.status !== 'published') return { spawned: false, reason: `任务状态为 ${task.status}，只有待领取任务可征召。` }
     if (relay === undefined || workspaceApi === undefined) return { spawned: false, reason: 'apiProxy 未接入（无会话创建通道）。' }
@@ -136,6 +170,7 @@ function createConscriptor(deps: {
       sessionId = created.result.value.sessionId
     } else {
       orphanSessions.delete(task.campaignId)
+      persistOrphans()
       console.log(`[warroom] 复用孤儿会话 ${sessionId} 重投简报（任务 ${task.campaignId}）`)
     }
     const title = `外勤·${displayTitleOf(task.title ?? task.intent).slice(0, 14)}`
@@ -178,6 +213,7 @@ function createConscriptor(deps: {
     const prompted = await relay.prompt({ rpcId: rpc(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: order }] } })
     if (!prompted.result.ok) {
       orphanSessions.set(task.campaignId, sessionId)
+      persistOrphans()
       return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}——会话 ${sessionId} 已留待复用（下轮重投，不再另建）` }
     }
     spawned.add(task.campaignId)
@@ -208,6 +244,15 @@ function createConscriptor(deps: {
         return false
       }
     },
+    // B1-件⑤ 孤儿 GC：任务终态（closed/failed）由 tools 侧收官/败局路径调用——
+    // 清三张内存表（孤儿/spawned 守卫/拒因）并落盘，不留「已死任务」的常驻账。
+    forget(taskId: string): void {
+      orphanSessions.delete(taskId)
+      spawned.delete(taskId)
+      lastSkip.delete(taskId)
+      rescueFailures.delete(taskId)
+      persistOrphans()
+    },
     /** B1-件② trace 视角（只读）：内存态守卫与拒因表的快照。 */
     snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } {
       return { spawned: [...spawned], skips: { ...Object.fromEntries(lastSkip) } }
@@ -219,6 +264,60 @@ function createConscriptor(deps: {
         if (!war.active) return
         if (relay === undefined || workspaceApi === undefined) return
         const tasks = board()
+        // ── B1-件⑤ 死会话 rescue（先救活再补征）─────────────────────────
+        // in_progress 且 claimer 无活体 agent = 搁浅（宿主重启后 apiProxy 会话
+        // 默认不自动恢复）。resume 续命（宿主 loop 起、持久队列重放）+ 队列注
+        // 续行提示；连续 ≥2 次 resume 失败才判死回栏（防 persistence 瞬时打嗝
+        // 烧 attempt）。quotaPaused 是刻意等待，豁免；面缺席只记拒因不回栏
+        //（无法区分冷而健康与真死，误伤代价更大）。
+        if (deps.resolveAgent !== undefined) {
+          for (const t of tasks) {
+            if (t.status !== 'in_progress' || t.claimedBy === undefined || t.quotaPaused === true) continue
+            if (rescuing.has(t.campaignId)) continue
+            let live = false
+            try {
+              const agent = deps.resolveAgent(t.claimedBy)
+              live = agent !== undefined && agent !== null
+            } catch {
+              live = false
+            }
+            if (live) {
+              rescueFailures.delete(t.campaignId)
+              continue
+            }
+            rescuing.add(t.campaignId)
+            try {
+              if (deps.resumeAgent === undefined) {
+                noteSkip(t.campaignId, '执行会话无活体（宿主无 agents.resume 面——无法判死，留置等舰长/会话重开）')
+                continue
+              }
+              await deps.resumeAgent(t.claimedBy)
+              rescueFailures.delete(t.campaignId)
+              lastSkip.delete(t.campaignId)
+              // 续行提示进队：空队列（崩溃时正在回合中）也有事可做；有存量则
+              // 存量先消费、本提示随后（队列语义幂等无害）。
+              void relay.prompt({ rpcId: rpc(), payload: { sessionId: t.claimedBy, mode: 'queue', content: [{ type: 'text', text: rescueNudgeFor(t.campaignId) }] } }).catch(() => undefined)
+              console.log(`[warroom] 死会话 rescue：任务 ${t.campaignId} 执行会话 ${t.claimedBy} 已 resume 续行`)
+            } catch (err) {
+              const n = (rescueFailures.get(t.campaignId) ?? 0) + 1
+              rescueFailures.set(t.campaignId, n)
+              const why = err instanceof Error ? err.message : String(err)
+              if (n >= 2) {
+                if (t.attempts < deps.maxAttempts) {
+                  appendEvent(deps.stateDir, { type: 'task_requeued', ts: new Date().toISOString(), campaignId: t.campaignId, reason: `执行会话失联·巡检回收（resume 连败 ${n} 次：${why.slice(0, 120)}）` })
+                  console.log(`[warroom] 死会话判死：任务 ${t.campaignId} 回栏重征（resume 连败 ${n} 次）`)
+                } else {
+                  noteSkip(t.campaignId, `执行会话失联且重试已用尽（resume 连败 ${n} 次：${why.slice(0, 120)}）——留置等舰长处置`)
+                }
+              } else {
+                noteSkip(t.campaignId, `执行会话无活体，resume 失败 ${n}/2（${why.slice(0, 120)}）——下轮巡检再试`)
+              }
+            } finally {
+              rescuing.delete(t.campaignId)
+            }
+          }
+        }
+        // ── 补征段（原有）───────────────────────────────────────────────
         const inflight = tasks.filter(t => t.status === 'in_progress').length
         if (inflight >= deps.maxCommanders) return
         const plan = conscriptPlan(tasks.map(t => ({ taskId: t.campaignId, status: t.status, workspacePath: t.workspacePath, priority: t.priority, startedAt: t.startedAt })))
@@ -306,7 +405,32 @@ export function apply(ctx: Context, config: Config): void {
   mkdirSync(warRoot, { recursive: true })
   const roster = (): Roster => loadRoster(join(stateDir, 'units'), process.cwd())
   const subagents = (ctx as unknown as { subagents: SubagentsServiceFace }).subagents
-  const commander = createConscriptor({ store, stateDir, warRoot, maxUnits: config.maxUnits, maxCommanders: config.maxCommanders, subagents })
+  // B1-件⑤：宿主 agents 面（get=活体判据 / resume=冷会话续命）——cordis inject
+  // 捕获是唯一合法访问（R1 K13），先立 ref 后建征召器（面晚绑定经 getter 读）。
+  const agentsFaceRef: { face?: { get(id: string): unknown; resume?(options: { resumeSessionId: string }): Promise<unknown> } } = {}
+  const commander = createConscriptor({
+    store,
+    stateDir,
+    warRoot,
+    maxUnits: config.maxUnits,
+    maxCommanders: config.maxCommanders,
+    maxAttempts: config.maxAttempts,
+    subagents,
+    resolveAgent: sessionId => {
+      const face = agentsFaceRef.face
+      if (face === undefined) return undefined
+      try {
+        return face.get(sessionId)
+      } catch {
+        return undefined
+      }
+    },
+    resumeAgent: async sessionId => {
+      const face = agentsFaceRef.face
+      if (face?.resume === undefined) throw new Error('宿主 agents.resume 面缺席')
+      return face.resume({ resumeSessionId: sessionId })
+    },
+  })
   const deps: WarToolsDeps = {
     store,
     stateDir,
@@ -330,8 +454,9 @@ export function apply(ctx: Context, config: Config): void {
   // it lets troops push a message to a sibling troop via the commander as parent;
   // absent, those messages stay durable-pending (honest degradation, no error).
   ctx.inject(['agents'], (agentCtx) => {
-    const agents = (agentCtx as unknown as { agents?: { get(id: string): unknown } }).agents
+    const agents = (agentCtx as unknown as { agents?: { get(id: string): unknown; resume?(options: { resumeSessionId: string }): Promise<unknown> } }).agents
     if (agents === undefined) return
+    agentsFaceRef.face = agents
     deps.resolveAgent = (sessionId: string): unknown => {
       try {
         return agents.get(sessionId)

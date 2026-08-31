@@ -68,6 +68,9 @@ export interface CommanderOps {
   conscript(task: CampaignState, signal: AbortSignal): Promise<{ spawned: true; childId: string } | { spawned: false; reason: string }>
   /** Deliver a notice into one commander session (批注转达). */
   relayTo(sessionId: string, text: string): Promise<boolean>
+  /** B1-件⑤ 孤儿 GC：任务终态时清征召器内存表（孤儿/spawned/拒因）并落盘——
+   *  可选面，旧假 commander / 无征召器环境 no-op。 */
+  forget?(taskId: string): void
 }
 
 /** Workspace materialization seam (injected for testability). */
@@ -284,6 +287,8 @@ export function killCreditAllGreen(evidence: SubmissionEvidence, workspacePath: 
 async function closeTaskInternal(deps: WarToolsDeps, taskId: string, verdict: string, signal: AbortSignal): Promise<string | undefined> {
   appendEvent(deps.stateDir, { type: 'task_closed', ts: new Date().toISOString(), campaignId: taskId, verdict })
   recordDossier(deps, taskId)
+  // B1-件⑤ 孤儿 GC：终态清征召器账（孤儿会话/spawned 守卫/拒因）——best-effort。
+  deps.commander.forget?.(taskId)
   // V5-R3（flag staff-goal）：交防结算——外勤小队 armed goal 随任务收官 complete
   // （CAS 链；agent 经注册表解析，缺席/失败 → 诚实降级不入账）。
   await settleCommanderGoal(deps, taskId, 'closed')
@@ -705,6 +710,8 @@ export function warTools(deps: WarToolsDeps) {
       }
       appendEvent(deps.stateDir, { type: 'task_failed', ts: new Date().toISOString(), campaignId: args.task_id, reason: `第 ${attempts} 次尝试失败：${args.reason}（重试上限 ${deps.maxAttempts} 已用尽）` })
       recordDossier(deps, args.task_id)
+      // B1-件⑤ 孤儿 GC：终态清征召器账。
+      deps.commander.forget?.(args.task_id)
       // V5-R3：重试用尽交防——外勤小队 goal 结算（failed）。
       await settleCommanderGoal(deps, args.task_id, 'failed')
       // V5-R4（flag staff-wake）：失败（用尽）唤醒大副重新立案；requeue 路径

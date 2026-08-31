@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { bountyDraftingSkillContent } from '../src/prompts.ts'
 import {
-  chainArchiveSection, chainDigest, chainOutcomeOf, commanderOrderFor, pivotPromptFor, relayPromptFor,
+  chainArchiveSection, chainDigest, chainOutcomeOf, commanderOrderFor, pivotPromptFor, relayPromptFor, rescueNudgeFor,
 } from '../src/prompts.ts'
 import { commanderPersonaText, conscriptBriefing, planApprovedNotice, planRejectedNotice, staffPersonaText, warKickoffPrompt, wakeCommanderPrompt } from '../src/prompts.ts'
 import type { Directive } from '../src/directives.ts'
@@ -39,6 +39,7 @@ const cases: ReadonlyArray<readonly [name: string, text: string]> = [
     { generation: 2, text: '这是一个特别长的二代命令文本用于截断展示效果' },
   ])],
   ['chain-archive.txt', chainArchiveSection(3, 'Ⅰ 代……\nⅡ 代……')],
+  ['rescue-nudge.txt', rescueNudgeFor('t-0707')],
   ['commander-order-plain.txt', commanderOrderFor({ maxUnits: 3, taskId: 't-0009', title: '深挖性能', workspacePath: '/w/x', acceptance: '验收一；验收二', dossier: '（新星域，尚无历史档案。）' })],
   ['commander-order-chain.txt', commanderOrderFor({ maxUnits: 3, taskId: 't-0009', title: '续接深挖', workspacePath: '/w/x', acceptance: '验收', dossier: '档案', chainBrief: '【Ⅰ 代】战况摘要……' })],
   ['kickoff.txt', warKickoffPrompt()],
