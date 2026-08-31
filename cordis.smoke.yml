@@ -13,3 +13,7 @@
         demoWeave: true
         # V16.3 诊断：操场假任务 3 条 in_progress 占满默认编制 3 → 实弹门任务永不被征召（静默排队）。演示态提上限。
         maxCommanders: 8
+        # 舰长令 2026-09-01：staff-auto-close 默认 OFF（强制人工验收）。e2e 考题
+        # C1b/C8 断言的正是自动收官机制本身——考题环境经 extraFeatures 显式开旗
+        # 继续覆盖该机制；生产/联调默认不再自动收官。
+        extraFeatures: 'staff-auto-close'

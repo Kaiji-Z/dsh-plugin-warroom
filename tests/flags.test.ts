@@ -36,3 +36,23 @@ test('开发期政策：runtimeFlags 默认全开（DEFAULT_ON），v5-spike 仍
   assert.equal(featureEnabled(off, 'quota-recovery'), false)
   assert.equal(featureEnabled(off, 'staff-goal'), true)
 })
+
+test('舰长令 2026-09-01：staff-auto-close 默认 OFF（强制人工验收）——不在 DEFAULT_ON，runtime 缺省不开', () => {
+  assert.equal(DEFAULT_ON_FLAGS.includes('staff-auto-close'), false, '默认开清单不得再含 staff-auto-close')
+  const flags = runtimeFlags({})
+  assert.equal(featureEnabled(flags, 'staff-auto-close'), false, '运行面默认必须关：回报一律人工验收')
+  assert.equal(featureEnabled(flags, 'staff-triage'), true, '其余默认开政策不变')
+  // opt-in 通道一：env 显式开。
+  assert.equal(featureEnabled(runtimeFlags({ [FEATURE_FLAGS_ENV]: 'staff-auto-close' }), 'staff-auto-close'), true)
+})
+
+test('extraFeatures：overlay 自带附加旗——合并进运行面，env 的 !name 仍可压掉', () => {
+  const merged = runtimeFlags({}, 'staff-auto-close, v5-spike')
+  assert.equal(featureEnabled(merged, 'staff-auto-close'), true)
+  assert.equal(featureEnabled(merged, 'v5-spike'), true)
+  // env 的显式关压过 extra（env 最后解析）。
+  const vetoed = runtimeFlags({ [FEATURE_FLAGS_ENV]: '!staff-auto-close' }, 'staff-auto-close')
+  assert.equal(featureEnabled(vetoed, 'staff-auto-close'), false)
+  // 空串 no-op。
+  assert.equal(featureEnabled(runtimeFlags({}, ''), 'staff-auto-close'), false)
+})

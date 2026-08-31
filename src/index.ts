@@ -445,7 +445,9 @@ export function apply(ctx: Context, config: Config): void {
       materializeInstance: (_warRoot, taskId, slug) => materializeInstanceWorkspace(workspaceRoot, taskId, slug),
     },
     warRoot,
-    flags: runtimeFlags(), // 开发期默认全开（DEFAULT_ON + env 覆盖），见 flags.ts 政策注
+    // 开发期默认全开（DEFAULT_ON + env/extraFeatures 覆盖）。staff-auto-close
+    // 默认 OFF——舰长令 2026-09-01：所有回报强制人工验收，见 flags.ts 政策注。
+    flags: runtimeFlags(process.env, config.extraFeatures),
   }
   const surface = createWarSurface(ctx.tools, deps)
   surface.sync()

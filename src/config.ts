@@ -47,6 +47,12 @@ export interface Config {
    * 上所有「直跳原生会话」的点击才有着落。生产配置绝不开。
    */
   demoWeave: boolean
+  /**
+   * 装配层附加显式开旗（逗号分隔，缺省空）：overlay 自带考题旗用——如 smoke
+   * overlay 开 `staff-auto-close` 让 e2e 考题继续覆盖自动收官机制（该旗默认
+   * OFF——舰长令 2026-09-01 强制人工验收）。env 的 `!name` 仍可压掉它。
+   */
+  extraFeatures: string
 }
 
 /** Schemastery configuration validated at plugin load. */
@@ -60,4 +66,5 @@ export const Config: z<Config> = z.object({
   workspaceRoot: z.string().default(''),
   active: z.union(['auto', 'on', 'off'] as const).default('auto'),
   demoWeave: z.boolean().default(false),
+  extraFeatures: z.string().default(''),
 })
