@@ -27,7 +27,8 @@
 
 | 文件 | 职责 |
 |---|---|
-| `index.ts` | 插件入口：服务装配、指挥官征召器（conscriptor）、巡检 rescue（直接征召，无 LLM nudge）、引信生命周期 |
+| `index.ts` | 插件入口：服务装配、指挥官征召器（conscriptor，含 B1-件⑤ orphan 落盘 orphans.json + patrol 死会话 rescue 段）、巡检 rescue（直接征召，无 LLM nudge）、引信生命周期 |
+| `prompts.ts` | **B1-件① 宿主侧提示词单一资产源**：relay 征召令/转达/战线档案段/外勤征召令组装 commanderOrderFor/rescue 续行提示；persona/skill/chain-note 经其汇出；快照门禁见 AGENTS 提示词资产纪律 |
 | `directives.ts` | 命令区事件流（directives.jsonl append-only + fold，五态生命周期 + 每命令会话绑定 + 终态守卫） |
 | `relay.ts` | **每命令一会话** relay（pending 无会话即建 `参谋·<摘要>`）、命令引信（tickNow 秒级 + 15s 兜底）、征召令/转达文案 |
 | `threads.ts` | 挂载外部会话事件流（threads.jsonl append-only：attach/detach + fold） |
@@ -36,7 +37,7 @@
 | `rules.ts` | 工作区归一化/冲突检测、征召计划（同区排队跨区并行）、任务链依赖检查 |
 | `workspace.ts` | 工作区物化、`@new:` 新副本（instances/） |
 | `dossier.ts` | 指挥官履历档案（退任落盘、征召注入） |
-| `dashboard.ts` | Host HTTP API（/warroom/api/*：board/commands/talking/events(SSE)/threads/threads/detach）+ 板投影 |
+| `dashboard.ts` | Host HTTP API（/warroom/api/*：board/commands/talking/events(SSE)/threads/threads/detach/trace/archive/host-sessions/host-workspaces/planets/v5-spike）+ 板投影 + traceProjection（B1-件② 单命令追踪） |
 | `client/` | 看板前端：views.tsx（V9 三级布局：灵动岛 → **三列局势墙 任务/战场（进行中）/战报（成功+失败合并纯时间序）** → **底部命令调度条**（全部命令卡横滚，活跃优先）+ 命令卡唯一详情入口（上方卡点击经 lineage 路由到源命令 **V9.9 聚焦页 FocusPage + V9.10 状态机补全**——四段导览=主界面卡片拉进窗口：①命令卡（点开下达配置+改档 L0/L1/L2）②任务卡/ghost（**12 态状态机**：drafting ghost=分诊结论+进任务会话、talking ghost=warn 色+进入对话回答、plan ghost=计划原文+批准/驳回、灰提示分岔=定时待发/转达中/待发布/已取消、链卡=计划+任务书+验收标准+去处理）③仅进行中的执行会话卡（点卡直跳原生会话，无 live 只给提示行）④战报卡（点开收官结论+证据+战利品+历次作战逐次可跳+去处理）；子详情一律卡下原地展开；底部双会话跳钮（任务会话/执行会话，未形成禁用占位）代替旧 footer 全部按钮；**TaskDetail/SessionDetail 已裁撤**——孤儿卡直跳末次会话/原生会话；focusSegment 分段直达 plan/chain→任务段、report→战报段；段头无编号、跳转导航已退役（负断言 war-cd-step））+ 四段生命条 + 任务·会话卡 `↩ cmd` 溯源 chip；链成员 `commandTasks` deps-闭包 BFS 纯客户端）、copy.ts（**皮肤词典**：WarCopy 契约 + warCopy 军事/plainCopy 平话 + react-free 皮肤 store）、V7 到访件——inbox.ts（收件箱四类聚合+aging）、visit.ts（last-seen delta，挂载快照）、preflight.ts（夜间预检判定+档位标记）、waithint.ts（排队/待领/配额解释行）、views.tsx 悬停族系高亮+聚焦模式（CardTrace 注入，hover 优先于 focus，无 SVG 连线；自动滚动覆盖纵列+横滚调度条）与空板引导、styles.ts、data.ts、shell-entry.ts（回家键）、index.ts（SSE+关板水合守卫） |
 | `client/front.ts` | V13 战线派生纯函数（零 React）：`frontsOf` 血脉∩战场 run 拆分（续代跨战场=新段，成形继承父段，Ⅳ 不并回）、`commandTasks` deps-闭包 BFS（V13 从 views 迁入）、`isSyntheticWs` 合成沙盒启发式 + `UNGROUPED_WS_KEY`、`WzBridgeFrontLite` 星域桥 |
 | `activity.ts` | V9.11 执行卡实时活动：宿主 session/event → 动词映射器（纯函数，**载荷在 `.data` 下**）+ `ActivityTracker` 内存滚动表（256 上限不落盘）+ revision 动词盐（只随动词变） |
@@ -48,6 +49,7 @@
 | `schedule.ts` | 每日悬赏 cron：5 段表达式解析 + 下次运行计算（错过即跳过，不回填） |
 | `state.ts` | 全局战时状态 JSON（激活 + HQ 绑定 + 当前战役指针；历史只在事件日志） |
 | `types.ts` | 领域类型（兵种/战役事件/fold 状态），零 harness 依赖保持纯度 |
+| `fold-cache.ts` | **B1-件③ JSONL 装载缓存**：mtime+size 指纹（append 必失效），events/directives/threads/planets 四路共用；读计数器 foldCacheProbe 机检 |
 
 tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scripts/verify.mjs` 是验收断言（含 bundle needle 检查），`scripts/seed-smoke.ts` 造演示板，`scripts/shoot-board.py`（Playwright 截图取证）、`scripts/exam-v3.py`（八步考题驱动）、`scripts/shoot-v7.py`（V7 到访件全套断言+截图；起服前清空的只有隔离 `.smoke-state`——**绝不能无参跑 `seed-smoke.ts`**，默认状态目录是真实数据）是浏览器侧工具。
 
