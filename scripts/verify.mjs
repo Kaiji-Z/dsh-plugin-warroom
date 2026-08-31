@@ -82,6 +82,9 @@ gate('bundle', () => {
     // B1-件② 命令追踪端点（只读调试面）。
     [host, '/warroom/api/trace', 'single-command trace endpoint (timeline + fuse/conscription view)'],
     [host, 'traceProjection', 'trace projection pure function'],
+    // B1-件① 提示词单一资产源（src/prompts.ts）+ 快照门禁。
+    [host, 'commanderOrderFor', 'B1-件① conscription order assembled in the prompts asset hub'],
+    [host, 'chainArchiveSection', 'B1-件① chain-archive template lives in the prompts hub'],
     [client, '/warroom/api/events', 'client listens on the SSE channel'],
     [client, 'SAFETY_POLL_MS', 'fallback poll pacing'],
     [client, 'QUALITY_TIERS', 'rarity tiers shared from the domain model'],
@@ -480,6 +483,10 @@ gate('bundle', () => {
     // (the judge itself runs behind `pnpm verify:eval` with honest SKIP).
     { ok: existsSync('eval/promptfooconfig.yaml') && existsSync('eval/prompts/supervisor.txt') && existsSync('eval/tests.yaml'), label: 'supervisor layer: promptfoo config/prompt/tests exist' },
     { ok: existsSync('scripts/run-eval.mjs') && existsSync('tests/e2e-regression.test.ts'), label: 'verify:eval gate script + eight-step regression exist' },
+    // B1-件① 提示词资产化：单一源存在 + relay/index 长文案字面量清零（源级负针脚）。
+    { ok: existsSync('src/prompts.ts') && existsSync('tests/prompts-snapshot.test.ts') && existsSync('tests/prompts-snapshots/relay-base.txt'), label: 'B1-件① prompts asset hub + snapshot fixtures exist' },
+    { ok: !readFileSync('src/relay.ts', 'utf8').includes('【命令区】新命令') && !readFileSync('src/relay.ts', 'utf8').includes('战线跟着星球走'), label: 'B1-件① relay.ts long copy literals cleared (templates live in prompts.ts)' },
+    { ok: !readFileSync('src/index.ts', 'utf8').includes('你的写权限根就在本会话绑定的工作区') && !readFileSync('src/index.ts', 'utf8').includes('前情点名的上代产物'), label: 'B1-件① index.ts conscription-order copy cleared (commanderOrderFor assembles)' },
   ]
   return { exit: 0, checks }
 })

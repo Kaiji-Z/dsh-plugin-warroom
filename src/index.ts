@@ -25,7 +25,8 @@ import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'
 import { appendDirectiveEvent, dueScheduledDirectives, foldChains, loadDirectives } from './directives.ts'
 import { buildCommanderChainBrief, type ChainAncestor } from './chain-note.ts'
 import { readDossier } from './dossier.ts'
-import { commanderPersonaText, conscriptBriefing, staffPersonaText } from './persona.ts'
+import { staffPersonaText } from './persona.ts'
+import { commanderOrderFor } from './prompts.ts'
 import { createCommandFuse, type SessionsApiFace, type WorkspaceApiFace } from './relay.ts'
 import { createWakeEngine } from './wake.ts'
 import { createQuotaFuse, probeBackoffMs } from './quota.ts'
@@ -163,17 +164,17 @@ function createConscriptor(deps: {
         chainBrief = buildCommanderChainBrief(ancestors, gen)
       }
     } catch { chainBrief = '' }
-    const order = [
-      commanderPersonaText(deps.maxUnits),
-      '',
-      conscriptBriefing({ taskId: task.campaignId, title: task.title ?? task.intent, workspacePath: task.workspacePath, acceptance: task.acceptance ?? '', dossier }),
-      ...(chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${chainBrief}`] : []),
-      '',
-      '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（星域写工作区内相对路径）。',
-      // V16.5②（仅续接令）：e2e 体检实锤外勤会去翻宿主会话记录/服务日志/全盘文件
-      // 「求证」上代上下文——前情里产物路径+关键值都在，点明直接读工作区文件。
-      ...(chainBrief !== '' ? ['前情点名的上代产物（相对路径）就在本工作区内——直接读文件，不要去检索宿主会话记录、服务日志或工作区之外的任何文件。'] : []),
-    ].join('\n')
+    // B1-件①：征召令全文组装在 prompts.ts（commanderOrderFor）——单一资产源，
+    // 快照门覆盖；此处只喂运行时参数。
+    const order = commanderOrderFor({
+      maxUnits: deps.maxUnits,
+      taskId: task.campaignId,
+      title: task.title ?? task.intent,
+      workspacePath: task.workspacePath,
+      acceptance: task.acceptance ?? '',
+      dossier,
+      ...(chainBrief !== '' ? { chainBrief } : {}),
+    })
     const prompted = await relay.prompt({ rpcId: rpc(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: order }] } })
     if (!prompted.result.ok) {
       orphanSessions.set(task.campaignId, sessionId)
