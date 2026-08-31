@@ -16,6 +16,11 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+### Fixed
+- **浅色 3D「太阳中间一颗灰点」（元首实抓，像素取证四层剥洋葱）** —— 真因链：太阳球芯被 ACES 色调映射封顶在 ~0.9 灰白（229,229,229），而它的加法光晕在亮天上钳成纯白盘（255）且盘比球大——芯比自己的晕暗=灰点。终修：白昼隐藏晕 sprite（暖意交给 CSS 暖霞，家视图同位）；远景云漂过相机平面时投影除零把 opacity 永久污染成 NaN（不透明白云糊屏=白盘真身）——视空间前置检查+非有限跳过+中毒救回。
+- **浅色天穹重做** —— 天顶 azure→天际暖白的真天穹梯度（旧 #c9e5f8→#f5faff 苍白如雾）；阳光斑弱化为暖霞（亮度压到太阳芯之下）；白晕影 .55→.3；雾色随新天际。
+- **HQ 注册弹窗滚动结构** —— 旧整个弹窗滚（标题跟着清单跑）；改头部/提示定死+清单体内滚+节头 sticky（43 行清单滚到哪都知道身处哪组）。（元首实抓）
+
 ### Added
 - **npm 发布机制就绪（参考 LookatStudy 同款）** —— `scripts/release.mjs` 一条命令发版（verify 门→净树门→bump→tag→push→轮询 npm；关键词双轨：milestone/major=里程碑、iteration/minor=迭代、knife/patch=刀）+ `.github/workflows/publish.yml` GitHub OIDC 可信发布（零 npm token 存储，v* tag 触发，普通 push 永不发版）。首次发布前需在 npmjs.com 预登记 pending publisher。
 

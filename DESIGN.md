@@ -854,3 +854,21 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 ## V18.9.6 浅色 3D 云中心淡出二修（2026-08-30，元首再报「还有云飘过来遮挡」）
 
 远景环（950-1500）结构上不进前场，但 φ≈180° 的云**投影正落画面中心**（相机沿看穿原点方向取景）。修=逐帧 NDC 中心淡出带：云投影点距屏幕中心 <0.55→opacity 0，0.55-0.80 线性恢复（dt×3 平滑），baseOpacity 建造时存 userData。云照常漂它的环，只是路过正中时隐身。验证：8 朝向扫描截图全净（`.goal/evidence/v18/cloudfix-scan-*.png`）+ verify PASS。
+
+
+## V18.9.7 浅色天穹 + 太阳灰点四层剥洋葱 + HQ 弹窗滚动（2026-08-31，元首实拍两张）
+
+**①天穹重做**：`--war-sky-bg` 浅色从 #c9e5f8→#f5faff（苍白如雾）改为天顶 #8fc3ec→#b5d9f4→#dcedfa→天际暖白 #f7f3e6；阳光斑弱化暖霞；`--war-sky-vig` 白晕影 .55→.3（白晕压天=白洗主源）；浅色雾色 0xcfe4f5→0xc3dcf1 随新天际。
+
+**②太阳灰点（元首实拍+像素取证定案）**——表现：太阳白盘中间一颗灰点。剥洋葱四层：
+1. 初判「ACES 后芯 0.83 暖灰+光晕被深度遮蔽」→ HDR 芯(4.4)+晕 depthTest:false —— 没好：芯实测恒 (229,229,229)；
+2. 发现 RenderTarget 字节型 1.0 封顶 → OutputPass 的 ACES(1.0·1.1)=0.898=229 分毫不差——**ACES 肩部对任意输入封顶 ~0.9，色调映射管线里不存在比 229 更亮的不透明像素**；
+3. 改法线混合暖雾想算术压芯 —— 实测环 (231,255,255) 青白钳亮：加法/普通混合在 Composer alpha 管线里的行为与直觉模型不符，放弃建模走实证；
+4. 真凶第二层：**远景云 opacity 全 NaN**——云漂过相机平面时 project() 的 w≈0 → 除零 → Infinity 进投影矩阵第二段算成 NaN → `opacity += (target-NaN)·k` 永久中毒 → 不透明白云糊屏（白盘真身）。NaN 后续帧不可自愈（NaN 吸收一切）。
+终修：视空间先判（`applyMatrix4(matrixWorldInverse)` 后 z≥0 或非有限 → 跳过本帧）+ `Number.isFinite(opacity)` 救回 base；浅色隐藏晕 sprite，太阳=干净雾日日盘（229 on 206 天空，径向剖面全绿），暖意交给 CSS 暖霞（家视图与太阳同位）。暗色 halo/加法/ACES 全不动。
+
+**③HQ 注册弹窗滚动结构（元首实拍）**：旧整个弹窗滚（滚动条从 ✕ 旁开始=标题跟清单跑）。改 `.war-hq-picker` flex column 定死头/提示，新增 `.war-hq-picker-body`（overflow-y:auto+min-height:0+thin scrollbar）装清单；节头 sticky+pop-bg 掩罩。机检：bodyScrollable/titleStable/stickyGroup 三断言 + 43 行实滚截图。
+
+**坑（新入册）**：①探针双主题持握必须单 observer 可切模式——两个硬编码 observer（一个 force-dark 一个 force-light）同页互搏死锁页面（V18.9 坑复发，本次以更隐蔽形态：暗色页关闭后开浅色页，两 observer 遗留）；②Composer 色调映射管线里「输出亮度上限」是硬墙——任何「让芯更亮」的 HDR 思路都撞墙，只能让 surround 更暗或隐藏；③project() 对相机平面上的点返回 Inf/NaN，一切逐帧投影逻辑必须前置视空间/有限性检查；④服务器被反复强杀的浏览器会话楔死后症状是页面 mount 即 crash（syncing inspect providers failed）——先重启服务器再怀疑代码。
+
+**验证**：verify PASS + 太阳径向剖面（core 229 / r6-60 全 206-208，无白环）+ 暗色回归截图（星海/HQ/星球环全如旧）+ 云 opacity 全有限 + HQ 弹窗三断言（bodyScrollable/titleStable/sticky）+ 43 行滚动态截图。

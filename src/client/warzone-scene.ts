@@ -802,6 +802,7 @@ export class WarzoneScene {
   private hemiLight: THREE.HemisphereLight | null = null
   private sunMat: THREE.MeshBasicMaterial | null = null
   private sunGlowMat: THREE.SpriteMaterial | null = null
+  private sunGlowObj: THREE.Sprite | null = null
   private readonly shipHullMat = new THREE.MeshStandardMaterial({ color: 0x8d99b0, metalness: 0.85, roughness: 0.3, flatShading: true })
   private readonly shipAccMat = new THREE.MeshStandardMaterial({ color: 0x51427e, metalness: 0.7, roughness: 0.35, flatShading: true })
   private readonly shipEngMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.15, 0.45) })
@@ -875,7 +876,9 @@ export class WarzoneScene {
     this.scene.add(sun)
     this.disposables.push(sunGeo, sunMat)
     const sunGlow = this.glowSprite(new THREE.Color(0.72, 0.8, 1.0), 220, 0.5)
+    ;(sunGlow.material as THREE.SpriteMaterial).depthTest = false // V18.9.7：晕要叠上芯（球体深度会把 sprite 挡在盘外，盘缘硬断）
     this.sunGlowMat = sunGlow.material as THREE.SpriteMaterial
+    this.sunGlowObj = sunGlow
     sunGlow.position.copy(sunPos)
     this.scene.add(sunGlow)
     const hemi = new THREE.HemisphereLight(0x33415e, 0x241a12, 0.4)
@@ -1602,16 +1605,35 @@ export class WarzoneScene {
     this.nebGroup.visible = dark
     this.cloudGroup.visible = !dark
     this.bloom.enabled = dark // 白天无辉光可放大——bloom 关（还省一块 GPU）
-    this.scene.fog = dark ? new THREE.FogExp2(0x06070f, 0.00075) : new THREE.FogExp2(0xcfe4f5, 0.0006)
+    this.scene.fog = dark ? new THREE.FogExp2(0x06070f, 0.00075) : new THREE.FogExp2(0xc3dcf1, 0.0006)
     // 加法辉光在白天底上失效——星球 halo 浅色态隐藏（R2 由基座环/光柱接班语义）
     for (const p of this.planets) p.halo.visible = dark
     if (this.sunMat !== null) {
       if (dark) this.sunMat.color.setRGB(2.0, 2.1, 2.4)
-      else this.sunMat.color.setRGB(2.3, 1.95, 1.35) // 暖阳
+      // V18.9.7 二修（元首实抓灰点）：ACES 肩部对任意输入封顶 ~0.9 灰白——芯(229,229,229)
+       // 永远亮不过身后的加法晕(钳 255)=「太阳中间一颗灰点」。浅色直接关色调映射，
+       // HDR 色钳出纯白芯；暗色芯本就亮于晕，保持 ACES 不动。
+      else this.sunMat.color.setRGB(4.4, 4.15, 3.6) // 暖阳（HDR）
+      this.sunMat.toneMapped = dark
+      this.sunMat.needsUpdate = true // toneMapped 翻转要重编译材质才生效
+      // V18.9.7 终修（元首实抓灰点）：晕 sprite 的饱和内芯(~255)比 ACES 封顶的球芯
+       // (229)亮，球剪影落在晕盘里=「太阳中间一颗灰点」。白昼太阳=干净雾日日盘，
+       // 暖意交给 CSS 暖霞（家视图同位）；暗色 halo（加法+亮度反超芯）保持不变。
+      if (this.sunGlowObj !== null) this.sunGlowObj.visible = dark
     }
     if (this.sunGlowMat !== null) {
-      if (dark) this.sunGlowMat.color.setRGB(0.72, 0.8, 1.0)
-      else this.sunGlowMat.color.setRGB(1.0, 0.86, 0.6)
+      if (dark) {
+        this.sunGlowMat.color.setRGB(0.72, 0.8, 1.0)
+        this.sunGlowMat.blending = THREE.AdditiveBlending
+        this.sunGlowMat.opacity = 0.5
+      } else {
+        // V18.9.7：白昼光晕改普通混合暖雾——加法混合在亮天上只会把蓝推钳成青白环
+        // （lum 248 > 芯 229=ACES 封顶，环比芯亮=灰点观感的另一半）；普通混合暖白
+        // 算术上低于芯，芯盘均匀一色，灰点消失。
+        this.sunGlowMat.color.setRGB(1.0, 0.96, 0.88)
+        this.sunGlowMat.blending = THREE.NormalBlending
+        this.sunGlowMat.opacity = 0.45
+      }
     }
     if (this.dirLight !== null) {
       if (dark) { this.dirLight.color.set(0xaabbff); this.dirLight.intensity = 1.6 }
@@ -2031,10 +2053,18 @@ export class WarzoneScene {
         c.position.x += (c.userData.drift as number) * dt
         if (c.position.x > 1600) c.position.x = -1600
         else if (c.position.x < -1600) c.position.x = 1600
-        _v2.copy(c.position).project(this.camera)
-        const dN = Math.hypot(_v2.x - cxN, _v2.y - cyN)
         const mat = (c as THREE.Sprite).material as THREE.SpriteMaterial
+        // V18.9.7 修（元首实抓灰点）：云漂过相机平面时 project 的 w≈0 → 除零
+        // → NDC ±Inf → Infinity 进投影矩阵第二段算成 NaN → opacity 永久 NaN
+        // =不透明白云糊屏（太阳外的白盘真身）。视空间先判：在相机后方/贴平面/
+        // 非有限一律跳过本帧（云在屏外，opacity 原地保持）；已中毒的救回 base。
+        _v2.copy(c.position).applyMatrix4(this.camera.matrixWorldInverse)
+        if (!Number.isFinite(_v2.x) || !Number.isFinite(_v2.y) || !Number.isFinite(_v2.z) || _v2.z >= 0) continue
+        _v2.project(this.camera)
+        if (!Number.isFinite(_v2.x) || !Number.isFinite(_v2.y)) continue
+        const dN = Math.hypot(_v2.x - cxN, _v2.y - cyN)
         const base = (c.userData.baseOpacity as number) ?? 0.5
+        if (!Number.isFinite(mat.opacity)) mat.opacity = base
         const target = dN < 0.55 ? 0 : base * Math.min(1, (dN - 0.55) / 0.25)
         mat.opacity += (target - mat.opacity) * Math.min(1, dt * 3)
       }

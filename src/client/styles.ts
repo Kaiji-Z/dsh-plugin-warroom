@@ -126,8 +126,11 @@ export const WAR_CSS = `
   /* 3D 天穹（浅=暖阳光斑+浅蓝天幕，画布 alpha:true 透出）/ 晕影 / 2D 海图纸 /
    * 标签光晕（浅=白晕压天幕，深=黑晕压星海——canvas 上的 DOM 标签可读性保险） */
   --war-label-halo: 0 0 6px rgba(255,255,255,.75);
-  --war-sky-bg: radial-gradient(circle at 68% 16%, rgba(255,243,214,.9), rgba(255,243,214,0) 36%), linear-gradient(180deg, #c9e5f8 0%, #e6f3fd 52%, #f5fafF 100%);
-  --war-sky-vig: radial-gradient(ellipse at center, transparent 62%, rgba(255,255,255,.55) 100%);
+  /* V18.9.7 天穹重做：天顶 azure→天际暖白（旧 #c9e5f8→#f5faff 太苍白，读成雾不读成天）；
+   * 阳光斑=暖霞（.45 弱化）：CSS 不经 3D 色调映射、旧 .95 白斑亮度(252)压过太阳芯的
+   * ACES 封顶(229)——「太阳中间一颗灰点」的真根因（元首实抓+像素取证）；晕影 .55→.3 */
+  --war-sky-bg: radial-gradient(circle at 68% 16%, rgba(255,228,168,.45), rgba(255,228,168,0) 30%), linear-gradient(180deg, #8fc3ec 0%, #b5d9f4 44%, #dcedfa 72%, #f7f3e6 100%);
+  --war-sky-vig: radial-gradient(ellipse at center, transparent 62%, rgba(255,255,255,.3) 100%);
   --war-chart-bg:
     radial-gradient(1100px 460px at 72% -12%, color-mix(in srgb, var(--war-run-border) 8%, transparent), transparent 62%),
     radial-gradient(820px 400px at 12% 112%, color-mix(in srgb, var(--chain-hue, #a83d84) 6%, transparent), transparent 55%),
@@ -536,13 +539,14 @@ html[data-dsh-warroom-active] [class*='centerCol'] > :not([data-dsh-warroom-view
 /* V18 HQ 工作区注册弹窗。 */
 /* V18.9.4 重排（元首令「很乱」）：分组列头 + 两行行卡（名称/按钮在上、路径整行
  * 在下）+ done 令牌绿染已注册行——对齐起草器/卡片的设计语言，告别三列挤压。 */
-.war-hq-picker{display:flex;flex-direction:column;gap:10px;min-width:440px;max-width:560px;max-height:calc(80vh - 72px);overflow-y:auto} /* 43+ 行工作区必须内滚——V16.4 弹窗内滚口径 */
-.war-hq-picker-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.war-hq-picker{display:flex;flex-direction:column;gap:10px;min-width:440px;max-width:640px;max-height:calc(80vh - 72px)} /* 内滚在 body（V18.9.7）：标题/提示定死不跟滚 */
+.war-hq-picker-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto}
+.war-hq-picker-body{overflow-y:auto;min-height:0;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;margin-right:-6px;padding-right:6px}
 .war-hq-picker-x{cursor:pointer;background:transparent;border:none;color:var(--war-text-2);font-size:14px;padding:2px 6px}
 .war-hq-picker-x:hover{color:var(--war-text-1)}
-.war-hq-picker-hint{margin:-6px 0 0;font-size:12px;line-height:1.6;color:var(--war-text-2)}
+.war-hq-picker-hint{margin:-6px 0 0;font-size:12px;line-height:1.6;color:var(--war-text-2);flex:0 0 auto}
 .war-hq-picker-err{margin:0;font-size:12px;color:var(--war-fail)}
-.war-hq-picker-group{font-size:12px;font-weight:600;color:var(--war-text-2);letter-spacing:.02em}
+.war-hq-picker-group{position:sticky;top:0;z-index:1;background:var(--war-pop-bg);padding:4px 0 6px;font-size:12px;font-weight:600;color:var(--war-text-2);letter-spacing:.02em} /* 节头 sticky：滚长清单时知道自己身处哪组 */
 .war-hq-row{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--war-border);border-radius:var(--war-r-md);background:var(--war-card-bg)}
 .war-hq-row.is-reg{background:var(--war-done-tint);border-color:color-mix(in srgb, var(--war-done-border) 45%, transparent)}
 .war-hq-row-main{display:flex;align-items:center;gap:8px}

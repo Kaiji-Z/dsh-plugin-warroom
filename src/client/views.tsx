@@ -1974,8 +1974,12 @@ function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; ti
         err !== null ? createElement('p', { className: 'war-hq-picker-err' }, err) : null,
         rows === null && err === null ? createElement('p', { className: 'war-hq-picker-hint' }, '…') : null,
         rows !== null && rows.length === 0 ? createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerEmpty) : null,
-        group(activeCopy().starfield.hqPickerRegGroup(regRows.length), regRows, false),
-        group(activeCopy().starfield.hqPickerDoneGroup(doneRows.length), doneRows, true),
+        // V18.9.7（元首实抓）：滚此前在整个弹窗上——标题跟着清单跑。头/提示定死，
+        // 只有清单体滚；节头在体内 sticky，滚到哪都能看见自己身处哪组。
+        createElement('div', { className: 'war-hq-picker-body' },
+          group(activeCopy().starfield.hqPickerRegGroup(regRows.length), regRows, false),
+          group(activeCopy().starfield.hqPickerDoneGroup(doneRows.length), doneRows, true),
+        ),
       )))
 }
 
