@@ -16,6 +16,12 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-01
+
+本批（B1+B2，goal 驱动两轮）：后端本职六件全交付并实弹验证（板读缓存/trace 端点/
+装配层测试/提示词资产化+快照门/生命周期闭环/工作区收官清理）；提示词最小充分审查
+（契约修正+重写收敛，实弹全链 90 秒闭环）；验证体系三层齐装——监督层首弹实弹过门。
+
 ### Added
 - **监督层首次实弹过门（B2 后置轮，2026-08-24 挂账清账）** —— 裁判 glm-5.2 接真网关（LookatStudy `.env` 的 z.ai 兼容端点映射 OPENAI_*）：`pnpm verify:eval` 2/2 PASS——正向（R3 八步真实轨迹）10/8/10 无否决（裁判对模糊时间戳/概述描述实质扣分，≥7 门实证真严）；负向（幽灵战报）一票否决四条全中。配套三修：provider `passthrough.thinking.type=disabled`（z.ai 网关 glm-5.2 默认开 thinking 吃光输出预算致判决 JSON 截断——promptfoo config 不透传任意字段必须走 passthrough）；断言双向收紧（无 `{"achieve"` 真 JSON 即 FAIL 防空输出假阳性）+ 抽取取最后段防花括号误配；R3 正向夹具战报补全五条验收逐条判定（对齐真实 war_submit evidence.checks 逐项行为；判据通过条件原样未放宽，负向用例一字未动）。坑录与首跑分数入 eval/README.md，AGENTS P1 挂账同步清账，取证 `.goal/evidence/b2-live/`。
 - **提示词最小充分审查（B2，重写收敛尺度）** —— 审查正本 `.goal/SPEC-B2.md`（23 份资产逐份裁决表：18 份快照资产 + troop 五件新入册）。**契约修正×3**：分诊/计划/拆解的教学参数名 `command_id`→`commandId`（对齐 war_triage/war_plan/war_decompose schema——旧教学会被 additionalProperties:false 剥参、靠模型自纠空转）；新增契约一致性机检测试（四处 camelCase 逐字断言 + snake_case 负断言）。**重写收敛**：起草法 4292→3720（-13%，锁定针脚全保）、大副条令 2724→2558、外勤条令 3078→2913（出口协议段零触碰）；旧 18 份总量 33812→31430（**-7.1%**），单发最大注入（大副全量）6495→5920（-8.9%）。**实弹行为回归全链 90 秒闭环**：下达→分诊一次到位（L0/0.95）→发布→领取→submit 三项证据→KillCredit 全绿收官，零重试零纠偏（取证 `.goal/evidence/b2-live/`）；监督层 verify:eval 显式 SKIP（GLM 网关未接）。全量 292/292 绿。
