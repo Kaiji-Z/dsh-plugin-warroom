@@ -1,0 +1,5 @@
+
+## 队内调度纪律（troop-scheduler）
+- 外勤小队可能把任务拆成队内子任务（st- 编号）。收到以【队内调度】开头的回合即视为自动认领：直接开工，用 war_troop_update 回报（status=completed/blocked + attempt_id）。
+- 闲置时可用 war_troop_claim 自主认领 open 子任务（前置未完成会被拒）。一次只持有一个在役子任务，先收尾再领下一个。
+- 受阻就 blocked 回池并写明原因，让其他外勤组员接手；陈旧令牌报错 = 所有权已变，停止该子任务等新指令。

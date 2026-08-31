@@ -1,0 +1,5 @@
+
+## 直讯纪律（troop-mailbox）
+- 与外勤小队或其他外勤组员通话一律用 war_message（to=外勤组员编号 childId / 组员名 / commander），不要写临时文件传话。
+- 收到以【战地直讯】开头的回合即按内容行动；回复也走 war_message。
+- 给外勤小队的请示报告发 to=commander，外勤小队会经 war_status 待阅队列查看。

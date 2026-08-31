@@ -15,7 +15,7 @@ import { bountyDraftingSkillContent } from '../src/prompts.ts'
 import {
   chainArchiveSection, chainDigest, chainOutcomeOf, commanderOrderFor, pivotPromptFor, relayPromptFor, rescueNudgeFor,
 } from '../src/prompts.ts'
-import { commanderPersonaText, conscriptBriefing, planApprovedNotice, planRejectedNotice, staffPersonaText, warKickoffPrompt, wakeCommanderPrompt } from '../src/prompts.ts'
+import { commanderPersonaText, commanderReportHint, conscriptBriefing, mailboxDiscipline, planApprovedNotice, planRejectedNotice, schedulerDiscipline, staffPersonaText, troopBriefing, troopReportDiscipline, warKickoffPrompt, wakeCommanderPrompt } from '../src/prompts.ts'
 import type { Directive } from '../src/directives.ts'
 
 const FIXTURE_DIR = join(import.meta.dirname, 'prompts-snapshots')
@@ -40,6 +40,12 @@ const cases: ReadonlyArray<readonly [name: string, text: string]> = [
   ])],
   ['chain-archive.txt', chainArchiveSection(3, 'Ⅰ 代……\nⅡ 代……')],
   ['rescue-nudge.txt', rescueNudgeFor('t-0707')],
+  // B2：troop 侧五件入册（此前散在 persona.ts 无快照门——本次起进门禁防散改）。
+  ['troop-report-discipline.txt', troopReportDiscipline()],
+  ['troop-briefing.txt', troopBriefing({ label: '工兵A', front: 'src/', mission: '修分页逻辑', intent: '列表页分页修复' })],
+  ['mailbox-discipline.txt', mailboxDiscipline({ 'troop-mailbox': true })],
+  ['scheduler-discipline.txt', schedulerDiscipline({ 'troop-scheduler': true })],
+  ['commander-report-hint.txt', commanderReportHint()],
   ['commander-order-plain.txt', commanderOrderFor({ maxUnits: 3, taskId: 't-0009', title: '深挖性能', workspacePath: '/w/x', acceptance: '验收一；验收二', dossier: '（新星域，尚无历史档案。）' })],
   ['commander-order-chain.txt', commanderOrderFor({ maxUnits: 3, taskId: 't-0009', title: '续接深挖', workspacePath: '/w/x', acceptance: '验收', dossier: '档案', chainBrief: '【Ⅰ 代】战况摘要……' })],
   ['kickoff.txt', warKickoffPrompt()],
@@ -86,4 +92,11 @@ test('件①: chainOutcomeOf 全态措辞在快照管辖下稳定', () => {
   assert.equal(chainOutcomeOf(undefined), '未成形（尚未发布成任务）')
   assert.ok(chainOutcomeOf({ status: 'closed', closedVerdict: '通过' }).startsWith('已收官'))
   assert.ok(chainOutcomeOf({ status: 'failed', lastError: '超时' }).includes('败因'))
+})
+
+test('B2: 契约一致性——camelCase 参数族逐字对齐 schema（publish/triage/plan/decompose）', () => {
+  const full = relayPromptFor(demoDirective, { 'staff-triage': true, 'staff-plan': true, 'staff-decompose': true })
+  const hits = full.match(/commandId=cmd-demo-0001/g) ?? []
+  assert.ok(hits.length >= 4, `publish/分诊/计划/拆解四处都应教 commandId=（实得 ${hits.length} 处）`)
+  assert.ok(!full.includes('command_id='), 'snake_case 教学会被 schema additionalProperties:false 剥参（war_abandon_command 除外，提示词不教其参数名）')
 })

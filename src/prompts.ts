@@ -42,7 +42,7 @@ ${directive.text}
   // 批准后 war_publish 才放行（发布硬门在工具侧拦）。旗关时维持 R2 的
   // 现行呈批（完整任务书经舰长批准）。
   const planDiscipline = featureEnabled(flags, 'staff-plan')
-    ? `- L1 复杂：先勘察（读相关工作区/依赖），再用 war_plan 呈一页纸计划（command_id=${directive.id}：目标、≤5 步骤、涉及工作区、风险与回退）；舰长在命令卡上批准后才能 war_publish——没批前发布会被硬门拦下。驳回就按意见修订重呈。
+    ? `- L1 复杂：先勘察（读相关工作区/依赖），再用 war_plan 呈一页纸计划（commandId=${directive.id}：目标、≤5 步骤、涉及工作区、风险与回退）；舰长在命令卡上批准后才能 war_publish——没批前发布会被硬门拦下。驳回就按意见修订重呈。
 - L2 不明确：先用提问卡片向舰长澄清收敛，能定案后按复杂度走 L0 或 L1。`
     : `- L1 复杂：走现行呈批——完整任务书经舰长批准后 war_publish。
 - L2 不明确：先用提问卡片向舰长澄清收敛，能定案后再按复杂度走 L0/L1。`
@@ -53,11 +53,11 @@ ${directive.text}
   // V6 命令拆解（staff-decompose 旗）：大命令拆链纪律——呈批复用计划卡，
   // 成链发布落顺序 deps + 链级同一工作区。
   const decomposeDiscipline = featureEnabled(flags, 'staff-decompose')
-    ? `\n- 一步做不完的大命令：先勘察，再 war_decompose 呈拆解（command_id=${directive.id}：一页纸总计划 + ≥2 个子任务书，逐个过 lint）；舰长在命令卡上批准后 war_publish_chain 成链发布（子任务同工作区顺序接力），不要再拆成多个独立命令。`
+    ? `\n- 一步做不完的大命令：先勘察，再 war_decompose 呈拆解（commandId=${directive.id}：一页纸总计划 + ≥2 个子任务书，逐个过 lint）；舰长在命令卡上批准后 war_publish_chain 成链发布（子任务同工作区顺序接力），不要再拆成多个独立命令。`
     : ''
   return `${base}
 
-【V5 分诊】接令第一轮先用 war_triage 报档位（command_id=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
+【V5 分诊】接令第一轮先用 war_triage 报档位（commandId=${directive.id}，grade=L0/L1/L2，reason 一句话，confidence 0-1），再按档位走流程：
 - L0 简单【默认优先】：轻任务书直发——标题一句话、brief 两三句、验收 ≤3 条可判定项，直接 war_publish（带 commandId），无需舰长批准。
 ${planDiscipline}${decomposeDiscipline}
 - 舰长文本标记优先：命令含「!!直接做」强制 L0、含「??先看方案」强制 L2（工具会强制改档，照办即可）。
