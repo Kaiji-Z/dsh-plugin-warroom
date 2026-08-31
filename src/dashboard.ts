@@ -12,7 +12,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { appendDirectiveEvent, chainHueSlot, deriveContinuation, loadDirectives, newDirectiveId, foldChains, pendingDirectives, readDirectiveEvents } from './directives.ts'
 import type { ContinuationMode, ContinuationTaskFace } from './directives.ts'
-import { listCampaignIds, loadCampaign, readEvents } from './events.ts'
+import { appendEvent, listCampaignIds, loadCampaign, readEvents } from './events.ts'
 import { appendThreadEvent, loadAttachedThreads } from './threads.ts'
 import { nextRunOf, parseCron } from './schedule.ts'
 import { queuePositionOf } from './rules.ts'
@@ -137,6 +137,9 @@ export interface DashboardDeps {
   /** B1-件② trace 端点的征召视角（只读）：内存态 spawned 守卫 + 去抖拒因表。
    *  缺席 → trace 的 conscription 字段如实 null（纯路由测试可省略）。 */
   conscription?: () => { spawned: readonly string[]; skips: Readonly<Record<string, string>> }
+  /** B1-件⑥ 收官清理：链归档后对成员任务 worktree best-effort 释放（index 侧
+   *  接 workspace.ts releaseTaskWorkspace）。缺席 → 归档照常、不清理。 */
+  releaseWorkspace?: (path: string) => { ok: boolean; note: string }
 }
 
 const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in_progress: 1, reported: 2, draft: 3, failed: 4, closed: 5 }
@@ -683,7 +686,21 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_archived', ts: new Date().toISOString(), directiveId: commandId, sessions: done })
-        send(200, { ok: true, commandId, archived: done.length, failed })
+        // B1-件⑥ 收官清理：链归档后对成员任务的 auto+repo worktree best-effort
+        // 释放（bound/instance/普通目录由 releaseTaskWorkspace 自行判否留置；
+        // 成败都落 workspace_released 事件，随响应如实返回）。
+        const released: Array<{ taskId: string; path: string; ok: boolean; note: string }> = []
+        if (deps.releaseWorkspace !== undefined) {
+          for (const m of membersView) {
+            if (m.taskId === undefined) continue
+            const wsPath = campaigns.get(m.taskId)?.workspacePath
+            if (wsPath === undefined) continue
+            const r = deps.releaseWorkspace(wsPath)
+            appendEvent(deps.stateDir, { type: 'workspace_released', ts: new Date().toISOString(), campaignId: m.taskId, path: wsPath, ok: r.ok, note: r.note })
+            released.push({ taskId: m.taskId, path: wsPath, ok: r.ok, note: r.note })
+          }
+        }
+        send(200, { ok: true, commandId, archived: done.length, failed, ...(released.length > 0 ? { released } : {}) })
         return
       }
       if (r.method === 'GET' && pathname === '/warroom/api/host-sessions') {

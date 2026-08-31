@@ -85,6 +85,9 @@ gate('bundle', () => {
     // B1-件① 提示词单一资产源（src/prompts.ts）+ 快照门禁。
     [host, 'commanderOrderFor', 'B1-件① conscription order assembled in the prompts asset hub'],
     [host, 'chainArchiveSection', 'B1-件① chain-archive template lives in the prompts hub'],
+    // B1-件⑥ worktree 收官清理（归档触发，三道保险）。
+    [host, 'releaseTaskWorkspace', 'B1-件⑥ worktree release at archive (scoped/path/worktree triple gate)'],
+    [host, 'workspace_released', 'B1-件⑥ release ledger event rides the fold'],
     [client, '/warroom/api/events', 'client listens on the SSE channel'],
     [client, 'SAFETY_POLL_MS', 'fallback poll pacing'],
     [client, 'QUALITY_TIERS', 'rarity tiers shared from the domain model'],

@@ -14,7 +14,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 
 export interface MaterializedWorkspace {
   /** Absolute path of the task workspace. */
@@ -95,4 +95,45 @@ export function materializeInstanceWorkspace(warRoot: string, taskId: string, sl
 
 function run(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore', timeout: 60_000 })
+}
+
+function capture(cwd: string, args: string[]): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 60_000 }).trim()
+}
+
+/** B1-件⑥ 释放结果：ok=已清理；ok=false 时 note 是留置原因（同样落账可审计）。 */
+export interface WorkspaceRelease {
+  readonly ok: boolean
+  readonly note: string
+}
+
+/**
+ * B1-件⑥ 收官清理：随链归档释放 auto+repo 分支的 linked worktree。三道
+ * 保险——路径必须在物化根 `tasks/` 之下（bound/instance 工作区永不触碰）、
+ * 目标必须确为 linked worktree（`--git-common-dir` 指向主仓而自身 git-dir
+ * 是私簿——主仓本身与普通目录都不满足）、经主仓 `git worktree remove
+ * --force` best-effort（失败留置带 note，绝不满清目录）。触发点是归档
+ * （链全终局+舰长明示）而非任务终态：任务产出活在 worktree 里，直接终态
+ * 即删会摧毁 deliverables 与续接前情（V15 知识连续性）。
+ */
+export function releaseTaskWorkspace(workspaceRoot: string, path: string): WorkspaceRelease {
+  const tasksRoot = join(resolve(workspaceRoot), 'tasks')
+  const target = resolve(path)
+  const inTasksRoot = target === tasksRoot || target.startsWith(tasksRoot + sep)
+  if (!inTasksRoot) return { ok: false, note: '非物化根 tasks/ 之下（bound/instance 工作区不动）' }
+  let gitDir = ''
+  let commonDir = ''
+  try {
+    gitDir = capture(target, ['rev-parse', '--path-format=absolute', '--git-dir'])
+    commonDir = capture(target, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+  } catch {
+    return { ok: false, note: '不是 git 工作区（普通目录不动）' }
+  }
+  if (gitDir === commonDir) return { ok: false, note: '主仓本身不是 linked worktree（不动）' }
+  try {
+    run(dirname(commonDir), ['worktree', 'remove', '--force', target])
+    return { ok: true, note: 'worktree 已随链归档清理' }
+  } catch {
+    return { ok: false, note: 'worktree 清理失败（best-effort 留置——含未提交改动或被占用）' }
+  }
 }

@@ -42,7 +42,7 @@ import { parseUnitReportEvent } from './report-capture.ts'
 import { weaveDemoSessions } from './demo-weave.ts'
 import { loadRoster, type Roster } from './units.ts'
 import type { CampaignState } from './types.ts'
-import { materializeInstanceWorkspace, materializeTaskWorkspace, resolveWarRoot, resolveWorkspaceRoot } from './workspace.ts'
+import { materializeInstanceWorkspace, materializeTaskWorkspace, releaseTaskWorkspace, resolveWarRoot, resolveWorkspaceRoot } from './workspace.ts'
 import { displayTitleOf } from './client/preflight.ts'
 
 export const name = 'warroom-plugin'
@@ -608,6 +608,8 @@ export function apply(ctx: Context, config: Config): void {
       flags: deps.flags,
       // B1-件② trace 端点的征召视角：spawned 守卫 + 去抖拒因表（只读快照）。
       conscription: () => commander.snapshot(),
+      // B1-件⑥ 收官清理：链归档后释放 auto+repo worktree（物化根范围三道保险）。
+      releaseWorkspace: path => releaseTaskWorkspace(workspaceRoot, path),
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },

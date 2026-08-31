@@ -225,6 +225,10 @@ export function foldCampaign(campaignId: string, events: ReadonlyArray<WarEvent>
       case 'task_resumed_quota':
         state.quotaPaused = false
         break
+      // B1-件⑥：worktree 随链归档释放的账面投影（后写覆盖——重复归档被路由闸拦）。
+      case 'workspace_released':
+        state.workspaceReleased = { at: event.ts, path: event.path, ok: event.ok, ...(event.note !== undefined ? { note: event.note } : {}) }
+        break
       case 'task_closed':
         state.status = 'closed'
         state.closedVerdict = event.verdict

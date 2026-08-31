@@ -113,6 +113,8 @@ export interface CampaignState {
   closedVerdict?: string
   plan?: string
   readonly units: Map<string, UnitRecord>
+  /** B1-件⑥：worktree 随链归档释放的账面投影（事件 workspace_released 落 fold）。 */
+  workspaceReleased?: { at: string; path: string; ok: boolean; note?: string }
 }
 
 /** One 队内子任务 (V4-R3) — the commander's work breakdown inside a task.
@@ -225,6 +227,10 @@ export type WarEvent =
    * 不换令牌——配额是环境问题不是任务失败）。 */
   | { type: 'task_paused_quota'; ts: string; campaignId: string }
   | { type: 'task_resumed_quota'; ts: string; campaignId: string }
+  /** B1-件⑥ 收官清理：auto+repo worktree 随链归档 best-effort 释放的账面痕迹
+   *  （触发点=归档而非任务终态——直接终态即删会摧毁 deliverables 与续接前情）。
+   *  ok=false 时 note 是留置原因（非 worktree/清理失败），同样落账可审计。 */
+  | { type: 'workspace_released'; ts: string; campaignId: string; path: string; ok: boolean; note?: string }
 
 /** The tiny global war state. Task history lives in the append-only event
  * logs; only this pointer state is a plain JSON file. */
