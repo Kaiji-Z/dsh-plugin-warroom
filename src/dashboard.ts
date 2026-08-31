@@ -10,9 +10,9 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { appendDirectiveEvent, chainHueSlot, deriveContinuation, loadDirectives, newDirectiveId, foldChains } from './directives.ts'
+import { appendDirectiveEvent, chainHueSlot, deriveContinuation, loadDirectives, newDirectiveId, foldChains, pendingDirectives, readDirectiveEvents } from './directives.ts'
 import type { ContinuationMode, ContinuationTaskFace } from './directives.ts'
-import { listCampaignIds, loadCampaign } from './events.ts'
+import { listCampaignIds, loadCampaign, readEvents } from './events.ts'
 import { appendThreadEvent, loadAttachedThreads } from './threads.ts'
 import { nextRunOf, parseCron } from './schedule.ts'
 import { queuePositionOf } from './rules.ts'
@@ -134,6 +134,9 @@ export interface DashboardDeps {
   listWorkspaces?: () => Promise<Array<{ workspaceId: string; path: string; title: string; sessionCount: number }> | null>
   /** V18 注册时把真实目录幂等收编进宿主 registry（best-effort，失败不阻塞）。 */
   registerHostWorkspace?: (path: string) => Promise<{ ok: boolean; title?: string }>
+  /** B1-件② trace 端点的征召视角（只读）：内存态 spawned 守卫 + 去抖拒因表。
+   *  缺席 → trace 的 conscription 字段如实 null（纯路由测试可省略）。 */
+  conscription?: () => { spawned: readonly string[]; skips: Readonly<Record<string, string>> }
 }
 
 const STATUS_ORDER: Record<CampaignState['status'], number> = { published: 0, in_progress: 1, reported: 2, draft: 3, failed: 4, closed: 5 }
@@ -293,6 +296,54 @@ export function directiveProjection(stateDir: string): Record<string, unknown>[]
       archived: d.archived === undefined ? null : { at: d.archived.at, sessions: d.archived.sessions },
     }
   })
+}
+
+/**
+ * B1-件② 单命令追踪投影（纯，只读——板是读投影红线内的调试面）：命令摘要 +
+ * 该命令的原始 directive 事件时间线 + 关联任务（复用板投影：attemptLog /
+ * queueAhead / quotaPaused 全在）+ 其原始 campaign 事件 + 引信/征召视角。
+ * 缺参 400；未知命令 404。
+ */
+export function traceProjection(
+  stateDir: string,
+  commandId: string,
+  conscription?: { spawned: readonly string[]; skips: Readonly<Record<string, string>> },
+): { ok: false; code: 400 | 404; error: string } | { ok: true; command: Record<string, unknown>; timeline: { directive: unknown[]; campaign: unknown[] }; task: Record<string, unknown> | null; fuse: { pendingRelay: boolean; scheduledPending: boolean }; conscription: { spawned: readonly string[]; skips: Readonly<Record<string, string>>; spawnedForTask: boolean; skipReasonForTask: string | null } | null } {
+  if (commandId === '') return { ok: false, code: 400, error: '缺少 commandId（用法：/warroom/api/trace?commandId=<命令号>）。' }
+  const d = loadDirectives(stateDir).find(x => x.id === commandId)
+  if (d === undefined) return { ok: false, code: 404, error: `命令 ${commandId} 不存在。` }
+  const campaignEvents = d.taskId !== undefined ? readEvents(stateDir, d.taskId) : []
+  const task = d.taskId !== undefined
+    ? (boardProjection(stateDir) as Array<Record<string, unknown>>).find(t => t.taskId === d.taskId) ?? null
+    : null
+  return {
+    ok: true,
+    command: {
+      id: d.id, text: d.text, name: d.name ?? null, createdAt: d.createdAt, status: d.status,
+      staffSessionId: d.staffSessionId ?? null, taskId: d.taskId ?? null,
+      grade: d.grade ?? null, gradeReason: d.gradeReason ?? null,
+      plan: d.plan === undefined ? null : { status: d.plan.status, text: d.plan.text },
+      schedule: d.schedule === undefined ? null : { cron: d.schedule.cron, dispatchedAt: d.schedule.dispatchedAt ?? null },
+      continuation: d.continuation === undefined ? null : { mode: d.continuation.mode, parentId: d.continuation.parentId },
+      cancelledReason: d.cancelledReason ?? null,
+    },
+    timeline: {
+      directive: readDirectiveEvents(stateDir).filter(e => e.directiveId === commandId),
+      campaign: campaignEvents,
+    },
+    task,
+    // 引信视角：draft 且未到点的定时令是引信可见的待转达量。
+    fuse: {
+      pendingRelay: pendingDirectives([d]).length > 0,
+      scheduledPending: d.schedule !== undefined && d.schedule.dispatchedAt === undefined,
+    },
+    conscription: conscription === undefined ? null : {
+      spawned: conscription.spawned,
+      skips: conscription.skips,
+      spawnedForTask: d.taskId !== undefined && conscription.spawned.includes(d.taskId),
+      skipReasonForTask: (d.taskId !== undefined ? conscription.skips[d.taskId] : undefined) ?? null,
+    },
+  }
 }
 
 /**
@@ -647,6 +698,17 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         send(200, { ok: true, sessions: ids })
+        return
+      }
+      if (r.method === 'GET' && pathname === '/warroom/api/trace') {
+        // B1-件② 命令追踪（只读调试面）：单命令全事件时间线 + 引信/征召视角。
+        const query = new URL(r.url ?? '/', 'http://local').searchParams
+        const result = traceProjection(deps.stateDir, (query.get('commandId') ?? '').trim(), deps.conscription?.())
+        if (!result.ok) {
+          send(result.code, { ok: false, error: result.error })
+          return
+        }
+        send(200, result)
         return
       }
       if (r.method === 'GET' && pathname === '/warroom/api/events') {

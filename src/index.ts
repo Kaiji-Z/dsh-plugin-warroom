@@ -93,7 +93,7 @@ function createConscriptor(deps: {
   maxUnits: number
   maxCommanders: number
   subagents: SubagentsServiceFace
-}): CommanderOps & { bindRelay(sessions: SessionsApiFace, workspace: WorkspaceApiFace): void; patrolNow(): void } {
+}): CommanderOps & { bindRelay(sessions: SessionsApiFace, workspace: WorkspaceApiFace): void; patrolNow(): void; snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } } {
   const spawned = new Set<string>()
   let relay: SessionsApiFace | undefined
   let workspaceApi: WorkspaceApiFace | undefined
@@ -206,6 +206,10 @@ function createConscriptor(deps: {
       } catch {
         return false
       }
+    },
+    /** B1-件② trace 视角（只读）：内存态守卫与拒因表的快照。 */
+    snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } {
+      return { spawned: [...spawned], skips: { ...Object.fromEntries(lastSkip) } }
     },
     patrolNow(): void {
       try {
@@ -602,6 +606,8 @@ export function apply(ctx: Context, config: Config): void {
       roster,
       warRoot: deps.warRoot,
       flags: deps.flags,
+      // B1-件② trace 端点的征召视角：spawned 守卫 + 去抖拒因表（只读快照）。
+      conscription: () => commander.snapshot(),
       // v3: the + button's POST gets an instant relay — the fuse ticks NOW
       // instead of waiting out the 15s interval (receive in ~1s).
       onCommandCreated: () => { void commandFuse.tickNow() },

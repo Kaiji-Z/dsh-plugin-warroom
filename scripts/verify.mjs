@@ -79,6 +79,9 @@ gate('bundle', () => {
     [host, 'bountyFuse', 'host 30s bounty fuse'],
     [host, 'boardRevision', 'cheap board revision signature'],
     [host, '/warroom/api/events', 'SSE channel (revision-only frames)'],
+    // B1-件② 命令追踪端点（只读调试面）。
+    [host, '/warroom/api/trace', 'single-command trace endpoint (timeline + fuse/conscription view)'],
+    [host, 'traceProjection', 'trace projection pure function'],
     [client, '/warroom/api/events', 'client listens on the SSE channel'],
     [client, 'SAFETY_POLL_MS', 'fallback poll pacing'],
     [client, 'QUALITY_TIERS', 'rarity tiers shared from the domain model'],
