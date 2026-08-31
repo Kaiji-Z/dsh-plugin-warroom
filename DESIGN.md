@@ -892,3 +892,9 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 **坑（新入册）**：①`pnpm-workspace.yaml` 的 allowBuilds 占位符文本（"set this to true or false"）被误提交后 pnpm 11.7 install 一律 ERR_PNPM_IGNORED_BUILDS、连带 `pnpm run`/verify 全挂——占位符必须填成显式布尔；②`export {x} from './m.ts'` 不产生本地绑定——relay.ts 迁移后本地仍需显式 import；③管道吃退出码（`pnpm verify | tail` 永远 exit 0）——验证一律重定向落盘再 grep。
 
 **验证**：六件各自单测（5+5+19+17 快照/3 断言+5+7）+ verify 针脚九条（bundle 正五+源级负二+存在性二）+ 全量 **291 测全绿**（基线 247，+44）+ 每件独立提交（f916898/87a6722/0ba363a/acfb044/f64bb63/8b911ac）。
+
+### B1 实弹验证轮（2026-08-31，隔离 smoke 板）
+
+正本 `.goal/evidence/b1-live/REPORT.md`（两段服日志+板快照+SSE 首帧+trace 样本）。全绿：起服冒烟/板（fold-cache 路径）/SSE revision-only/trace 真查/征召真派+诚实拒因/**杀服重启 rescue 首弹三发全中**（3 条搁浅 in_progress 全部 resume 续行，二轮巡检静默、零误回栏）/**续行链真弹 KillCredit 全绿自动收官**（重派外勤 echo：领令→执行→war_submit 带证据→自动收官「验收 4 项全过/退出码 0/无越界」）/终态 forget 落盘 orphans.json。
+
+**实弹校准的宿主语义（坑录新入册）**：⑤「已建会话」≠「搁浅」——宿主对 sessions.create 出的会话**保持活体 agent**（agents.get 真值），rescue 静默跳过是正确行为；真正搁浅=宿主重启后（agent 全灭、持久会话变冷）。冷热判据 resolveAgent 真值经实弹成立。⑥node 不认 MSYS /tmp 映射——验证产物一律落 .goal/evidence/；起服入口=harness checkout（clones/deepseek-ai/deepseek-harness）内 pnpm dsh。
