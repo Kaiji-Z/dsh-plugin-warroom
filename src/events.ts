@@ -5,8 +5,9 @@
  * @module dsh-plugin-warroom/events
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { readJsonlCached } from './fold-cache.ts'
 import type { AttemptRecord, CampaignState, UnitRecord, WarEvent } from './types.ts'
 
 /** Ensure the campaigns directory exists and return its path. */
@@ -22,21 +23,11 @@ export function appendEvent(stateDir: string, event: WarEvent): void {
   appendFileSync(file, `${JSON.stringify(event)}\n`, 'utf8')
 }
 
-/** Read and parse a campaign's events; malformed lines are skipped, not fatal. */
+/** Read and parse a campaign's events; malformed lines are skipped, not fatal.
+ * B1-件③：经 mtime+size 指纹缓存（未变更零重读；append 必失效）。 */
 export function readEvents(stateDir: string, campaignId: string): WarEvent[] {
   const file = join(ensureCampaignsDir(stateDir), `${campaignId}.jsonl`)
-  if (!existsSync(file)) return []
-  const events: WarEvent[] = []
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
-    const trimmed = line.trim()
-    if (trimmed === '') continue
-    try {
-      events.push(JSON.parse(trimmed) as WarEvent)
-    } catch {
-      // Crash-torn tail line: ignore, the log stays append-only.
-    }
-  }
-  return events
+  return readJsonlCached(file, line => JSON.parse(line) as WarEvent)
 }
 
 /** List every campaign id that has a log file. */

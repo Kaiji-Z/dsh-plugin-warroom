@@ -8,8 +8,9 @@
  * @module dsh-plugin-warroom/threads
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { readJsonlCached } from './fold-cache.ts'
 
 /** One externally-attached thread, folded from the log. */
 export interface AttachedThread {
@@ -34,21 +35,10 @@ export function appendThreadEvent(stateDir: string, event: ThreadEvent): void {
   appendFileSync(threadsFile(stateDir), `${JSON.stringify(event)}\n`, 'utf8')
 }
 
-/** Read and parse the attach log; malformed lines are skipped, not fatal. */
+/** Read and parse the attach log; malformed lines are skipped, not fatal.
+ * B1-件③：经 mtime+size 指纹缓存（未变更零重读；append 必失效）。 */
 export function readThreadEvents(stateDir: string): ThreadEvent[] {
-  const file = threadsFile(stateDir)
-  if (!existsSync(file)) return []
-  const events: ThreadEvent[] = []
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
-    const trimmed = line.trim()
-    if (trimmed === '') continue
-    try {
-      events.push(JSON.parse(trimmed) as ThreadEvent)
-    } catch {
-      // Crash-torn tail line: ignore, the log stays append-only.
-    }
-  }
-  return events
+  return readJsonlCached(threadsFile(stateDir), line => JSON.parse(line) as ThreadEvent)
 }
 
 /**

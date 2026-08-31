@@ -14,6 +14,14 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 - 验收证据（测试数 / shooter / 探针）随条目附注，是本项目的交付纪律。
 - **发版门**：平时交付只在 `[Unreleased]` 积条目，版本号（package.json 与版本头）保持不动；明说「发版」时才落版本头、推进版本号。
 
+## [Unreleased]
+
+### Added
+- **板读路径 mtime 指纹缓存（B1-件③）** —— campaigns/directives/threads/planets 四路 JSONL 装载此前每次全量重读重解析（板请求、引信 tick、SSE 周期全是 O(总事件数) 磁盘读）；新 `src/fold-cache.ts` 进程内 mtime+size 指纹缓存（与 boardRevision 同判据：append 必变 size），未变更零重读、append 即失效。读计数器单测 5 例（tests/fold-cache.test.ts）；全量 252 测全绿（基线 247）。
+
+### Fixed
+- **`pnpm install` 死于构建脚本占位符** —— d7614e4 误把 pnpm 引导的 `pnpm-workspace.yaml` 占位符（"set this to true or false"）提交入库，pnpm 11.7 安装一律 ERR_PNPM_IGNORED_BUILDS 失败、连带 `pnpm run`/verify 全挂；填成显式布尔（esbuild:true 维持，其余 false=维持从未构建的现状）后恢复。
+
 ## [0.19.0] - 2026-08-31
 
 首次 npm 上架（手动首发，绑定 trusted publisher 后转 release.mjs 自动发版）。

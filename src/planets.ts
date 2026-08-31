@@ -6,8 +6,9 @@
  * @module dsh-plugin-warroom/planets
  */
 
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { readJsonlCached } from './fold-cache.ts'
 
 export interface PlanetRecord {
   readonly path: string
@@ -27,20 +28,14 @@ export function registerPlanet(dir: string, path: string, title: string | null =
   return [...cur, { path, title, registeredAt: ts }]
 }
 
-/** 折叠装载注册星球（坏行跳过；后写覆盖先写）。 */
+/** 折叠装载注册星球（坏行跳过；后写覆盖先写）。B1-件③：原始事件经指纹缓存。 */
 export function loadPlanets(dir: string): PlanetRecord[] {
-  let raw = ''
-  try { raw = readFileSync(fileOf(dir), 'utf8') } catch { return [] }
+  const events = readJsonlCached(fileOf(dir), line => JSON.parse(line) as PlanetEvent)
   const byPath = new Map<string, PlanetRecord>()
-  for (const line of raw.split('\n')) {
-    const t = line.trim()
-    if (t === '') continue
-    try {
-      const ev = JSON.parse(t) as PlanetEvent
-      if (ev.type === 'planet_registered' && typeof ev.path === 'string' && ev.path !== '') {
-        byPath.set(ev.path, { path: ev.path, title: typeof ev.title === 'string' ? ev.title : null, registeredAt: ev.ts })
-      }
-    } catch { /* 坏行跳过 */ }
+  for (const ev of events) {
+    if (ev.type === 'planet_registered' && typeof ev.path === 'string' && ev.path !== '') {
+      byPath.set(ev.path, { path: ev.path, title: typeof ev.title === 'string' ? ev.title : null, registeredAt: ev.ts })
+    }
   }
   return [...byPath.values()]
 }
