@@ -178,6 +178,9 @@ test('regrade 路由：旗关 404；旗开改档入账；未分诊/终态/坏档
 // --- staff-auto-close ---------------------------------------------------------
 
 const WS = 'C:/reg/ws-1'
+/** 越界用例的外部路径：win 绝对路径在 posix 是相对路径（会被 R5 规则锚进工作区）——
+ *  平台参数化，两侧都测「绝对路径在 工作区 之外」。 */
+const OUTSIDE_FILE = process.platform === 'win32' ? 'C:/elsewhere/b.js' : '/elsewhere/b.js'
 
 function greenEvidence(over: Partial<SubmissionEvidence> = {}): SubmissionEvidence {
   return {
@@ -203,7 +206,7 @@ test('killCreditAllGreen：全绿 / 有败项 / 无测试 / 越界一票否决 /
   delete (noTests as { tests?: unknown }).tests
   assert.equal(killCreditAllGreen(noTests, WS).green, false)
   assert.match(killCreditAllGreen(greenEvidence(), WS).why, /无越界/)
-  const escaped = killCreditAllGreen(greenEvidence({ files: [`${WS}/a.js`, 'C:/elsewhere/b.js'] }), WS)
+  const escaped = killCreditAllGreen(greenEvidence({ files: [`${WS}/a.js`, OUTSIDE_FILE] }), WS)
   assert.equal(escaped.green, false)
   assert.match(escaped.why, /越界/)
   // R5 考题抓到的判据 bug：相对路径是工作区内报法——锚定后应全绿。
@@ -236,7 +239,7 @@ test('war_submit 自动收官：旗开+全绿 → 落 task_closed（verdict 记�
     // 旗开 + 证据过 parse 但机械复核不绿（越界文件）→ 维持 reported 待翻阅，绝不硬闯。
     // （checks 有败项在 parseEvidence 入口就被拒——分层防御：parse 管「不许带病提交」，
     //  killCreditAllGreen 管「收官机械复核」，越界是后者的独有否决项。）
-    const escaped = greenEvidence({ files: [`${WS}/a.js`, 'C:/elsewhere/b.js'] })
+    const escaped = greenEvidence({ files: [`${WS}/a.js`, OUTSIDE_FILE] })
     const reported = await execTool(depsOn, 'war_submit', { task_id: 'c-doubt', attempt_id: 'tok-1', report: '改了点东西', evidence: evidenceText(escaped) }, 'cmd-9') as { status: string }
     assert.equal(reported.status, 'reported')
     assert.equal(loadCampaign(dir, 'c-doubt').status, 'reported')

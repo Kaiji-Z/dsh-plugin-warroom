@@ -106,8 +106,10 @@ test('v1.0: checkClaim gates on status and deps with human explanations', () => 
 })
 
 test('v2.0: workspace keys normalize slashes, duplication, and (on win) case', () => {
-  assert.equal(normalizeWorkspaceKey('C:\\Proj\\App\\'), normalizeWorkspaceKey('c:/proj//app'))
+  // 斜杠/重复/尾缀归一：全平台（两侧同 case，避开平台大小写差异）。
+  assert.equal(normalizeWorkspaceKey('C:\\Proj\\App\\'), normalizeWorkspaceKey('C:/Proj//App'))
   assert.equal(normalizeWorkspaceKey('/srv/proj'), '/srv/proj')
+  // 大小写归一仅大小写不敏感文件系统（win32/darwin；linux 敏感）。
   assert.equal(sameWorkspace('C:/Proj', 'c:\\proj\\'), process.platform === 'linux' ? false : true)
   assert.equal(sameWorkspace('/srv/a/', '/srv/a'), true)
   assert.equal(sameWorkspace('/srv/a', '/srv/b'), false)
@@ -122,7 +124,12 @@ test('v2.0: workspaceConflict only blocks on in_progress holders of the SAME wor
     { taskId: 'other', status: 'in_progress' as const, workspacePath: 'C:/Proj/Other' },
     { taskId: 'isolated', status: 'in_progress' as const },
   ]
-  assert.equal(workspaceConflict('c:\\proj\\app\\', board)?.taskId, 'busy')
+  assert.equal(workspaceConflict('C:/Proj/App//', board)?.taskId, 'busy')
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    assert.equal(workspaceConflict('c:\\proj\\app\\', board)?.taskId, 'busy')
+  } else {
+    assert.equal(workspaceConflict('c:\\proj\\app\\', board), undefined, 'linux 大小写敏感：异 case 视为不同工作区')
+  }
   assert.equal(workspaceConflict('C:/Proj/Other', board)?.taskId, 'other')
   assert.equal(workspaceConflict('C:/Proj/Nowhere', board), undefined)
   assert.equal(workspaceConflict(undefined, board), undefined)

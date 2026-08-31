@@ -15,7 +15,8 @@ function taskOf(id: string, status: 'published' | 'in_progress', workspacePath: 
 test('v2.0: conscriptPlan picks the best queued task per free workspace', () => {
   const plan = conscriptPlan([
     taskOf('busy', 'in_progress', 'C:/Proj/A'),
-    taskOf('queued-a1', 'published', 'c:\\proj\\a\\', 'normal', 't2'),
+    // 同 case + 尾斜杠（斜杠/尾缀归一全平台可测；异 case 归一仅 win/darwin——见 rules.test）。
+    taskOf('queued-a1', 'published', 'C:/Proj/A/', 'normal', 't2'),
     taskOf('queued-a2', 'published', 'C:/Proj/A', 'high', 't5'),
     taskOf('queued-b', 'published', 'C:/Proj/B'),
     taskOf('solo', 'published', undefined),
