@@ -93,7 +93,7 @@ function createConscriptor(deps: {
   maxUnits: number
   maxCommanders: number
   subagents: SubagentsServiceFace
-}): CommanderOps & { bindRelay(sessions: SessionsApiFace, workspace: WorkspaceApiFace): void; patrolNow(): void; snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } } {
+}): CommanderOps & { bindRelay(sessions: SessionsApiFace, workspace: WorkspaceApiFace): void; patrolNow(): Promise<void>; snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } } {
   const spawned = new Set<string>()
   let relay: SessionsApiFace | undefined
   let workspaceApi: WorkspaceApiFace | undefined
@@ -211,7 +211,8 @@ function createConscriptor(deps: {
     snapshot(): { spawned: readonly string[]; skips: Readonly<Record<string, string>> } {
       return { spawned: [...spawned], skips: { ...Object.fromEntries(lastSkip) } }
     },
-    patrolNow(): void {
+    // B1-件④：可 await 的巡检补征（setInterval 调用点不感知返回值；测试直跑）。
+    async patrolNow(): Promise<void> {
       try {
         const war = deps.store.get()
         if (!war.active) return
@@ -224,18 +225,16 @@ function createConscriptor(deps: {
         if (waiting.length === 0) return
         // v3: the patrol conscripts DIRECTLY (no staff LLM round-trip) — the
         // spawn-once guard + conscriptTask's own gates keep it idempotent.
-        void (async () => {
-          const signal = new AbortController().signal
-          for (const t of waiting) {
-            try {
-              await conscriptTask(loadCampaign(deps.stateDir, t.taskId), signal)
-            } catch (err) {
-              // Patrol never throws into the timer — but never silent either.
-              console.error(`[warroom] 巡检征召异常 ${t.taskId}：`, err instanceof Error ? err.message : err)
-            }
-            if (board().filter(x => x.status === 'in_progress').length >= deps.maxCommanders) return
+        const signal = new AbortController().signal
+        for (const t of waiting) {
+          try {
+            await conscriptTask(loadCampaign(deps.stateDir, t.taskId), signal)
+          } catch (err) {
+            // Patrol never throws into the timer — but never silent either.
+            console.error(`[warroom] 巡检征召异常 ${t.taskId}：`, err instanceof Error ? err.message : err)
           }
-        })()
+          if (board().filter(x => x.status === 'in_progress').length >= deps.maxCommanders) return
+        }
       } catch {
         // Patrol never throws into the timer.
       }
@@ -672,6 +671,9 @@ export function apply(ctx: Context, config: Config): void {
 }
 
 export { Config }
+
+// B1-件④：征召器装配层的测试出口（不进 package exports——消费方是本仓 tests/）。
+export { createConscriptor }
 
 /** V18 宿主 workspace.list 面的结构切片（HQ 注册弹窗数据源）。 */
 interface WorkspaceListFace {

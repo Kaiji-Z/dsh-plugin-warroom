@@ -19,6 +19,7 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 ### Added
 - **板读路径 mtime 指纹缓存（B1-件③）** —— campaigns/directives/threads/planets 四路 JSONL 装载此前每次全量重读重解析（板请求、引信 tick、SSE 周期全是 O(总事件数) 磁盘读）；新 `src/fold-cache.ts` 进程内 mtime+size 指纹缓存（与 boardRevision 同判据：append 必变 size），未变更零重读、append 即失效。读计数器单测 5 例（tests/fold-cache.test.ts）；全量 252 测全绿（基线 247）。
 - **命令追踪端点 `GET /warroom/api/trace?commandId=<id>`（B1-件②）** —— VERIFICATION.md §8 P2 挂账兑现：单命令全事件时间线（directive + campaign 原始事件）+ 板投影任务面（attemptLog/queueAhead/quotaPaused）+ 引信视角（待转达/定时未发）+ 征召视角（spawned 守卫、去抖拒因——「为什么还没动」机器可查）。只读调试面，板读投影红线不动；三态专测 5 例（tests/trace-endpoint.test.ts），全量 257 测全绿。
+- **装配层与新路由测试补强（B1-件④）** —— 此前零覆盖的四块补齐 19 例：征召器装配层（满编门/spawn-once 守卫/孤儿会话复用/工作区占用排队/patrolNow 补征——`createConscriptor` 开测试出口、`patrolNow` 改可 await）；dashboard 新路由（**archive 不可逆写通道六态**：面缺席 501/缺参 400/未知 404/已归档 400/链未终局 400/全成落账 + 部分失败如实 + 全败 502；host-sessions、host-workspaces、planets POST）；planets 注册库纯函数；state tiny-pointer。全量 276 测全绿。
 
 ### Fixed
 - **`pnpm install` 死于构建脚本占位符** —— d7614e4 误把 pnpm 引导的 `pnpm-workspace.yaml` 占位符（"set this to true or false"）提交入库，pnpm 11.7 安装一律 ERR_PNPM_IGNORED_BUILDS 失败、连带 `pnpm run`/verify 全挂；填成显式布尔（esbuild:true 维持，其余 false=维持从未构建的现状）后恢复。
