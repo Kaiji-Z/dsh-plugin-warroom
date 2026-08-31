@@ -898,3 +898,17 @@ map 态竖干不再贯通任务卡位：下行段到任务卡**入端口**（右
 正本 `.goal/evidence/b1-live/REPORT.md`（两段服日志+板快照+SSE 首帧+trace 样本）。全绿：起服冒烟/板（fold-cache 路径）/SSE revision-only/trace 真查/征召真派+诚实拒因/**杀服重启 rescue 首弹三发全中**（3 条搁浅 in_progress 全部 resume 续行，二轮巡检静默、零误回栏）/**续行链真弹 KillCredit 全绿自动收官**（重派外勤 echo：领令→执行→war_submit 带证据→自动收官「验收 4 项全过/退出码 0/无越界」）/终态 forget 落盘 orphans.json。
 
 **实弹校准的宿主语义（坑录新入册）**：⑤「已建会话」≠「搁浅」——宿主对 sessions.create 出的会话**保持活体 agent**（agents.get 真值），rescue 静默跳过是正确行为；真正搁浅=宿主重启后（agent 全灭、持久会话变冷）。冷热判据 resolveAgent 真值经实弹成立。⑥node 不认 MSYS /tmp 映射——验证产物一律落 .goal/evidence/；起服入口=harness checkout（clones/deepseek-ai/deepseek-harness）内 pnpm dsh。
+
+## B2 提示词最小充分审查（2026-08-31，元首定尺度：重写收敛）
+
+规格与审查正本 `.goal/SPEC-B2.md`（23 份资产逐份裁决 + 契约核对表）。
+
+**契约修正（本轮最硬发现）**：war_publish/triage/plan/decompose 四工具 schema 参数是 camelCase `commandId`，而提示词分诊/计划/拆解三段一直教 `command_id=`——`additionalProperties:false` 会剥掉错名参数，分诊此前靠「模型读 schema 自描述重试」空转纠偏。修法=提示词侧三处对齐 + 契约一致性机检测试（四处 camelCase 逐字断言 + snake 负断言）防复发。schema 侧 camelCase/task_id 两式并存是历史痕迹，统一属行为面——挂账候选不动。
+
+**重写收敛**：起草法 4292→3720（表格反例并入写法、对照示例压半、措辞去脂；锁定针脚「任务令令起草法/大白话 → 任务书/工作区路由/【星球：】/@new:/战线跟着星球走/KillCredit」全保）；大副条令职责②的字段细则改为指向起草法（注入面互相叠加时只教一次）；外勤条令素养五条压行（出口协议段零触碰）。旧 18 份 33812→31430（-7.1%）；troop 五件入册快照门（+1784，门禁覆盖补全另计）。
+
+**实弹回归（.goal/evidence/b2-live/）**：全链 90 秒一次闭环——分诊一次到位（L0/0.95/理由专业，契约修正直接实证）→ L0 直发 → 领取 → submit 三项证据 → KillCredit 全绿收官，零重试零纠偏。监督层 verify:eval 显式 SKIP（GLM 网关未接，挂账等元首给网关）。
+
+**坑（新入册）**：快照门改词流程=改源→`WARROOM_UPDATE_SNAPSHOTS=1` 再生成→fixtures 随改动一并提交评审——两步之间不得夹别的改动（否则快照 diff 混入无关词）。
+
+**验证**：全量 292/292 绿（+契约测试）+ 实弹全链闭环取证 + 前后字符机检对照。
