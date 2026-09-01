@@ -10,7 +10,7 @@
  * 落 `staff_woken` 账本事件（崩溃恢复：reported/failed 未醒的任务由巡检
  * sweep 补推——事件晚于最近一次结算才算已醒）。提示词带板摘要注入
  * （C 轻版：在役 + 近期结局）——防大副失忆重复立案。
- * @module dsh-plugin-warroom/wake
+ * @module dsh-plugin-stardeck/wake
  */
 
 import { appendEvent, listCampaignIds, loadCampaign, readEvents } from './events.ts'

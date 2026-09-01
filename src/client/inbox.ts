@@ -3,7 +3,7 @@
  * 把散落三处、需要舰长动作的时刻聚成一条队列：答澄清（talking 命令）、
  * 批计划（plan pending）、翻任务回报（reported 任务）、决重试（failed 任务）。
  * 红线：收件箱只导航到动作发生地，板上不长任务写操作。
- * @module dsh-plugin-warroom/client/inbox
+ * @module dsh-plugin-stardeck/client/inbox
  */
 
 import type { BoardCommand, BoardTask } from './data.ts'

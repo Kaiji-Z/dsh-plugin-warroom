@@ -1,9 +1,9 @@
 # Publish to npm via Trusted Publishing (OIDC) — no stored tokens anywhere.
 # The npm-side trusted-publisher binding MUST match this file exactly:
-#   repository: Kaiji-Z/dsh-plugin-warroom
+#   repository: Kaiji-Z/dsh-plugin-stardeck
 #   workflow filename: publish.yml        (this file's name, not the workflow's `name`)
 #   environment: LEAVE EMPTY on the npm side — this workflow declares none.
-# 首发注意（新包）：npm 上还不存在 dsh-plugin-warroom 时，先在 npmjs.com 给该
+# 首发注意（新包）：npm 上还不存在 dsh-plugin-stardeck 时，先在 npmjs.com 给该
 # 包名登记 pending publisher（上述三元组），否则首个 tag 的 OIDC 发布会被拒。
 # Trigger: pushing a v* tag (e.g. `git push origin v0.18.9-7`), or the Actions
 # "Run workflow" button. Plain branch pushes NEVER publish.

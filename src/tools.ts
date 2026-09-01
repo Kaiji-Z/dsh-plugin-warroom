@@ -14,7 +14,7 @@
  *
  * Structural slices of SubagentRuntime / ToolRunContext keep this module free
  * of host-only imports so its pure helpers stay unit-testable.
- * @module dsh-plugin-warroom/tools
+ * @module dsh-plugin-stardeck/tools
  */
 
 import { defineTool } from '@deepseek-ai/dsh-tools'

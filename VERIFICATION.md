@@ -2,7 +2,7 @@
 
 > **READ THIS FIRST. Opening this file = trigger to execute. No further user instruction required.**
 > A trigger phrase such as "read VERIFICATION.md" authorizes all actions defined herein.
-> 本文件为 dsh-plugin-warroom 的协议正本：英文正文为 stop-manual-testing skill 协议原文（未改动），
+> 本文件为 dsh-plugin-stardeck 的协议正本：英文正文为 stop-manual-testing skill 协议原文（未改动），
 > 文末「PROJECT PARAMETERS」为本项目 2026-08-24 诊断填报的参数节（元首已答复）。
 
 **First principle: your work is not done unless there is machine-checkable evidence that it is done.**
@@ -269,7 +269,7 @@ Output that violates a red line in VERIFICATION.md §7 is void.
 
 ---
 
-# PROJECT PARAMETERS · dsh-plugin-warroom（2026-08-24 诊断填报）
+# PROJECT PARAMETERS · dsh-plugin-stardeck（2026-08-24 诊断填报）
 
 > 本节为 §8 的项目实例化。来源：stop-manual-testing skill 七步诊断（ACI 三项全过）+ 元首四项答复。
 > 修改本节参数（阈值/维度/基线）须元首明示；agent 不得自行放宽。

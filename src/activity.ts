@@ -6,7 +6,7 @@
  * 动词双皮肤同词（过程动词是技术语汇，不进皮肤词典；label 由宿主侧单点计算，
  * 前端只渲染字符串）。活动表不落盘：服务器重启后归「待命」直到下个事件——
  * 「当前在做什么」本来就是瞬时态。
- * @module dsh-plugin-warroom/activity
+ * @module dsh-plugin-stardeck/activity
  */
 
 import { createHash } from 'node:crypto'

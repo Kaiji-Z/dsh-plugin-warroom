@@ -8,7 +8,7 @@
  *     mask 黑、星球镜面高光、中性 #000 阴影混、var() 回退值）。
  *  3) 回退哨兵：war-tokens.ts 的 TAC_FALLBACK_* / 日志回退与 CSS 令牌块
  *     双向锁值——CSS 改值不同步回退 = 红，drift 不可能静默发生。
- * @module dsh-plugin-warroom/tests/war-tokens
+ * @module dsh-plugin-stardeck/tests/war-tokens
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'

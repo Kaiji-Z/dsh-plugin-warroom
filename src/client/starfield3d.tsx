@@ -6,7 +6,7 @@
  * 失败回落 2D 星域（底线保留）、调试句柄 window.__wz（探针断言用）。
  * V11.5 起板真值驱动（星球=workspace/编队=执行会话/日志=真实事件）；V11.5f 增
  * 执行卡覆盖层（卡钉星球屏位+连线，点击跳源命令）与悬停/聚焦→星球高亮联动。
- * @module dsh-plugin-warroom/client/starfield3d
+ * @module dsh-plugin-stardeck/client/starfield3d
  */
 import { createElement, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'

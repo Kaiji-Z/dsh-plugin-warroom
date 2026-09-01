@@ -2,4 +2,4 @@
 # module resolution finds the installed code. See dsh docs/user/develop/basic/publish.md.
 - insert:
     - id: warroom
-      name: dsh-plugin-warroom
+      name: dsh-plugin-stardeck

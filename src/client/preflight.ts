@@ -3,7 +3,7 @@
  * 夜间的真敌人不是失败，是卡在等人：升档 L1/L2 的命令必须等舰长批计划才会
  * 继续，夜里没人批就停整晚。stalledOnUserPlan 判定「将停在计划待批」，
  * 呈现层给后果提示 + 「改直发」出口（走既有 regrade API，不新增写端点）。
- * @module dsh-plugin-warroom/client/preflight
+ * @module dsh-plugin-stardeck/client/preflight
  */
 
 import type { BoardCommand } from './data.ts'

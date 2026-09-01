@@ -6,7 +6,7 @@
 #   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.smoke.yml
 - insert:
     - id: warroom
-      name: dsh-plugin-warroom
+      name: dsh-plugin-stardeck
       config:
         statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/state.json'
         warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/war'

@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⬡ 作战室 · dsh-plugin-warroom
+# ⬡ 作战室 · dsh-plugin-stardeck
 
 **把「和 agent 聊天」变成「向舰队下达命令」。**
 
@@ -121,12 +121,12 @@
 
 ```bash
 # 安装（dsh 内）
-dsh plugin add dsh-plugin-warroom          # npm（发布后）
-dsh plugin add ./dsh-plugin-warroom-0.1.0.tgz
+dsh plugin add dsh-plugin-stardeck          # npm（发布后）
+dsh plugin add ./dsh-plugin-stardeck-0.1.0.tgz
 
 # 从源码跑（在 deepseek-harness checkout 内）
-git clone https://github.com/Kaiji-Z/dsh-plugin-warroom
-cd dsh-plugin-warroom && pnpm install && pnpm verify
+git clone https://github.com/Kaiji-Z/dsh-plugin-stardeck
+cd dsh-plugin-stardeck && pnpm install && pnpm verify
 pnpm dsh --profile web --patch <本仓库路径>/cordis.dev.yml --port 3080 --no-open
 ```
 

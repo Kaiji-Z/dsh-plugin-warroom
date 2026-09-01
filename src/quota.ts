@@ -14,7 +14,7 @@
  *
  * 探测本身花配额：probe 是一次近零 token 的 1 轮 prompt（专用探针会话，
  * 复用不新建），节奏 5min 起步指数退避（上限 30min）。
- * @module dsh-plugin-warroom/quota
+ * @module dsh-plugin-stardeck/quota
  */
 
 import { appendEvent, listCampaignIds, loadCampaign } from './events.ts'

@@ -5,7 +5,7 @@
  * living inside any conversation), plus a composer-dock home pill. v3: the
  * workspaces inject left with the HQ-create button — the only host service
  * the board still needs is sessions.open for thread jumps.
- * @module dsh-plugin-warroom/client
+ * @module dsh-plugin-stardeck/client
  */
 
 import type { ReactNode } from 'react'

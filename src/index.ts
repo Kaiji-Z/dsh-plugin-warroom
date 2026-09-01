@@ -1,5 +1,5 @@
 /**
- * dsh-plugin-warroom — the strategic operating system for DeepSeek Harness.
+ * dsh-plugin-stardeck — the strategic operating system for DeepSeek Harness.
  *
  * v0.2 shape: the sovereign talks only to the
  * staff (贴身大副, the user-facing conversation persona); the staff
@@ -12,7 +12,7 @@
  *
  * Everything is activation-gated: dormant installs expose none of it until
  * `/war` (or config) lights the war room; `/peace` stands it down.
- * @module dsh-plugin-warroom
+ * @module dsh-plugin-stardeck
  */
 
 import { join } from 'node:path'

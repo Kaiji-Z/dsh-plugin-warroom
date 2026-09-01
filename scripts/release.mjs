@@ -17,8 +17,8 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 
-const OWNER_REPO = 'Kaiji-Z/dsh-plugin-warroom'
-const NPM_NAME = 'dsh-plugin-warroom'
+const OWNER_REPO = 'Kaiji-Z/dsh-plugin-stardeck'
+const NPM_NAME = 'dsh-plugin-stardeck'
 const POLL_MS = 15_000
 const POLL_MAX_MS = 12 * 60_000
 

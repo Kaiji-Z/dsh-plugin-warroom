@@ -3,7 +3,7 @@
  * calculator. Pure and clock-free — callers inject "now". The missed-window
  * policy (错过即跳过, never backfill) lives in the host tick: only the NEXT
  * round from the last trigger is ever opened.
- * @module dsh-plugin-warroom/schedule
+ * @module dsh-plugin-stardeck/schedule
  */
 
 /** One cron field's parsed candidate set (numbers already domain-checked). */

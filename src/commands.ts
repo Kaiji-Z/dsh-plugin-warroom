@@ -5,7 +5,7 @@
  * order. Activation persists BEFORE the prompt lands, so the model the
  * kickoff meets already carries the commander persona and the war_* tools
  * (the activation-before-prompt ordering guarantee).
- * @module dsh-plugin-warroom/commands
+ * @module dsh-plugin-stardeck/commands
  */
 
 import { warKickoffPrompt } from './persona.ts'
@@ -46,7 +46,7 @@ function userMessage(text: string): { id: string; role: 'user'; content: Array<{
     id: crypto.randomUUID(),
     role: 'user',
     content,
-    source: Object.freeze({ kind: 'plugin', plugin: 'dsh-plugin-warroom' }),
+    source: Object.freeze({ kind: 'plugin', plugin: 'dsh-plugin-stardeck' }),
   })
 }
 

@@ -5,7 +5,7 @@
  * campaign and directive logs (never overwrite, derive state). Attach/detach
  * are registry operations ONLY: no task semantics, no writes into the
  * attached session — the board stays a read projection (SPEC §6).
- * @module dsh-plugin-warroom/threads
+ * @module dsh-plugin-stardeck/threads
  */
 
 import { appendFileSync, mkdirSync } from 'node:fs'

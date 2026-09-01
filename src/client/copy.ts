@@ -11,7 +11,7 @@
  * - 模板类文案（带插值）建模为函数字段 `(x) => string`。
  * - 样式类名与文案解耦：列/分组用稳定 key（'commands'/'yesterday'…），
  *   皮肤改标题不会破坏 CSS 钩子与折叠状态。
- * @module dsh-plugin-warroom/client/copy
+ * @module dsh-plugin-stardeck/client/copy
  */
 
 import type { BoardCommand, BoardTask, BoardAttempt } from './data.ts'

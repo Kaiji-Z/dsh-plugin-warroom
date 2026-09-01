@@ -4,7 +4,7 @@
  * 轨道；执行中的外勤组员光点挂在所属星的近地轨道上。**一切坐标确定性推导**（ID 哈希
  * /创建序）——SSE revision 更新绝不抖动；全 DOM/CSS，禁 WebGL（V10-BRIEF §3）。
  * 布局数学全是纯函数并单独出测（tests/starfield.test.ts）。
- * @module dsh-plugin-warroom/client/starfield
+ * @module dsh-plugin-stardeck/client/starfield
  */
 import { createElement, useState, type ReactNode } from 'react'
 import type { BoardAttempt, BoardTask } from './data.ts'

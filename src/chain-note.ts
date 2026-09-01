@@ -6,7 +6,7 @@
  * 一行式）；外勤小队征召版 cap 600 字；pivot 直插版 cap 400 字。
  * 纯函数：数据由调用方预载（relay 的 campaignOf 缓存 / tools 的 loadCampaign），
  * 本模块不做 IO——单测直接喂结构。
- * @module dsh-plugin-warroom/chain-note
+ * @module dsh-plugin-stardeck/chain-note
  */
 import type { CampaignState } from './types.ts'
 

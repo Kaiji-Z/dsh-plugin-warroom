@@ -4,7 +4,7 @@
  * prompt. Written to read like a professional field manual: the role WORDS are
  * protocol vocabulary (星域=front, 令牌=attemptId); the TONE is engineer-plain
  * by explicit rule (toneRule) — no cosplay, no salutes (2026-08-25 语气降温).
- * @module dsh-plugin-warroom/persona
+ * @module dsh-plugin-stardeck/persona
  */
 
 import { featureEnabled, type FeatureFlags } from './flags.ts'

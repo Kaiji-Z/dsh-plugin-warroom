@@ -7,7 +7,7 @@
 #   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.forensic.yml --port 3099 --no-open
 - insert:
     - id: warroom
-      name: dsh-plugin-warroom
+      name: dsh-plugin-stardeck
       config:
         statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/state.json'
         warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/war'

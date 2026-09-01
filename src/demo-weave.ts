@@ -7,7 +7,7 @@
  *
  * 幂等：`.demo-woven.json` 标记在即跳过；播种器清态时连标记一起清，下次开机
  * 重织（新会话）。失败永不抛进宿主事件循环（best-effort，坏一档不坏整服）。
- * @module dsh-plugin-warroom/demo-weave
+ * @module dsh-plugin-stardeck/demo-weave
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'

@@ -2,7 +2,7 @@
  * Warroom domain types: unit specs (组员), campaign events, folded campaign
  * state, and the small global war state. Shared by host modules and tests;
  * kept free of any harness imports so the fold/validation logic stays pure.
- * @module dsh-plugin-warroom/types
+ * @module dsh-plugin-stardeck/types
  */
 
 /** Tool-permission tier for a unit type (agent sandbox_mode, mapped onto dsh toolFilter). */

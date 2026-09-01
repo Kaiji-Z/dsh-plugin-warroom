@@ -2,7 +2,7 @@
  * Campaign event log: append-only JSONL files under
  * `<stateDir>/campaigns/<campaignId>.jsonl`, folded into CampaignState on
  * read (append-only discipline — never overwrite, derive state).
- * @module dsh-plugin-warroom/events
+ * @module dsh-plugin-stardeck/events
  */
 
 import { appendFileSync, mkdirSync, readdirSync } from 'node:fs'

@@ -9,7 +9,7 @@
  * 裁剪内容——快照测试单独点名断言，任何「瘦身」动了即 FAIL。
  * persona.ts / skill.ts / chain-note.ts 仍是各自资产模块（本就单一源），经本
  * 模块汇出供一处取用。
- * @module dsh-plugin-warroom/prompts
+ * @module dsh-plugin-stardeck/prompts
  */
 
 import { featureEnabled, type FeatureFlags } from './flags.ts'

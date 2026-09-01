@@ -7,7 +7,7 @@
  * anymore. Battlefield cards jump via sessions.open (live cards direct,
  * settled cards through the tour's report stage); reported/failed task cards
  * also carry a 「去处理」 shortcut to the owning command's staff conversation.
- * @module dsh-plugin-warroom/client/views
+ * @module dsh-plugin-stardeck/client/views
  */
 
 import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'

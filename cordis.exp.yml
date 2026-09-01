@@ -4,6 +4,6 @@
 # itself is broken in this dsh build.
 - insert:
     - id: warroom
-      name: dsh-plugin-warroom
+      name: dsh-plugin-stardeck
       config:
         active: on

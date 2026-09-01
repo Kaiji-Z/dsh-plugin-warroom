@@ -3,7 +3,7 @@
  * tool consults before any troop starts; violations are refused in code, never
  * left to model good will (caps like max_threads/max_depth
  * are config, not prompt requests).
- * @module dsh-plugin-warroom/rules
+ * @module dsh-plugin-stardeck/rules
  */
 
 import type { CampaignState, TaskStatus, UnitRecord } from './types.ts'

@@ -7,7 +7,7 @@
  * 移植纪律：所有视觉/行为常量与 demo 逐字对齐（CFG/半径带/轨道参数/光晕/ bloom
  * /雷达盘/CRT 质感）；唯一系统性偏差=随机源：demo 的 Math.random 全部换成
  * hash01 确定性种子 det()——同一种子恒同貌（项目红线①，SSE 零抖动、探针可断言）。
- * @module dsh-plugin-warroom/client/warzone-scene
+ * @module dsh-plugin-stardeck/client/warzone-scene
  */
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'

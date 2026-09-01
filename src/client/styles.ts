@@ -19,7 +19,7 @@
  * tests/war-tokens.test.ts 双向锁死。
  * （patch-layer bundles cannot use CSS Modules; quality-tier colors ride the
  * status token family now, mirroring QUALITY_TIERS.）
- * @module dsh-plugin-warroom/client/styles
+ * @module dsh-plugin-stardeck/client/styles
  */
 
 export const WAR_CSS = `
@@ -1012,7 +1012,7 @@ body[data-ds-dark-theme] .war-root .war-front-group{background:color-mix(in srgb
 `
 
 
-const STYLE_ID = 'data-dsh-plugin-warroom'
+const STYLE_ID = 'data-dsh-plugin-stardeck'
 
 export function ensureWarStyles(): void {
   if (document.head.querySelector(`style[${STYLE_ID}]`) !== null) return

@@ -3,7 +3,7 @@
  * 晨间到访第一眼：夜里收官了几单、折了几单、新下几道命令、现在几件等定夺。
  * lastSeen 由 shell-entry 关板时写入（warroom-last-seen）；本模块只读不写，
  * WarView 挂载时取一次快照——到访期间数字不跳动。
- * @module dsh-plugin-warroom/client/visit
+ * @module dsh-plugin-stardeck/client/visit
  */
 
 import type { BoardCommand, BoardTask } from './data.ts'

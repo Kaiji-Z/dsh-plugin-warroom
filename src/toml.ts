@@ -4,7 +4,7 @@
  * and `key = value` with basic strings ("…" with \" \\ \n escapes), literal
  * strings ('…' verbatim), booleans, and bare tokens (kept as strings).
  * Deliberately tiny: unit files are flat scalars; anything fancier fails loud.
- * @module dsh-plugin-warroom/toml
+ * @module dsh-plugin-stardeck/toml
  */
 
 /** Parse a TOML-subset document into tables of scalar values. */

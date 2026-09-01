@@ -5,7 +5,7 @@
  * close/fail (never agent self-report); the conscription briefing injects it
  * so a fresh commander arrives already knowing the theatre's history — the
  * "garrison commander with memory" without paying for an idle session.
- * @module dsh-plugin-warroom/dossier
+ * @module dsh-plugin-stardeck/dossier
  */
 
 import { createHash } from 'node:crypto'

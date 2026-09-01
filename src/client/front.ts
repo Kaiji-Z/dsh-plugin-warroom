@@ -9,7 +9,7 @@
  * 不是项目文件夹——聚合为一颗「未分组」行星。判别是路径启发式（.warroom +
  * tasks/instances 段对）：warRoot 被 config 覆盖改名时判不准（误当项目行星，
  * 视觉无害）；投影加 workspaceKind 字段挂账未来（见 DESIGN.md V13 挂账③）。
- * @module dsh-plugin-warroom/client/front
+ * @module dsh-plugin-stardeck/client/front
  */
 import type { BoardCommand, BoardTask } from './data.ts'
 

@@ -8,7 +8,7 @@
  * - armed goal 残留必须自愈（K15）：凡可能留 armed goal 的路径都先清场。
  *
  * 宿主类型保持 opaque——缺席（inject 未满足 / 面形状不对）即诚实降级。
- * @module dsh-plugin-warroom/goals
+ * @module dsh-plugin-stardeck/goals
  */
 
 /** 宿主 goal 服务的结构切片（V5-R3 定案消费面）。 */

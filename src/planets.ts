@@ -3,7 +3,7 @@
  * 虚拟行星）。planets.jsonl append-only：`planet_registered {path, title?, ts}`。
  * 注册闸（dashboard 路由侧）=路径必须是磁盘上真实存在的目录；宿主 registry
  * 的 workspace.create 同步幂等收编（best-effort，不阻塞注册）。
- * @module dsh-plugin-warroom/planets
+ * @module dsh-plugin-stardeck/planets
  */
 
 import { appendFileSync } from 'node:fs'

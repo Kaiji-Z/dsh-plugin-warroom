@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown'
 
 // Host half: plain ESM with runtime peers external.
 const host = defineConfig({
-  name: 'dsh-plugin-warroom',
+  name: 'dsh-plugin-stardeck',
   entry: ['src/index.ts'],
   format: 'esm',
   dts: true,
@@ -15,7 +15,7 @@ const host = defineConfig({
 // window.__ModuleLoader__.load({ id, factory }); the shell's frozen module
 // table answers the injected require for platform modules (react).
 const client = defineConfig({
-  name: 'dsh-plugin-warroom/client',
+  name: 'dsh-plugin-stardeck/client',
   entry: { client: 'src/client/index.ts' },
   outDir: 'lib',
   format: 'cjs',
@@ -29,7 +29,7 @@ const client = defineConfig({
   noExternal: [/^three(\/.*)?$/],  // 裸名+addons 子路径都必须打进（子路径漏网会让壳层 require 整包炸掉）
   outputOptions: {
     entryFileNames: 'client.js',
-    banner: `window.__ModuleLoader__.load({ id: "dsh-plugin-warroom", factory: (require) => {`,
+    banner: `window.__ModuleLoader__.load({ id: "dsh-plugin-stardeck", factory: (require) => {`,
     intro: 'var module = { exports: {} }; var exports = module.exports;',
     footer: 'return module.exports; } });',
   },

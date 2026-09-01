@@ -7,7 +7,7 @@
  * map 态（SPEC §B）：命令卡 → 任务舱 → HQ → 出航弦→星球 → 返航弦→HQ → 回报舱
  * ——弦段为直线（星域弦线语言），HQ/星球屏幕位经 __wz 投影出口取（2D=盘心/hits，
  * 3D=相机投影）；交接锚=任务舱右缘（朝 HQ 一侧）。
- * @module dsh-plugin-warroom/client/pipe-overlay
+ * @module dsh-plugin-stardeck/client/pipe-overlay
  */
 
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'

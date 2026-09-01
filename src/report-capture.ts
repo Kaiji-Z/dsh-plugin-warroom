@@ -5,7 +5,7 @@
  * 在 .data 下（2026-08-26 实测，与 activity.ts 的 reduceActivity 同源结论）。
  * 旧实现读顶层字段——在嵌套形状下静默失效（P1-1），本模块按「嵌套优先、扁平
  * 退回」两头兼容；坏形状一律返 null（调用方降级为「不自动记账」，绝不抛）。
- * @module dsh-plugin-warroom/report-capture
+ * @module dsh-plugin-stardeck/report-capture
  */
 
 export interface ParsedUnitReportEvent {

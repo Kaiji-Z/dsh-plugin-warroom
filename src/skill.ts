@@ -3,7 +3,7 @@
  * ctx.skills.register() (the runtime provider), so no filesystem writes and
  * no install step: the drafting craft ships with the plugin. The persona
  * carries identity; this skill carries the craft (起草方法论 + 对照示例).
- * @module dsh-plugin-warroom/skill
+ * @module dsh-plugin-stardeck/skill
  */
 
 /** Structural slice of the runtime skills registry. */

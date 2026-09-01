@@ -1,5 +1,5 @@
 {
-  "name": "dsh-plugin-warroom",
+  "name": "dsh-plugin-stardeck",
   "version": "0.20.0",
   "packageManager": "pnpm@11.7.0",
   "description": "RTS-style orchestration for DeepSeek Harness: you are the sovereign issuing strategic orders; a resident commander agent decomposes them and deploys typed subagent troops (recon/engineer/medic/scribe) on isolated fronts, with an append-only campaign event log and hard rules of engagement.",
@@ -71,12 +71,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kaiji-Z/dsh-plugin-warroom.git"
+    "url": "git+https://github.com/Kaiji-Z/dsh-plugin-stardeck.git"
   },
   "bugs": {
-    "url": "https://github.com/Kaiji-Z/dsh-plugin-warroom/issues"
+    "url": "https://github.com/Kaiji-Z/dsh-plugin-stardeck/issues"
   },
-  "homepage": "https://github.com/Kaiji-Z/dsh-plugin-warroom#readme",
+  "homepage": "https://github.com/Kaiji-Z/dsh-plugin-stardeck#readme",
   "engines": {
     "node": ">=22.19"
   },

@@ -11,7 +11,7 @@
  *   feature's regression + supervisor thresholds hold (§6 DoD).
  *
  * Read once at startup (or per-call in tests) — never hot-reloaded.
- * @module dsh-plugin-warroom/flags
+ * @module dsh-plugin-stardeck/flags
  */
 
 /** A frozen name → enabled map. Unknown names are simply absent (falsy). */

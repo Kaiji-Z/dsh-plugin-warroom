@@ -8,7 +8,7 @@
  * 只缓存「解析后的原始事件数组」，不缓存 fold 结果——fold 是纯 CPU（微秒级），
  * IO+JSON.parse 才是大头；缓存 fold 会把可变对象跨调用方共享，风险不成比例。
  * state.json 不进缓存（writeFileSync 覆写式，同尺寸覆写真实存在）。
- * @module dsh-plugin-warroom/fold-cache
+ * @module dsh-plugin-stardeck/fold-cache
  */
 
 import { readFileSync, statSync } from 'node:fs'

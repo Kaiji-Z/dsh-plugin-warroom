@@ -16,7 +16,7 @@
  * 六类）与 2D 战术盘整皮走令牌；three.js 的美术资产（NASA 星球贴图、浮空
  * 岛岩石/草顶、舰体合金、HDR 自发光、灯光雾色）是场景工厂数据，继续由
  * applyTheme 双皮管理——那是皮肤的另一半缝，不进 CSS。
- * @module dsh-plugin-warroom/client/war-tokens
+ * @module dsh-plugin-stardeck/client/war-tokens
  */
 
 /** 速报/WAR LOG 语义类（color 字段的 kind 化：值由令牌解析，不再散写 hex） */

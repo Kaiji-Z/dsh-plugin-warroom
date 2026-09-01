@@ -2,7 +2,7 @@
  * The tiny global war state (activation + HQ binding + current campaign
  * pointer). Campaign HISTORY lives in the append-only event logs; only this
  * pointer state is a plain JSON file (tiny-pointer store pattern).
- * @module dsh-plugin-warroom/state
+ * @module dsh-plugin-stardeck/state
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'

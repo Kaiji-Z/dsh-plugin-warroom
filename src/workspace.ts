@@ -9,7 +9,7 @@
  * declares a source repo that is a git checkout, a linked worktree is
  * created on a best-effort basis (git present + repo clean enough); failures
  * degrade to a plain directory with a note, never to a blocked publish.
- * @module dsh-plugin-warroom/workspace
+ * @module dsh-plugin-stardeck/workspace
  */
 
 import { execFileSync } from 'node:child_process'

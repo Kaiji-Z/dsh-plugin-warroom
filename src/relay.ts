@@ -8,7 +8,7 @@
  * and answers the staff's questions there.
  *
  * Structural slices keep this module free of host imports (unit-testable).
- * @module dsh-plugin-warroom/relay
+ * @module dsh-plugin-stardeck/relay
  */
 
 import { appendDirectiveEvent, foldChains, loadDirectives, pendingDirectives, type Directive } from './directives.ts'

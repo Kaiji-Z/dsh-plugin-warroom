@@ -2,7 +2,7 @@
  * V13 战线一等公民纯函数测试：frontsOf 血脉∩星球拆分（舰长定案 2026-08-28——
  * 战线锚定Ⅰ代星球，后续代跨星球=新战线的Ⅰ；成形代继承父代战线）、跨代并集
  * （pivot 共享任务去重）、聚合态；wsKeyOf 合成沙盒判定。
- * @module dsh-plugin-warroom/tests/front
+ * @module dsh-plugin-stardeck/tests/front
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'

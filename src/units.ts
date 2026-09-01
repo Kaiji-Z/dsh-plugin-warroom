@@ -7,7 +7,7 @@
  * sandbox_mode maps onto a dsh toolFilter DENY list (deny-based so new base
  * tools stay available; delegation tools are denied for every unit — the
  * max_depth=1 rule enforced by capability, not request).
- * @module dsh-plugin-warroom/units
+ * @module dsh-plugin-stardeck/units
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'

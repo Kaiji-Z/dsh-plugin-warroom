@@ -5,7 +5,7 @@
  * singleton while any component subscribes (useSyncExternalStore). Writes are
  * server-side (tools); the client is a projection — the operating-form
  * decision the sovereign made.
- * @module dsh-plugin-warroom/client/data
+ * @module dsh-plugin-stardeck/client/data
  */
 
 import { useSyncExternalStore } from 'react'

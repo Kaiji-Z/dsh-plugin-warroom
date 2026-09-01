@@ -4,7 +4,7 @@
  * — every task with status/workspace/troops/reports — plus the unit roster;
  * POST /warroom/api/active toggles war mode (dashboard-side activation
  * mirrors the /war semantics: surface syncs before responding).
- * @module dsh-plugin-warroom/dashboard
+ * @module dsh-plugin-stardeck/dashboard
  */
 
 import { createHash } from 'node:crypto'

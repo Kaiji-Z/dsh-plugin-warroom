@@ -1,6 +1,6 @@
 /**
  * Plugin configuration schema (Schemastery).
- * @module dsh-plugin-warroom/config
+ * @module dsh-plugin-stardeck/config
  */
 
 import z from '@deepseek-ai/schemastery'

@@ -12,7 +12,7 @@
  * appended to the center column as an extra trailing child React never
  * manages. Visibility toggles via an <html> data attribute; sibling panels
  * evict each other through the dsh-panel-activate event.
- * @module dsh-plugin-warroom/client/shell-entry
+ * @module dsh-plugin-stardeck/client/shell-entry
  */
 
 import { createElement } from 'react'

@@ -5,7 +5,7 @@
  * (cancelled). One append-only JSONL log at `<stateDir>/directives.jsonl`,
  * folded on read — the same discipline as the campaign logs (never
  * overwrite, derive state).
- * @module dsh-plugin-warroom/directives
+ * @module dsh-plugin-stardeck/directives
  */
 
 import { appendFileSync, mkdirSync } from 'node:fs'
