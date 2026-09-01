@@ -16,8 +16,13 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+（待下一轮交付积累）
+
+## [0.20.1] - 2026-09-01
+
 ### Changed
 - **所有回报强制人工验收（舰长令 2026-09-01）** —— `staff-auto-close` 移出默认开清单：KillCredit 证据机械全绿也不再自动收官，任务一律停在 `reported` 等舰长定夺（收件箱「等你定夺」承接）。机制保留为 opt-in（env 显式开，或新增 `config.extraFeatures` 装配层附加旗——smoke overlay 即用此法，e2e 考题 C1b/C8 继续覆盖收官机制本身）；env `!name` 仍可压掉 extra。新增 2 组旗测试锁死新默认（含 DEFAULT_ON 不含 staff-auto-close 断言）。
+- **独立纪元分家：内核全面移植为 stardeck（v0.1.0），本仓转守护态（元首令 2026-09-01）** —— R0 可行性实弹先行（9/9：node:http 裸服 + MCP 领令牌→真干活→KillCredit 判绿→人工验收收官，全程零 dsh；证据 `.goal/evidence/r0-spike/`）；随后 27 模块 1:1 移植为新仓 **stardeck**（星舰甲板：agent 无关 daemon + stdio MCP 桥 + opencode 执行者适配器 + 板 UI 独立挂载；266 测 + verify 零宿主负针脚 + 实弹门 10/10）。本仓继续以 dsh 插件形态维护（bug 修复守护态，内核同名文件改动前先 diff 两仓；远期可改依赖 stardeck-core 收编消灭双维护）；README/AGENTS 已加分家指引。
 
 ### Fixed
 - **CI OIDC 发版流水线首跑打通（0.20.0 发版过程修复）** —— 两坑：①CI linux 上 `pnpm install` 撞 `onnxruntime-node` 构建脚本严格审批（promptfoo optional 原生链）——`allowBuilds` 显式补 false；②测试套首次在 linux 上跑，五处 Windows 路径假设平台参数化（工作区大小写归一仅 win/darwin、越界外部路径 posix 用 `/` 绝对式——语义零改动，win 本机 292 全绿 + linux CI 全绿双验证）。流水线自此从手动发布转 release.mjs 一条命令自动发。
