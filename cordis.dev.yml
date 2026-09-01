@@ -4,7 +4,7 @@
 # bundle scanner resolves `<name>/package.json` from the profile directory
 # (see packages/client/modules/src/index.ts), so a URL-named entry silently
 # loses its client half. Dev-install the repo into the profile first:
-#   cd ~/.dsh/profiles/web && pnpm add dsh-plugin-stardeck@file:D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom
+#   cd ~/.dsh/profiles/web && pnpm add dsh-plugin-stardeck@file:D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck
 # Host and client then both serve from the repo's lib/ build (rebuild on change).
 - insert:
     - id: warroom

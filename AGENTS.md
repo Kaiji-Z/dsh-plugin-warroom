@@ -71,7 +71,7 @@ tests/ 与 src/ 一一对应（12 个文件，v3 增 threads.test.ts）；`scrip
 # 在 deepseek-harness checkout 内（V4/V5/拆解旗默认全开——例外：staff-auto-close 默认关【舰长令 2026-09-01 强制人工验收】；无需 WARROOM_FEATURES；
 # 要关个别旗用 ! 语法，如 WARROOM_FEATURES='!staff-plan,!quota-recovery'；
 # v5-spike 探针旗仍 opt-in：WARROOM_FEATURES=v5-spike）：
-pnpm dsh --profile web --patch D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/cordis.dev.yml --port 3080 --no-open
+pnpm dsh --profile web --patch D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/cordis.dev.yml --port 3080 --no-open
 # 旧实例先 netstat -ano | grep :3080 找 PID kill；日志惯例重定向到 ~/.dsh/warroom-plugin/server.log
 ```
 

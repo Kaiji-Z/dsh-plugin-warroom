@@ -9,5 +9,5 @@
     - id: warroom
       name: dsh-plugin-stardeck
       config:
-        statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/state.json'
-        warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.forensic-state/war'
+        statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/.forensic-state/state.json'
+        warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/.forensic-state/war'

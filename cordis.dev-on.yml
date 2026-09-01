@@ -2,6 +2,6 @@
 # tool registration + commander persona). Pair with a throwaway DSH_HOME.
 - insert:
     - id: warroom
-      name: 'file:///D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/src/index.ts'
+      name: 'file:///D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/src/index.ts'
       config:
         active: on

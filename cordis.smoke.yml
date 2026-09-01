@@ -8,8 +8,8 @@
     - id: warroom
       name: dsh-plugin-stardeck
       config:
-        statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/state.json'
-        warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/war'
+        statePath: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/.smoke-state/state.json'
+        warRoot: 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/.smoke-state/war'
         demoWeave: true
         # V16.3 诊断：操场假任务 3 条 in_progress 占满默认编制 3 → 实弹门任务永不被征召（静默排队）。演示态提上限。
         maxCommanders: 8

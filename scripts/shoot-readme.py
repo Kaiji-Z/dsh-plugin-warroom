@@ -75,7 +75,7 @@ def root_shot(page, path):
     print(f'shot: {path}')
 
 
-PAGER_WS = 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-warroom/.smoke-state/ws/projB/pager'
+PAGER_WS = 'D:/Users/kaiji/vibecodingKJ/projects/dsh-plugin-stardeck/.smoke-state/ws/projB/pager'
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch()
