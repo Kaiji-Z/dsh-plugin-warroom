@@ -3,8 +3,10 @@
 #   repository: Kaiji-Z/dsh-plugin-stardeck
 #   workflow filename: publish.yml        (this file's name, not the workflow's `name`)
 #   environment: LEAVE EMPTY on the npm side — this workflow declares none.
-# 首发注意（新包）：npm 上还不存在 dsh-plugin-stardeck 时，先在 npmjs.com 给该
-# 包名登记 pending publisher（上述三元组），否则首个 tag 的 OIDC 发布会被拒。
+# 首发注意（新包 bootstrap）：npm 没有 pending publisher 机制（那是 PyPI 的
+# 概念）——包必须先存在才能在 npmjs 包设置里配 Trusted Publisher。全新包名的
+# 首版须手动 `npm publish`（本地 npm login + pnpm build，无 tag、CI 不跑，
+# v0.19.0 同款路径）；包落地后在包设置配好上述三元组，下一版起 tag→OIDC 接管。
 # Trigger: pushing a v* tag (e.g. `git push origin v0.18.9-7`), or the Actions
 # "Run workflow" button. Plain branch pushes NEVER publish.
 # The job re-runs the full local verify gate (tests → build → bundle

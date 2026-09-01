@@ -119,7 +119,7 @@ for (;;) {
     process.exit(0)
   }
   if (Date.now() > deadline) {
-    console.error(`release: ${NPM_NAME}@${next} did NOT appear on npm within ${POLL_MAX_MS / 60_000} min — check the Actions run on ${OWNER_REPO} (首发前须在 npmjs.com 预登记 pending publisher：包名 + ${OWNER_REPO} + publish.yml + environment 留空)`)
+    console.error(`release: ${NPM_NAME}@${next} did NOT appear on npm within ${POLL_MAX_MS / 60_000} min — check the Actions run on ${OWNER_REPO}（若这是新包首版：npm 不能对不存在的包配 trusted publisher——首版须手动 npm publish bootstrap，落地后在 npmjs 包设置配 Trusted Publisher（${OWNER_REPO} + publish.yml + environment 留空），下一版起 CI OIDC 接管）`)
     process.exit(1)
   }
   console.log('waiting for CI publish…')

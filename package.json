@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-stardeck",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "packageManager": "pnpm@11.7.0",
   "description": "RTS-style orchestration for DeepSeek Harness: you are the sovereign issuing strategic orders; a resident commander agent decomposes them and deploys typed subagent troops (recon/engineer/medic/scribe) on isolated fronts, with an append-only campaign event log and hard rules of engagement.",
   "type": "module",
