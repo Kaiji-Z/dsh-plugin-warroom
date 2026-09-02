@@ -4,7 +4,7 @@
 # races (the v6 lesson: a running server's in-memory state overwrites a
 # shared state dir mid-run).
 # Run from the deepseek-harness checkout:
-#   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.forensic.yml --port 3099 --no-open
+#   pnpm dsh --profile web --patch ../dsh-plugin-stardeck/cordis.forensic.yml --port 3099 --no-open
 - insert:
     - id: warroom
       name: dsh-plugin-stardeck

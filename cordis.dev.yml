@@ -1,5 +1,5 @@
 # Dev overlay for local iteration (run from the deepseek-harness checkout:
-#   pnpm dsh web --patch ../dsh-plugin-warroom/cordis.dev.yml).
+#   pnpm dsh web --patch ../dsh-plugin-stardeck/cordis.dev.yml).
 # References the package by NAME, not a source file:// URL: the web client's
 # bundle scanner resolves `<name>/package.json` from the profile directory
 # (see packages/client/modules/src/index.ts), so a URL-named entry silently

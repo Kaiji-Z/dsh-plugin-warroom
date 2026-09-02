@@ -3,7 +3,7 @@
 # real board. demoWeave=true: boot-time swap of seeded fake session ids for
 # REAL host sessions — every demo click lands on a real navigation target.
 # Run from the deepseek-harness checkout:
-#   pnpm dsh --profile web --patch ../dsh-plugin-warroom/cordis.smoke.yml
+#   pnpm dsh --profile web --patch ../dsh-plugin-stardeck/cordis.smoke.yml
 - insert:
     - id: warroom
       name: dsh-plugin-stardeck

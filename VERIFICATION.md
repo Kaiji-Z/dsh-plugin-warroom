@@ -277,7 +277,7 @@ Output that violates a red line in VERIFICATION.md §7 is void.
 ## 8.1 System entry [auto-fill 已填]
 - 后端启动：插件宿主内嵌，随 dsh 起——`node --import tsx/esm apps/cli/src/bin.ts --profile web --patch cordis.smoke.yml --port 3080`（deepseek-harness checkout 内，见 AGENTS.md 本地起服节）。
 - 触发工作流：HTTP `POST /warroom/api/commands`（`src/dashboard.ts:234`）；或 `/war` 斜杠命令经宿主会话（`src/commands.ts:2-8`）。
-- 取 trace：`GET /warroom/api/board` 状态投影（`src/dashboard.ts:219`）+ 磁盘三条 append-only JSONL 及其 fold 装载器（`src/events.ts:26/221`、`src/directives.ts:56/114`、`src/threads.ts:38/71`）。HTTP trace 端点：none, needed（SPEC §3 契约清单挂账）。
+- 取 trace：`GET /warroom/api/board` 状态投影（`src/dashboard.ts:219`）+ 磁盘四条 append-only JSONL（events/directives/threads/planets）及其 fold 装载器。HTTP trace 端点：`GET /warroom/api/trace?commandId=`（0.20.0 B1-件② 交付）。
 
 ## 8.2 Test infra [auto-fill 已填]
 - 回归命令：`pnpm verify`（`package.json` scripts.verify → `scripts/verify.mjs` 三段式：tests + build + bundle 针脚含负断言）。
@@ -285,7 +285,7 @@ Output that violates a red line in VERIFICATION.md §7 is void.
 - 断言框架：node:test + node:assert/strict（`tests/*.test.ts:1,5`）。
 
 ## 8.3 Flag mechanism [auto-fill → 已落地 2026-08-24]
-- 诊断时：none。整改 P0-3 已落地 `src/flags.ts`：`WARROOM_FEATURES` 环境变量（逗号名表），缺省全 off；off 必须等于改前行为；经包 API 出口（`src/index.ts` re-export），测试 `tests/flags.test.ts`。
+- 诊断时：none。整改 P0-3 已落地 `src/flags.ts`：`WARROOM_FEATURES` 环境变量（逗号名表）——开发期默认全开（DEFAULT_ON_FLAGS）+ `!name` 关闭语法；例外 staff-auto-close 默认 OFF（2026-09-01 舰长令：强制人工验收）；经包 API 出口（`src/index.ts` re-export），测试 `tests/flags.test.ts`。
 
 ## 8.4 Supervisor design [must-ask 已答 · 元首 2026-08-24]
 1. 评分模型：**glm-5.2 + 隔离提示词**（同模型妥协方案；铁律 3 的「不同提示词」半项成立）。
@@ -294,8 +294,8 @@ Output that violates a red line in VERIFICATION.md §7 is void.
 4. 提示词禁含（默认，未被元首否决）：代码实现、PR 描述、commit、开发对话。裁判只看「预期正确行为 + 实际运行轨迹」。
 
 ## 8.5 Acceptance criteria [must-ask 已答 · 元首 2026-08-24]
-1. Happy path（八步）：下命令（板 UI/`POST commands`）→ 参谋秒接（独立会话）→ 澄清（决策卡）→ 批准（`war_publish` 携 commandId）→ 任务落栏 → 司令作战（in_progress）→ 待翻阅（reported，KillCredit 证据链）→ 「去处理」跳参谋会话收官（closed，已完成分区）。
-2. 验收判据 = `.goal/SPEC.md` §5 五判据（机器 verify / 冒烟截图 / 每命令一会话+挂载 / 真实 LLM 八步 / 文档终态同步）。
+1. Happy path（八步）：下命令（板 UI/`POST commands`）→ 大副秒接（独立会话）→ 澄清（决策卡）→ 批准（`war_publish` 携 commandId）→ 任务落栏 → 外勤小队作战（in_progress）→ 待翻阅（reported，KillCredit 证据链）→ 「去验收」跳大副会话收官（closed，已完成分区）。
+2. 验收判据=五判据沿用（机器 verify / 冒烟截图 / 每命令一会话+挂载 / 真实 LLM 实弹 / 文档终态同步；SPEC v1-v8 已退役，判据由 tests/e2e-regression 与 verify:e2e 承载）。
 3. 反验收（MUST NEVER）：浏览器端出现板投影之外的写操作；测试或脚本伪造事件冒充真实 LLM 行为；降低 verify 断言强度或改判据凑达标。
 
 ## 8.6 Fill status
