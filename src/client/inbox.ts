@@ -7,6 +7,7 @@
  */
 
 import type { BoardCommand, BoardTask } from './data.ts'
+import { activeCopy } from './copy.ts'
 
 export type InboxKind = 'clarify' | 'plan' | 'review' | 'retry'
 
@@ -32,12 +33,13 @@ export function agingTone(waitMs: number): '' | 'warn' | 'err' {
   return ''
 }
 
-/** 等待时长人话（"35 分钟" / "3 小时" / "2 天"，不满 1 分钟按 "刚刚"）。 */
+/** 等待时长人话（"35 分钟" / "3 小时" / "2 天"，不满 1 分钟按 "刚刚"）——词面走词典。 */
 export function formatWait(waitMs: number): string {
-  if (waitMs < 60_000) return '刚刚'
-  if (waitMs < 3_600_000) return `${Math.floor(waitMs / 60_000)} 分钟`
-  if (waitMs < 86_400_000) return `${Math.floor(waitMs / 3_600_000)} 小时`
-  return `${Math.floor(waitMs / 86_400_000)} 天`
+  const t = activeCopy().time
+  if (waitMs < 60_000) return t.justNow
+  if (waitMs < 3_600_000) return t.waitMins(Math.floor(waitMs / 60_000))
+  if (waitMs < 86_400_000) return t.waitHours(Math.floor(waitMs / 3_600_000))
+  return t.waitDays(Math.floor(waitMs / 86_400_000))
 }
 
 function mkItem(kind: InboxKind, refId: string, title: string, since: string, now: number): InboxItem {

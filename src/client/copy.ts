@@ -17,8 +17,11 @@
 import type { BoardCommand, BoardTask, BoardAttempt } from './data.ts'
 
 export interface WarCopy {
-  head: { title: string; subActive: string; subIdle: string }
+  head: { title: string; subActive: string; subIdle: string; /** 侧栏入口悬停 title 后缀（入典：随皮肤派生）。 */ entrySuffix: string }
   loading: { connecting: string; unreachable: (err: string) => string }
+  /** 人类可读时长词（views relTime「N 分钟前」/收件箱等待「N 分钟」）——三皮肤同值，
+   *  入典为「所有用户可见文案只从本模块取」契约的完整。 */
+  time: { justNow: string; agoMins: (n: number) => string; agoHours: (n: number) => string; waitMins: (n: number) => string; waitHours: (n: number) => string; waitDays: (n: number) => string }
   zones: {
     tasks: { title: string; note: string }
     report: { title: string; note: string }
@@ -48,6 +51,13 @@ export interface WarCopy {
     hqPickerRegister: string
     hqPickerRegistered: string
     hqPickerEmpty: string
+    hqPickerLoadError: string
+    hqPickerRegFail: string
+    /** V14 战线头悬停 title 的战场标签前缀（军事「战场：」/trek 派生「星球：」）。 */
+    frontBfLabel: string
+    /** 审计轮·批次3：bridged 速报日志入典（此前出击/返航硬编码绕过词典）。 */
+    wzLogSortie: (who: string, target: string) => string
+    wzLogReturn: (who: string) => string
     /** V18.9.4 分组列头（带计数）。 */
     hqPickerRegGroup: (n: number) => string
     hqPickerDoneGroup: (n: number) => string
@@ -249,11 +259,15 @@ export interface WarCopy {
     noQuickCancelled: string
     noQuickSettled: string
     pipsTitle: (generations: number) => string
+    /** 代际罗马数字溢出（>Ⅻ）回退词。 */
+    genOverflow: (n: number) => string
     pipStatus: Record<'run' | 'wait' | 'done' | 'fail' | 'idle', string>
     panelAria: (generations: number) => string
   }
   commandDetail: {
     gradeReasonPrefix: string
+    gradeTitlePrefix: string
+    confidenceSuffix: (pct: number) => string
     regradesNote: (n: number) => string
     planTitle: Record<'pending' | 'approved' | 'rejected', string>
     approvePlan: string
@@ -268,6 +282,10 @@ export interface WarCopy {
    *  的子详情（命令下达配置/最终计划/战报结论）文案、底部两颗会话跳钮。 */
   focusPage: {
     configTitle: string
+    /** 聚焦页弹窗 aria 前缀。 */
+    layerAria: (title: string) => string
+    /** KillCredit 证据块测试行（含「退出码」字面——verify 针脚锚）。 */
+    evidenceTests: (cmd: string, code: number, passed: number, failed: number) => string
     configTiming: string
     configTimingNow: (t: string) => string
     configTimingNext: (cron: string, next: string) => string
@@ -340,6 +358,7 @@ export interface WarCopy {
     cronPlaceholder: string
     cronError: (err: string) => string
     nextRun: (t: string) => string
+    failFallback: string
     /** V18.8 常用命令模板（点击填入草稿，可再改）。 */
     templates: ReadonlyArray<{ label: string; text: string }>
     templatesLabel: string
@@ -393,6 +412,7 @@ export interface WarCopy {
   detail: {
     reportPrefix: (ts: string) => string
     lineageLabel: string
+    lineageJumpTitle: (id: string) => string
   }
   /** V8 hero 灵动岛：标题栏的替代——大盘计数、收件箱、到访摘要与全部操作件
    * 收进顶部一颗胶囊（hover 展开 + 点击钉住；聚焦模式即岛的常驻形态）。 */
@@ -440,10 +460,19 @@ export const warCopy: WarCopy = {
     title: '作战室',
     subActive: '命令 → 任务 → 作战 → 结果 · 左区指挥 · 右区战场',
     subIdle: '退役中（/war 启用）',
+    entrySuffix: '战略任务栏（跨工作区）',
   },
   loading: {
     connecting: '连接作战室…',
     unreachable: err => `作战室不可达：${err}`,
+  },
+  time: {
+    justNow: '刚刚',
+    agoMins: n => `${n} 分钟前`,
+    agoHours: n => `${n} 小时前`,
+    waitMins: n => `${n} 分钟`,
+    waitHours: n => `${n} 小时`,
+    waitDays: n => `${n} 天`,
   },
   zones: {
     tasks: { title: '任务', note: '等·指挥官 · 进行 · 待翻阅——未终局任务' },
@@ -650,6 +679,7 @@ export const warCopy: WarCopy = {
     noQuickCancelled: '已取消——此命令已终局',
     noQuickSettled: '已收官——全线终局',
     pipsTitle: n => `这条战线共 ${n} 代——每个圆点是一代，颜色即该代当前状态`,
+    genOverflow: n => `第 ${n} 代`,
     pipStatus: { run: '推进中', wait: '等你发落', done: '善终', fail: '败退', idle: '未战而终' },
     panelAria: n => `战线前史共 ${n} 代（最新一代就在坞上）：上/下键选代，回车打开详情`,
   },
@@ -684,6 +714,11 @@ export const warCopy: WarCopy = {
     hqPickerRegister: '注册为战场',
     hqPickerRegistered: '已注册',
     hqPickerEmpty: '宿主侧暂无工作区（或清单未就绪）',
+    hqPickerLoadError: '宿主工作区清单暂不可用',
+    hqPickerRegFail: '注册没生效——稍候重试',
+    frontBfLabel: '战场：',
+    wzLogSortie: (who, target) => `${who}出击 ▸ ${target}`,
+    wzLogReturn: who => `${who}返航 · 会话收束`,
     hqPickerRegGroup: n => `可注册（${n}）`,
     hqPickerDoneGroup: n => `已在战区（${n}）`,
     xcardPrefix: '作战中：',
@@ -718,6 +753,8 @@ export const warCopy: WarCopy = {
   front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, originChip: (bf, title) => `续接自 ${bf === null ? '别的战场' : bf}·${title}`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
+    gradeTitlePrefix: '分诊档位',
+    confidenceSuffix: pct => ` · 置信度 ${pct}%`,
     regradesNote: n => `（元首改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
@@ -730,6 +767,8 @@ export const warCopy: WarCopy = {
   },
   focusPage: {
     configTitle: '命令下达配置',
+    layerAria: title => `命令 ${title}`,
+    evidenceTests: (cmd, code, passed, failed) => `⚙ ${cmd} → 退出码 ${code}（${passed} 过/${failed} 折戟）`,
     configTiming: '发布时机',
     configTimingNow: t => `立即下达 · ${t}`,
     configTimingNext: (cron, next) => `定时 · cron「${cron}」· 下次 ${next}（到点自动出发，一次有效）`,
@@ -794,6 +833,7 @@ export const warCopy: WarCopy = {
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
     cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，仅一次）`,
+    failFallback: '下达失败，请重试。',
     templatesLabel: '常用命令（点击填入，可再改）',
     templates: [
       { label: '每周总结', text: '总结本周战况：列出本周完成的任务与产出、失败的任务与原因、遗留问题，形成一份周报。' },
@@ -851,6 +891,7 @@ export const warCopy: WarCopy = {
   detail: {
     reportPrefix: ts => `【汇报 · ${ts}】`,
     lineageLabel: '源自命令',
+    lineageJumpTitle: id => `源自命令 ${id}——点击追踪全生命周期`,
   },
   island: {
     // V10.1 审查：零段折叠（三个 0 是胶囊噪音）。V12.2 元首令「让图例失业」：
@@ -907,10 +948,19 @@ export const plainCopy: WarCopy = {
     title: '工作台',
     subActive: '命令 → 任务 → 执行 → 结果 · 左区下达 · 右区看结果',
     subIdle: '未启用（/war 启用）',
+    entrySuffix: '跨工作区看板',
   },
   loading: {
     connecting: '连接看板…',
     unreachable: err => `看板不可达：${err}`,
+  },
+  time: {
+    justNow: '刚刚',
+    agoMins: n => `${n} 分钟前`,
+    agoHours: n => `${n} 小时前`,
+    waitMins: n => `${n} 分钟`,
+    waitHours: n => `${n} 小时`,
+    waitDays: n => `${n} 天`,
   },
   zones: {
     tasks: { title: '任务', note: '未完成的任务' },
@@ -1116,6 +1166,7 @@ export const plainCopy: WarCopy = {
     noQuickCancelled: '已取消——这条命令结束了',
     noQuickSettled: '已完成——全部结束',
     pipsTitle: n => `这条跟进线共 ${n} 步——每个圆点是一步，颜色是每步状态`,
+    genOverflow: n => `第 ${n} 轮`,
     pipStatus: { run: '进行中', wait: '待你处理', done: '已完成', fail: '失败', idle: '已取消' },
     panelAria: n => `此前跟进共 ${n} 步（最新一步就在下方）：上/下键选择，回车查看`,
   },
@@ -1150,6 +1201,11 @@ export const plainCopy: WarCopy = {
     hqPickerRegister: '添加',
     hqPickerRegistered: '已添加',
     hqPickerEmpty: '暂无工作区（或清单未就绪）',
+    hqPickerLoadError: '工作区清单暂不可用',
+    hqPickerRegFail: '添加没生效——稍候重试',
+    frontBfLabel: '项目：',
+    wzLogSortie: (who, target) => `${who}出发 ▸ ${target}`,
+    wzLogReturn: who => `${who}返回 · 会话结束`,
     hqPickerRegGroup: n => `可登记（${n}）`,
     hqPickerDoneGroup: n => `已在看板（${n}）`,
     xcardPrefix: '进行中：',
@@ -1184,6 +1240,8 @@ export const plainCopy: WarCopy = {
   front: { genN: n => `${n} 轮`, taskN: n => `${n} 件事`, originChip: (bf, title) => `来自 ${bf === null ? '别的项目' : bf}·${title}`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
     gradeReasonPrefix: '分诊理由：',
+    gradeTitlePrefix: '分诊档位',
+    confidenceSuffix: pct => ` · 置信度 ${pct}%`,
     regradesNote: n => `（改档 ${n} 次）`,
     planTitle: { pending: '待批', approved: '已批准', rejected: '已驳回' },
     approvePlan: '批准计划',
@@ -1196,6 +1254,8 @@ export const plainCopy: WarCopy = {
   },
   focusPage: {
     configTitle: '命令下达配置',
+    layerAria: title => `命令 ${title}`,
+    evidenceTests: (cmd, code, passed, failed) => `⚙ ${cmd} → 退出码 ${code}（${passed} 过/${failed} 失败）`,
     configTiming: '开始时间',
     configTimingNow: t => `立即下达 · ${t}`,
     configTimingNext: (cron, next) => `定时 · cron「${cron}」· 下次 ${next}（到点自动开始，一次有效）`,
@@ -1260,6 +1320,7 @@ export const plainCopy: WarCopy = {
     cronPlaceholder: '例：0 9 * * * = 每天 9 点',
     cronError: err => err,
     nextRun: t => `下次触发：${t}（到点自动下达，只一次）`,
+    failFallback: '下达失败，请重试。',
     templatesLabel: '常用命令（点击填入，可再改）',
     templates: [
       { label: '每周总结', text: '总结本周进展：列出本周完成的事项与产出、没做成的事项与原因、遗留问题，形成一份周报。' },
@@ -1317,6 +1378,7 @@ export const plainCopy: WarCopy = {
   detail: {
     reportPrefix: ts => `【汇报 · ${ts}】`,
     lineageLabel: '源自命令',
+    lineageJumpTitle: id => `来源 ${id}——点击查看详情`,
   },
   island: {
     counts: c =>

@@ -131,9 +131,10 @@ function relTime(iso: string, now = Date.now()): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ''
   const diff = now - t
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
+  const tm = activeCopy().time
+  if (diff < 60_000) return tm.justNow
+  if (diff < 3_600_000) return tm.agoMins(Math.floor(diff / 60_000))
+  if (diff < 86_400_000) return tm.agoHours(Math.floor(diff / 3_600_000))
   const d = new Date(t)
   return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
@@ -320,7 +321,8 @@ function LifeStrip(cmd: BoardCommand, chain: BoardTask[]): ReactNode {
 function gradeChip(cmd: BoardCommand): ReactNode {
   if (cmd.grade === null) return null
   const label = activeCopy().grade[cmd.grade]
-  const title = `分诊档位${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? `（舰长改档 ${cmd.regrades} 次）` : ''}`
+  const cd = activeCopy().commandDetail
+  const title = `${cd.gradeTitlePrefix}${cmd.gradeReason !== null ? `：${cmd.gradeReason}` : ''}${cmd.regrades > 0 ? cd.regradesNote(cmd.regrades) : ''}`
   return createElement('span', { className: `war-chip gr-${cmd.grade}`, title }, label)
 }
 
@@ -416,7 +418,7 @@ function fmtSchedule(iso: string | null): string {
 /** V10 战线代际：罗马数字到 Ⅻ，溢出走「第N代」；初代返回空串（不给徽标）。 */
 const GEN_ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ', 'Ⅺ', 'Ⅻ']
 function genLabel(generation: number): string {
-  return generation < 2 ? '' : (GEN_ROMAN[generation] ?? `第${generation}代`)
+  return generation < 2 ? '' : (GEN_ROMAN[generation] ?? activeCopy().commandCard.genOverflow(generation))
 }
 /** V14 战线渲染期查表：WarView 每次渲染同步刷新（先于子元素创建，读取一致）。
  *  模块级单例是刻意取舍——链色/本地计代消费点散落在模块级组件工厂
@@ -452,7 +454,7 @@ function genBadge(cmd: BoardCommand): ReactNode {
  * （卡面=此代）。代数罗马数字只在悬停 title/aria 里讲（圆点不背字）。 */
 type PipStatus = 'run' | 'wait' | 'done' | 'fail' | 'idle'
 function pipLabel(generation: number): string {
-  return GEN_ROMAN[Math.max(1, generation)] ?? `第${generation}代`
+  return GEN_ROMAN[Math.max(1, generation)] ?? activeCopy().commandCard.genOverflow(generation)
 }
 function genPipStatus(cmd: BoardCommand, chain: BoardTask[]): PipStatus {
   if (cmd.status === 'cancelled') return 'idle'
@@ -473,7 +475,7 @@ function genPips(cards: BoardCommand[], tasksOf: (c: BoardCommand) => BoardTask[
     className: 'war-gen-pips', title: copy.pipsTitle(cards.length), role: 'img',
     'aria-label': `${copy.pipsTitle(cards.length)}：${aria}`,
   },
-  cards.length > 4 ? createElement('span', { key: 'more', 'aria-hidden': 'true', className: 'war-gen-pip more' }, `${cards.length}代`) : null,
+  cards.length > 4 ? createElement('span', { key: 'more', 'aria-hidden': 'true', className: 'war-gen-pip more' }, activeCopy().front.genN(cards.length)) : null,
   ...shown.map(c => createElement('span', {
     key: c.commandId, 'aria-hidden': 'true', title: `${pipLabel(localGenOf(c))} ${copy.pipStatus[genPipStatus(c, tasksOf(c))]}`,
     className: `war-gen-pip st-${genPipStatus(c, tasksOf(c))}${c.commandId === latestId ? ' now' : ''}`,
@@ -497,11 +499,13 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
   // R4 通知行（预检提示·取消原因，空则留位）/ R5 快捷操作行（进入对话·改直
   // 发·◎ 聚焦；全空给「无快捷操作」占位）——行高恒定，坞内所有命令卡同尺寸。
   const preflight = stalledOnUserPlan(cmd)
+  // 审计轮·批次3 修复：三元错接归位——cancelledNote 持显示串（取消原因），
+  // ghostSpeaks 归位为布尔（tour 内成形 ghost 在场即由它发言）。此前布尔化的
+  // cancelledNote 恒挂 is-fail 且永不渲染，「取消原因」在卡面名存实亡。
   const cancelledNote = cmd.status === 'cancelled' && cmd.cancelledReason !== null
-  // V16.4-R7：tour 内成形 ghost（drafting/talking/plan）在场即由它发言
-  const ghostSpeaks = tour && formingVariantOf(cmd, chain) !== null
     ? activeCopy().commandDetail.cancelledReason(cmd.cancelledReason)
     : null
+  const ghostSpeaks = tour && formingVariantOf(cmd, chain) !== null
   const activate = (): void => { onDetail(cmd) }
   return createElement('div', {
     key: cmd.commandId,
@@ -559,7 +563,7 @@ function CommandCard(cmd: BoardCommand, hqSessionId: string | null, services: Cl
           type: 'button',
           title: meta.hint,
           onClick: e => { e.stopPropagation(); enterSession() },
-        }, '进入对话')
+        }, activeCopy().focusPage.talkingEnterBtn)
       : null,
     preflight
       ? createElement('button', { className: 'war-btn war-preflight-btn', onClick: e => { e.stopPropagation(); onRegrade('L0') } }, activeCopy().preflight.toDirect)
@@ -758,7 +762,7 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void; /** 
         refresh()
         onClose()
       } else {
-        setError(result.error ?? '下达失败，请重试。')
+        setError(result.error ?? activeCopy().composer.failFallback)
       }
     })()
   }
@@ -831,10 +835,10 @@ function CommandComposer(props: { onClose: () => void; refresh: () => void; /** 
             ...planetFronts.map(f => createElement('button', {
               key: f.rootCommandId, type: 'button',
               className: `war-continue-chip war-chain-hue-${f.hueSlot}${cont !== null && f.members.includes(cont) ? ' on' : ''}${f.live ? ' war-front-live' : ''}`,
-              title: `${f.label} · ${f.gens} 代${f.live ? '（进行中）' : '（已收官）'}`,
+              title: `${f.label} · ${activeCopy().front.genN(f.gens)}${f.live ? `（${activeCopy().dispatch.segActive}）` : `（${activeCopy().dispatch.segSettled}）`}`,
               'data-war-front-pick': f.contId,
               onClick: () => { setBfPick(f.bf); setCont(f.contId) },
-            }, `${f.label.slice(0, 12)}${f.label.length > 12 ? '…' : ''}${f.gens > 1 ? ` ·${f.gens}代` : ''}${f.live ? copy.frontLiveSuffix : ''}`)),
+            }, `${f.label.slice(0, 12)}${f.label.length > 12 ? '…' : ''}${f.gens > 1 ? ` ${activeCopy().front.genN(f.gens)}` : ''}${f.live ? copy.frontLiveSuffix : ''}`)),
           ),
           planetFronts.length === 0 ? createElement('div', { className: 'war-cp-note' }, copy.frontEmpty) : null,
         )
@@ -971,7 +975,7 @@ function ArchiveRow(props: { chain: BoardTask[]; cmd: BoardCommand; onArchive: (
  * 导航只反映真实在场的卡片——没卡的阶段给灰提示行，不预告未发生的事。 */
 function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map<string, BoardTask['status']>; hqSessionId: string | null; services: ClientServicesFace; focusSegment: 'plan' | 'chain' | 'report' | null; onClose: () => void; onRegrade: (grade: 'L0' | 'L1' | 'L2') => void; onDecidePlan: (decision: 'approve' | 'reject') => void; onReportSeen: () => void; onJumpMiss: () => void; /** V10 战线族谱：同根全体按代序；多代才显形。 */ chainMembers: BoardCommand[]; /** 族谱跨代跳转（父层换 detailCommandId）。 */ onOpenCommand?: (commandId: string) => void; /** V10 续接入口：报告段「下续战令」——父层开起草器并预选本命令。 */ onContinue?: () => void; /** V14 溯源：本战线续接自源战线的哪条战线（锚链代>1 才有）。 */ origin?: WarFront['origin']; /** V17 归档：账面痕迹由 cmd 携带；动作（父层管扇出/刷新/切页签）。 */ onArchive?: () => void }): ReactNode {
   const { cmd, chain, statuses, hqSessionId, services, focusSegment, onClose, onRegrade, onDecidePlan, onReportSeen, onJumpMiss, chainMembers, onOpenCommand, onContinue, origin, onArchive } = props
-  const layer = useModalLayer(onClose, `命令 ${displayTitleOf(cmd.text).slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`)
+  const layer = useModalLayer(onClose, activeCopy().focusPage.layerAria(`${displayTitleOf(cmd.text).slice(0, 24)}${cmd.text.length > 24 ? '…' : ''}`))
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 任务回报结论。
   const [open, setOpen] = useState<{ kind: 'config' } | { kind: 'plan'; taskId: string } | { kind: 'report' } | null>(null)
@@ -1160,7 +1164,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     return createElement('div', { key, className: 'war-subdetail' },
       createElement('div', { className: 'war-subdetail-title' }, fp.draftingGhostTitle),
       subRow(fp.triageLabel, cmd.grade !== null
-        ? `${GRADE_LABEL[cmd.grade]}${GRADE_MARKER[cmd.grade]}${cmd.gradeConfidence !== null ? ` · 置信 ${Math.round(cmd.gradeConfidence * 100)}%` : ''}`
+        ? `${GRADE_LABEL[cmd.grade]}${GRADE_MARKER[cmd.grade]}${cmd.gradeConfidence !== null ? activeCopy().commandDetail.confidenceSuffix(Math.round(cmd.gradeConfidence * 100)) : ''}`
         : fp.triagePending),
       cmd.gradeReason !== null ? subRow(copy.gradeReasonPrefix, cmd.gradeReason) : null,
       staffTarget !== null
@@ -1509,7 +1513,7 @@ function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, o
             // critique P2：让出 Tab 序（三列 40+ 停靠的隧道主源）——卡本身可点开同一聚焦页。
             role: 'button',
             tabIndex: -1,
-            title: `${activeCopy().detail.lineageLabel} ${lineageCmd.commandId}——点击追踪全生命周期`,
+            title: activeCopy().detail.lineageJumpTitle(lineageCmd.commandId),
             onClick: e => { e.stopPropagation(); onOpenCommand(lineageCmd.commandId) },
           }, `↩ ${lineageCmd.commandId}`)
         : null,
@@ -1550,7 +1554,7 @@ function EvidenceBlock(evidence: NonNullable<BoardTask['reports'][number]['evide
     rows.push(createElement('span', { key: `c${i}`, className: c.passed ? 'ok' : 'bad' }, `${c.passed ? '✓' : '✗'} ${c.item}`))
   }
   if (evidence.tests !== undefined) {
-    rows.push(createElement('span', { key: 't', className: evidence.tests.exitCode === 0 ? 'ok' : 'bad' }, `⚙ ${evidence.tests.command} → 退出码 ${evidence.tests.exitCode}（${evidence.tests.passed} 过/${evidence.tests.failed} 败）`))
+    rows.push(createElement('span', { key: 't', className: evidence.tests.exitCode === 0 ? 'ok' : 'bad' }, activeCopy().focusPage.evidenceTests(evidence.tests.command, evidence.tests.exitCode, evidence.tests.passed, evidence.tests.failed)))
   }
   if (evidence.diffstat !== undefined) {
     rows.push(createElement('span', { key: 'd' }, `Δ ${evidence.diffstat}`))
@@ -1668,7 +1672,7 @@ function FrontHead(f: WarFront): ReactNode {
   const fcopy = activeCopy().front
   const state = f.agg.waiting ? fcopy.stateWaiting : f.agg.failed ? fcopy.stateFailed : f.agg.settled ? fcopy.stateSettled : fcopy.stateLive
   const bf = bfNameOf(f.battlefield)
-  return createElement('div', { className: `war-front-head war-chain-hue-${f.hueSlot}`, title: `${f.title}\n星球：${bf}` },
+  return createElement('div', { className: `war-front-head war-chain-hue-${f.hueSlot}`, title: `${f.title}\n${activeCopy().starfield.frontBfLabel}${bf}` },
     createElement('span', { className: 'war-front-dot', 'aria-hidden': 'true' }),
     createElement('span', { className: 'war-front-title' }, displayTitleOf(f.title)),
     createElement('span', { className: 'war-chip war-front-gen' }, `${fcopy.genN(f.generations.length)} · ${fcopy.taskN(f.tasks.length)}`),
@@ -1928,7 +1932,7 @@ function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; ti
     fetch('/warroom/api/host-workspaces').then(r => r.json()).then((j: { ok: boolean; workspaces?: typeof rows; error?: string }) => {
       if (!alive) return
       if (j.ok && j.workspaces !== undefined) setRows(j.workspaces)
-      else setErr(j.error ?? '宿主工作区清单缺席')
+      else setErr(j.error ?? activeCopy().starfield.hqPickerLoadError)
     }).catch(e => { if (alive) setErr(String(e)) })
     return () => { alive = false }
   }, [])
@@ -1939,7 +1943,7 @@ function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; ti
       .then((j: { ok: boolean; error?: string }) => {
         setBusy(null)
         if (j.ok) onRegistered()
-        else setErr(j.error ?? '注册失败')
+        else setErr(j.error ?? activeCopy().starfield.hqPickerRegFail)
       })
       .catch(e => { setBusy(null); setErr(String(e)) })
   }
@@ -1969,7 +1973,7 @@ function HqWorkspacePicker(props: { registered: ReadonlyArray<{ path: string; ti
       createElement('div', { className: 'war-hq-picker' },
         createElement('div', { className: 'war-hq-picker-head' },
           createElement('div', { className: 'war-modal-title' }, activeCopy().starfield.hqPickerTitle),
-          createElement('button', { type: 'button', className: 'war-hq-picker-x', 'aria-label': '关闭', autoFocus: true, onClick: onClose }, '✕')),
+          createElement('button', { type: 'button', className: 'war-hq-picker-x', 'aria-label': activeCopy().settings.close, autoFocus: true, onClick: onClose }, '✕')),
         createElement('p', { className: 'war-hq-picker-hint' }, activeCopy().starfield.hqPickerHint),
         err !== null ? createElement('p', { className: 'war-hq-picker-err' }, err) : null,
         rows === null && err === null ? createElement('p', { className: 'war-hq-picker-hint' }, '…') : null,
@@ -2567,7 +2571,7 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       return {
         wsPath: ws,
         activity: fieldTasks.filter(t => wsKeyOf(t.workspacePath) === ws).length,
-        status: g.orbs.length > 0 ? '执行中' : g.triumphs > 0 ? '已占领' : '待进攻',
+        status: g.orbs.length > 0 ? 'battle' : g.triumphs > 0 ? 'held' : 'wait',
         state: planetStateOf(ws),
         title: planetTitleOf.get(ws) ?? null,
         garrison: g.triumphs,

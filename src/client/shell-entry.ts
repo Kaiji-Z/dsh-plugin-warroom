@@ -106,10 +106,10 @@ export function mountWarroomShell(view: () => ReactNode, dom?: SidebarMountDeps)
   row.className = 'war-sidebar-row'
   // V16 术语随皮肤：标签取词典（trek=舰桥/军事=舰桥），订阅切换即时换词。
   const paintRow = (): void => {
-    const label = activeCopy().head.title
-    row.setAttribute('aria-label', label)
-    row.setAttribute('title', `${label} · 战略任务栏（跨工作区）`)
-    row.innerHTML = `<span class="war-sidebar-icon">${WAR_ICON}</span><span class="war-sidebar-label">${label}</span>`
+    const copy = activeCopy()
+    row.setAttribute('aria-label', copy.head.title)
+    row.setAttribute('title', `${copy.head.title} · ${copy.head.entrySuffix}`)
+    row.innerHTML = `<span class="war-sidebar-icon">${WAR_ICON}</span><span class="war-sidebar-label">${copy.head.title}</span>`
   }
   paintRow()
   row.addEventListener('click', () => state.setOpen(!state.isOpen()))

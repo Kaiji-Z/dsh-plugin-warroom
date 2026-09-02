@@ -9,7 +9,7 @@
  * @module dsh-plugin-stardeck/client/starfield3d
  */
 import { createElement, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
-import { hqStats, WarzoneScene, WarzoneTactical, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
+import { hqStats, WarzoneScene, WarzoneTactical, wzStatusText, type TacHit, type WzBridgePlanet, type WzBridgeSquad, type WzFrontNode, type WzLogEntry, type WzPlanet, type WzSquad } from './warzone-scene.ts'
 import { activeCopy } from './copy.ts'
 import type { WzBridgeFrontLite } from './front.ts'
 
@@ -669,7 +669,7 @@ export function Warzone(props: WarzoneProps): ReactNode {
         // V16.4-R8 critique B：桥接星球无 name 字段——此前渲染字面 undefined（B8 实证）；
         // 名取目录名，状态词走词典（一词一面）。
         const sf = activeCopy().starfield
-        const stText = pl.status === '待进攻' ? sf.wzStWait : pl.status === '执行中' ? sf.wzStBattle : sf.wzStHeld
+        const stText = wzStatusText(pl.status, sf)
         return createElement('button', {
           key: pl.wsPath, type: 'button', className: 'war-wz-kbplanet',
           'data-wz-kb-ws': pl.wsPath,

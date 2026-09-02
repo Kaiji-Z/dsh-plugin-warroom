@@ -83,7 +83,14 @@ export function qbez(a: { x: number; y: number; z: number }, c: { x: number; y: 
  * ================================================================ */
 
 export type WzClass = 'large' | 'medium' | 'small'
-export type WzStatus = '待进攻' | '执行中' | '已占领'
+/** 星球战况 key（稳定英文枚举——显示词经词典 wzStWait/wzStBattle/wzStHeld 派生；
+ *  审计轮·批次3：此前中文词面当判别值，词典改词即静默失配）。 */
+export type WzStatus = 'wait' | 'battle' | 'held'
+
+/** 状态 key → 显示词（渲染点唯一映射；单测钉死防漂移）。 */
+export function wzStatusText(status: WzStatus, sf: { wzStWait: string; wzStBattle: string; wzStHeld: string }): string {
+  return status === 'wait' ? sf.wzStWait : status === 'battle' ? sf.wzStBattle : sf.wzStHeld
+}
 
 export interface WzPlanetSpec {
   readonly index: number
@@ -168,13 +175,18 @@ const dirNameOf = (wsPath: string): string => {
   return parts.length > 0 ? parts[parts.length - 1]! : wsPath
 }
 
+/** 铭文/日志用星球名：合成沙盒键在**绘制点**查词典（换肤即时换词，不烘焙进
+ *  name——name 仍是布局事实）；真目录用目录名。 */
+const planetLabelOf = (p: { name: string; wsPath: string }): string =>
+  p.wsPath === UNGROUPED_WS_KEY ? activeCopy().starfield.ungrouped : p.name
+
 export type WzPlanetState = 'active' | 'settled' | 'failed' | 'idle'
 
 export interface WzBridgePlanet {
   readonly wsPath: string
   /** 历史任务量（大小分级依据：多仗=大星）。 */
   readonly activity: number
-  readonly status: '待进攻' | '执行中' | '已占领'
+  readonly status: WzStatus
   /** V18 星球生命周期态（发光语义：active=蓝机器在动/settled=绿善终/failed=红败/idle=金待命）。 */
   readonly state: WzPlanetState
   /** V18 星球名（注册时的工作区名；缺省回落目录名）。 */
@@ -1422,8 +1434,8 @@ export class WarzoneScene {
       s.orbitSpd = det(`osd:${s.id}`, 0.4, 0.7)
       return
     }
-    if (p.status === '待进攻') {
-      p.status = '执行中'
+    if (p.status === 'wait') {
+      p.status = 'battle'
       s.phase = 'battle'
       s.battleT = p.battleT = det(`bt:${s.id}`, 6, 14)
       s.orbitSpd = det(`osb:${s.id}`, 1.8, 2.6)
@@ -1436,7 +1448,7 @@ export class WarzoneScene {
   }
 
   private capturePlanet(p: WzPlanet, s: WzSquad): void {
-    p.status = '已占领'
+    p.status = 'held'
     p.garrison += s.ships
     s.phase = 'deployed'
     s.orbitSpd = det(`osc:${s.id}`, 0.4, 0.7)
@@ -1495,7 +1507,7 @@ export class WarzoneScene {
       const old = active.find(s => s.phase === 'deployed')
       if (old) this.sendHome(old); else return
     }
-    const cands = this.planets.filter(p => p.status === '待进攻' && !p.inbound)
+    const cands = this.planets.filter(p => p.status === 'wait' && !p.inbound)
     if (!cands.length) return
     this.createSquad(cands[Math.floor(det(`csp:${this.spawnEpoch}`, 0, cands.length)) % cands.length]!)
   }
@@ -1509,11 +1521,11 @@ export class WarzoneScene {
     this.flipT -= dt
     if (this.flipT <= 0) {
       this.flipT = det(`flip:${this.flipEpoch++}`, 16, 26)
-      if (!this.planets.some(p => p.status === '待进攻' || p.inbound)) {
-        const occ = this.planets.filter(p => p.status === '已占领')
+      if (!this.planets.some(p => p.status === 'wait' || p.inbound)) {
+        const occ = this.planets.filter(p => p.status === 'held')
         if (occ.length) {
           const p = occ[Math.floor(det(`fl:${this.flipEpoch}`, 0, occ.length)) % occ.length]!
-          p.status = '待进攻'
+          p.status = 'wait'
           p.garrison = Math.max(0, p.garrison - 3)
           p.deployedSquads.splice(0).forEach(s => this.sendHome(s))
           this.spawnRing(p.mesh.position, p.radius * 1.4, this.cBattle)
@@ -1741,7 +1753,7 @@ export class WarzoneScene {
     c2.font = '600 26px system-ui, sans-serif'
     const span = Math.PI * 84 / 180
     let w0 = 0
-    for (const ch of [...(p.name + suf)]) w0 += c2.measureText(ch).width
+    for (const ch of [...(planetLabelOf(p) + suf)]) w0 += c2.measureText(ch).width
     const fs = w0 / 104 > span ? Math.max(15, Math.floor(26 * span / (w0 / 104))) : 26
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: this.darkTheme !== false ? 0.72 : 0.95, depthWrite: false, depthTest: false, fog: false }))
     sprite.renderOrder = 10
@@ -1773,7 +1785,7 @@ export class WarzoneScene {
     const c2 = cv.getContext('2d')
     if (c2 === null) return
     const Rc = Math.min(400, Math.max(104, (planetPx + 4) / scale))
-    const total = measureArcText(c2, fs, p.name + suf)
+    const total = measureArcText(c2, fs, planetLabelOf(p) + suf)
     c2.clearRect(0, 0, cv.width, cv.height)
     c2.textBaseline = 'middle'
     const CY = TOP_Y + Rc
@@ -1803,7 +1815,7 @@ export class WarzoneScene {
       c2.strokeStyle = 'rgba(255,255,255,0.9)'
       c2.lineJoin = 'round'
     }
-    let ang = drawArc(p.name, dark ? '#c9cdd2' : '#313842', -Math.PI / 2 - total / Rc / 2)
+    let ang = drawArc(planetLabelOf(p), dark ? '#c9cdd2' : '#313842', -Math.PI / 2 - total / Rc / 2)
     if (suf !== '') drawArc(suf, '#e5484d', ang)
     ;(s.material as THREE.SpriteMaterial).map!.needsUpdate = true
     s.userData.labelDrawnPr = planetPx
@@ -2123,12 +2135,16 @@ export class WarzoneScene {
         this.rebuildFrontLines(fronts)
       }
     }
+    // 审计轮·批次3 修复：WAR LOG 整组替换先于编队 diff——旧序把同调用内
+    // pushLog 的出击/返航速报当场清空（速报从未可见）。
+    this.log.length = 0
+    this.log.push(...bridge.log)
     const byWs = new Map(this.planets.map(p => [p.wsPath, p]))
     const live = new Set(bridge.squads.map(s => s.sessionId))
     for (const s of [...this.squads]) {
       if (s.sessionId !== null && !live.has(s.sessionId) && s.phase !== 'return') {
         this.sendHome(s)
-        this.pushLog(this.logC.return, `${s.code} ${s.cname} 返航 · 会话收束`)
+        this.pushLog(this.logC.return, activeCopy().starfield.wzLogReturn(`${s.code} ${s.cname}`))
       }
     }
     for (const bs of bridge.squads) {
@@ -2139,7 +2155,7 @@ export class WarzoneScene {
         const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase, sourceCommandId: bs.sourceCommandId, live: bs.live })
         s.sessionId = bs.sessionId
         this.squadBySession.set(bs.sessionId, s)
-        this.pushLog(this.logC.order, `${s.code} ${bs.sourceLabel ?? bs.verb ?? '执行会话'}出击 ▸ ${planet.name.split(' ·')[0]!}`)
+        this.pushLog(this.logC.order, activeCopy().starfield.wzLogSortie(`${s.code} ${bs.sourceLabel ?? bs.verb ?? activeCopy().focusPage.execSessionBtn}`, planetLabelOf(planet).split(' ·')[0]!))
         continue
       }
       existing.verb = bs.verb
@@ -2152,8 +2168,6 @@ export class WarzoneScene {
       if (existing.phase !== 'return' && existing.phase !== 'outbound' && existing.phase !== bs.phase) existing.phase = bs.phase
       if (existing.target !== planet) existing.target = planet
     }
-    this.log.length = 0
-    this.log.push(...bridge.log)
   }
 
   render(): void {
@@ -2364,7 +2378,7 @@ export class WarzoneTactical {
       // V18.2 铭文语言与 3D 同源（舰长令：名牌变成星球的一部分）：名字沿星球
       //  下缘弧排布（环刻），替换上方悬浮直排；达成数标注退役（达成弧+悬停卡
       //  在场）——盘面保持 元首四可读：星球名/战斗状态/战线环/执行卡。
-      const nm = p.name.split(' ·')[0]!
+      const nm = planetLabelOf(p).split(' ·')[0]!
       g.font = isHl ? 'bold 13px "Microsoft YaHei",Consolas' : '12px "Microsoft YaHei",Consolas'
       const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
       const arcR = rr + 12

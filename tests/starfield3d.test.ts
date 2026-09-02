@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { archetypeOf, attemptPhaseOf, clampCam, dampCam, ease, pad2, planetNoise, qbez, warLogOf, warzoneLayoutFor, warzonePlanets, WZ_CAM_DIST_MAX, WZ_CAM_DIST_MIN, WZ_CAM_HOME, WZ_CAM_PITCH_MAX, WZ_CAM_PITCH_MIN, wzCamBounds } from '../src/client/warzone-scene.ts'
+import { archetypeOf, attemptPhaseOf, clampCam, dampCam, ease, pad2, planetNoise, qbez, warLogOf, warzoneLayoutFor, warzonePlanets, WZ_CAM_DIST_MAX, WZ_CAM_DIST_MIN, WZ_CAM_HOME, WZ_CAM_PITCH_MAX, WZ_CAM_PITCH_MIN, wzCamBounds, wzStatusText } from '../src/client/warzone-scene.ts'
 
 /** V11.4 warzone demo 移植的纯函数面：星球布局确定性（红线①——同种子恒同貌，
  * SSE 零抖动、探针可断言的根基）+ 贝塞尔航迹几何。 */
@@ -149,4 +149,11 @@ test('V11.5h NASA 自然色：archetypeOf 确定性+六型全覆盖；planetNois
   assert.equal(n1, planetNoise('n:1', 0.3, 0.7), '同 seed 恒同值')
   assert.ok(n1 >= 0 && n1 <= 1, 'fBm 值域 [0,1]')
   assert.notEqual(n1, planetNoise('n:2', 0.3, 0.7), '异 seed 异值')
+})
+
+test('审计轮·批次3：wzStatusText 状态 key→词典显示词（英文枚举做判别、词典出词——改词不静默失配）', () => {
+  const sf = { wzStWait: '待进攻', wzStBattle: '执行中', wzStHeld: '已占领' }
+  assert.equal(wzStatusText('wait', sf), '待进攻')
+  assert.equal(wzStatusText('battle', sf), '执行中')
+  assert.equal(wzStatusText('held', sf), '已占领')
 })
