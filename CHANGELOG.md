@@ -19,6 +19,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 ### Fixed
 - **文案审计轮·批次1（错字+与现行决策矛盾的提示词/工具描述）** —— ①「任务令令起草法」双「令」系统性错字修正（skill.ts 标题与 description、prompts.ts relay 模板、persona.ts 大副条令共 4 处；快照 fixtures 5 文件 7 行随改，verify.mjs:164 针脚三方同步，起草法标题「warroom 大副」顺正名「舰桥大副」）；② rules.ts「任务任务回报」叠字 ×2；③ wake.ts 唤醒摘要删「L0 全绿自动收官已由系统判定」——与 staff-auto-close 默认 OFF（2026-09-01 舰长令：强制人工验收）正面冲突，改「回报验收由舰长定夺」；④ war_publish 描述补 L0 直发无需批准（与 staff-triage 默认 ON 自洽）、war_close_task 删不存在的「打回可重新领取」路径、war_status 状态集对齐 unitStatusLabel 实况（已收编→已撤编）；⑤ /war 激活回执重写（大副当值，删英文残句）+ /war /peace 面板描述中文化；⑥ directives 400 文案去「仗/阵地/接火」冷僻军词；⑦ dossier/rules 收官空 verdict 兜底「验收通过」（不再渲染「收官（）」）。verify PASS（快照门 4/4）。
 
+### Changed
+- **文案审计轮·批次2（皮肤词典正名：军事源串回归词表源词，trek 派生逐字不变）** —— 军事词典里误写的 trek 正典词全部改回军事源词：composer 星球/战线选择器与 starfield hqPicker 整段（星球→战场、星域→战区）、星域日志/驻军行（达成→凯旋，hqRow「N 仗」→「N 次」）、archive.gate（挫败→折戟）、logReview（任务回报→战报）、图例战线环行——军事皮肤不再两套词并存，trek 皮肤输出与改前逐字一致（活跑 trekify 抽查 19 键实证）。平话皮肤清戏剧词：cmdTabs「已收官→已完成」、reportVerdict「收官结论→最终结论」、hqOff/legendFront/kbGroupAria「战线→事项线」口径、genN「N 代→N 轮」。词表补丁：新增 司令部→星舰（hqOn/hqOff 派生「星舰在线/入坞状态——星舰熄灯」，与 returnHq 星舰收敛一词一面）、战况→近况、待进攻→待出动；reportQueued 源串「开战后→出动后」免开战词条；TREK_FIXUPS 的平话词「项目」改协议中性词「工作区」（trek 地图提示不再冒出「项目」）。loading 两句「任务栏」→「作战室」（trek 派生「连接舰桥」，plain 本就「看板」——三皮肤板名归一，舰长令定案：宿主侧 21 处 LLM 协议词「任务栏」不动）。杂项去行话：图例「received 命令」、挂载弹窗「thread 会话号」、failToast「旗关」。skin.test 全绿（stale 词断言天然通过——新源值均为词表源词）。
+
 
 ## [0.20.1] - 2026-09-01
 
