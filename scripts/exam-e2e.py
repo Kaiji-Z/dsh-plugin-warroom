@@ -62,10 +62,10 @@ def post(pg, path, body):
 
 
 def find_cmd(b, tag):
-    for c in b['commands']:
-        if tag in c['text']:
-            return c
-    return None
+    # 操场重跑防呆：板上可能残留历史 E2E 同 tag 命令——永远取最新一条
+    # （commandId 单调递增），否则 token 会从旧任务里找、issue2 直接崩。
+    hits = [c for c in b['commands'] if tag in c['text']]
+    return max(hits, key=lambda c: c['commandId']) if hits else None
 
 
 def open_board(pg):

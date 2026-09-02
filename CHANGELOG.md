@@ -16,6 +16,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+### Added
+- **文案审计轮·挂账清偿（两门实弹 + 三皮肤目检，2026-09-02）** —— ①`verify:eval` 接 LookatStudy 网关（Z_AI_*→OPENAI_* 映射）实弹 **2/2 PASS**（正向 R3 轨迹放行、负向幽灵任务回报 veto——裁判消费的正是批次5 重写后的正典用例）；②`verify:e2e` 清场实弹 **C1-C8 全绿 PASS**（真实 LLM 两代续接链：**新协议标记【星球：】全链走通**、T1 归因锁双侧命中、KillCredit 收官机制经 smoke extraFeatures 覆盖；证据 .goal/evidence/e2e/）——首跑失败暴露 exam-e2e.py `find_cmd` 抓首个同 tag 命令、板有历史 E2E 残留时 token 从旧任务找而崩：修为**恒取最新**（commandId 最大），「操场直接跑」承诺在重跑场景下成立；③新增 `scripts/shoot-skins.py` 三皮肤整板截图工具（入口开关防呆：板已开不重复点击）；playground 三步播种后 trek/war/plain 三皮肤目检通过——trek 无军事源串泄漏、war 恢复纯军事词面（批次2 正名实证）、plain「3 轮 · 2 件事」等修正生效，批次3 重构（WzStatus/入典）真实浏览器无恙（截图 .goal/evidence/audit-skins/）。
+
 ### Changed
 - **文案审计轮·批次6（文档门面与现状声明对齐）** —— README：标题「作战室」→「舰桥」（与正文§舰桥/侧栏入口一致）、四段生命条「战报」→「任务回报」、角色表（贴身参谋会话→贴身对话者、按兵种…部队→按组员编制…编队）、KillCredit 行改「机械复核+舰长定夺（强制人工验收）」、「全绿自动收官」宣称同步正名、快速开始「npm（发布后）」→「0.20.1 已发布」+tgz 版本号校正、账本「三条流」→「四条流」；package.json description 重写为现役语义（captain/XO/away-team/evidence-based acceptance——随下次发版上 npm 面）；PRODUCT.md 全文正典化（舰长/大副/外勤小队、三皮肤、V16 词表定案入 Anti-references）+守护态注记；AGENTS.md：**开局必读死链修复**（.goal/SPEC.md 已不存在→改指现存 SPEC-B1/B2 两册，历史 SPEC v1-v8 注明退役）、头部「当前版本 V16/SPEC v9/README 版本史」三重过时声明校正（迭代已至 V18.x、版本史=CHANGELOG）、§6/§9 死引用落地、源码地图过时行全面校正（relay=大副·+文案已迁 prompts.ts、client 三页签、dossier/units/schedule/types/config 旧词、tests 计数 48、浏览器工具清单换现行+归档注记）、overlay 枚举补 forensic、考题残留目录更新（temp/e2e-exam-ws）、playground 节用词、两盘镜像注明；VERIFICATION.md §8.1（trace 端点已交付+四条流）/§8.3（flags 默认全开+staff-auto-close 例外）/§8.5（大副/外勤小队/去验收+SPEC 死引用落地）校正；overlays：dev/smoke/forensic 注释示例 ../dsh-plugin-warroom 死路径→stardeck（commit 82ff5de 只改绝对路径漏了三处相对路径）、dev-on.yml file:// 引用改按包名（自述规则合规）。verify PASS。
 
