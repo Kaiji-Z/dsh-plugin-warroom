@@ -20,6 +20,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [0.20.1-1] - 2026-09-02
 
+### Fixed
+- **CI 发版门：预发布版本（v0.x.y-N 刀数段）npm publish 需显式 `--tag latest`** —— v0.20.1-1 是包改名后第一个走 CI OIDC 的刀版，npm 拒绝无 `--tag` 地发布 semver 预发布版（publish.yml 旧写法只发过无刀数段版本故未暴露）；publish.yml 显式钉 latest（本项目刀版即最新正式进展；无刀数段版本本就默认 latest，写显等价）。
+
 ### Added
 - **文案审计轮·挂账清偿（两门实弹 + 三皮肤目检，2026-09-02）** —— ①`verify:eval` 接 LookatStudy 网关（Z_AI_*→OPENAI_* 映射）实弹 **2/2 PASS**（正向 R3 轨迹放行、负向幽灵任务回报 veto——裁判消费的正是批次5 重写后的正典用例）；②`verify:e2e` 清场实弹 **C1-C8 全绿 PASS**（真实 LLM 两代续接链：**新协议标记【星球：】全链走通**、T1 归因锁双侧命中、KillCredit 收官机制经 smoke extraFeatures 覆盖；证据 .goal/evidence/e2e/）——首跑失败暴露 exam-e2e.py `find_cmd` 抓首个同 tag 命令、板有历史 E2E 残留时 token 从旧任务找而崩：修为**恒取最新**（commandId 最大），「操场直接跑」承诺在重跑场景下成立；③新增 `scripts/shoot-skins.py` 三皮肤整板截图工具（入口开关防呆：板已开不重复点击）；playground 三步播种后 trek/war/plain 三皮肤目检通过——trek 无军事源串泄漏、war 恢复纯军事词面（批次2 正名实证）、plain「3 轮 · 2 件事」等修正生效，批次3 重构（WzStatus/入典）真实浏览器无恙（截图 .goal/evidence/audit-skins/）。
 

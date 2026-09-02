@@ -35,4 +35,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run verify
       - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
-      - run: npm publish --provenance
+      # v0.x.y-N 刀版是 semver 预发布段——npm 拒绝无 --tag 地发布预发布版
+      # （v0.20.1-1 首撞）。本项目刀版即最新正式进展（元首定案：pre-1.0 刀数
+      # 进 -N 段），显式钉 latest；无刀数段版本本就默认 latest，写显等价。
+      - run: npm publish --provenance --tag latest
