@@ -18,7 +18,7 @@ export const BOUNTY_DRAFTING_SKILL_NAME = 'warroom-bounty-drafting'
  * 措辞去脂；六要素/验收改写术/工作区路由（锁：路由顺序、【星球：】标记、
  * @new: 语法、战线跟着星球走）/发布要点全部行为约束原样保留。 */
 export function bountyDraftingSkillContent(): string {
-  return `# 任务令令起草法（warroom 大副专用）
+  return `# 任务令起草法（舰桥大副专用）
 
 把舰长的大白话翻译成外勤小队可直接执行、系统可验收的任务书。核心信条：**验收标准是任务书的灵魂**——外勤小队提交时必须逐项附证据核对（KillCredit 制），写得含糊验收就瘫。
 
@@ -69,7 +69,7 @@ acceptance 一律用「；」分隔检查项（外勤小队会逐项变成 evide
 export function bountyDraftingSkill(): { name: string; description: string; whenToUse: string; content: string } {
   return {
     name: BOUNTY_DRAFTING_SKILL_NAME,
-    description: '舰桥大副的任务令令起草法：把舰长大白话翻译成带可判定验收标准的任务书（war_publish 发布）。',
+    description: '舰桥大副的任务令起草法：把舰长大白话翻译成带可判定验收标准的任务书（war_publish 发布）。',
     whenToUse: '起草/修订任务书时；舰长意图模糊需要澄清时；为任务定品质分级、任务链或日常任务令时。',
     content: bountyDraftingSkillContent(),
   }

@@ -309,19 +309,19 @@ export interface ContinuationTaskFace {
 /**
  * 按父命令当时的状态推导续接模式（纯）——下达路由的冻结依据：
  * 大副对话未成形→拒绝（直接继续谈）；执行中→pivot（需活体 attempt 会话）；
- * 成功仗/closed→deepen；败仗→retry。错误给可直接展示给舰长的理由。
+ * 成功收官/closed→deepen；失败→retry。错误给可直接展示给舰长的理由。
  */
 export function deriveContinuation(
   parent: { status: DirectiveStatus; taskId?: string },
   task?: ContinuationTaskFace,
 ): { mode: ContinuationMode; targetSessionId?: string } | { error: string } {
   if (parent.status === 'cancelled') return { error: '被取消的命令没有可续接的战线——请直接下新命令。' }
-  if (parent.status !== 'approved') return { error: '这条命令还在大副对话里成形，直接点进命令卡继续谈即可；可续接的是已成形的仗。' }
-  if (parent.taskId === undefined || task === undefined) return { error: '命令已批准但任务尚未发布成形，暂无可续接的阵地。' }
+  if (parent.status !== 'approved') return { error: '这条命令还在大副对话里成形，直接点进命令卡继续谈即可；可续接的是已发布成形的任务。' }
+  if (parent.taskId === undefined || task === undefined) return { error: '命令已批准但任务尚未发布成形，暂无可续接的任务。' }
   if (task.lastOutcome === 'failed' || task.status === 'failed') return { mode: 'retry' }
   if (task.status === 'closed' || task.lastOutcome === 'succeeded' || task.lastOutcome === 'reported') return { mode: 'deepen' }
   if (task.liveAttemptSessionId !== undefined) return { mode: 'pivot', targetSessionId: task.liveAttemptSessionId }
-  return { error: '执行正在排队（外勤小队尚未领令接火），此刻无可转向的执行会话。' }
+  return { error: '执行正在排队（外勤小队尚未领令开工），此刻无可转向的执行会话。' }
 }
 
 /** Load all directives from disk (read + fold), oldest first. */

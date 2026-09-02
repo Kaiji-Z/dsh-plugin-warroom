@@ -161,7 +161,7 @@ gate('bundle', () => {
     [client, 'WebGLRenderer', 'V11 3D starfield three.js bundled (no runtime require)'],
     [host, 'runtimeFlags', 'dev-phase default-on flag policy'],
     [host, 'warroom-bounty-drafting', 'staff drafting skill registered'],
-    [host, '任务令令起草法', 'drafting craft body rides the bundle'],
+    [host, '任务令起草法', 'drafting craft body rides the bundle'],
     [host, '大白话 → 任务书', 'plain-speech-to-brief worked example'],
     [host, 'skills.register', 'runtime skill provider path'],
     // v2.0 R1: directive feed (命令区), workspace mutex, instance workspaces.

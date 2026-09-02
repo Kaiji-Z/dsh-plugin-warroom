@@ -387,7 +387,7 @@ export async function armMissingCommanderGoals(deps: WarToolsDeps, campaignId: s
 export function warTools(deps: WarToolsDeps) {
   const warPublish = defineTool({
     name: 'war_publish',
-    description: '大副发布任务：把任务书写上战略任务栏。自动建任务工作区（声明 repo 时尽力建 git worktree，跨任务物理隔离）并唤醒外勤小队领取。舰长批准任务书后调用。',
+    description: '大副发布任务：把任务书写上战略任务栏。自动建任务工作区（声明 repo 时尽力建 git worktree，跨任务物理隔离）并唤醒外勤小队领取。L0 简单任务可直接发布（无需舰长批准）；L1/L2 的计划/任务书经舰长批准后发布。',
     parameters: {
       title: { type: 'string', required: true, description: '任务标题，一句话。' },
       brief: { type: 'string', required: true, description: '任务书正文（写给外勤小队的专业 prompt）：背景与目标、执行指引、边界与注意事项。' },
@@ -802,7 +802,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warCloseTask = defineTool({
     name: 'war_close_task',
-    description: '收官：舰长翻阅汇报后，由大副记录判定收官任务（通过/打回/作废）。打回的任务外勤小队可重新领取（需大副重新发布说明）。收官后工作区空出，系统自动为同工作区排队的下一张任务令派遣外勤小队。',
+    description: '收官：舰长翻阅汇报后，由大副记录判定收官任务（通过/打回/作废）。打回与作废即任务终局——需要重做时由大副重新立案发布，不存在回栏重领。收官后工作区空出，系统自动为同工作区排队的下一张任务令派遣外勤小队。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       verdict: { type: 'string', required: true, description: '判定：通过收官 / 打回（附原因）/ 作废（附原因）。' },
@@ -824,7 +824,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warDeployUnit = defineTool({
     name: 'war_deploy_unit',
-    description: '加派组员：按组员派一支外勤组员到任务工作区内的指定星域执行任务（后台 continuable 子代理）。硬规则：任务已领取、编制未满、有写权限外勤组员星域不得重叠。front 写任务工作区内的相对路径。',
+    description: '加派组员：按组员代号派一名外勤组员到任务工作区内的指定星域执行任务（后台子代理）。硬规则：任务已领取、编制未满、有写权限的外勤组员星域不得重叠。front 写任务工作区内的相对路径。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       unit: { type: 'string', required: true, description: '组员代号：recon / engineer / medic / scribe（或自定义组员）。' },
@@ -943,7 +943,7 @@ export function warTools(deps: WarToolsDeps) {
 
   const warStatus = defineTool({
     name: 'war_status',
-    description: '战况：单任务详情——任务书、外勤组员的组员/星域/状态（行动中/待命/已收队/已收编）与最近任务回报，或省略 task_id 查看全局任务栏摘要。',
+    description: '战况：单任务详情——任务书、各外勤组员的代号/星域/状态（行动中/待命/已收队/已撤编）与最近任务回报，或省略 task_id 查看全局任务栏摘要。',
     parameters: {
       task_id: { type: 'string', description: '任务 id；省略则返回任务栏摘要。' },
     },
@@ -1627,7 +1627,7 @@ return [warTroopTask, warTroopClaim, warTroopUpdate]
 function warTroopReassignTool(deps: WarToolsDeps) {
   return defineTool({
     name: 'war_troop_reassign',
-    description: '（troop-park）显式换手：外勤小队吊销某在役子任务的当前令牌（含 parked 状态），回池并立即转派——kick 排除原主。原主持旧令牌的更新将被陈旧拒绝。',
+    description: '（troop-park）显式换手：外勤小队吊销某在役子任务的当前令牌（含 parked 状态），回池并立即转派（排除原主）。原主持旧令牌的更新将被陈旧拒绝。',
     parameters: {
       task_id: { type: 'string', required: true, description: '任务 id。' },
       subtask_id: { type: 'string', required: true, description: '子任务 id。' },

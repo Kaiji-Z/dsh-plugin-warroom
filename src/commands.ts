@@ -70,7 +70,7 @@ export function executeWarCommand(deps: WarCommandDeps, invocation: CommandInvoc
     deps.onActiveChange(true)
   }
   invocation.agent.followup(userMessage(warOrderPrompt(invocation.rawInput)))
-  return { kind: 'success', text: '舰桥已就位 — 外勤小队正在报到；外勤组员状态用 war_status 查询 / War room active — the commander is reporting in.' }
+  return { kind: 'success', text: '舰桥已就位——大副当值，正简报任务栏现状，等你下令。' }
 }
 
 /**
@@ -80,7 +80,7 @@ export function executeWarCommand(deps: WarCommandDeps, invocation: CommandInvoc
 export function registerWarCommand(commands: CommandsServiceFace, deps: WarCommandDeps): () => void {
   return commands.register({
     name: 'war',
-    description: 'enter the war room — activate the staff and talk strategy (tasks are authored, published, and auto-claimed)',
+    description: '激活舰桥——大副当值：下达战略命令，由大副起草任务书、发布并跟进执行',
     input: { hint: '[<strategic intent>]' },
     handler: invocation => executeWarCommand(deps, invocation),
   })
@@ -90,7 +90,7 @@ export function registerWarCommand(commands: CommandsServiceFace, deps: WarComma
 export function registerPeaceCommand(commands: CommandsServiceFace, deps: WarCommandDeps): () => void {
   return commands.register({
     name: 'peace',
-    description: 'stand the war room down — deactivate the staff persona and the war_* tool surface',
+    description: '舰桥入坞——解除大副角色与 war_* 工具面（在役会话保留）',
     handler: () => {
       const war = deps.store.get()
       if (war.active) {
@@ -98,7 +98,7 @@ export function registerPeaceCommand(commands: CommandsServiceFace, deps: WarCom
         deps.store.save()
         deps.onActiveChange(false)
       }
-      return { kind: 'success', text: '舰桥已休眠（在役外勤组员与会话保留，可 /war 重新启用）/ War room stood down.' }
+      return { kind: 'success', text: '舰桥已休眠（在役外勤组员与会话保留，可 /war 重新启用）。' }
     },
   })
 }

@@ -16,7 +16,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
-（待下一轮交付积累）
+### Fixed
+- **文案审计轮·批次1（错字+与现行决策矛盾的提示词/工具描述）** —— ①「任务令令起草法」双「令」系统性错字修正（skill.ts 标题与 description、prompts.ts relay 模板、persona.ts 大副条令共 4 处；快照 fixtures 5 文件 7 行随改，verify.mjs:164 针脚三方同步，起草法标题「warroom 大副」顺正名「舰桥大副」）；② rules.ts「任务任务回报」叠字 ×2；③ wake.ts 唤醒摘要删「L0 全绿自动收官已由系统判定」——与 staff-auto-close 默认 OFF（2026-09-01 舰长令：强制人工验收）正面冲突，改「回报验收由舰长定夺」；④ war_publish 描述补 L0 直发无需批准（与 staff-triage 默认 ON 自洽）、war_close_task 删不存在的「打回可重新领取」路径、war_status 状态集对齐 unitStatusLabel 实况（已收编→已撤编）；⑤ /war 激活回执重写（大副当值，删英文残句）+ /war /peace 面板描述中文化；⑥ directives 400 文案去「仗/阵地/接火」冷僻军词；⑦ dossier/rules 收官空 verdict 兜底「验收通过」（不再渲染「收官（）」）。verify PASS（快照门 4/4）。
+
 
 ## [0.20.1] - 2026-09-01
 

@@ -52,13 +52,13 @@ export function checkDeployment(campaign: CampaignState, opts: {
   maxUnits: number
 }): DeployCheck {
   if (campaign.status === 'closed') {
-    return { ok: false, reason: `任务已收官（${campaign.closedVerdict ?? ''}）；新需求请让大副重新发布任务。` }
+    return { ok: false, reason: `任务已收官（${campaign.closedVerdict !== undefined && campaign.closedVerdict !== '' ? campaign.closedVerdict : '验收通过'}）；新需求请让大副重新发布任务。` }
   }
   if (campaign.status === 'failed') {
     return { ok: false, reason: `任务已失败：${campaign.lastError ?? '原因未记录'}。重试次数已用完——请舰长翻阅任务回报后，让大副重新立案（可拆小一点再发）。` }
   }
   if (campaign.status === 'reported') {
-    return { ok: false, reason: '任务任务回报已呈递，正等舰长翻阅。要继续动工请先等舰长批复（war_close_task 或加批示），不要抢跑。' }
+    return { ok: false, reason: '任务回报已呈递，正等舰长翻阅。要继续动工请先等舰长批复（war_close_task 或加批示），不要抢跑。' }
   }
   if (campaign.status !== 'in_progress') {
     return { ok: false, reason: '任务尚未领取：先用 war_claim 领取任务，才能加派组员。' }
@@ -197,7 +197,7 @@ export function checkClaim(campaign: CampaignState, blockedDeps: ReadonlyArray<s
     const where: Record<string, string> = {
       draft: '任务还在草稿，尚未发布到任务栏。',
       in_progress: '任务已被领取，正在执行中。',
-      reported: '任务任务回报已呈递，等舰长翻阅。',
+      reported: '任务回报已呈递，等舰长翻阅。',
       failed: '任务已失败且重试用尽，等舰长让大副重新立案。',
       closed: '任务已收官。',
     }

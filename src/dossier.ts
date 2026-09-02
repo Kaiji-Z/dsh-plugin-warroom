@@ -51,7 +51,8 @@ export function appendDossierEntry(stateDir: string, workspacePath: string, titl
 export function dossierEntryFor(task: CampaignState): string {
   const loot = task.deliverables.map(d => d.summary).join('；')
   if (task.status === 'closed') {
-    return `结果：收官（${task.closedVerdict ?? ''}）。${loot !== '' ? `任务产出：${loot}。` : ''}尝试 ${task.attempts} 次。`
+    const verdict = task.closedVerdict !== undefined && task.closedVerdict !== '' ? task.closedVerdict : '验收通过'
+    return `结果：收官（${verdict}）。${loot !== '' ? `任务产出：${loot}。` : ''}尝试 ${task.attempts} 次。`
   }
   if (task.status === 'failed') {
     return `结果：失败（重试用尽）。败因：${task.lastError ?? '未记录'}。尝试 ${task.attempts} 次。建议：拆小重发或补充上下文。`

@@ -63,7 +63,7 @@ export function wakeMessageFor(input: { taskId: string; title: string; kind: 're
 ${input.detail}
 
 ${digest}
-大副：按分诊档位跟下一步（L0 全绿自动收官已由系统判定；存疑进会话复核；失败按重派/重新立案处置）。这是系统唤醒，无需回话除非要主动做事。`
+大副：按分诊档位跟下一步（回报验收由舰长定夺；存疑进会话复核；失败按重派/重新立案处置）。这是系统唤醒，无需回话除非要主动做事。`
 }
 
 export interface WakeEngine {
