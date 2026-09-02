@@ -372,7 +372,7 @@ with sync_playwright() as p:
       }
       return Math.round(best)
     }""")
-    assert rep_hit != -1 and rep_hit <= 20, f"map 回报腿应触战报卡左缘：rep_hit={rep_hit}px"
+    assert rep_hit != -1 and rep_hit <= 20, f"map 回报腿应触任务回报卡左缘：rep_hit={rep_hit}px"
     # 管线不绕 HQ：map 管段不得靠近 HQ 投影点（HQ 接点/星球弦已退役）
     hq = page.evaluate("() => window.__wz.hqScreen()")
     hq_dist = page.evaluate("""(hq) => {

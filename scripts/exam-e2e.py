@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""v15 实弹考题驱动（真实 LLM：两代续接链，验 V15 三件套的行为价值）。
+"""e2e 实弹考题驱动（真实 LLM：两代续接链；exam-v15 范式常驻化，验链档案注入的行为价值）。
 
 考题设计（因果链）：
-  代1 命令（带【星球：】标记 + !!直接做）→ 参谋 L0 直发 → 指挥官在真实工作区
+  代1 命令（带【星球：】标记 + !!直接做）→ 大副 L0 直发 → 外勤小队在真实工作区
       创建 manifest/e2e-manifest.json（token 由 LLM 现场随机生成——任何命令原文
       都不含它）→ 提交 evidence.files → KillCredit 自动收官。
   代2 命令（continuesFrom 代1 + 战线名「exam战线」）→ deepen 续接：
-      参谋收【战线档案】（buildChainNote：上代战报摘要+产物路径）、指挥官收
+      大副收【战线档案】（buildChainNote：上代任务回报摘要+产物路径）、外勤小队收
       【战线前情】（buildCommanderChainBrief）→ 产出 summary/e2e-summary.md
       引用上代 token → 自动收官。
-  机检断言见 assert-v15.py：T1 值出现在下游 = 链档案注入真实送达并被使用。
+  机检断言见 assert-e2e.py：T1 值出现在下游 = 链档案注入真实送达并被使用。
 
 用法: python scripts/exam-e2e.py <stage>
 stages:
@@ -21,7 +21,7 @@ stages:
 
 环境: 服务器 http://127.0.0.1:3080（smoke overlay，.smoke-state 已清空）；
 考题工作区 C:/Users/kaiji/vibecodingKJ/temp/e2e-exam-ws（脚本外先删旧）。
-证据落 .goal/evidence/v15/。SSE 长连接在，一律 domcontentloaded。
+证据落 .goal/evidence/e2e/。SSE 长连接在，一律 domcontentloaded。
 """
 import sys, io, time, json, os, shutil
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -34,7 +34,7 @@ WS = 'C:/Users/kaiji/vibecodingKJ/temp/e2e-exam-ws'
 TAG1 = 'E2E代1考题'
 TAG2 = 'E2E代2考题'
 
-CMD1 = (f'【战场：{WS}】E2E代1考题：在本工作区创建 manifest/e2e-manifest.json，'
+CMD1 = (f'【星球：{WS}】E2E代1考题：在本工作区创建 manifest/e2e-manifest.json，'
         '内容是一个 JSON 对象，含字段 token（现场随机生成的 8 位十六进制字符串）、'
         'items（数字 3）、note（一行中文说明）。'
         '验收：文件存在、JSON 可解析、token 字段是 8 位十六进制。!!直接做')
@@ -122,7 +122,7 @@ def main():
             log('gen1 issue:', json.dumps(r, ensure_ascii=False))
             assert r.get('ok'), f'gen1 下令失败: {r}'
             # 等参谋接收（有 taskId 前先看 staffSessionId）
-            poll(pg, lambda b: find_cmd(b, TAG1) is not None and find_cmd(b, TAG1).get('staffSessionId'), '代1 参谋接收', 300)
+            poll(pg, lambda b: find_cmd(b, TAG1) is not None and find_cmd(b, TAG1).get('staffSessionId'), '代1 大副接收', 300)
             shot(pg, 'r-e2e-01-gen1-received.png')
 
         elif stage == 'track1':
@@ -168,7 +168,7 @@ def main():
             log('gen2 issue:', json.dumps(r, ensure_ascii=False))
             assert r.get('ok'), f'gen2 下令失败: {r}'
             log('continuationMode:', r.get('continuationMode'))
-            poll(pg, lambda b: find_cmd(b, TAG2) is not None and find_cmd(b, TAG2).get('staffSessionId'), '代2 参谋接收', 300)
+            poll(pg, lambda b: find_cmd(b, TAG2) is not None and find_cmd(b, TAG2).get('staffSessionId'), '代2 大副接收', 300)
             shot(pg, 'r-e2e-03-gen2-received.png')
 
         elif stage == 'track2':

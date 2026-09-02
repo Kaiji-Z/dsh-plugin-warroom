@@ -125,7 +125,7 @@ with sync_playwright() as pw:
     page.wait_for_selector('.war-command-card:has-text("V188 探针")', timeout=8000)
 
     # trek + plain skins: composer wording rides lexicon
-    for skin, expect_auto, expect_front in [('trek', '大副', '战线'), ('plain', '自动', '事项线')]:
+    for skin, expect_auto in [('trek', '大副'), ('plain', '自动')]:
         page.evaluate(f"() => localStorage.setItem('warroom-skin', '{skin}')")
         page.reload(wait_until='domcontentloaded')
         page.wait_for_selector('[data-dsh-warroom-entry]', timeout=15000).click()

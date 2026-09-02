@@ -25,7 +25,7 @@ from playwright.sync_api import sync_playwright
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else ".goal/evidence/v7"
 BASE = sys.argv[2] if len(sys.argv) > 2 else "http://127.0.0.1:3080"
-CMD_TEXT = "!!直接做：在任务工作区建一个 hi.txt 写入 hello-warroom 一行，用一条命令把文件内容读出来核对无误，然后交战报。"
+CMD_TEXT = "!!直接做：在任务工作区建一个 hi.txt 写入 hello-warroom 一行，用一条命令把文件内容读出来核对无误，然后交任务回报。"
 MAX_WAIT_S = 12 * 60
 
 Path(OUT).mkdir(parents=True, exist_ok=True)

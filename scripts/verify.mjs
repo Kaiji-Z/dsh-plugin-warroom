@@ -236,7 +236,6 @@ gate('bundle', () => {
     [client, '任务会话', 'focus tour: staff-session jump button (both skins)'],
     [client, '执行会话', 'focus tour: commander-session jump button (both skins)'],
     [client, 'war-tour-ghost', 'planning ghost card (task-forming workshop entry)'],
-    [client, '去处理', 'reported/failed staff-jump button'],
     // V9.10 聚焦页状态机补全：ghost 提前到已接令/等你答问、配置改档、任务书/验收、任务产出/历次执行。
     [client, '进入对话回答', 'talking ghost: answer-in-dialog action (both skins)'],
     [client, 'war-btn-warn', 'warn-styled primary for the talking answer action'],
@@ -463,7 +462,7 @@ gate('bundle', () => {
   const checks = [
     ...required.map(([src, needle, label]) => ({ ok: src.includes(needle), label: `${src === host ? 'host' : 'client'} bundle contains ${label}` })),
     // v3 negative face: the HQ-create button is gone from the client bundle.
-    { ok: !client.includes('开设大副部'), label: 'client bundle no longer carries the HQ-create button copy' },
+    { ok: !client.includes('开设参谋部'), label: 'client bundle no longer carries the HQ-create button copy' },
     // V9.2 negative face: retired island buttons/modals must stay gone.
     { ok: !client.includes('AttachThreadModal') && !client.includes('war-attach-input'), label: 'V9.2: attach modal stays retired (no re-entry)' },
     { ok: !client.includes('LegendModal') && !client.includes('war-focusbar'), label: 'V9.2: legend modal + focus bar stay retired (drawer/island-chip own them)' },
@@ -477,7 +476,7 @@ gate('bundle', () => {
     // V9.11 R1 negative face：任务列不再按终局过滤（台账全量在列）。
     { ok: !client.includes('openTasks'), label: 'V9.11: task ledger is no longer filtered to open tasks' },
     // V9.12 R2 ① negative face：旧「去处理」一刀切文案休眠——语义分野成正名后的两词。
-    { ok: !client.includes('去处理 · 大副会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
+    { ok: !client.includes('去处理 · 参谋会话'), label: 'V9.12: blanket handle copy stays retired (review/retry own their words)' },
     (() => {
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
       const decl = pkg.dsh?.client ?? {}

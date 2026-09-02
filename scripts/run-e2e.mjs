@@ -1,4 +1,4 @@
-// verify:e2e —— 实弹考题回归门（真实 LLM 两代续接链，exam-v15 范式常驻化）。
+// verify:e2e —— 实弹考题回归门（真实 LLM 两代续接链；exam-v15 范式常驻化，原脚本已归档 scripts/archive/）。
 // 前置（缺一即诚实 SKIP，promptfoo 门同款纪律）：
 //   1. smoke 服已起（http://127.0.0.1:3080，cordis.smoke.yml，当前构建）；
 //   2. 宿主模型可用（真 LLM——考题本身即探测：代 1 收不到即报）。

@@ -14,7 +14,7 @@
 覆盖：L0 档（!!直接做 前缀 + 强制 L0）、L2 档（??先看方案 + 强制 L2）、
 auto 档（无前缀 + 建议档原样生效无 override）、幂等（正文已手打同标记，
 全链只落一个标记）、空体 UI 守卫（纯空白提交键 disabled）。
-取证命令逐个 directive_cancelled 收尾（终态守卫冻结，不留悬赏空烧）。
+取证命令逐个 directive_cancelled 收尾（终态守卫冻结，不留任务令空烧）。
 
 Usage: python scripts/shoot-composer.py [outDir] [baseUrl] [smokeStateDir]
   baseUrl 默认 http://127.0.0.1:3099（烟服 overlay，勿指向真实 statePath 的实例）
@@ -184,7 +184,7 @@ with sync_playwright() as p:
         probe = run_probe(command_id, suggested, probe_reason)
         print(f"  probe({command_id}, suggested={suggested}) -> {json.dumps(probe, ensure_ascii=False)}")
         if probe.get("already"):
-            print(f"  WARN: {command_id} 已被在线参谋先行分诊（同一宿主强制路径），回读落账档位")
+            print(f"  WARN: {command_id} 已被在线大副先行分诊（同一宿主强制路径），回读落账档位")
         check(probe.get("ok") is True and probe.get("grade") == (forced or suggested),
               f"{name}：真实 war_triage 生效档位 == {forced or suggested}（建议 {suggested}）")
         if forced is not None and not probe.get("already"):
@@ -215,19 +215,19 @@ with sync_playwright() as p:
         cancel_command(command_id)
         print(f"  cancelled {command_id}（取证收尾）")
 
-    # --- Case L0：!!直接做 前缀 + 强制 L0（参谋建议故意 L2）。 ---
+    # --- Case L0：!!直接做 前缀 + 强制 L0（大副建议故意 L2）。 ---
     case("L0", "取证L0：给工具箱加每日格言", 1, L0M, "L2", "L0",
-         "取证：参谋建议 L2 被 !! 标记强制 L0",
+         "取证：大副建议 L2 被 !! 标记强制 L0",
          ("composer-L0.png", "board-L0-forced.png"))
 
-    # --- Case L2：??先看方案 前缀 + 强制 L2（参谋建议故意 L0）。 ---
+    # --- Case L2：??先看方案 前缀 + 强制 L2（大副建议故意 L0）。 ---
     case("L2", "取证L2：重构配置层", 2, L2M, "L0", "L2",
-         "取证：参谋建议 L0 被 ?? 标记强制 L2",
+         "取证：大副建议 L0 被 ?? 标记强制 L2",
          ("composer-L2.png", "board-L2-forced.png"))
 
     # --- Case auto：无前缀 + 建议档原样生效（无 override）。 ---
     case("auto", "取证auto：做个记账小工具", 0, "", "L1", None,
-         "取证：无标记，参谋建议档原样生效",
+         "取证：无标记，大副建议档原样生效",
          ("composer-auto.png", "board-auto-L1.png"))
 
     # --- Case 幂等：正文已手打 !! 标记再选 L0 档 → 全链只落一个标记。 ---
@@ -255,7 +255,7 @@ with sync_playwright() as p:
     page.locator(".war-modal-actions button", has_text="取消").click()
     page.wait_for_timeout(200)
 
-    # --- 终盘：全部取证命令已取消（struck），不留悬赏空烧。 ---
+    # --- 终盘：全部取证命令已取消（struck），不留任务令空烧。 ---
     open_board()
     cancelled_ids = {e["directiveId"] for e in ledger_events("directive_cancelled")}
     struck = page.locator(".war-command-text.struck").count()

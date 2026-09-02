@@ -1,6 +1,6 @@
 # eval/ · warroom 监督层（promptfoo）
 
-VERIFICATION.md §8.4 的落地：战报质量 / KillCredit 诚实性 / 任务书质量这些
+VERIFICATION.md §8.4 的落地：任务回报质量 / KillCredit 诚实性 / 任务书质量这些
 **没有唯一正确答案的模糊部分**，由 LLM 裁判按三维打分，不再靠元首人眼。
 
 ## 裁判接线
@@ -37,7 +37,7 @@ pnpm verify:eval
 - `tests.yaml` 的 `expected` / `trace` 里**严禁**出现：代码实现、PR 描述、commit
   信息、开发对话。发现即删，不商量。
 - 正向用例取材 R3 真实考题（`.goal/evidence/v3/r3-exam.md`）；负向用例「幽灵
-  战报」与 fold 侧反验收⑵（`tests/e2e-regression.test.ts`）互为镜像：确定性层
+  任务回报」与 fold 侧反验收⑵（`tests/e2e-regression.test.ts`）互为镜像：确定性层
   挡无令牌提交入账，监督层挡「有入账但证据不实」的残留。
 
 ## 与主门的关系
@@ -50,8 +50,8 @@ pnpm verify:eval
 
 - 正向（R3 八步真实轨迹）：achieve 10 / evidence 8 / boundary 10 / veto=false ——
   裁判对模糊时间戳（14:0x）与概述性描述实质扣分，≥7 门经校准**是真严不是摆设**。
-- 负向（幽灵战报）：achieve 2 / evidence 0 / boundary 3 / **veto=true** ——四条扣分
+- 负向（幽灵任务回报）：achieve 2 / evidence 0 / boundary 3 / **veto=true** ——四条扣分
   全中（无证据/无领取/全称结论/越过程序关闭），一票否决正确触发。
 - 判据不放宽声明：断言通过条件原样（正向=三维≥7 且无 veto；负向=veto 或任一维<7）；
-  本轮只修了传输层（thinking 透传）与夹具忠实度（R3 战报补全五条验收逐条判定——
+  本轮只修了传输层（thinking 透传）与夹具忠实度（R3 任务回报补全五条验收逐条判定——
   对齐真实 war_submit evidence.checks 逐项行为，负向用例一字未动）。

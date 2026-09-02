@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v15 实弹考题机检（读证据档 + 考题工作区磁盘，零服务器依赖）。
+"""e2e 实弹考题机检（读证据档 + 考题工作区磁盘，零服务器依赖）。
 
 判据（全过 = PASS）：
   C1  代1 收官：task_closed + verdict 含 KillCredit 自动收官 + evidence.files
@@ -9,11 +9,11 @@
   C3  续接挂链：代2 directive continuation={mode:deepen, parentId:代1} + name=e2e战线
   C4  战线同一性：代2 chain.generation==2、rootId==代1；两代任务同一 workspacePath
   C5  workspaceKind：两代任务都是 'bound'（真实路径绑定，Phase B 投影真值）
-  C6  链档案送达并使用（行为核心）：代2 任务书 brief 或 指挥官战报 提及
-      'e2e-manifest' 或 T1（参谋/指挥官不可能从命令原文或板摘要得知）
+  C6  链档案送达并使用（行为核心）：代2 任务书 brief 或 外勤小队任务回报 提及
+      'e2e-manifest' 或 T1（大副/外勤小队不可能从命令原文或板摘要得知）
   C7  续在成果上（结果核心）：summary/e2e-summary.md 存在且含 T1 数值
   C8  代2 收官：task_closed + KillCredit 自动收官（续接代全链走通）
-附注（不 gate）：参谋侧（任务书提及）vs 指挥官侧（战报提及）归因、代2 evidence.files。
+附注（不 gate）：大副侧（任务书提及）vs 外勤小队侧（任务回报提及）归因、代2 evidence.files。
 """
 import sys, io, os, json, re, glob
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -101,9 +101,9 @@ for s in ev_of(ev2, 'task_submitted'):
     files2 += (s.get('evidence') or {}).get('files') or []
 needle = lambda s: ('e2e-manifest' in s) or (T1 in s)
 staff_pipe, cmdr_pipe = needle(brief2), needle(reports2 + ' ' + ' '.join(files2))
-check('C6 链档案送达（任务书或战报提及上代产物）', staff_pipe or cmdr_pipe,
+check('C6 链档案送达（任务书或任务回报提及上代产物）', staff_pipe or cmdr_pipe,
       f"staff_pipe={staff_pipe} commander_pipe={cmdr_pipe}")
-notes.append(f'归因：参谋侧任务书提及={staff_pipe}；指挥官侧战报/证据提及={cmdr_pipe}')
+notes.append(f'归因：大副侧任务书提及={staff_pipe}；外勤小队侧任务回报/证据提及={cmdr_pipe}')
 notes.append(f'代2 evidence.files={files2}')
 
 # C7 续在成果上

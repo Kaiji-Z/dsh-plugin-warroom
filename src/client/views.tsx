@@ -6,7 +6,7 @@
  * cards into one window); there are no per-task/per-session detail modals
  * anymore. Battlefield cards jump via sessions.open (live cards direct,
  * settled cards through the tour's report stage); reported/failed task cards
- * also carry a 「去处理」 shortcut to the owning command's staff conversation.
+ * also carry a 「去验收/去下重试令」 shortcut to the owning command's staff conversation.
  * @module dsh-plugin-stardeck/client/views
  */
 
@@ -1173,7 +1173,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
     )
   }
   // 链上任务卡的展开（V9.10 补全）：命令级最终计划（若有）+ 该环任务书 + 验收
-  // 标准；reported/failed 环给「去处理」直达大副会话（与主界面任务卡同动作）。
+  // 标准；reported/failed 环给「去验收/去下重试令」直达大副会话（与主界面任务卡同动作）。
   const taskPanel = (t: BoardTask, key?: string): ReactNode => createElement('div', { key, className: 'war-subdetail' },
     cmd.plan !== null
       ? createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[cmd.plan.status]}）`)
@@ -1324,7 +1324,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
             : null,
         ),
         // ② 任务 · 变成了什么：链上全部任务卡按序拉进来，点任一张卡下展开
-        // 「最终计划+该环任务书+验收标准」（reported/failed 环带去处理）；空链
+        // 「最终计划+该环任务书+验收标准」（reported/failed 环带处理动作）；空链
         // 按状态机给 ghost 卡（计划/等你答问/起草中——任务成形的车间入口）或
         // 分岔后的灰提示（定时待发/转达中/已批准待发布/已取消）。
         createElement('section', { className: 'war-cd-stage', 'data-stage': 'task' },
@@ -1491,7 +1491,7 @@ function FormingCard(cmd: BoardCommand, variant: 'plan' | 'talking' | 'drafting'
 
 function TaskCard(task: BoardTask, statuses: Map<string, BoardTask['status']>, onOpen: (taskId: string) => void, onHandle: (() => void) | null, lineageCmd: BoardCommand | null, onOpenCommand: (commandId: string) => void, trace: CardTrace, /** V14.1 单代战线星球身份（任务列传参；其他调用点不传不渲染）。 */ bf?: string | null): ReactNode {
   // V9.11 台账终局态：closed/failed 任务书卡常驻任务列但调暗；reported 是待验收
-  // 动作态（收件箱有「去处理」），保持全亮不许被埋。
+  // 动作态（收件箱有待办），保持全亮不许被埋。
   const settled = task.status === 'closed' || task.status === 'failed'
   return createElement('div', {
     key: task.taskId,
