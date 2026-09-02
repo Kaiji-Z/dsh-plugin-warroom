@@ -9,7 +9,7 @@
 import type { CampaignState, TaskStatus, UnitRecord } from './types.ts'
 
 /**
- * Normalize a front (星域) to a comparable directory-prefix form: POSIX
+ * Normalize a front (前线) to a comparable directory-prefix form: POSIX
  * slashes, no leading './' or '/', no trailing '/', '' and '.' → '.' (root).
  */
 export function normalizeFront(front: string): string {
@@ -73,7 +73,7 @@ export function checkDeployment(campaign: CampaignState, opts: {
   if (opts.writes) {
     const clash = active.find(u => u.writes && frontsOverlap(u.front, opts.front))
     if (clash !== undefined) {
-      return { ok: false, reason: `战线冲突：星域「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的星域「${clash.front}」重叠。有写权限的外勤组员不得挤同一条战线——请重新划线或分目录加派组员。` }
+      return { ok: false, reason: `前线冲突：前线「${normalizeFront(opts.front)}」与在役${clash.label}（${clash.childId}）的前线「${clash.front}」重叠。有写权限的外勤组员不得挤同一条前线——请重新划线或分目录加派组员。` }
     }
   }
   return { ok: true }
@@ -201,7 +201,7 @@ export function checkClaim(campaign: CampaignState, blockedDeps: ReadonlyArray<s
       failed: '任务已失败且重试用尽，等舰长让大副重新立案。',
       closed: '任务已收官。',
     }
-    return { ok: false, reason: `${where[campaign.status] ?? '当前状态不可领取。'}当前状态：${campaign.status}。` }
+    return { ok: false, reason: where[campaign.status] ?? '当前状态不可领取。' }
   }
   if (blockedDeps.length > 0) {
     return { ok: false, reason: `前置任务未完成，任务令尚未解锁：${blockedDeps.join('、')}。请先完成前置，或让大副调整任务链。` }

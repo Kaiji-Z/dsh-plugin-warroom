@@ -163,7 +163,7 @@ export async function relayPendingCommands(deps: CommandFuseDeps, sessions: Sess
       }
     }
     // V5-R4（flag staff-wake）上下文注入：板摘要随令附上（防重复立案）；
-    // V10 续战令附战线档案（祖先各代战况；pivot 落回常轨时也带，作兜底档案）。
+    // V10 续战令附战线档案（祖先各代近况；pivot 落回常轨时也带，作兜底档案）。
     const suffixWake = deps.flags !== undefined && featureEnabled(deps.flags, 'staff-wake') ? `\n\n${boardDigest(deps.stateDir)}` : ''
     const suffixChain = chainNoteFor(directive, cont?.mode === 'pivot')
     const prompted = await sessions.prompt({ rpcId: rpcId(), payload: { sessionId, mode: 'queue', content: [{ type: 'text', text: `${relayPromptFor(directive, deps.flags)}${suffixChain}${suffixWake}` }] } })

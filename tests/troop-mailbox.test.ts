@@ -118,7 +118,7 @@ test('V4-R2 非参战方不得发信；外勤组员按组员名寻址（唯一�
   try {
     recruit(dir)
     const deps = makeDeps(dir, fakeSubagents().face, { flags: FLAG_ON, resolveAgent: () => ({ id: 'cmd-session-1' }) })
-    await assert.rejects(execTool(deps, 'war_message', { task_id: 'c1', to: 'child-a', text: 'x' }, 'intruder'), /参战方/)
+    await assert.rejects(execTool(deps, 'war_message', { task_id: 'c1', to: 'child-a', text: 'x' }, 'intruder'), /通话方/)
     // 外勤组员→外勤组员：组员名唯一寻址 + 经注册表解析外勤小队作 parent。
     const sub2 = fakeSubagents()
     const deps2 = makeDeps(dir, sub2.face, { flags: FLAG_ON, resolveAgent: () => ({ id: 'cmd-session-1' }) })

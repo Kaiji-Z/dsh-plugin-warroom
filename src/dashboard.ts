@@ -243,7 +243,7 @@ export function dueBounties(stateDir: string, nowMs: number): DueBounty[] {
       if (next !== undefined && next <= nowMs) {
         const busy = task.status === 'published' || task.status === 'in_progress' || task.status === 'reported'
         out.push(busy
-          ? { taskId: id, openRound: false, reason: `上一轮（${task.status}）尚未收官，本次到点跳过、不补跑` }
+          ? { taskId: id, openRound: false, reason: `上一轮尚未收官，本次到点跳过、不补跑` }
           : { taskId: id, openRound: true, reason: '到点重开任务令' })
       }
     } catch {
@@ -383,12 +383,12 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
       if (r.method === 'GET' && pathname === '/warroom/api/host-workspaces') {
         // V18 HQ 点击弹窗数据源：宿主 registry 全量工作区（只读）。
         if (deps.listWorkspaces === undefined) {
-          send(501, { ok: false, error: '宿主工作区清单未接入（workspace.list 面缺席）。' })
+          send(501, { ok: false, error: '宿主工作区清单暂不可用。' })
           return
         }
         const workspaces = await deps.listWorkspaces()
         if (workspaces === null) {
-          send(501, { ok: false, error: '宿主工作区清单缺席（workspace.list 不可用）。' })
+          send(501, { ok: false, error: '宿主工作区清单暂不可用。' })
           return
         }
         send(200, { ok: true, workspaces })
@@ -548,7 +548,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
         // V5-R2 档位账本（flag staff-triage）：舰长在命令卡上升降档。
         // 旗关 → 404，与改前等价。
         if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-triage')) {
-          send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
+          send(404, { ok: false, error: `路由不存在：${r.method ?? 'GET'} ${pathname}` })
           return
         }
         const body = JSON.parse(await readBody(r)) as { commandId?: unknown; grade?: unknown; reason?: unknown }
@@ -573,7 +573,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         if (directive.grade === undefined) {
-          send(400, { ok: false, error: `命令 ${commandId} 尚未分诊（等大副第一轮 war_triage 入账后再升降档）。` })
+          send(400, { ok: false, error: `命令 ${commandId} 尚未分诊——等大副完成第一轮分诊后再升降档。` })
           return
         }
         appendDirectiveEvent(deps.stateDir, { type: 'directive_regraded', ts: new Date().toISOString(), directiveId: commandId, grade, reason })
@@ -583,7 +583,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
       if (r.method === 'POST' && pathname === '/warroom/api/commands/plan') {
         // V5-R3 计划判定（flag staff-plan）：舰长在命令卡上批准/驳回计划草案。
         if (deps.flags === undefined || !featureEnabled(deps.flags, 'staff-plan')) {
-          send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
+          send(404, { ok: false, error: `路由不存在：${r.method ?? 'GET'} ${pathname}` })
           return
         }
         const body = JSON.parse(await readBody(r)) as { commandId?: unknown; decision?: unknown; note?: unknown }
@@ -595,7 +595,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         if (decision !== 'approve' && decision !== 'reject') {
-          send(400, { ok: false, error: '判定必须是 approve 或 reject。' })
+          send(400, { ok: false, error: '判定只接受 approve（批准）或 reject（驳回）。' })
           return
         }
         const directive = loadDirectives(deps.stateDir).find(d => d.id === commandId)
@@ -780,7 +780,7 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
       }
-      send(404, { ok: false, error: `no such route: ${r.method ?? 'GET'} ${pathname}` })
+      send(404, { ok: false, error: `路由不存在：${r.method ?? 'GET'} ${pathname}` })
     } catch (err) {
       send(500, { ok: false, error: err instanceof Error ? err.message : String(err) })
     }

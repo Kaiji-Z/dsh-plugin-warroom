@@ -192,7 +192,7 @@ test('V10 retry 档案：败仗续战令把父代败因注入征召词（防重�
     const text = sessions.prompts.find(p => p.includes('【命令区】新命令 cmd-2'))!
     assert.ok(text.includes('【战线档案'), '档案出现')
     assert.ok(text.includes('Ⅰ 代「初代命令原文」'), '父代条目在案（罗马代际）')
-    assert.ok(text.includes('败退——败因：回归测试三连红'), '败因明文注入')
+    assert.ok(text.includes('挫败——败因：回归测试三连红'), '败因明文注入')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -201,13 +201,13 @@ test('V10 retry 档案：败仗续战令把父代败因注入征召词（防重�
 test('V10 纯函数：chainDigest/chainOutcomeOf/pivotPromptFor 的格式契约', () => {
   assert.equal(chainOutcomeOf(undefined), '未成形（尚未发布成任务）')
   assert.equal(chainOutcomeOf({ status: 'closed', closedVerdict: '八步全绿收官' }), '已收官：八步全绿收官')
-  assert.equal(chainOutcomeOf({ status: 'failed', lastError: '配额熔断' }), '败退——败因：配额熔断')
+  assert.equal(chainOutcomeOf({ status: 'failed', lastError: '配额熔断' }), '挫败——败因：配额熔断')
   const digest = chainDigest([
     { generation: 1, text: '一', outcome: '已收官：通过' },
     { generation: 2, text: '', outcome: undefined },
   ])
   assert.ok(digest.includes('Ⅰ 代「一」→ 已收官：通过'))
-  assert.ok(digest.includes('战况不详'), '缺账本行给兜底话术而非空白')
+  assert.ok(digest.includes('近况不详'), '缺账本行给兜底话术而非空白')
   const pv = pivotPromptFor('初代命令原文超长会被截断的标题文本', 'cmd-9', '改用 plan B')
   assert.ok(pv.includes('cmd-9') && pv.includes('plan B'))
   assert.ok(pv.includes('初代命令原文超长会被截断') && pv.includes('…'), '长父题截断入文')

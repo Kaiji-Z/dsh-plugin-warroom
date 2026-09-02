@@ -149,7 +149,7 @@ test('计划判定路由：旗关 404；approve/reject 落事件；无待批计�
     seedCommand(dir, 'cmd-d', '待判计划的命令')
     // 旗关 → 404。
     await post(off.h!, { decision: 'approve' })
-    assert.match(ended[ended.length - 1]!, /no such route/)
+    assert.match(ended[ended.length - 1]!, /路由不存在/)
     // 无待批计划 → 400。
     await post(on.h!, { decision: 'approve' })
     assert.match(ended[ended.length - 1]!, /无待批计划/)

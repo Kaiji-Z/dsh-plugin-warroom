@@ -21,9 +21,9 @@ test('chain-note: 详情代带任务回报摘要+产物路径，老代保持一�
   const note = buildChainNote([a1, a4], 5)
   assert.ok(note.includes('任务回报：完成部署并 验证 三项检查'), '任务回报摘要应清洗换行并入场')
   assert.ok(note.includes('deploy/run.ps1'), '证据文件路径应入场')
-  assert.ok(note.includes('败退——败因：Windows 路径炸了'), '详情代的败因应带出')
+  assert.ok(note.includes('挫败——败因：Windows 路径炸了'), '详情代的败因应带出')
   // gen=5、detailGens=3 → 第 1 代是老代（一行式，无 任务回报/产物 行）
-  assert.ok(!note.includes('- Ⅰ 代「第1代命令」→ 败退——败因：Windows 路径炸了\n  任务回报'), '第 1 代超出详情窗应保持一行式')
+  assert.ok(!note.includes('- Ⅰ 代「第1代命令」→ 挫败——败因：Windows 路径炸了\n  任务回报'), '第 1 代超出详情窗应保持一行式')
 })
 
 test('chain-note: 空祖先/未成形代退化安全', () => {
@@ -52,5 +52,5 @@ test('chain-note: 外勤小队版只给末代详情+产物；pivot 版=父代速
   assert.ok(cmd.includes('out/a.md') && cmd.includes('diffstat +10 -2'), '末代产物+diffstat 入外勤小队摘要')
   assert.ok(!cmd.includes('已交稿，待舰长验收\n  产物：'.replace('产物', 'x')), 'sanity')
   const pv = pivotChainSlice(parent)
-  assert.ok(pv.startsWith('【父代战况】') && pv.includes('交稿了') && pv.includes('out/a.md'))
+  assert.ok(pv.startsWith('【父代近况】') && pv.includes('交稿了') && pv.includes('out/a.md'))
 })

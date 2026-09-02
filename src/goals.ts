@@ -105,7 +105,7 @@ export async function openDisarmedGoalForDirective(face: GoalsFace | undefined, 
     if (existingRef !== undefined && goalObjectiveOf(existing).includes(directiveId)) {
       await casComplete(face, agent, existingRef).catch(() => undefined)
     }
-    const view = await face.create(agent, { objective: `warroom 命令 ${directiveId} 澄清收敛（大副状态机，disarm）`, maxGoalRounds: 1 })
+    const view = await face.create(agent, { objective: `warroom 命令 ${directiveId} 澄清收敛（大副状态机，不触发执行）`, maxGoalRounds: 1 })
     const ref = goalRefOf(view)
     if (ref === undefined) return undefined
     // create 默认 armed——大副路径必须紧跟 disarm（CAS：用 create 返回的 view）。

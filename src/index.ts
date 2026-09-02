@@ -164,9 +164,9 @@ function createConscriptor(deps: {
     let sessionId = orphanSessions.get(task.campaignId)
     if (sessionId === undefined) {
       const ws = await workspaceApi.create({ rpcId: rpc(), payload: { path: wsPath } })
-      if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败（${ws.result.error.code}）：${ws.result.error.message}` }
+      if (!ws.result.ok) return { spawned: false, reason: `工作区注册失败：${ws.result.error.message}（${ws.result.error.code}）` }
       const created = await relay.create({ rpcId: rpc(), payload: { workspaceId: ws.result.value.workspace.workspaceId } })
-      if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败（${created.result.error.code}）：${created.result.error.message}` }
+      if (!created.result.ok) return { spawned: false, reason: `外勤小队会话创建失败：${created.result.error.message}（${created.result.error.code}）` }
       sessionId = created.result.value.sessionId
     } else {
       orphanSessions.delete(task.campaignId)
@@ -178,7 +178,7 @@ function createConscriptor(deps: {
     const bound = task.workspacePath !== undefined && !task.workspacePath.startsWith(deps.warRoot)
     const dossier = task.workspacePath !== undefined && bound
       ? readDossier(deps.stateDir, task.workspacePath)
-      : '（新星域，尚无历史档案。）'
+      : '（新星球，尚无历史档案。）'
     // V15 续接闭环：本任务若出自续接命令，外勤任务简报带上链摘要（末代结论+产物+任务回报，
     // cap 600）。在 conscriptTask 内反查 taskId→命令——publish/收官接力/补征入口一处覆盖。
     let chainBrief = ''
@@ -214,7 +214,7 @@ function createConscriptor(deps: {
     if (!prompted.result.ok) {
       orphanSessions.set(task.campaignId, sessionId)
       persistOrphans()
-      return { spawned: false, reason: `外勤任务简报投递失败（${prompted.result.error.code}）：${prompted.result.error.message}——会话 ${sessionId} 已留待复用（下轮重投，不再另建）` }
+      return { spawned: false, reason: `外勤任务简报投递失败：${prompted.result.error.message}（${prompted.result.error.code}）——会话 ${sessionId} 已留待复用（下轮重投，不再另建）` }
     }
     spawned.add(task.campaignId)
     return { spawned: true, childId: sessionId }
@@ -755,7 +755,7 @@ export function apply(ctx: Context, config: Config): void {
       // 60s 超时按该会话失败记账（不假装成、也不无限挂起）。
       archiveSession: async sessionId => {
         const workspace = workspaceRef.face
-        if (workspace === undefined) return { ok: false, code: 'E_NO_FACE', message: 'apiProxy workspace 面缺席' }
+        if (workspace === undefined) return { ok: false, code: 'E_NO_FACE', message: '宿主工作区通道未接入' }
         try {
           const r = await withTimeout(
             workspace.archiveSession({ rpcId: `warroom-archive-${archiveSeq++}`, payload: { sessionId } }),
@@ -763,7 +763,7 @@ export function apply(ctx: Context, config: Config): void {
           )
           return r.result.ok ? { ok: true } : { ok: false, code: r.result.error.code, message: r.result.error.message }
         } catch {
-          return { ok: false, code: 'E_TIMEOUT', message: '宿主归档 RPC 超时（registry 操作队拥塞）' }
+          return { ok: false, code: 'E_TIMEOUT', message: '宿主归档超时（宿主侧操作排队拥塞）' }
         }
       },
       // V18 HQ 工作区注册弹窗（只读）：宿主 registry 全量工作区；面缺席如实 null。

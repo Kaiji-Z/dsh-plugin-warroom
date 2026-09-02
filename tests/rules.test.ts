@@ -58,7 +58,7 @@ test('checkDeployment: claim gate, closed gate, capacity, front exclusivity', ()
   // Same front, both writers: rejected.
   const clash = checkDeployment(taskWith('in_progress', [engineerOnApi]), base)
   assert.equal(clash.ok, false)
-  if (!clash.ok) assert.match(clash.reason, /战线冲突/)
+  if (!clash.ok) assert.match(clash.reason, /前线冲突/)
   // Disjoint front and read-only units: allowed.
   assert.equal(checkDeployment(taskWith('in_progress', [engineerOnApi]), { ...base, front: 'tasks/c1/docs' }).ok, true)
   assert.equal(checkDeployment(taskWith('in_progress', [engineerOnApi]), { ...base, writes: false }).ok, true)

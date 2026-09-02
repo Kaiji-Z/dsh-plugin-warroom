@@ -77,7 +77,7 @@ function brief(text: string, w: number): string {
   return text.length > w ? `${text.slice(0, w)}…` : text
 }
 
-/** V10 战线档案条目（纯）：一代旧令的一行战况，深挖兜底写「战况不详」。 */
+/** V10 战线档案条目（纯）：一代旧令的一行近况，深挖兜底写「近况不详」。 */
 export interface ChainStepFace {
   readonly generation: number
   readonly text: string
@@ -86,13 +86,13 @@ export interface ChainStepFace {
 
 export function chainDigest(steps: ReadonlyArray<ChainStepFace>): string {
   return steps
-    .map(s => `- ${romanGen(s.generation)} 代「${brief(s.text, 18)}」→ ${s.outcome ?? '战况不详（任务账本缺失）'}`)
+    .map(s => `- ${romanGen(s.generation)} 代「${brief(s.text, 18)}」→ ${s.outcome ?? '近况不详（任务账本缺失）'}`)
     .join('\n')
 }
 
 /** V15 战线档案注入段（纯包装）：relay 侧 chainNoteFor 的模板正文。 */
 export function chainArchiveSection(gen: number, note: string): string {
-  return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代战况（勿重蹈覆辙）：\n${note}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着星球走）；仅当命令明确要求换地点才换。`
+  return `\n\n【战线档案 · ${romanGen(gen)} 代续战令】此前各代近况（勿重蹈覆辙）：\n${note}\n工作区纪律：本令任务默认发布到父代任务的工作区（战线跟着星球走）；仅当命令明确要求换地点才换。`
 }
 
 /**
@@ -103,11 +103,11 @@ export function rescueNudgeFor(taskId: string): string {
   return `【续行】你的执行会话曾被冻结、现已恢复。核对任务书与验收标准（war_board 可查任务 ${taskId} 全文）继续执行；上下文若有缺口，读工作区现状接着做，不重做已完成的部分。确实无法继续就 war_fail 附一句人话原因。`
 }
 
-/** 从挂链任务折出一行战况（纯；结构性切片，deepen/retry 的征召注入用）。 */
+/** 从挂链任务折出一行近况（纯；结构性切片，deepen/retry 的征召注入用）。 */
 export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; closedVerdict?: string }): string {
   if (task === undefined) return '未成形（尚未发布成任务）'
   if (task.status === 'closed') return `已收官：${task.closedVerdict ?? '验收通过'}`
-  if (task.status === 'failed') return `败退${task.lastError !== undefined && task.lastError !== '' ? `——败因：${task.lastError}` : ''}`
+  if (task.status === 'failed') return `挫败${task.lastError !== undefined && task.lastError !== '' ? `——败因：${task.lastError}` : ''}`
   switch (task.status) {
     case 'reported': return '已交稿，待舰长验收'
     case 'in_progress': return '执行进行中'
@@ -117,7 +117,7 @@ export function chainOutcomeOf(task?: { status: TaskStatus; lastError?: string; 
 }
 
 /** V10 pivot 转达文本（纯）：不进大副对话——指令直插执行会话队列。
- * V15：可选父代速览（chain-note pivotChainSlice）——插播也带上代战况与产物。 */
+ * V15：可选父代速览（chain-note pivotChainSlice）——插播也带上代近况与产物。 */
 export function pivotPromptFor(parentText: string, directiveId: string, text: string, chainSlice = ''): string {
   return `【续战令·转向】${directiveId}（续自「${brief(parentText, 16)}」）
 ${chainSlice === '' ? '' : `\n${chainSlice}\n`}
@@ -147,9 +147,9 @@ export function commanderOrderFor(args: {
     commanderPersonaText(args.maxUnits),
     '',
     conscriptBriefing({ taskId: args.taskId, title: args.title, workspacePath: args.workspacePath, acceptance: args.acceptance, dossier: args.dossier }),
-    ...(args.chainBrief !== undefined && args.chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代战况与产物（续接而非重做，先看懂再动手）：\n${args.chainBrief}`] : []),
+    ...(args.chainBrief !== undefined && args.chainBrief !== '' ? ['', `【战线前情】本任务续接既有战线——此前各代近况与产物（续接而非重做，先看懂再动手）：\n${args.chainBrief}`] : []),
     '',
-    '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（星域写工作区内相对路径）。',
+    '你的写权限根就在本会话绑定的工作区——直接动手即可；确需加派组员时用 war_deploy_unit（前线写任务工作区内相对路径）。',
     // V16.5②（仅续接令）：e2e 体检实锤外勤会去翻宿主会话记录/服务日志/全盘文件
     // 「求证」上代上下文——前情里产物路径+关键值都在，点明直接读工作区文件。
     ...(args.chainBrief !== undefined && args.chainBrief !== '' ? ['前情点名的上代产物（相对路径）就在本工作区内——直接读文件，不要去检索宿主会话记录、服务日志或工作区之外的任何文件。'] : []),

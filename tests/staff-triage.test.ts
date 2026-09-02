@@ -152,7 +152,7 @@ test('regrade 路由：旗关 404；旗开改档入账；未分诊/终态/坏档
     seedCommand(dir, 'cmd-r', '待改档的命令')
     // 旗关 → 404（与改前等价）。
     await off.h!(post('/warroom/api/commands/regrade', { commandId: 'cmd-r', grade: 'L1' }), res)
-    assert.match(ended[ended.length - 1]!, /no such route/)
+    assert.match(ended[ended.length - 1]!, /路由不存在/)
     // 旗开但未分诊 → 400。
     await on.h!(post('/warroom/api/commands/regrade', { commandId: 'cmd-r', grade: 'L1' }), res)
     assert.match(ended[ended.length - 1]!, /尚未分诊/)

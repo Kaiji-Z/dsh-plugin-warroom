@@ -146,7 +146,7 @@ test('V4-R3 自主认领与守卫：参战方限定、一户一役、陈旧令�
     appendEvent(dir, { type: 'subtask_created', ts: 't5', campaignId: 'c1', subtaskId: 'st-aaa', title: '甲', deps: [] })
     appendEvent(dir, { type: 'subtask_created', ts: 't6', campaignId: 'c1', subtaskId: 'st-bbb', title: '乙', deps: [] })
     const deps = makeDeps(dir, fakeSubagents().face, FLAG_ON, RESOLVE_CMD)
-    await assert.rejects(execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-aaa' }, 'intruder'), /参战方/)
+    await assert.rejects(execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-aaa' }, 'intruder'), /通话方/)
     const claim = await execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-aaa' }, 'child-a') as { attemptId: string }
     // child-a 已有在役子任务 → 不得再认领乙。
     await assert.rejects(execTool(deps, 'war_troop_claim', { task_id: 'c1', subtask_id: 'st-bbb' }, 'child-a'), /在役/)

@@ -17,6 +17,7 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 ## [Unreleased]
 
 ### Fixed
+- **文案审计轮·批次4（宿主侧「前线」定名 + 军味词清账，舰长定案）** —— ①**front（外勤组员目录边界）宿主侧定名「前线」**：此前与客户端「星域=星域地图」同词双义（persona 明文定义 星域=front）——persona 7 处/units 9 处/tools 6 处/prompts 1 处/rules 1 处全部改叫前线，「战线隔离」标题随之「前线隔离」，客户端「星域=地图」独占该词；index.ts 征召兜底「新星域」→「新星球」（它指的就是星球）；②军味词随提示正典化：战况→近况（chainDigest 兜底/chain-note 父代段/persona/tools 卡题）、战役背景→任务背景、【战地直讯】→【组员直讯】+参战方→通话方（persona 纪律与 tools 投递头双侧同步改）、侦察兵「敌情」→「侦察」、chainOutcomeOf/buildChainNote「败退」→「挫败」（与客户端词表一词一面）；③行话清理：dashboard/index 错误消息去内部 API 名与裸 RPC code（「workspace.list 面缺席」→「宿主工作区清单暂不可用」、错误码后置括号、404「no such route」中文化「路由不存在」、「等大副第一轮 war_triage 入账」→「等大副完成第一轮分诊」、approve/reject 中文注义）、goals objective「disarm」→「不触发执行」、rules 拒因去英文枚举尾。快照全族重生成（commander/staff/troop/mailbox/chain/pivot/scheduler/kickoff）；词锁测试随正名同步 8 处（rules 前线冲突/chain-note 挫败/relay 近况不详/staff-plan+triage+v5-spike 路由不存在/troop-mailbox+scheduler 通话方）。verify PASS。
 - **文案审计轮·批次1（错字+与现行决策矛盾的提示词/工具描述）** —— ①「任务令令起草法」双「令」系统性错字修正（skill.ts 标题与 description、prompts.ts relay 模板、persona.ts 大副条令共 4 处；快照 fixtures 5 文件 7 行随改，verify.mjs:164 针脚三方同步，起草法标题「warroom 大副」顺正名「舰桥大副」）；② rules.ts「任务任务回报」叠字 ×2；③ wake.ts 唤醒摘要删「L0 全绿自动收官已由系统判定」——与 staff-auto-close 默认 OFF（2026-09-01 舰长令：强制人工验收）正面冲突，改「回报验收由舰长定夺」；④ war_publish 描述补 L0 直发无需批准（与 staff-triage 默认 ON 自洽）、war_close_task 删不存在的「打回可重新领取」路径、war_status 状态集对齐 unitStatusLabel 实况（已收编→已撤编）；⑤ /war 激活回执重写（大副当值，删英文残句）+ /war /peace 面板描述中文化；⑥ directives 400 文案去「仗/阵地/接火」冷僻军词；⑦ dossier/rules 收官空 verdict 兜底「验收通过」（不再渲染「收官（）」）。verify PASS（快照门 4/4）。
 
 ### Changed

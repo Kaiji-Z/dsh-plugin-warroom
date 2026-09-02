@@ -199,9 +199,9 @@ test('探针路由：旗关 404；旗开 GET 快照 / POST 探针 / 缺 sessionI
       }
       if (c.label === 'off') {
         await handler!({ method: 'GET', url: '/warroom/api/v5-spike' }, res)
-        assert.match(ended[ended.length - 1]!, /no such route/)
+        assert.match(ended[ended.length - 1]!, /路由不存在/)
         await handler!(post('/warroom/api/v5-spike', { sessionId: 's' }), res)
-        assert.match(ended[ended.length - 1]!, /no such route/)
+        assert.match(ended[ended.length - 1]!, /路由不存在/)
       } else {
         await handler!({ method: 'GET', url: '/warroom/api/v5-spike' }, res)
         const avail = JSON.parse(ended[ended.length - 1]!) as { ok: boolean; availability: Record<string, unknown> }

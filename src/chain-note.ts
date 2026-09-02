@@ -26,7 +26,7 @@ const brief = (text: string, w: number): string =>
 function outcomeOf(camp?: CampaignState): string {
   if (camp === undefined) return '未成形（尚未发布成任务）'
   if (camp.status === 'closed') return `已收官：${camp.closedVerdict ?? '验收通过'}`
-  if (camp.status === 'failed') return `败退${camp.lastError !== undefined && camp.lastError !== '' ? `——败因：${brief(camp.lastError, 120)}` : ''}`
+  if (camp.status === 'failed') return `挫败${camp.lastError !== undefined && camp.lastError !== '' ? `——败因：${brief(camp.lastError, 120)}` : ''}`
   switch (camp.status) {
     case 'reported': return '已交稿，待舰长验收'
     case 'in_progress': return '执行进行中'
@@ -106,7 +106,7 @@ export function buildCommanderChainBrief(ancestors: ReadonlyArray<ChainAncestor>
 /** pivot 直插执行会话的父代速览（≤400 字：父代结论 + 产物 + 任务回报摘要）。 */
 export function pivotChainSlice(parent: ChainAncestor, opts: { cap?: number } = {}): string {
   const cap = opts.cap ?? 400
-  const parts = [`【父代战况】${outcomeOf(parent.campaign)}`]
+  const parts = [`【父代近况】${outcomeOf(parent.campaign)}`]
   const paths = keyPathsOf(parent.campaign)
   if (paths.length > 0) parts.push(`关键产物：${paths.join('；')}`)
   const tail = reportTailOf(parent.campaign, 120)
