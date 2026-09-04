@@ -14,7 +14,7 @@ import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalSto
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { archiveCommand, createCommand, decidePlan, detachThread, markTalking, regradeCommand, useWar, type BoardAttempt, type BoardCommand, type BoardQuality, type BoardTask, type BoardThread, type FrontChoice } from './data.ts'
-import { activeCopy, setSkin, skinId, subscribeSkin, type SkinId } from './copy.ts'
+import { activeCopy, langId, setLang, setSkin, skinId, subscribeLang, subscribeSkin, type LangId, type SkinId } from './copy.ts'
 import { agingLeader, collectInbox, formatWait, inboxGrowthAnnounce, type InboxItem, type InboxKind } from './inbox.ts'
 import { visitDelta, type VisitDelta } from './visit.ts'
 import { applyBattlefieldMarker, applyGradeMarker, displayTitleOf, stalledOnUserPlan, type ComposerGrade } from './preflight.ts'
@@ -2203,6 +2203,7 @@ function SettingsDrawer(props: {
   const { onClose, hoverFamily, onToggleHoverFamily, autoScroll, onToggleAutoScroll, connected, onRefresh, viewMap, onToggleViewMap, narrowActive, fontScale, onFontScale } = props
   const copy = activeCopy().settings
   const [skin, setSkinState] = useState(skinId())
+  const [lang, setLangState] = useState(langId())
   const layer = useModalLayer(onClose, copy.title)
   const skinBtn = (id: SkinId, label: string): ReactNode =>
     createElement('button', {
@@ -2210,6 +2211,14 @@ function SettingsDrawer(props: {
       className: `war-skin-opt${skin === id ? ' on' : ''}`,
       'aria-pressed': skin === id,
       onClick: () => { setSkin(id); setSkinState(id) },
+    }, label)
+  // sd 回流（stardeck i18n）：语言段两枚选项钮，切 setLang 即全板换库（订阅轴触发重渲染）。
+  const langBtn = (id: LangId, label: string): ReactNode =>
+    createElement('button', {
+      key: id, type: 'button',
+      className: `war-skin-opt${lang === id ? ' on' : ''}`,
+      'aria-pressed': lang === id,
+      onClick: () => { setLang(id); setLangState(id) },
     }, label)
   const toggle = (label: string, hint: string, value: boolean, onChange: (v: boolean) => void): ReactNode =>
     createElement('div', { className: 'war-set-toggle' },
@@ -2237,6 +2246,11 @@ function SettingsDrawer(props: {
           skinBtn('war', copy.skinWar),
           skinBtn('plain', copy.skinPlain)),
         createElement('div', { className: 'war-settings-note' }, copy.skinHint),
+        createElement('div', { className: 'war-settings-section' }, copy.langSection),
+        createElement('div', { className: 'war-skin-row' },
+          langBtn('zh', copy.langZh),
+          langBtn('en', copy.langEn)),
+        createElement('div', { className: 'war-settings-note' }, copy.langHint),
         createElement('div', { className: 'war-settings-section' }, copy.legendSection),
         createElement('div', { className: 'war-legend-rows' },
           activeCopy().legend.rows.flatMap(row => {
@@ -2429,6 +2443,8 @@ export function warView(services: ClientServicesFace): () => ReactNode {
     }, [hoverFamily, autoScrollOn])
     // 皮肤切换 → 整板重渲染拉新文案（词典经 activeCopy() 渲染期取值）。
     useSyncExternalStore(subscribeSkin, skinId)
+  useSyncExternalStore(subscribeLang, langId)
+    useSyncExternalStore(subscribeLang, langId)
     // V17 三页签：与 WarDockPill 同源；页签是客户端过滤器（板照旧全量投影）。
     // V18.2：板面吃「生效页签」=悬停/点击预览 ?? 用户选定——星球悬停切档时
     // 三列+调度条+星域切片整体跟随，离开星球自动还原用户原页签。

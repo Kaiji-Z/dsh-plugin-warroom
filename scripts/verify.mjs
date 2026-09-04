@@ -335,6 +335,8 @@ gate('bundle', () => {
     // sd 回流（stardeck V19）：字体缩放——--war-fs 基值 + 全量 px 字号/行高 calc 化。
     [client, '--war-fs:1', 'font scale: --war-fs base var on .war-root'],
     [client, 'calc(12px*var(--war-fs))', 'font scale: px font sizes ride calc(--war-fs)'],
+    // sd 回流（stardeck i18n）：语言轴——存储键 + 双轴取典。
+    [client, 'warroom-lang', 'i18n: language storage key (warroom-lang) persists the lang axis'],
     // V13 战线一等公民：纯派生 frontsOf + 星域航迹 + 未分组行星 + 词面（星球/星域）。
     [client, 'frontsOf', 'V13 front aggregation pure function (zero backend, foldChains-derived)'],
     // V14 战线范式收口：本地计代/origin 溯源/composer 星球/星球战线清单/写侧引导。

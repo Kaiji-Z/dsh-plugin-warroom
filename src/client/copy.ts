@@ -107,6 +107,11 @@ export interface WarCopy {
     skinWar: string
     skinPlain: string
     skinHint: string
+    /** sd 回流（stardeck i18n）：界面语言段（语言是皮肤的正交维度）。 */
+    langSection: string
+    langZh: string
+    langEn: string
+    langHint: string
     /** sd 回流（stardeck V19 字体缩放）：设置抽屉滑杆段。 */
     fontSection: string
     fontReset: string
@@ -532,6 +537,10 @@ export const warCopy: WarCopy = {
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换措辞，不改机制。更多皮肤在未来的迭代里来。',
+    langSection: '语言 / Language',
+    langZh: '中文',
+    langEn: 'English',
+    langHint: '只换界面措辞——账本与提示词资产保持中文正典（agent 的军语不随语言切换）。',
     fontSection: '字体大小',
     fontReset: '重置',
     fontHint: '只缩放文字（85%–135%）：栏与卡片布局不变，文字在原盒内换行适应。',
@@ -1036,6 +1045,10 @@ export const plainCopy: WarCopy = {
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换说法，不改功能。更多皮肤以后加。',
+    langSection: '语言 / Language',
+    langZh: '中文',
+    langEn: 'English',
+    langHint: '只换界面措辞——账本与提示词资产保持中文正典（agent 的军语不随语言切换）。',
     fontSection: '字体大小',
     fontReset: '重置',
     fontHint: '只缩放文字（85%–135%）：栏与卡片布局不变，文字在原盒内换行适应。',
@@ -1523,17 +1536,18 @@ const TREK_FIXUPS: ReadonlyArray<readonly [string, string]> = [
   ['行星=星球', '行星=工作区'],
 ]
 
-function trekifyText(value: string): string {
+function trekifyText(value: string, lexicon: ReadonlyArray<readonly [string, string]> = TREK_LEXICON, fixups: ReadonlyArray<readonly [string, string]> = TREK_FIXUPS): string {
   let out = value
-  for (const [from, to] of TREK_LEXICON) out = out.split(from).join(to)
-  for (const [from, to] of TREK_FIXUPS) out = out.split(from).join(to)
+  for (const [from, to] of lexicon) out = out.split(from).join(to)
+  for (const [from, to] of fixups) out = out.split(from).join(to)
   return out
 }
 
-/** 深走词典对象，字符串值全过词表（数组/嵌套对象递归；非字符串原样）。 */
-function trekifyCopy(source: WarCopy): WarCopy {
+/** 深走词典对象，字符串值全过词表（数组/嵌套对象递归；非字符串原样）。
+ *  词表/修正表可注入——EN trek 皮肤走 EN 词表（copy-en.ts），与中文侧同机制。 */
+function trekifyCopy(source: WarCopy, lexicon: ReadonlyArray<readonly [string, string]> = TREK_LEXICON, fixups: ReadonlyArray<readonly [string, string]> = TREK_FIXUPS): WarCopy {
   const walk = (v: unknown): unknown => {
-    if (typeof v === 'string') return trekifyText(v)
+    if (typeof v === 'string') return trekifyText(v, lexicon, fixups)
     // 函数字段（genN/originChip/failed 计数等模板串）：包一层让**返回值**也过
     // 词表——v7 实锤：`折戟 ${n}` 藏在函数体里，纯字符串遍历漏派生。
     if (typeof v === 'function') {
@@ -1554,10 +1568,21 @@ function trekifyCopy(source: WarCopy): WarCopy {
 /** 星际迷航皮肤（默认）：军事词典的词表派生。 */
 export const trekCopy: WarCopy = trekifyCopy(warCopy)
 
+// --- i18n 层（sd 回流，stardeck 2026-09-02 定案「支持多语言」）----------------
+// 语言是皮肤的正交维度：activeCopy() 先按皮肤取典，再按语言换库。EN 词典在
+// copy-en.ts 逐键对齐（tests/copy-lang.test.ts 锁完备性，缺键即 FAIL——不静默
+// 回落中文）。EN trek = 军事英典过 EN trek 词表（与中文侧同机制派生）。
+import { enWarCopy, enPlainCopy, EN_TREK_LEXICON } from './copy-en.ts'
+
+const enTrekCopy: WarCopy = trekifyCopy(enWarCopy, EN_TREK_LEXICON, [])
+
 export type SkinId = 'trek' | 'war' | 'plain'
+export type LangId = 'zh' | 'en'
 
 const SKIN_STORAGE_KEY = 'warroom-skin'
+const LANG_STORAGE_KEY = 'warroom-lang'
 const skins: Record<SkinId, WarCopy> = { trek: trekCopy, war: warCopy, plain: plainCopy }
+const enSkins: Record<SkinId, WarCopy> = { trek: enTrekCopy, war: enWarCopy, plain: enPlainCopy }
 
 function storedSkin(): SkinId {
   try {
@@ -1569,16 +1594,30 @@ function storedSkin(): SkinId {
   }
 }
 
+function storedLang(): LangId {
+  try {
+    if (typeof localStorage === 'undefined') return 'zh'
+    return localStorage.getItem(LANG_STORAGE_KEY) === 'en' ? 'en' : 'zh'
+  } catch {
+    return 'zh'
+  }
+}
+
 let currentId: SkinId = storedSkin()
+let currentLang: LangId = storedLang()
 const listeners = new Set<() => void>()
 
 export function skinId(): SkinId {
   return currentId
 }
 
-/** 当前皮肤的词典（渲染期调用——皮肤切换后由订阅者重渲染拉新值）。 */
+export function langId(): LangId {
+  return currentLang
+}
+
+/** 当前皮肤+语言的词典（渲染期调用——皮肤/语言切换后由订阅者重渲染拉新值）。 */
 export function activeCopy(): WarCopy {
-  return skins[currentId]
+  return (currentLang === 'en' ? enSkins : skins)[currentId]
 }
 
 export function setSkin(id: SkinId): void {
@@ -1596,8 +1635,24 @@ export function toggleSkin(): void {
   setSkin(currentId === 'trek' ? 'war' : currentId === 'war' ? 'plain' : 'trek')
 }
 
+/** 界面语言切换（皮肤保持不动；i18n 只覆盖板面措辞，账本与提示词资产是
+ * agent 面正典，保持中文单一源）。 */
+export function setLang(id: LangId): void {
+  if (id === currentLang) return
+  currentLang = id
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(LANG_STORAGE_KEY, id)
+  } catch {
+    // 持久化失败不影响会话内切换。
+  }
+  for (const l of listeners) l()
+}
+
 /** 皮肤切换订阅（views 经 useSyncExternalStore 接入触发重渲染）。 */
 export function subscribeSkin(listener: () => void): () => void {
   listeners.add(listener)
   return () => { listeners.delete(listener) }
 }
+
+/** 语言切换订阅（与皮肤共用一套监听——两轴任一变动都触发重渲染拉新词典）。 */
+export const subscribeLang = subscribeSkin
