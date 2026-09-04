@@ -107,6 +107,10 @@ export interface WarCopy {
     skinWar: string
     skinPlain: string
     skinHint: string
+    /** sd 回流（stardeck V19 字体缩放）：设置抽屉滑杆段。 */
+    fontSection: string
+    fontReset: string
+    fontHint: string
     legendSection: string
     behaviorSection: string
     hoverFamily: string
@@ -528,6 +532,9 @@ export const warCopy: WarCopy = {
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换措辞，不改机制。更多皮肤在未来的迭代里来。',
+    fontSection: '字体大小',
+    fontReset: '重置',
+    fontHint: '只缩放文字（85%–135%）：栏与卡片布局不变，文字在原盒内换行适应。',
     legendSection: '图例（符号对照）',
     behaviorSection: '看板行为',
     hoverFamily: '悬停族系高亮',
@@ -1029,6 +1036,9 @@ export const plainCopy: WarCopy = {
     skinWar: '军事',
     skinPlain: '平话',
     skinHint: '只换说法，不改功能。更多皮肤以后加。',
+    fontSection: '字体大小',
+    fontReset: '重置',
+    fontHint: '只缩放文字（85%–135%）：栏与卡片布局不变，文字在原盒内换行适应。',
     legendSection: '图例（符号对照）',
     behaviorSection: '看板行为',
     hoverFamily: '悬停看同源',
