@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-stardeck",
-  "version": "0.20.1-1",
+  "version": "0.20.2",
   "packageManager": "pnpm@11.7.0",
   "description": "Starship-bridge orchestration for DeepSeek Harness: the captain issues plain-language orders from the bridge; the XO drafts verifiable missions; away-team subagents (recon/engineer/medic/scribe) execute in isolated workspaces with evidence-based acceptance and an append-only campaign ledger.",
   "type": "module",
