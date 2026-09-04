@@ -320,7 +320,9 @@ gate('bundle', () => {
     [client, 'stPlanetActive', 'V18.2 slim hover card state words ride the lexicon (name/path/status only)'],
     [client, 'failSuffix', 'V18.2 failing suffix one-face via lexicon (nameplate/kbplanet/2D radar)'],
     [client, 'fitPlanetLabel', 'V18.2 arc-engraved nameplate scales with the planet (screen clamps, limb offset)'],
-    [client, 'drawArcText', 'V18.2 2D radar name engraved along the lower limb (same language as 3D)'],
+    // V19.5（sd 回流）：2D 弧排退役——引线铭牌（planCallouts）+ 长名截断（truncateForArc）接管。
+    [client, 'planCallouts', 'V19.5 Jarvis callout nameplates on the 2D radar (stub→arm→label, minGap anti-collision)'],
+    [client, 'truncateForArc', 'V19.5 long-name ellipsis truncation for the arc budget (… counts into the budget)'],
     [client, '.war-wz-chip.st-settled', 'V18.2 planet lifecycle chip classes (settled/failed/idle) both themes'],
     [client, "location.hash.match(/^#war-cmd-", 'V16.4 focus page state rides URL hash (refresh/share safe)'],
     // V12.2 语义 token 化：三层令牌架构（基元→语义→场景开关）+ 皮肤钩子。

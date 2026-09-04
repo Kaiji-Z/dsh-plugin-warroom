@@ -91,6 +91,10 @@ export interface WarCopy {
     frontN: (n: number) => string
     viewFront: string
     hqRow: (planets: number, squads: number, triumphs: number) => string
+    /** sd 回流（stardeck V19.5）：空场指路——一次性 toast（编队在外而星球零注册）
+     *  与常驻水印（3D 空场）两件套。 */
+    hqGuideToast: string
+    emptyWatermark: string
   }
   /** V13 战线头（任务列分组/航迹语义）：代数与聚合态措辞。 */
   front: { genN: (n: number) => string; taskN: (n: number) => string; stateLive: string; stateWaiting: string; stateFailed: string; stateSettled: string; originChip: (bf: string | null, title: string) => string }
@@ -204,6 +208,9 @@ export interface WarCopy {
   /** V7-④ 夜间预检（将停在计划待批的命令警告 + 改直发出口）。 */
   preflight: {
     hint: string
+    /** sd 回流（stardeck critique P2）：talking 态的真阻塞是「等你答问」——预检
+     *  提示改说两步语义，不再与状态行「等你答问」打架。 */
+    hintTalking: string
     toDirect: string
     title: string
   }
@@ -430,7 +437,7 @@ export interface WarCopy {
   island: {
     counts: (c: { awaiting: number; pending: number; waiting: number; active: number; failed: number }) => string
     /** V16.4-R3：分段结构化（岛计数可点路由）——label 过词表（函数返回值派生）。 */
-    countSegs: (c: { awaiting: number; pending: number; waiting: number; active: number; failed: number }) => ReadonlyArray<{ kind: 'awaiting' | 'pending' | 'waiting' | 'active' | 'failed'; label: string }>
+    countSegs: (c: { awaiting: number; pending: number; waiting: number; active: number; failed: number }) => ReadonlyArray<{ kind: 'pending' | 'waiting' | 'active' | 'failed'; label: string }>
     /** V18 critique：岛计数=全页签口径（切片只作用于三列）。 */
     countsScope: string
     inboxBadge: (n: number) => string
@@ -591,6 +598,7 @@ export const warCopy: WarCopy = {
   },
   preflight: {
     hint: '将停在计划待批——夜间无人值守会停整晚',
+    hintTalking: '答完参谋的问还要批计划——两步都过才会继续跑，夜里没人理会停整晚',
     toDirect: '改直发',
     title: '升档 L1/L2 的命令要等你批准计划才会继续，夜里没人批就一直停着。可改为 L0 直发（参谋直接发布执行），或保持等你批。',
   },
@@ -761,6 +769,8 @@ export const warCopy: WarCopy = {
     frontN: n => `战线 · ${n} 代`,
     viewFront: '点击查看这条战线',
     hqRow: (pl, sq, tr) => `辖 ${pl} 战场 · ${sq} 支编队在外 · 累计凯旋 ${tr} 次`,
+    hqGuideToast: '🪐 编队已出动，但战区还没有战场——注册工作区给它们一个落位（点此注册）',
+    emptyWatermark: '战区还是空的——点击 HQ 注册工作区为战场',
   },
   front: { genN: n => `${n} 代`, taskN: n => `${n} 任务`, originChip: (bf, title) => `续接自 ${bf === null ? '别的战场' : bf}·${title}`, stateLive: '推进中', stateWaiting: '等你发落', stateFailed: '有折戟', stateSettled: '已收官' },
   commandDetail: {
@@ -918,13 +928,14 @@ export const warCopy: WarCopy = {
     // 等待对象后缀化（等·参谋/等·指挥官）——词本身自消歧，图例 待×3 行删除。
     // V18 critique A2：等你段居首（舰长待办先于机器忙闲）。
     counts: c =>
-      [c.awaiting > 0 ? `等你 ${c.awaiting}` : '', c.pending > 0 ? `等·参谋 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
+      [c.pending > 0 ? `接令中 ${c.pending}` : '', c.waiting > 0 ? `等·指挥官 ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `折戟 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     // V16.4-R3 critique P1-2：岛计数可点——分段结构化（kind 路由到列），词仍过词表。
+    // sd 回流（stardeck critique 复检 P1）：等你/等·参谋语义重叠——等你段退役，
+    // 收件箱入口留给 ✉ 徽标。
     countSegs: c =>
       [
-        c.awaiting > 0 ? { kind: 'awaiting' as const, label: `等你 ${c.awaiting}` } : null,
-        c.pending > 0 ? { kind: 'pending' as const, label: `等·参谋 ${c.pending}` } : null,
+        c.pending > 0 ? { kind: 'pending' as const, label: `接令中 ${c.pending}` } : null,
         c.waiting > 0 ? { kind: 'waiting' as const, label: `等·指挥官 ${c.waiting}` } : null,
         c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
         c.failed > 0 ? { kind: 'failed' as const, label: `折戟 ${c.failed}` } : null,
@@ -1087,6 +1098,7 @@ export const plainCopy: WarCopy = {
   },
   preflight: {
     hint: '需要你批准方案后才会继续——夜里没人处理会一直停着',
+    hintTalking: '规划 Agent 先等你的回话，方案也要你点头——两步都过才会继续，夜里没人理会停一晚',
     toDirect: '改为直接执行',
     title: '标记为 L1/L2 的任务要等你批准方案才会继续，夜里没人处理就一直停着。可改为直接执行（规划 Agent 直接发布），或保持等你批。',
   },
@@ -1257,6 +1269,8 @@ export const plainCopy: WarCopy = {
     frontN: n => `同一条线 · ${n} 轮`,
     viewFront: '点开看这条线',
     hqRow: (pl, sq, tr) => `管 ${pl} 个项目 · ${sq} 名干员在外 · 累计完成 ${tr} 件`,
+    hqGuideToast: '🪐 有任务在外面跑，但全景图上还没有星球——添加工作区给它们一个位置（点此添加）',
+    emptyWatermark: '全景图还是空的——点击 HQ 添加工作区',
   },
   front: { genN: n => `${n} 轮`, taskN: n => `${n} 件事`, originChip: (bf, title) => `来自 ${bf === null ? '别的项目' : bf}·${title}`, stateLive: '进行中', stateWaiting: '待你处理', stateFailed: '有失败', stateSettled: '已完成' },
   commandDetail: {
@@ -1411,12 +1425,11 @@ export const plainCopy: WarCopy = {
   },
   island: {
     counts: c =>
-      [c.awaiting > 0 ? `等你 ${c.awaiting}` : '', c.pending > 0 ? `等·规划 Agent ${c.pending}` : '', c.waiting > 0 ? `等·执行 Agent ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
+      [c.pending > 0 ? `规划中 ${c.pending}` : '', c.waiting > 0 ? `等·执行 Agent ${c.waiting}` : '', c.active > 0 ? `执行中 ${c.active}` : '', c.failed > 0 ? `失败 ${c.failed}` : '']
         .filter(x => x !== '').join(' · '),
     countSegs: c =>
       [
-        c.awaiting > 0 ? { kind: 'awaiting' as const, label: `等你 ${c.awaiting}` } : null,
-        c.pending > 0 ? { kind: 'pending' as const, label: `等·规划 Agent ${c.pending}` } : null,
+        c.pending > 0 ? { kind: 'pending' as const, label: `规划中 ${c.pending}` } : null,
         c.waiting > 0 ? { kind: 'waiting' as const, label: `等·执行 Agent ${c.waiting}` } : null,
         c.active > 0 ? { kind: 'active' as const, label: `执行中 ${c.active}` } : null,
         c.failed > 0 ? { kind: 'failed' as const, label: `失败 ${c.failed}` } : null,

@@ -759,6 +759,68 @@ function measureArcText(c2: CanvasRenderingContext2D, fs: number, text: string):
   return w
 }
 
+/** 长名弧排省略号截断（V19 把玩反馈：缩到 15px 还绕过 ±90° 往下兜，难看）：
+ *  逐字宽累计超出 maxPx 即在容纳处截断补 '…'（'…' 计入预算，绝不超线）；
+ *  放得下原样返回；首字就放不下只留 '…'。纯函数（measure 注入）——tests 管辖。 */
+export function truncateForArc(measure: (ch: string) => number, text: string, maxPx: number): string {
+  const chars = [...text]
+  let total = 0
+  for (const ch of chars) total += measure(ch)
+  if (total <= maxPx) return text
+  const ell = measure('…')
+  let w = 0
+  let cut = 0
+  for (const ch of chars) {
+    const cw = measure(ch)
+    if (w + cw > maxPx - ell) break
+    w += cw
+    cut++
+  }
+  return chars.slice(0, cut).join('') + '…'
+}
+
+/** V19.5 贾维斯雷达·引线铭牌摆放（纯函数，tests 管辖）：目标环只留 reticle，
+ *  名字牵成「索引铭牌」——出环短须（离心方向）→ 折臂 → 水平铭牌。侧别=星球
+ *  在盘的左/右半（铭牌永远朝盘外）；同侧铭牌按 y 排序堆叠（minGap 防撞）；
+ *  铭牌+文本越出安全区（两浮舱之间的净空，bounds）即翻侧。绘制壳只照输出的
+ *  点画线写字。 */
+export interface CalloutItem { id: string; x: number; y: number; r: number; w: number }
+export interface CalloutPlace { side: 1 | -1; p0x: number; p0y: number; ex: number; ey: number; lx: number; ly: number; tx: number; align: 'left' | 'right' }
+export function planCallouts(cx: number, cy: number, items: ReadonlyArray<CalloutItem>, bounds: { x0: number; x1: number }, opts?: { stub?: number; arm?: number; minGap?: number }): Map<string, CalloutPlace> {
+  const stub = opts?.stub ?? 7
+  const arm = opts?.arm ?? 16
+  const minGap = opts?.minGap ?? 17
+  const out = new Map<string, CalloutPlace>()
+  const buckets = new Map<1 | -1, Array<{ it: CalloutItem; p0x: number; p0y: number; ex: number; ey: number; ly0: number }>>()
+  for (const it of items) {
+    const dx = it.x - cx, dy = it.y - cy
+    const d = Math.hypot(dx, dy) || 1
+    const side: 1 | -1 = dx >= 0 ? 1 : -1
+    const q = { it, p0x: it.x + (dx / d) * it.r, p0y: it.y + (dy / d) * it.r, ex: it.x + (dx / d) * (it.r + stub), ey: it.y + (dy / d) * (it.r + stub), ly0: it.y + (dy / d) * (it.r + stub) }
+    const b = buckets.get(side) ?? []
+    b.push(q)
+    buckets.set(side, b)
+  }
+  for (const [side, b] of buckets) {
+    b.sort((a, z) => a.ly0 - z.ly0)
+    let prev = -Infinity
+    for (const q of b) {
+      const ly = Math.max(q.ly0, prev + minGap)
+      prev = ly
+      let lx = q.ex + side * arm
+      let align: 'left' | 'right' = side === 1 ? 'left' : 'right'
+      let tx = lx + side * 4
+      if ((side === 1 && tx + q.it.w > bounds.x1) || (side === -1 && tx - q.it.w < bounds.x0)) {
+        lx = q.ex - side * arm
+        tx = lx - side * 4
+        align = side === 1 ? 'right' : 'left'
+      }
+      out.set(q.it.id, { side, p0x: q.p0x, p0y: q.p0y, ex: q.ex, ey: q.ey, lx, ly, tx, align })
+    }
+  }
+  return out
+}
+
 export class WarzoneScene {
   readonly renderer: THREE.WebGLRenderer
   readonly scene = new THREE.Scene()
@@ -789,6 +851,13 @@ export class WarzoneScene {
   private bridged = false
   private hqActive = true
   private planetKey = ''
+  /** critique P1-2：未注册工作区编队的 HQ 锚位（懒建）——不进 this.planets
+   *  （update 不推它的轨道），只作为 squad 目标提供 mesh/radius/deployedSquads
+   *  语义；编队绕 HQ 星舰近轨，左列在打、3D 里就有化身。 */
+  private hqAnchor: WzPlanet | null = null
+  /** critique 复检 P2：0 星球空场态——HQ 信标慢脉冲（注册门 affordance，
+   *  与 2D 雷达的常驻脉冲环同语义）。 */
+  private emptyStar = true
   private readonly squadBySession = new Map<string, WzSquad>()
   /** 悬停/聚焦高亮星域（V11.5f 舰长令）：光晕增亮 + HQ↔星球虚线轨迹。 */
   private readonly hlWs = new Set<string>()
@@ -1748,13 +1817,20 @@ export class WarzoneScene {
     c2 = cv.getContext('2d')
     if (c2 === null) return
     const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
-    // 字号一次性定版（长名缩字号出 84° 扇区，下限 15）；曲率 Rc 由
-    // refreshLabelCurvature 按星球屏半径动态重绘（初值=标称 104）。
+    // 字号一次性定版：长名先缩字号出 84° 扇区（下限 20——V19 原 15 太小难认）；
+    // 缩到下限仍放不下 → truncateForArc 省略号截断（败记后缀预留全额，恒可见）。
+    // 截断后的铭文存 userData.labelName，曲率重绘（refreshLabelCurvature）同源取用。
+    // 曲率 Rc 由 refreshLabelCurvature 按星球屏半径动态重绘（初值=标称 104）。
     c2.font = '600 26px system-ui, sans-serif'
     const span = Math.PI * 84 / 180
+    const budget = span * 104
     let w0 = 0
     for (const ch of [...(planetLabelOf(p) + suf)]) w0 += c2.measureText(ch).width
-    const fs = w0 / 104 > span ? Math.max(15, Math.floor(26 * span / (w0 / 104))) : 26
+    const fs = w0 / 104 > span ? Math.max(20, Math.floor(26 * span / (w0 / 104))) : 26
+    let name = planetLabelOf(p)
+    if (measureArcText(c2, fs, name + suf) / 104 > span) {
+      name = truncateForArc(ch => { c2!.font = `600 ${fs}px system-ui, sans-serif`; return c2!.measureText(ch).width }, name, budget - measureArcText(c2, fs, suf))
+    }
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: this.darkTheme !== false ? 0.72 : 0.95, depthWrite: false, depthTest: false, fog: false }))
     sprite.renderOrder = 10
     sprite.userData.labelPlanet = p.radius
@@ -1763,6 +1839,7 @@ export class WarzoneScene {
     sprite.userData.labelCanvas = cv
     sprite.userData.labelTopY = 26
     sprite.userData.labelFs = fs
+    sprite.userData.labelName = name
     sprite.userData.labelSuf = suf
     sprite.userData.labelDark = this.darkTheme !== false
     sprite.position.set(0, 0, 0)
@@ -1785,7 +1862,9 @@ export class WarzoneScene {
     const c2 = cv.getContext('2d')
     if (c2 === null) return
     const Rc = Math.min(400, Math.max(104, (planetPx + 4) / scale))
-    const total = measureArcText(c2, fs, planetLabelOf(p) + suf)
+    // 铭文正文取定版截断（addPlanetLabel 存 labelName；缺省回退全名——防御旧 sprite）
+    const text = typeof s.userData.labelName === 'string' ? s.userData.labelName : planetLabelOf(p)
+    const total = measureArcText(c2, fs, text + suf)
     c2.clearRect(0, 0, cv.width, cv.height)
     c2.textBaseline = 'middle'
     const CY = TOP_Y + Rc
@@ -1815,7 +1894,7 @@ export class WarzoneScene {
       c2.strokeStyle = 'rgba(255,255,255,0.9)'
       c2.lineJoin = 'round'
     }
-    let ang = drawArc(planetLabelOf(p), dark ? '#c9cdd2' : '#313842', -Math.PI / 2 - total / Rc / 2)
+    let ang = drawArc(text, dark ? '#c9cdd2' : '#313842', -Math.PI / 2 - total / Rc / 2)
     if (suf !== '') drawArc(suf, '#e5484d', ang)
     ;(s.material as THREE.SpriteMaterial).map!.needsUpdate = true
     s.userData.labelDrawnPr = planetPx
@@ -1956,6 +2035,9 @@ export class WarzoneScene {
     this.hqEngineMat.opacity = (0.7 + 0.25 * pulse * 0.5) * duty
     if (this.isDarkTheme) (this.hqBeacon.material as THREE.MeshBasicMaterial).color.setRGB(1.1, 2.2, 2.6).multiplyScalar((0.8 + 0.3 * Math.sin(t * 3)) * duty)
     else (this.hqBeacon.material as THREE.MeshBasicMaterial).color.setHex(0x1173b4).multiplyScalar((0.9 + 0.25 * Math.sin(t * 3)) * duty)
+    // critique 复检 P2：空场时信标慢呼吸（2D 雷达已有常驻脉冲环的 3D 对位）
+    if (this.emptyStar) this.hqBeacon.scale.setScalar(1 + 0.25 * Math.sin(t * 2.2))
+    else if (this.hqBeacon.scale.x !== 1) this.hqBeacon.scale.setScalar(1)
     for (const p of this.planets) {
       const o = p.orbit
       // V11.5a（舰长定）：公转停——地形是固定参照系（空间记忆/拾取稳定/军图惯例），
@@ -2086,10 +2168,31 @@ export class WarzoneScene {
   /** 板同步（V11.5 连线正门）：星球集（wsPath 变更时整组重建，否则原地刷状态）
    * + 编队 diff（新会话=星舰起飞 / 消失=返航 / 相位迁移随板面）+ WAR LOG 整组
    * 替换 + HQ 出航开关。此后 demo 自驱永久旁路。 */
+  private ensureHqAnchor(): WzPlanet {
+    if (this.hqAnchor !== null) return this.hqAnchor
+    const mesh = new THREE.Group()
+    mesh.position.set(0, -6, 0)
+    this.scene.add(mesh)
+    // halo 仅为满足 WzPlanet 形状的哑件（不入场景、零透明度——update 不遍历锚位）。
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0 }))
+    const proxy = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))
+    this.disposables.push(halo.material, proxy.geometry, proxy.material)
+    this.hqAnchor = {
+      kind: 'planet', id: -1, name: activeCopy().starfield.hqName, wsPath: '__hq__', cls: 'medium', level: 1,
+      radius: 14, mesh, cloud: null, ring: null, pillar: null, halo, proxy,
+      baseGlow: new THREE.Color(0), haloScale: 0,
+      orbit: { r: 0, ecc: 0, speed: 0, angle: 0, phase: 0, tiltA: 0, yBase: -6 },
+      status: 'battle', state: 'active', garrison: 0, failing: 0,
+      battleT: 0, ringT: 0, inbound: 0, deployedSquads: [], seed: 0, rot: 0,
+    }
+    return this.hqAnchor
+  }
+
   syncBoard(bridge: { active: boolean; planets: ReadonlyArray<WzBridgePlanet>; squads: ReadonlyArray<WzBridgeSquad>; log: ReadonlyArray<WzLogEntry>; fronts?: ReadonlyArray<WzBridgeFrontLite> }): void {
     this.bridged = true
     this.lastBridge = bridge
     this.hqActive = bridge.active
+    this.emptyStar = bridge.planets.length === 0
     const fronts = bridge.fronts ?? []
     const frontKey = fronts.map(f => `${f.rootId}:${f.gens}:${f.live ? 1 : 0}:${f.battlefield}`).join('|')
     const key = bridge.planets.map(p => p.wsPath).join('|')
@@ -2149,8 +2252,8 @@ export class WarzoneScene {
     }
     for (const bs of bridge.squads) {
       const existing = this.squadBySession.get(bs.sessionId)
-      const planet = byWs.get(bs.wsPath)
-      if (planet === undefined) continue
+      // critique P1-2：未注册工作区的编队挂 HQ 锚位（不再 continue 丢弃）。
+      const planet = byWs.get(bs.wsPath) ?? this.ensureHqAnchor()
       if (existing === undefined) {
         const s = this.createSquad(planet, 'outbound', 0, { verb: bs.verb, paused: bs.paused, sourceLabel: bs.sourceLabel, boardPhase: bs.phase, sourceCommandId: bs.sourceCommandId, live: bs.live })
         s.sessionId = bs.sessionId
@@ -2310,6 +2413,25 @@ export class WarzoneTactical {
     g.fillText('000', 0, -R - 22); g.fillText('090', R + 22, 0)
     g.fillText('180', 0, R + 22); g.fillText('270', -R - 22, 0)
     g.restore()
+    // V19.5 扫描波束：随 t 旋转的锥形渐变（贾维斯盘灵魂件）——低透明拖尾，
+    // clip 盘内；createConicGradient 缺席的引擎静默跳过（纯氛围件，不值降级）。
+    {
+      const ccg = (g as unknown as { createConicGradient?: (a: number, x: number, y: number) => CanvasGradient }).createConicGradient
+      if (typeof ccg === 'function') {
+        const sweep = ccg.call(g, t * 0.9, cx, cy)
+        sweep.addColorStop(0, `rgba(${P.hqPulse},0)`)
+        sweep.addColorStop(0.86, `rgba(${P.hqPulse},0)`)
+        sweep.addColorStop(1, `rgba(${P.hqPulse},0.09)`)
+        g.save()
+        g.beginPath(); g.arc(cx, cy, R, 0, PI2); g.clip()
+        g.fillStyle = sweep
+        g.fillRect(cx - R, cy - R, R * 2, R * 2)
+        g.restore()
+      }
+    }
+    // V19.5 引线铭牌收集面（planet pass 填充，铭牌 pass 消费）+ 波束前缘角。
+    const tacPlanets: Array<{ p: WzPlanet; x: number; y: number; col: string; rr: number; isHl: boolean; alpha: number }> = []
+    const beamA = (t * 0.9) % PI2
     // HQ 符号
     const s1 = { x: 0, y: 0 }, s2 = { x: 0, y: 0 }
     W2S(0, 0, s1)
@@ -2347,19 +2469,31 @@ export class WarzoneTactical {
         g.strokeStyle = P.hlLine; g.lineWidth = 1.4; g.stroke()
         g.setLineDash([])
       }
+      // V19.5 贾维斯追踪环：执行中=缓慢旋转的虚线环（替代旧扩散脉冲——波束扫过
+      // 时增亮，扫描感即「系统正在盯这个目标」）。
       if (p.state === 'active') {
-        const k = (t * 1.4 + p.seed) % 1
-        g.beginPath(); g.arc(s1.x, s1.y, rr + 5 + k * 19, 0, PI2)
-        g.strokeStyle = `rgba(${P.battlePulse},${0.6 * (1 - k)})`; g.lineWidth = 1.5; g.stroke()
+        const pa = (Math.atan2(s1.y - cy, s1.x - cx) + PI2) % PI2
+        const sweepGlow = Math.max(0, 1 - ((beamA - pa + PI2) % PI2) / 0.6)
+        g.setLineDash([4, 5]); g.lineDashOffset = -(t * 14) % 9
+        g.beginPath(); g.arc(s1.x, s1.y, rr + 6, 0, PI2)
+        g.strokeStyle = `rgba(${P.battlePulse},${(0.45 + 0.4 * sweepGlow).toFixed(2)})`; g.lineWidth = 1.4 + sweepGlow; g.stroke()
+        g.setLineDash([]); g.lineWidth = 1
       }
       g.beginPath(); g.arc(s1.x, s1.y, rr, 0, PI2)
       g.fillStyle = col + '2e'; g.fill()
       g.strokeStyle = isHl ? P.hl : col; g.lineWidth = isHl ? 2.6 : 1.6; g.stroke()
-      g.beginPath(); g.arc(s1.x, s1.y, 3.2, 0, PI2); g.fillStyle = col; g.fill()
-      if (p.garrison > 0) {
-        g.beginPath(); g.arc(s1.x, s1.y, rr + 7, -Math.PI / 2, -Math.PI / 2 + Math.min(PI2, p.garrison / 12 * PI2))
-        g.strokeStyle = P.garrison; g.lineWidth = 2.5; g.stroke()
+      // reticle 四向刻度须：只在高亮（悬停/族链命中）时出现——静息态保持干净
+      // 一环一点（舰长反馈：常驻刻度+驻军弧+战线环三层环语义分不清，做减法）。
+      if (isHl) {
+        for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+          g.beginPath()
+          g.moveTo(s1.x + Math.cos(a) * (rr + 2), s1.y + Math.sin(a) * (rr + 2))
+          g.lineTo(s1.x + Math.cos(a) * (rr + 8), s1.y + Math.sin(a) * (rr + 8))
+          g.strokeStyle = col; g.lineWidth = 1.4; g.stroke()
+        }
       }
+      g.beginPath(); g.arc(s1.x, s1.y, 3.2, 0, PI2); g.fillStyle = col; g.fill()
+      // 驻军弧退役（V19.5）：数字已在铭牌读数「N▸状态」里——盘面少一层环语义。
       // V18.6 战线环 2D 同语言（V15.2 语义）：一星球一环、分段=战线数，环色=
       // 星球身份色（黄金角轮转，与 3D rebuildFrontLines 同式）。
       const fn = frontN.get(p.wsPath) ?? 0
@@ -2375,41 +2509,38 @@ export class WarzoneTactical {
           g.beginPath(); g.arc(s1.x, s1.y, rr + 4.5, a0, a0 + seg - gap); g.stroke()
         }
       }
-      // V18.2 铭文语言与 3D 同源（舰长令：名牌变成星球的一部分）：名字沿星球
-      //  下缘弧排布（环刻），替换上方悬浮直排；达成数标注退役（达成弧+悬停卡
-      //  在场）——盘面保持 元首四可读：星球名/战斗状态/战线环/执行卡。
-      const nm = planetLabelOf(p).split(' ·')[0]!
-      g.font = isHl ? 'bold 13px "Microsoft YaHei",Consolas' : '12px "Microsoft YaHei",Consolas'
-      const suf = p.failing > 0 ? activeCopy().starfield.failSuffix(p.failing) : ''
-      const arcR = rr + 12
-      const arcW = (text: string): number => {
-        let w = 0
-        for (const ch of [...text]) w += g.measureText(ch).width
-        return w
-      }
-      // V18.6：名签与 3D 同语言——星球**上方**外弧（canvas Y 向下，上弧左→右=
-      // 角度自 -π/2-δ 递增，rotate(a+π/2) 头朝外）。
-      const drawArcText = (text: string, color: string, start: number): number => {
-        g.fillStyle = color
-        let a = start
-        for (const ch of [...text]) {
-          const w = g.measureText(ch).width
-          const mid = a + (w / 2) / arcR
-          g.save()
-          g.translate(s1.x + Math.cos(mid) * arcR, s1.y + Math.sin(mid) * arcR)
-          g.rotate(mid + Math.PI / 2)
-          g.textAlign = 'center'; g.textBaseline = 'middle'
-          g.fillText(ch, 0, 0)
-          g.restore()
-          a += w / arcR
-        }
-        return a
-      }
-      let aa = drawArcText(nm, isHl ? P.nameHl : P.name, -Math.PI / 2 - arcW(nm + suf) / arcR / 2)
-      if (suf !== '') drawArcText(suf, '#e5484d', aa)
+      tacPlanets.push({ p, x: s1.x, y: s1.y, col, rr, isHl, alpha: g.globalAlpha })
       hits.push({ x: s1.x, y: s1.y, r: Math.max(rr + 6, 12), ref: p })
       g.globalAlpha = 1
     })
+    // V19.5 引线铭牌 pass（贾维斯索引）：名字/状态从目标环牵出——出环短须→折臂
+    // →水平铭牌（名=状态色等宽字，下挂微型读数「N▸执行中 · ✕1」）。铭牌纯展示
+    // （舰长定案：hover 只认星球本体，文字索引不触发悬停卡）。弧排退役（V18.2 案翻）。
+    const sf = activeCopy().starfield
+    g.font = '11px Consolas,"Microsoft YaHei"'
+    const places = planCallouts(cx, cy, tacPlanets.map(a => ({ id: a.p.wsPath, x: a.x, y: a.y, r: a.rr + 9, w: g.measureText(planetLabelOf(a.p).split(' ·')[0]!).width })), { x0: S.x + 4, x1: S.x + S.w - 4 })
+    for (const a of tacPlanets) {
+      const place = places.get(a.p.wsPath)
+      if (place === undefined) continue
+      const nm = planetLabelOf(a.p).split(' ·')[0]!
+      g.globalAlpha = a.alpha
+      g.beginPath(); g.moveTo(place.p0x, place.p0y); g.lineTo(place.ex, place.ey); g.lineTo(place.lx, place.ly)
+      g.strokeStyle = a.isHl ? P.hl : a.col; g.lineWidth = 1; g.stroke()
+      ;(g as unknown as { letterSpacing?: string }).letterSpacing = '1px'
+      g.font = a.isHl ? 'bold 12px Consolas,"Microsoft YaHei"' : '11px Consolas,"Microsoft YaHei"'
+      g.textAlign = place.align; g.textBaseline = 'middle'
+      g.fillStyle = a.isHl ? P.nameHl : a.col
+      g.fillText(nm, place.tx, place.ly - 6)
+      ;(g as unknown as { letterSpacing?: string }).letterSpacing = '0px'
+      const statusWord = a.p.state === 'active' ? sf.wzStBattle
+        : a.p.state === 'settled' ? sf.wzStHeld
+        : a.p.state === 'failed' ? `✕${a.p.failing > 0 ? a.p.failing : 1}`
+        : sf.wzStWait
+      const read = `${a.p.garrison > 0 ? `${a.p.garrison}▸` : ''}${statusWord}`
+      g.font = '9px Consolas,"Microsoft YaHei"'; g.fillStyle = P.name
+      g.fillText(read, place.tx, place.ly + 7)
+      g.globalAlpha = 1
+    }
     // 编队符号 + 虚线航迹
     squads.forEach(s => {
       // V17 压暗：编队按其目标星球是否命中定暗亮。
@@ -2456,7 +2587,11 @@ export class WarzoneTactical {
       g.fillStyle = P.name
       g.font = '11px Consolas,"Microsoft YaHei"'
       g.textAlign = 'left'; g.textBaseline = 'alphabetic'
-      g.fillText(this.legend, S.x + M + 4, S.y + S.h - M - 6)
+      // critique 复检 P2：图例按「颜色 ｜ 结构 ｜ 动效」三段拆两行——单行 8 概念
+      // 是隐喻自学入口里排最末的视觉件，拆行后每行语义同质。
+      const parts = this.legend.split(' ｜ ')
+      g.fillText(parts[0]!, S.x + M + 4, S.y + S.h - M - 22)
+      if (parts.length > 1) g.fillText(parts.slice(1).join(' ｜ '), S.x + M + 4, S.y + S.h - M - 6)
       g.globalAlpha = 1
     }
   }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { archetypeOf, attemptPhaseOf, clampCam, dampCam, ease, pad2, planetNoise, qbez, warLogOf, warzoneLayoutFor, warzonePlanets, WZ_CAM_DIST_MAX, WZ_CAM_DIST_MIN, WZ_CAM_HOME, WZ_CAM_PITCH_MAX, WZ_CAM_PITCH_MIN, wzCamBounds, wzStatusText } from '../src/client/warzone-scene.ts'
+import { archetypeOf, attemptPhaseOf, clampCam, dampCam, ease, pad2, planetNoise, planCallouts, qbez, truncateForArc, warLogOf, warzoneLayoutFor, warzonePlanets, WZ_CAM_DIST_MAX, WZ_CAM_DIST_MIN, WZ_CAM_HOME, WZ_CAM_PITCH_MAX, WZ_CAM_PITCH_MIN, wzCamBounds, wzStatusText } from '../src/client/warzone-scene.ts'
 
 /** V11.4 warzone demo 移植的纯函数面：星球布局确定性（红线①——同种子恒同貌，
  * SSE 零抖动、探针可断言的根基）+ 贝塞尔航迹几何。 */
@@ -156,4 +156,37 @@ test('审计轮·批次3：wzStatusText 状态 key→词典显示词（英文枚
   assert.equal(wzStatusText('wait', sf), '待进攻')
   assert.equal(wzStatusText('battle', sf), '执行中')
   assert.equal(wzStatusText('held', sf), '已占领')
+})
+
+test('sd 回流：truncateForArc 长名弧排省略号截断（…计入预算绝不超线）', () => {
+  const m = (ch: string): number => ch.codePointAt(0)! % 5 + 1  // 每字 1-5px 确定性宽
+  assert.equal(truncateForArc(m, '短名', 100), '短名', '放得下原样返回')
+  const cut = truncateForArc(m, '很长很长的星球目录名', 20)
+  assert.ok(cut.endsWith('…'), '截断必补省略号')
+  let w = 0
+  for (const ch of [...cut]) w += m(ch)
+  assert.ok(w <= 20, `截断结果绝不超预算（${w}px ≤ 20px）`)
+  assert.equal(truncateForArc(m, '长名', 1), '…', '首字就放不下只留省略号')
+})
+
+test('sd 回流：planCallouts 引线铭牌摆放（侧别朝盘外/同侧堆叠防撞/越界翻侧）', () => {
+  // 右半盘两星：铭牌都在右侧（side=1），纵向堆叠 ≥minGap 不相撞。
+  const places = planCallouts(100, 100, [
+    { id: 'a', x: 140, y: 90, r: 10, w: 30 },
+    { id: 'b', x: 150, y: 94, r: 10, w: 30 },
+  ], { x0: 0, x1: 300 })
+  assert.equal(places.size, 2)
+  const pa = places.get('a')!, pb = places.get('b')!
+  assert.equal(pa.side, 1); assert.equal(pb.side, 1)
+  assert.ok(Math.abs(pa.ly - pb.ly) >= 17 - 1e-9, '同侧铭牌按 minGap 堆叠防撞')
+  assert.equal(pa.align, 'left', '右半盘铭牌文本右起点左对齐（朝盘外伸展）')
+  // 左半盘：侧别翻到 -1，align 翻 right。
+  const pl = planCallouts(100, 100, [{ id: 'l', x: 75, y: 100, r: 10, w: 30 }], { x0: 0, x1: 300 })
+  assert.equal(pl.get('l')!.side, -1)
+  assert.equal(pl.get('l')!.align, 'right')
+  // 右缘越界：铭牌翻侧到星球左侧（align=right），文本不再越出安全区。
+  const pe = planCallouts(0, 100, [{ id: 'e', x: 290, y: 100, r: 8, w: 40 }], { x0: 0, x1: 300 })
+  const qe = pe.get('e')!
+  assert.equal(qe.align, 'right', '越出右界即翻侧')
+  assert.ok(qe.tx - 40 >= 0, '翻侧后文本左缘仍在安全区内')
 })

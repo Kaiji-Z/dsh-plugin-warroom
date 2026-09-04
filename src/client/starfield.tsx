@@ -104,6 +104,22 @@ export function moonPos(planet: PlanetSpec, sessionId: string, slotOffsetRad = 0
   }
 }
 
+/** HQ 恒星位（critique P1-2 根修配套）：galaxyLayout 的 HQ 禁区中心——布局数学
+ * 与禁区判定共用这一个坐标源。 */
+export const HQ_POS = { xPct: 50, yPct: 42 }
+
+/** 未注册工作区的编队挂 HQ 近地轨道（诚实降级：左列在打、星域必须有化身——
+ * 不再因星球缺席被整滴丢弃）。轨道半径略大于行星近地轨（HQ 体积感更大）。 */
+const HQ_MOON_R_PCT = 7
+
+export function hqMoonPos(sessionId: string, slotOffsetRad = 0): { xPct: number; yPct: number } {
+  const a = moonAngleRad(sessionId) + slotOffsetRad
+  return {
+    xPct: +(HQ_POS.xPct + HQ_MOON_R_PCT * Math.cos(a)).toFixed(2),
+    yPct: +(HQ_POS.yPct + HQ_MOON_R_PCT * 0.72 * Math.sin(a)).toFixed(2),
+  }
+}
+
 /** workspace 创建序投影（纯）：按各 workspace 最早任务 startedAt 升序——board
  * 投影没有直接的 workspace 注册表，最早出场顺序是稳定且确定性的替身。 */
 export function workspaceCreationOrder(tasks: ReadonlyArray<Pick<BoardTask, 'workspacePath' | 'startedAt'>>): string[] {
@@ -152,6 +168,25 @@ function isLiveAttempt(a: BoardAttempt): boolean {
 export function planetLabel(wsPath: string): string {
   const seg = wsPath.split(/[\\/]/).filter(Boolean)
   return seg[seg.length - 1] ?? wsPath
+}
+
+/** 星球标签防撞宽（V19 把玩反馈：内环星球近、长名 132px 定宽互相压）。
+ *  返回每星球标签的 max-width（单位 cqw=星域宽 1%，随窗口缩放）：邻球水平
+ *  间距留 3 余量即上限（标签居中，两端各伸一半）；纵向错开 ≥9 的不相压不设限。
+ *  无邻者→不在表（沿用 132px 类上限）。纯函数——tests 管辖。 */
+export function planetLabelCaps(planets: ReadonlyArray<{ wsPath: string; xPct: number; yPct: number }>): Map<string, number> {
+  const caps = new Map<string, number>()
+  for (const a of planets) {
+    let cap: number | null = null
+    for (const b of planets) {
+      if (b.wsPath === a.wsPath) continue
+      if (Math.abs(a.yPct - b.yPct) > 9) continue
+      const gap = Math.abs(a.xPct - b.xPct) - 3
+      cap = cap === null ? gap : Math.min(cap, gap)
+    }
+    if (cap !== null) caps.set(a.wsPath, Math.max(6, Math.min(cap, 12)))
+  }
+  return caps
 }
 
 export interface StarfieldTroop {
@@ -205,6 +240,8 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
   // V13：未分组行星标签词典化（其余行星仍走目录名）。
   const labelOf = (ws: string): string => ws === UNGROUPED_WS_KEY ? (ungroupedLabel ?? '未分组') : planetLabel(ws)
   const posOf = new Map(planets.map(p => [p.spec.wsPath, p.spec] as const))
+  // V19 标签防撞：按邻球间距收紧 max-width（cqw），宽名 CSS 省略号收口（全名在 title）。
+  const labelCaps = planetLabelCaps(planets.map(p => p.spec))
   // V14 点星球看战线（2D 同源）：被点星球 wsPath。
   const maxRing = planets.reduce((m, p) => Math.max(m, p.spec.ring), 0)
   const orbits = []
@@ -263,7 +300,10 @@ export function StarfieldMap(props: StarfieldProps): ReactNode {
         onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanetOpen?.(spec.wsPath) } },
       },
       createElement('span', { className: 'war-planet-ball', 'aria-hidden': 'true' }),
-      createElement('span', { className: 'war-planet-label' }, `${labelOf(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
+      createElement('span', {
+        className: 'war-planet-label',
+        style: labelCaps.get(spec.wsPath) !== undefined ? { maxWidth: `${labelCaps.get(spec.wsPath)}cqw` } : undefined,
+      }, `${labelOf(spec.wsPath)}${garrison.triumphs > 0 ? ` ✓${garrison.triumphs}` : ''}`),
       garrison.orbs.length + garrison.awaiting + garrison.failing > 0
         ? createElement('span', { className: `war-planet-stats${garrison.awaiting > 0 ? ' wait' : ''}${garrison.failing > 0 ? ' fail' : ''}` },
             `${garrison.orbs.length > 0 ? `活跃${garrison.orbs.length}` : ''}${garrison.awaiting > 0 ? ` 待发${garrison.awaiting}` : ''}${garrison.failing > 0 ? ` 败${garrison.failing}` : ''}`.trim())

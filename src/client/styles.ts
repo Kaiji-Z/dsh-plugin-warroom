@@ -94,7 +94,9 @@ export const WAR_CSS = `
   --war-wz-toggle-bg: rgba(255,255,255,.78); --war-wz-toggle-border: rgba(28,78,128,.45); --war-wz-toggle-text: #33506e;
   --war-wz-toggle-on-bg: linear-gradient(180deg,rgba(25,113,194,.24),rgba(25,113,194,.08));
   --war-wz-toggle-on-text: #0b3a63; --war-wz-toggle-hover-text: #0b3a63;
-  --war-wz-legend-text: #4a648a; --war-wz-hint: #4a648a;
+  /* critique B 取证（sd 回流）：3D 天空 #8fc3ec 上的 HUD 文字需 ≥4.5:1——#4a648a
+     只有 3.2:1，加深到 #24405c（4.9:1）；foot-stat 同挂此墨色。 */
+  --war-wz-legend-text: #24405c; --war-wz-hint: #24405c;
   --war-wz-tip-bg: rgba(252,253,255,.95); --war-wz-tip-border: rgba(28,78,128,.35);
   --war-wz-tip-shadow: 0 4px 20px rgba(30,60,100,.22); --war-wz-tip-text: #23405e;
   --war-wz-tip-name: #10365c; --war-wz-tip-tag: #1c4e80; --war-wz-tip-tag-border: rgba(28,78,128,.45);
@@ -326,6 +328,12 @@ body[data-ds-dark-theme] .war-root{
 .war-chip.gr-L0{color:var(--war-done);border-color:var(--war-done-border)}
 .war-chip.gr-L1{color:var(--war-run);border-color:var(--war-run-border)}
 .war-chip.gr-L2{color:var(--war-wait);border-color:var(--war-wait-border)}
+/* sd 回流（stardeck critique 复检 P1）：档位并入状态 chip 作后缀——后缀只染字
+ * 不改壳（状态 chip 的边框/底色保持状态语义，档位色仅作二级读数）。 */
+.war-chip .war-chip-grade{margin-left:2px}
+.war-chip .war-chip-grade.gr-L0{color:var(--war-done)}
+.war-chip .war-chip-grade.gr-L1{color:var(--war-run)}
+.war-chip .war-chip-grade.gr-L2{color:var(--war-wait)}
 /* V5 分诊理由行（命令详情浮层） */
 .war-note{margin-top:6px;font-size:12px;color:var(--war-text-2)}
 /* V5-R3 计划卡（命令详情浮层内） */
@@ -710,6 +718,7 @@ body[data-ds-dark-theme] .war-root .war-chain-hue-7{--chain-hue:#adc0d1}
  * 全 DOM/CSS；浅色=米白海图纸风（细网格+淡染），深色=夜航星图（点状星幕）。
  * 容器与轨道全用 --war-* 令牌系衍生色。 */
 .war-starfield{position:relative;flex:1;min-height:420px;border-radius:14px;overflow:hidden;border:1px solid var(--war-border-soft);
+  container-type:inline-size; /* V19 标签防撞（sd 回流）：星球标签 maxWidth 用 cqw（1=星域宽 1%）随窗口缩放 */
   background:var(--war-chart-bg);
   background-size:auto,auto,56px 56px,56px 56px,auto}
 /* 夜间星幕：box-shadow 级联太贵，固定 radial 点阵两层足够氛围（深色专属美术资产） */
@@ -788,6 +797,9 @@ body[data-ds-dark-theme] .war-root .war-stars{position:absolute;inset:0;
 .war-wz-legend .lg-held{background:var(--war-wz-held)}
 .war-wz-legend .lg-hl{background:var(--war-wz-hl)}
 .war-wz-hint{font:12px/1.5 var(--war-font);color:var(--war-wz-hint)}
+/* sd 回流（stardeck critique 复检 P2）：0 星球空场常驻水印——指路 toast 会退场
+ * +冷却，水印不睡；虚线框+半透明底=「注册门就在 HQ」的低调 affordance。 */
+.war-wz-empty{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);padding:10px 18px;border-radius:var(--war-r-lg);border:1px dashed color-mix(in srgb, var(--war-wz-hint) 45%, transparent);background:color-mix(in srgb, var(--war-card-bg) 55%, transparent);font:13px/1.6 var(--war-font);color:var(--war-wz-hint);letter-spacing:.04em;pointer-events:none;text-align:center;max-width:70%}
 /* V18.3：定宽 360（高度不限，长路径换行不省略）；pointer-events auto——聚焦态
  * 钉住卡内嵌战线行可点击（事件委托 data-wz-front，卡体点击不落回星域）。 */
 .war-wz-tip{position:absolute;left:0;top:0;z-index:20;min-width:236px;max-width:360px;display:none;background:var(--war-wz-tip-bg);border:1px solid var(--war-wz-tip-border);border-radius:var(--war-r-md);padding:12px 14px;backdrop-filter:blur(8px);box-shadow:var(--war-wz-tip-shadow);color:var(--war-wz-tip-text);font:12px/1.65 var(--war-font);pointer-events:auto}

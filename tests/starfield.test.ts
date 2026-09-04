@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { chainHueSlot, deriveContinuation, foldChains, foldDirectives, type Directive } from '../src/directives.ts'
 // 星域布局纯函数——坐标确定性是 V10 的视觉红线（SSE 零抖动）。
-import { galaxyLayout, garrisonOf, hash01, moonPos, planetAngleDeg, planetLabel, workspaceCreationOrder } from '../src/client/starfield.tsx'
+import { galaxyLayout, garrisonOf, hash01, hqMoonPos, moonPos, planetAngleDeg, planetLabel, planetLabelCaps, workspaceCreationOrder } from '../src/client/starfield.tsx'
 
 function chainsFor(dirs: readonly Directive[]) {
   return foldChains(dirs)
@@ -79,4 +79,36 @@ test('星域名与旧链路回归：尾段截取；directives fold 链色槽仍�
   const chains = chainsFor(dirs)
   assert.ok(chainHueSlot(chains.rootByCommand.get('r')!) < 8)
   assert.match((deriveContinuation({ status: 'draft' }, undefined) as { error: string }).error, /大副对话/)
+})
+
+test('sd 回流：planetLabelCaps 标签防撞宽（cqw 上限随邻球间距收紧、纵向错开不设限、钳 6..12）', () => {
+  // 同排（y 差 <9）两星水平距 20：gap=20-3=17 → 钳到上限 12。
+  const two = planetLabelCaps([{ wsPath: '/a', xPct: 30, yPct: 50 }, { wsPath: '/b', xPct: 50, yPct: 52 }])
+  assert.equal(two.get('/a'), 12)
+  assert.equal(two.get('/b'), 12)
+  // 水平距 10：gap=7 → cap 7（两星同此值）。
+  const near = planetLabelCaps([{ wsPath: '/a', xPct: 30, yPct: 50 }, { wsPath: '/b', xPct: 40, yPct: 50 }])
+  assert.equal(near.get('/a'), 7)
+  assert.equal(near.get('/b'), 7)
+  // 极近（gap<6 钳下限）：水平距 5 → gap=2 → 钳 6。
+  const closest = planetLabelCaps([{ wsPath: '/a', xPct: 30, yPct: 50 }, { wsPath: '/b', xPct: 35, yPct: 51 }])
+  assert.equal(closest.get('/a'), 6)
+  // 纵向错开 ≥9：不相压不设限（不在表）。
+  const spread = planetLabelCaps([{ wsPath: '/a', xPct: 30, yPct: 30 }, { wsPath: '/b', xPct: 32, yPct: 45 }])
+  assert.equal(spread.size, 0)
+  // 孤星无邻者：不在表（沿用 132px 类上限）。
+  assert.equal(planetLabelCaps([{ wsPath: '/a', xPct: 50, yPct: 50 }]).size, 0)
+})
+
+test('sd 回流：hqMoonPos 未注册编队挂 HQ 近地轨道（确定性同 session 同位）', () => {
+  const p1 = hqMoonPos('sess-1')
+  const p2 = hqMoonPos('sess-1')
+  assert.deepEqual(p1, p2, '同会话恒同位（SSE 零抖动红线）')
+  // 轨道半径 7%（HQ_MOON_R_PCT）：到 HQ_POS 的椭圆距离半径在 [5.0, 7] 域（0.72 纵向压缩）。
+  const dx = p1.xPct - 50, dy = p1.yPct - 42
+  const rNorm = Math.hypot(dx, 7 / 5.04 * dy * 0.72)
+  assert.ok(dx !== 0 || dy !== 0, '光点不落在 HQ 正中心')
+  assert.ok(Math.abs(Math.hypot(dx, dy / 0.72)) <= 7 + 1e-9, '椭圆半径不超 7%')
+  const p3 = hqMoonPos('sess-2', Math.PI / 3)
+  assert.notDeepEqual(p1, p3, '槽位偏移改相位（同星多活体避让）')
 })
