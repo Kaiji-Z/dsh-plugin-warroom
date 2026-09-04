@@ -2659,6 +2659,27 @@ export function warView(services: ClientServicesFace): () => ReactNode {
       const tier = wsTierTab(ws)
       setCmdTabPreview(tier !== null && tier !== cmdTabShown() ? tier : null)
     }
+    // V19.5 回流·聚焦滚动：星球点击聚焦后，族卡（坞命令卡/任务卡/回报卡）滚入视界。
+    // 页签 commit 切换后卡常在折叠线下——管线锚点解析有 ±60px 视界带（pipe-overlay
+    // edgePort），卡不在场=端口 null=管线消失；滚动同时修复锚与「高亮卡在哪」。
+    // 双 rAF 等页签切片的重渲染落 DOM；组面板内的同名卡不滚（与管线锚同过滤）。
+    const scrollFamilyIntoView = (commandId: string): void => {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const c = commands.find(cc => cc.commandId === commandId)
+        if (c === undefined) return
+        const chain = chainOf(c)
+        const inPanel = (el: Element): boolean => el.closest('.war-group-panel') !== null
+        const scroll = (sel: string): void => {
+          const el = Array.from(document.querySelectorAll(sel)).find(e => !inPanel(e))
+          el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+        }
+        scroll(`[data-pipe-cmd="${CSS.escape(commandId)}"]`)
+        const head = chain[0]
+        if (head !== undefined) scroll(`[data-pipe-task="${CSS.escape(head.taskId)}"]`)
+        const settledA = chain.flatMap(t => (t.attemptLog ?? []).filter(x => x.outcome !== null && x.endedAt !== null).map(x => x.sessionId)).slice(-1)[0]
+        if (settledA !== undefined) scroll(`[data-pipe-sess="${CSS.escape(settledA)}"]`)
+      }))
+    }
     // V17 族系管网：每条在档战线一根管——锚=命令卡(坞)/任务卡/执行卡/回报卡；
     // stage=生命条 now 段（流动只跑到当前战况位）。activeRoot=hover/聚焦族的根。
     const stageIndexOf = (c: BoardCommand): number => {
@@ -2872,14 +2893,25 @@ export function warView(services: ClientServicesFace): () => ReactNode {
                 onPlanetClick: ws => {
                   const c = cmdIdForWs(ws)
                   if (c === null) return
-                  // V10.1 舰长定：再点同星球=退出粘性聚焦；点击星球同时粘住档位预览
-                  //（聚焦在、预览在；手动切页签/点空处即收回）。toggle 经 focusRef
-                  // 读现值——本 handler 是首帧闭包（见 focusRef 注）。
+                  // V10.1 舰长定：再点同星球=退出粘性聚焦。toggle 经 focusRef 读
+                  // 现值——本 handler 是首帧闭包（见 focusRef 注）。
+                  // V19.5 回流：点击聚焦=**真切换页签**（commit，非 hover 瞬时预览）
+                  // ——首版只 applyTabPreview：悬停已把 shown 切到档位，点击落定时
+                  // tier===shown → 预览自清 → 板面弹回原页签 → 高亮卡不在场、
+                  // 管线锚出视界带整族消失。commit 后重粘 planetPreviewWs
+                  // （setCmdTab 会清场，顺序故意在其后）。
                   const next = focusRef.current === c ? null : c
                   focusRef.current = next
                   setFocusCommandId(next)
-                  planetPreviewWs = next === null ? null : ws
-                  applyTabPreview(next === null ? null : ws)
+                  if (next === null) {
+                    planetPreviewWs = null
+                    applyTabPreview(null)
+                  } else {
+                    const tier = wsTierTab(ws)
+                    if (tier !== null && tier !== cmdTabShown()) setCmdTab(tier)
+                    planetPreviewWs = ws
+                    scrollFamilyIntoView(next)
+                  }
                 },
                 onVoidClick: () => { setFocusCommandId(null); planetPreviewWs = null; setCmdTabPreview(null) },
                 onHqClick: () => {
@@ -3036,7 +3068,6 @@ export function warView(services: ClientServicesFace): () => ReactNode {
           ),
         ),
       hqPickerOpen ? createElement(HqWorkspacePicker, { key: 'hqpicker', registered: registeredPlanets, onClose: () => { setHqPickerOpen(false) }, onRegistered: refresh }) : null,
-      composerOpen ? createElement(CommandComposer, { key: 'composer', fronts: frontChoices, initialContinueId: continueSeed, initialBattlefield: continueSeed !== null ? cmdFront.get(continueSeed)?.battlefield ?? null : null, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       detailCommand !== undefined ? createElement(FocusPage, {
         key: `cmd-${detailCommand.commandId}`,
         cmd: detailCommand,
@@ -3068,6 +3099,10 @@ export function warView(services: ClientServicesFace): () => ReactNode {
         onReportSeen: () => { setReportSeenRev(x => x + 1) },
         onJumpMiss: () => { setActionError(activeCopy().actions.jumpMissHint) },
       }) : null,
+      // critique 回流实抓（下续战令被聚焦页遮住）：composer 必须渲染在 FocusPage
+      // 之后——两弹窗同用 .war-modal-backdrop（z-index 9000），同 z 时 DOM 靠后
+      // 者在上；「下续战令」正是聚焦页里开 composer 的路径。
+      composerOpen ? createElement(CommandComposer, { key: 'composer', fronts: frontChoices, initialContinueId: continueSeed, initialBattlefield: continueSeed !== null ? cmdFront.get(continueSeed)?.battlefield ?? null : null, battlefields: bfChoices, onClose: () => { setComposerOpen(false); setContinueSeed(null) }, refresh }) : null,
       settingsOpen ? createElement(SettingsDrawer, {
         key: 'settings',
         onClose: () => { setSettingsOpen(false) },

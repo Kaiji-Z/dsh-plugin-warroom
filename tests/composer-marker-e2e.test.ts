@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { appendDirectiveEvent, loadDirectives, overrideMarkerOf, readDirectiveEvents, type DirectiveEvent } from '../src/directives.ts'
+import { listCampaignIds } from '../src/events.ts'
 import { directiveProjection, registerDashboard, type RouteRegistry } from '../src/dashboard.ts'
 import { readFeatureFlags, type FeatureFlags } from '../src/flags.ts'
 import { warTools, type SubagentsServiceFace } from '../src/tools.ts'
@@ -230,6 +231,25 @@ test('取证⑥（任务 218b 验收②态）：同一草稿切档 ??→!!——
     // 双方 overrideMarkerOf 判档互不串扰：?? 版强制 L2、!! 版强制 L0（directives.ts:24-28）。
     assert.deepEqual(overrideMarkerOf(created1.text), { grade: 'L2', marker: '??' })
     assert.deepEqual(overrideMarkerOf(created2.text), { grade: 'L0', marker: '!!' })
+  } finally {
+    srv.dispose()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('V19.5 回流·war_publish 硬门②：缺 commandId 直接拒收（孤儿任务=哨位误判未发布而重复补发的根因）', async () => {
+  const dir = tmpDir()
+  const srv = fakeServer(dir)
+  try {
+    const resp = JSON.parse(await srv.post('/warroom/api/commands', { text: '无主命令原文' })) as { ok: boolean; commandId: string }
+    appendDirectiveEvent(dir, { type: 'directive_received', ts: 't1', directiveId: resp.commandId, staffSessionId: 'sec-1' })
+    const deps = makeDeps(dir, FLAG_ON)
+    await assert.rejects(
+      execTool(deps, 'war_publish', { title: '无主任务书', brief: '不带 commandId 的任务书正文', acceptance: '任意可判定项' }),
+      /invalid arguments[\s\S]*commandId/,
+    )
+    // 账本零污染：拒收后无任务落栏（campaigns 目录无新链）。
+    assert.equal(listCampaignIds(dir).length, 0, '拒收即零账本写入')
   } finally {
     srv.dispose()
     rmSync(dir, { recursive: true, force: true })

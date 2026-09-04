@@ -398,7 +398,7 @@ export function warTools(deps: WarToolsDeps) {
       cron: { type: 'string', description: '日常任务令的 cron 表达式（5 段，如 "0 9 * * *" 每天 9 点）：到点自动重开一轮；错过不补跑。' },
       repo: { type: 'string', description: '源码仓库路径（git checkout）；声明则任务工作区为其 worktree，省略则普通目录。仅当未指定 workspace 时生效。' },
       workspace: { type: 'string', description: '任务绑定的现有工作区绝对路径（同工作区任务排队执行、跨工作区并行执行）；或 "@new:<名字>" 新开一个带 git 的副本目录；省略则自动建隔离任务目录。' },
-      commandId: { type: 'string', description: '本任务书来源的命令 id（命令区卡片编号）——发布后命令卡会标记已批准并链接到本任务。' },
+      commandId: { type: 'string', required: true, description: '本任务书来源的命令 id（命令区卡片编号，必填）——发布后命令卡标记已批准并链接到本任务。不带 commandId 的发布会成为孤儿任务（命令卡不知情、哨位会误判命令未发布而重复补发），工具直接拒收。' },
     },
     output: {
       schema: {
