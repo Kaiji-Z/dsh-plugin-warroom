@@ -16,6 +16,8 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-09-04
+
 ### Added
 - **stardeck 回流·批5（中英双语 i18n）** —— 自 stardeck 2026-09-02「支持多语言」定案回流：①copy.ts 新增**语言正交轴**（`LangId='zh'|'en'` / `setLang` / `langId` / `subscribeLang` 与皮肤共用监听集，`activeCopy()` 先按皮肤取典再按语言换库，localStorage `warroom-lang` 持久；`trekifyCopy` 词表参数化——EN trek=军事英典过 EN 词表，与中文侧同机制派生）；②新 `src/client/copy-en.ts`（enWarCopy/enPlainCopy 逐键英译+EN_TREK_LEXICON 词表；以本仓审计轮正典词面为锚、stardeck 参考版过滤掉本仓未回流特性键后重衍——键形机测锁死缺键/多键/叶型不符即 FAIL，不许静默回落中文；边界：i18n 只覆盖板 UI 措辞，账本与提示词资产保持中文 agent 面正典）；③设置抽屉新增「语言 / Language」段（中文/English 两选项钮，切换即时全板换库不刷新）；views 两订阅点补 `subscribeLang` 轴（ WarView/WarDockPill）。取证：tests/copy-lang.test.ts 六测（键形对齐×2/换库行为/EN trek 派生/语言键四键/正典词面不被侵蚀）；DOM 探针 5/5（EN war 标题/中文钮全板活切/persist/无 pageerror）；EN 全板截图 .goal/evidence/sd-backport/b5-en.png 肉眼复核（UI 全英、账本内容保持中文）。verify 311 测 PASS + 新针脚 warroom-lang。
 - **stardeck 回流·批4（--war-fs 字体缩放）** —— 自 stardeck V19 回流：设置抽屉新「字体大小」滑杆（85%–135%，步进 0.05，实时倍率读数+重置钮，localStorage `warroom-cfg-zoom` 持久）；`--war-fs` CSS 变量基值挂 `.war-root`（views 根内联注入，React 自定义属性无空格写法）+ styles.ts 全量字号换血——155 处 font-size 与 26 处 px 行高改 `calc(Npx*var(--war-fs))`（`font-size:0` 语义技巧与无单位行高、canvas HUD `font:` 简写随 stardeck 口径保持原样），布局尺寸一律不动、文字原盒内换行适应；verify 增两针脚（基值+calc 形态）锁机制。取证：war-tokens 全套机测仍绿（令牌架构零扰动）；DOM 探针 7/7（scripts/probe-sd-b4.py：持久化读取→内联变量→计算字号 16.8px=14×1.2、滑杆拖动回写、重置）；×1.35 截图 .goal/evidence/sd-backport/b4-zoom-135.png 肉眼复核（字号全面放大、布局不变形）。verify 305 测 PASS。
