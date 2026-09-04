@@ -16,6 +16,9 @@ package.json 落地时去 v 前缀（`0.18.9-6`，semver 预发布段承载刀�
 
 ## [Unreleased]
 
+### Added
+- **stardeck 回流·批2（战报可读性包：md-lite 铺面 + 产物板内预览）** —— ①新纯函数层 `src/client/report-face.ts`（零 DOM 零词典：looksLikeFilePath 路径判定含版本号假阳性收紧/splitInline 行内切词/parseMd markdown-lite 块解析「宁拙勿崩」/pinFinalMessage 随件保留），tests/report-face.test.ts 四测锁定；②dashboard 新增 `GET /warroom/api/workspace/file`（workspaceFileGuardError 双重限界守卫：ws 限 war_root 内+name 限相对路径，穿越/绝对路径/跨任务全拒；512KB 封顶+首 1KB NUL 二进制嗅探）与 `POST /warroom/api/workspace/reveal`（本机资源管理器，账本零改动）——守卫四拒/封顶/二进制机测入 dashboard-routes；③views 四位点 md 铺面：任务卡计划/任务书（路径链化到该任务工作区预览）、空链呈批计划、决策带计划原文速览（details 常驻可展开，planPeek 词典键）+ 战报正文 reportBody 渲染；④产物板内预览弹窗 ArtifactPreviewModal（md 走 reportBody、文本 pre 直出、二进制给指路）+ files 交付物逐文件可点 chip；⑤词典 focusPage 增 8 键（preview*/lootFileTitle，三皮肤派生随词表）。DOM 取证：决策带/任务卡两表面 .war-md 结构渲染通过、端点线上守卫生效（截图 .goal/evidence/sd-backport/）。verify 301 测 PASS。
+
 ### Fixed
 - **stardeck 回流·批1（三 bug 药 + 战报纪律进正典）** —— 自 stardeck V19/V19.5 回流四件：①**war_publish commandId 改必填**（孤儿任务=哨位误判命令未发布而重复补发的根因——缺参被工具参数校验直接拒收，测试断言拒收+账本零写入）；②**composer 移到 FocusPage 之后渲染**（两弹窗同用 .war-modal-backdrop 同 z——DOM 靠后者在上，聚焦页里「下续战令」开起草器此前会被盖住）；③**星球点击聚焦改页签 commit**（此前只 applyTabPreview 瞬时预览：点击落定时 tier===shown → 预览自清 → 板面弹回原页签 → 高亮卡卸载、管线消失；改真切换+重粘 planetPreviewWs+新增 scrollFamilyIntoView 双 rAF 滚族卡入视界修复管线锚）；④**战报纪律进 relayPromptFor 两通道**（base+分诊块：「战报=给舰长的最终答复：首句直接回答任务的问题，关键发现列点，产物逐一给相对路径，不复述执行过程」——大副写进任务书验收区，外勤照此交卷）；AGENTS 坑录补执行者工具通道环境坑（zcode 无头不加载 .mcp.json/控制台 curl GBK 乱码）。verify 296 测 PASS（快照门重生成随批）。
 

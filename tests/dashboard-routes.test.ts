@@ -4,7 +4,7 @@
  * 扇出，此前零专测。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -259,5 +259,56 @@ test('件④: planets POST 空/假路径 400，真目录注册 200', async () =>
     dispose()
     rmSync(dir, { recursive: true, force: true })
     rmSync(realDir, { recursive: true, force: true })
+  }
+})
+
+test('V19 回流·workspace/file+reveal 只读端点：守卫四拒/封顶/二进制嗅探/直读', async () => {
+  const warRoot = mkdtempSync(join(tmpdir(), 'warroom-wsroot-'))
+  const ws = join(warRoot, 'task-a')
+  mkdirSync(ws, { recursive: true })
+  writeFileSync(join(ws, 'ok.md'), '# 标题\n\n正文一段。', 'utf8')
+  writeFileSync(join(ws, 'bin.dat'), Buffer.concat([Buffer.alloc(10), Buffer.from([0]), Buffer.from('rest')]))
+  writeFileSync(join(ws, 'big.log'), 'x'.repeat(512 * 1024 + 1), 'utf8')
+  const outside = mkdtempSync(join(tmpdir(), 'warroom-outside-'))
+  const h = makeHandler({ warRoot })
+  try {
+    const get = (wsQ: string, nameQ: string): Promise<{ code: number; body: any }> =>
+      call(h.handler, { method: 'GET', url: `/warroom/api/workspace/file?ws=${encodeURIComponent(wsQ)}&name=${encodeURIComponent(nameQ)}` })
+    const ok = await get(ws, 'ok.md')
+    assert.equal(ok.body.ok, true)
+    assert.equal(ok.body.binary, false)
+    assert.match(ok.body.content, /# 标题/)
+    // 守卫四拒：穿越/绝对路径/ws 越界/缺参（harness 口径：语义断 body，code 恒 200）。
+    const trav = await get(ws, '../x.md')
+    assert.equal(trav.body.ok, false)
+    assert.match(trav.body.error, /穿越/)
+    const abs = await get(ws, 'C:/x.md')
+    assert.equal(abs.body.ok, false)
+    assert.match(abs.body.error, /穿越/)
+    const out = await get(outside, 'ok.md')
+    assert.equal(out.body.ok, false)
+    assert.match(out.body.error, /war_root/)
+    const missing = await get(ws, 'absent.md')
+    assert.equal(missing.body.ok, false)
+    assert.match(missing.body.error, /不存在/)
+    // 封顶：>512KB。
+    const big = await get(ws, 'big.log')
+    assert.equal(big.body.ok, false)
+    assert.match(big.body.error, /512KB/)
+    // 二进制嗅探：首 1KB 含 NUL → binary=true 且 content 空。
+    const bin = await get(ws, 'bin.dat')
+    assert.equal(bin.body.binary, true)
+    assert.equal(bin.body.content, '')
+    // reveal 守卫：ws 越界拒（不真开资源管理器——只测拒绝面）。
+    let revBody = ''
+    const revRes = { setHeader: () => {}, write: () => true, end: (b?: string) => { revBody = b ?? '' }, on: () => {} }
+    await h.handler(postReq('/warroom/api/workspace/reveal', { ws: outside, name: '' }), revRes)
+    const revOut = { body: JSON.parse(revBody) }
+    assert.equal(revOut.body.ok, false)
+    assert.match(revOut.body.error, /war_root/)
+  } finally {
+    h.dispose()
+    rmSync(warRoot, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
   }
 })

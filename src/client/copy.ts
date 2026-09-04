@@ -129,6 +129,8 @@ export interface WarCopy {
     terminalCancelled: string
     terminalSettled: string
     planHint: string
+    /** V19 铺面回流：决策带计划原文速览（details summary）。 */
+    planPeek: string
     clarifyHint: string
     clarifyBtn: string
     reviewHint: string
@@ -319,6 +321,15 @@ export interface WarCopy {
     acceptanceMissing: string
     /** V9.10 战报展开收菜三件：战利品+历次作战+待发落动作（V9.12 正名复用 taskCard.handleReview/handleRetry）。 */
     lootLabel: string
+    /** V19 战报可读性回流：产物板内预览（file/reveal 端点的客户端词面）。 */
+    previewTitle: (name: string) => string
+    previewOpen: string
+    previewOpenDone: string
+    previewOpenFail: string
+    previewBinary: string
+    previewEmpty: string
+    previewFail: string
+    lootFileTitle: string
     attemptsSection: string
     /** V9.10 配置展开的改档出口标签。 */
     configRegrade: string
@@ -487,6 +498,7 @@ export const warCopy: WarCopy = {
     terminalCancelled: '已取消——此命令已终局，不再推进',
     terminalSettled: '已收官——全线终局，无需你动作',
     planHint: '参谋呈了计划，批准即放权（夜间无人值守照常执行）',
+    planPeek: '计划原文',
     clarifyHint: '参谋在等你的回答',
     clarifyBtn: '进入参谋对话',
     reviewHint: '战报已核验，等你翻阅收官',
@@ -799,6 +811,14 @@ export const warCopy: WarCopy = {
     briefMissing: '（参谋未附任务书正文）',
     acceptanceMissing: '（未声明）',
     lootLabel: '战利品',
+    previewTitle: name => `产物预览 · ${name}`,
+    previewOpen: '打开所在文件夹',
+    previewOpenDone: '已在资源管理器中打开。',
+    previewOpenFail: '打开目录失败（服务日志有详情）。',
+    previewBinary: '该文件不是文本，无法板内预览——用「打开所在文件夹」查看。',
+    previewEmpty: '（空文件）',
+    previewFail: '产物调取失败：',
+    lootFileTitle: '点击板内预览该产物',
     attemptsSection: '历次作战',
     battleLive: n => `${n} 场作战进行中`,
     battleDone: '已执行完成——没有正在进行的会话',
@@ -975,6 +995,7 @@ export const plainCopy: WarCopy = {
     terminalCancelled: '已取消——这条命令结束了，不再推进',
     terminalSettled: '已完成——全部结束，不用你管',
     planHint: '规划 Agent 给了方案，点头就照做（夜里也不停）',
+    planPeek: '方案原文',
     clarifyHint: '规划 Agent 在等你回话',
     clarifyBtn: '去对话',
     reviewHint: '结果已核好，等你过目',
@@ -1286,6 +1307,14 @@ export const plainCopy: WarCopy = {
     briefMissing: '（规划 Agent 没附任务说明）',
     acceptanceMissing: '（未声明）',
     lootLabel: '交付',
+    previewTitle: name => `预览 · ${name}`,
+    previewOpen: '打开所在文件夹',
+    previewOpenDone: '已在资源管理器中打开。',
+    previewOpenFail: '打开目录失败（日志有详情）。',
+    previewBinary: '不是文本文件，没法在这里预览——用「打开所在文件夹」看。',
+    previewEmpty: '（空文件）',
+    previewFail: '文件调取失败：',
+    lootFileTitle: '点开预览这个文件',
     attemptsSection: '历次执行',
     battleLive: n => `${n} 个执行进行中`,
     battleDone: '已执行完成——没有正在进行的会话',

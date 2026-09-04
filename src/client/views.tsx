@@ -21,6 +21,7 @@ import { applyBattlefieldMarker, applyGradeMarker, displayTitleOf, stalledOnUser
 import { galaxyLayout, garrisonOf, moonPos, StarfieldMap, workspaceCreationOrder } from './starfield.tsx'
 import { Warzone } from './starfield3d.tsx'
 import { attemptPhaseOf, warLogOf, type WzBridgePlanet, type WzBridgeSquad, type WzLogFeedItem, type WzFrontNode } from './warzone-scene.ts'
+import { looksLikeFilePath, parseMd, splitInline } from './report-face.ts'
 import { commandTasks, frontsOf, frontOfTaskMap, greedyRootHues, wsKeyOf, UNGROUPED_WS_KEY, type WarFront, type WzBridgeFrontLite } from './front.ts'
 import { warLogKindColor } from './war-tokens.ts'
 import { PipeOverlay, type PipeFamily, type PipeStop } from './pipe-overlay.tsx'
@@ -965,6 +966,84 @@ function ArchiveRow(props: { chain: BoardTask[]; cmd: BoardCommand; onArchive: (
   )
 }
 
+/** V19 战报可读性回流（stardeck 铺面轮）：md-lite 渲染薄壳——标题/列点/代码/
+ *  引用结构化，路径 token 链化到板内预览（命令级面无任务工作区——onOpenFile
+ *  缺席时路径只给代码样式不链化）。解析本体在 report-face.ts（纯函数）。 */
+function reportBody(text: string, onOpenFile?: (name: string) => void): ReactNode {
+  const pathNode = (v: string, key: string): ReactNode =>
+    onOpenFile !== undefined
+      ? createElement('button', { key, className: 'war-md-path', type: 'button', title: activeCopy().focusPage.lootFileTitle, onClick: () => { onOpenFile(v) } }, v)
+      : createElement('code', { key }, v)
+  const inline = (s: string, keyBase: string): ReactNode[] => splitInline(s).map((t, i) => {
+    const key = `${keyBase}-${i}`
+    if (t.t === 'code') return looksLikeFilePath(t.v) ? pathNode(t.v, key) : createElement('code', { key }, t.v)
+    if (t.t === 'bold') return createElement('strong', { key }, t.v)
+    if (t.t === 'path') return pathNode(t.v, key)
+    return t.v
+  })
+  return createElement('div', { className: 'war-md' },
+    ...parseMd(text).map((b, i) => {
+      const key = `b-${i}`
+      switch (b.kind) {
+        case 'h': return createElement('div', { key, className: `war-md-h war-md-h${b.level}` }, ...inline(b.text, key))
+        case 'p': return createElement('p', { key, className: 'war-md-p' }, ...inline(b.text, key))
+        case 'ul': return createElement('ul', { key, className: 'war-md-ul' }, ...b.items.map((it, j) => createElement('li', { key: `${key}-${j}` }, ...inline(it, `${key}-${j}`))))
+        case 'ol': return createElement('ol', { key, className: 'war-md-ol' }, ...b.items.map((it, j) => createElement('li', { key: `${key}-${j}` }, ...inline(it, `${key}-${j}`))))
+        case 'code': return createElement('pre', { key, className: 'war-md-code' }, b.text)
+        case 'quote': return createElement('blockquote', { key, className: 'war-md-quote' }, ...inline(b.text, key))
+      }
+    }),
+  )
+}
+
+/** V19 腿2 产物板内预览弹窗：只读调 workspace/file 端点（war_root 限界在服务侧），
+ *  md 产物走 reportBody 渲染、其余文本 pre 直出、二进制给指路文案；
+ *  「打开所在文件夹」走 reveal 端点（本机资源管理器，账本零改动）。 */
+function ArtifactPreviewModal(props: { ws: string; name: string; onClose: () => void }): ReactNode {
+  const { ws, name, onClose } = props
+  const fp = activeCopy().focusPage
+  const title = fp.previewTitle(name)
+  const layer = useModalLayer(onClose, title)
+  const [state, setState] = useState<{ phase: 'busy' } | { phase: 'err'; msg: string } | { phase: 'binary' } | { phase: 'empty' } | { phase: 'ok'; content: string }>({ phase: 'busy' })
+  const [revealNote, setRevealNote] = useState('')
+  useEffect(() => {
+    setState({ phase: 'busy' })
+    fetch(`/warroom/api/workspace/file?ws=${encodeURIComponent(ws)}&name=${encodeURIComponent(name)}`)
+      .then(async r => (await r.json()) as { ok?: boolean; error?: string; binary?: boolean; content?: string })
+      .then(out => {
+        if (out.ok !== true) setState({ phase: 'err', msg: out.error ?? 'unknown' })
+        else if (out.binary === true) setState({ phase: 'binary' })
+        else if ((out.content ?? '') === '') setState({ phase: 'empty' })
+        else setState({ phase: 'ok', content: out.content! })
+      })
+      .catch(() => setState({ phase: 'err', msg: 'fetch failed' }))
+  }, [ws, name])
+  const reveal = (): void => {
+    fetch('/warroom/api/workspace/reveal', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ws, name }) })
+      .then(async r => (await r.json()) as { ok?: boolean })
+      .then(out => { setRevealNote(out.ok === true ? fp.previewOpenDone : fp.previewOpenFail) })
+      .catch(() => { setRevealNote(fp.previewOpenFail) })
+  }
+  return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
+    createElement('div', { className: 'war-modal war-preview-modal', role: 'dialog', 'aria-label': title, onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
+      createElement('div', { className: 'war-preview-head' },
+        createElement('div', { className: 'war-modal-title' }, title),
+        createElement('button', { type: 'button', className: 'war-btn', onClick: reveal }, fp.previewOpen),
+        createElement('button', { type: 'button', className: 'war-hq-picker-x', 'aria-label': activeCopy().settings.close, autoFocus: true, onClick: onClose }, '✕'),
+      ),
+      revealNote !== '' ? createElement('p', { className: 'war-hq-picker-hint', role: 'status' }, revealNote) : null,
+      createElement('div', { className: 'war-preview-body', 'data-war-preview': name },
+        state.phase === 'busy' ? createElement('p', { className: 'war-hq-picker-hint' }, '…')
+        : state.phase === 'err' ? createElement('p', { className: 'war-hq-picker-err' }, `${fp.previewFail}${state.msg}`)
+        : state.phase === 'binary' ? createElement('p', { className: 'war-hq-picker-hint' }, fp.previewBinary)
+        : state.phase === 'empty' ? createElement('p', { className: 'war-hq-picker-hint' }, fp.previewEmpty)
+        : /\.(md|markdown)$/i.test(name) ? reportBody(state.content)
+        : createElement('pre', { className: 'war-md-code' }, state.content),
+      ),
+    ),
+  )
+}
+
 /** V9.9 聚焦页（舰长定案）：主界面是所有卡片的全生命周期监控版；这里是一条
  * 命令的全生命周期聚焦导览——把主界面的卡片拉进这个窗口。四段各放真实在场
  * 的卡（①命令卡 / ②任务卡按链全列 / ③执行卡=仅进行中的会话 / ④任务回报卡），
@@ -979,6 +1058,8 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   // 卡下原地展开的子详情（同卡再点收起；换卡即切换）：命令配置 / 某任务卡下的
   // 计划+任务书（空链 ghost 卡用 '' 占位 taskId）/ 任务回报结论。
   const [open, setOpen] = useState<{ kind: 'config' } | { kind: 'plan'; taskId: string } | { kind: 'report' } | null>(null)
+  // V19 腿2：产物板内预览（ws+相对路径 → ArtifactPreviewModal）。
+  const [preview, setPreview] = useState<{ ws: string; name: string } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   // 分段直达：打开即滚到需要舰长定夺的环节（plan/chain→任务段，report→任务回报段）。
   useEffect(() => {
@@ -1136,7 +1217,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
       return createElement('div', { key, className: 'war-subdetail' },
         createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[(cmd.plan as { status: 'pending' | 'approved' | 'rejected' }).status]}）`),
         pending ? createElement('div', { className: 'war-sub-value' }, fp.planPending) : null,
-        createElement('div', { className: 'war-sub-value war-plan-body' }, (cmd.plan as { text: string }).text),
+        createElement('div', { className: 'war-sub-value war-plan-body' }, reportBody((cmd.plan as { text: string }).text)),
         pending
           ? subActions([
             createElement('button', { key: 'ap', className: 'war-btn primary', title: copy.planIrreversible, onClick: () => { onDecidePlan('approve') } }, copy.approvePlan),
@@ -1174,14 +1255,19 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
   }
   // 链上任务卡的展开（V9.10 补全）：命令级最终计划（若有）+ 该环任务书 + 验收
   // 标准；reported/failed 环给「去验收/去下重试令」直达大副会话（与主界面任务卡同动作）。
-  const taskPanel = (t: BoardTask, key?: string): ReactNode => createElement('div', { key, className: 'war-subdetail' },
+  const taskPanel = (t: BoardTask, key?: string): ReactNode => {
+    // V19 铺面回流：任务级两位点（计划/任务书）路径链化到该任务工作区的板内预览。
+    const taskFileLink = t.workspacePath !== null && t.workspacePath !== ''
+      ? (n: string): void => { setPreview({ ws: t.workspacePath!, name: n }) }
+      : undefined
+    return createElement('div', { key, className: 'war-subdetail' },
     cmd.plan !== null
       ? createElement('div', { className: 'war-subdetail-title' }, `${fp.planTitle}（${copy.planTitle[cmd.plan.status]}）`)
       : null,
     cmd.plan !== null
-      ? createElement('div', { className: 'war-sub-value war-plan-body' }, cmd.plan.text)
+      ? createElement('div', { className: 'war-sub-value war-plan-body' }, reportBody(cmd.plan.text, taskFileLink))
       : null,
-    subRow(fp.taskBrief, t.brief !== '' ? t.brief : fp.briefMissing),
+    subRow(fp.taskBrief, t.brief !== '' ? reportBody(t.brief, taskFileLink) : fp.briefMissing),
     subRow(fp.taskAcceptance, t.acceptance !== '' ? t.acceptance : fp.acceptanceMissing),
     (t.status === 'reported' || t.status === 'failed') && staffTarget !== null
       ? subActions([createElement('button', {
@@ -1190,7 +1276,8 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           onClick: () => { jumpSession(staffTarget) },
         }, t.status === 'failed' ? activeCopy().taskCard.handleRetry : activeCopy().taskCard.handleReview)])
       : null,
-  )
+    )
+  }
   return createElement('div', { className: 'war-modal-backdrop', onClick: onClose },
     createElement('div', { className: 'war-modal wide war-cd-modal', onClick: e => e.stopPropagation(), ref: layer.ref, ...layer.props },
       // V9.9：footer 收编为两颗会话跳钮，窗口关闭走右上 ✕（+Esc+点背板）。
@@ -1233,6 +1320,12 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           ? createElement('div', { className: 'war-cd-band-in' },
             createElement('span', { className: 'war-cd-band-tag' }, `⚠ ${band.title}`),
             createElement('span', { className: 'war-cd-band-hint' }, band.planHint),
+            // V19 铺面回流：批计划的依据就地可读——计划原文随决策带常驻（限高
+            // 可展开；命令级面无任务工作区——路径不链化）。
+            cmd.plan !== null ? createElement('details', { className: 'war-cd-band-plan' },
+              createElement('summary', null, band.planPeek),
+              createElement('div', { className: 'war-plan-body' }, reportBody((cmd.plan as { text: string }).text)),
+            ) : null,
             createElement('span', { className: 'war-cd-band-actions' },
               createElement('button', { className: 'war-btn primary', title: copy.planIrreversible, onClick: () => onDecidePlan('approve') }, copy.approvePlan),
               createElement('button', { className: 'war-btn', onClick: () => onDecidePlan('reject') }, copy.rejectPlan),
@@ -1386,13 +1479,28 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
               open !== null && open.kind === 'report'
                 ? createElement('div', { className: 'war-subdetail' },
                   verdictTask !== undefined && verdictTask.closedVerdict !== null ? subRow(fp.reportVerdict, verdictTask.closedVerdict) : null,
-                  lastReport !== undefined ? subRow(fp.reportLatest, `${detailCopy.reportPrefix(relTime(lastReport.r.ts))}${lastReport.r.text}`) : null,
+                  lastReport !== undefined ? subRow(fp.reportLatest, createElement('span', null,
+                    createElement('span', { className: 'war-report-time' }, detailCopy.reportPrefix(relTime(lastReport.r.ts))),
+                    reportBody(lastReport.r.text, reportHost !== undefined && reportHost.workspacePath ? ((n) => { setPreview({ ws: reportHost.workspacePath!, name: n }) }) : undefined),
+                  )) : null,
                   evSummary !== null && lastReport?.r.evidence !== null && lastReport?.r.evidence !== undefined ? Fold(evSummary, [EvidenceBlock(lastReport.r.evidence!)]) : null,
                   // V9.10 收获三件：任务产出/交付物 + 历次执行会话（逐次可跳）+ 待定夺动作
                   // （V9.12 正名：reported 链→去验收 / 败链→去下重试令，都落大副会话）。
                   reportHost !== undefined && reportHost.deliverables.length > 0
                     ? subRow(fp.lootLabel, createElement('span', { className: 'war-loot' },
-                      reportHost.deliverables.map((d, i) => createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary))))
+                      reportHost.deliverables.flatMap((d, i) => {
+                        const chips: ReactNode[] = [createElement('span', { key: `${d.ts}-${i}`, className: `war-loot-item ${d.kind}`, title: d.detail ?? '' }, d.summary)]
+                        // V19 腿2：files 交付物逐文件=可点 chip→板内预览（summary 留标签）。
+                        if (d.kind === 'files' && (d.detail ?? '') !== '' && reportHost.workspacePath) {
+                          for (const p of d.detail!.split(/,\s*/).filter(x => x.trim() !== '')) {
+                            chips.push(createElement('button', {
+                              key: `${d.ts}-${i}-${p}`, type: 'button', className: `war-loot-item ${d.kind} war-loot-file`,
+                              title: fp.lootFileTitle, onClick: () => { setPreview({ ws: reportHost.workspacePath!, name: p }) },
+                            }, p))
+                          }
+                        }
+                        return chips
+                      })))
                     : null,
                   execSessions.length > 0
                     ? subRow(fp.attemptsSection, createElement('span', { className: 'war-sub-attempts' },
@@ -1447,6 +1555,7 @@ function FocusPage(props: { cmd: BoardCommand; chain: BoardTask[]; statuses: Map
           onClick: () => { jumpSession(execTarget) },
         }, `⌁ ${fp.execSessionBtn}`),
       ),
+      preview !== null ? createElement(ArtifactPreviewModal, { ws: preview.ws, name: preview.name, onClose: () => { setPreview(null) } }) : null,
     ),
   )
 }

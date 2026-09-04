@@ -8,8 +8,9 @@
  */
 
 import { createHash } from 'node:crypto'
-import { readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, resolve, sep } from 'node:path'
+import { spawn } from 'node:child_process'
 import { appendDirectiveEvent, chainHueSlot, deriveContinuation, loadDirectives, newDirectiveId, foldChains, pendingDirectives, readDirectiveEvents } from './directives.ts'
 import type { ContinuationMode, ContinuationTaskFace } from './directives.ts'
 import { appendEvent, listCampaignIds, loadCampaign, readEvents } from './events.ts'
@@ -353,6 +354,25 @@ export function traceProjection(
  * Register `/warroom` routes on the web server.
  * @returns the registration disposer.
  */
+/**
+ * V19 战报可读性回流（stardeck）：产物板内预览的双重限界守卫——ws 须在 war_root
+ * 管辖内、name 须是 ws 内的相对路径（绝对路径/`..` 穿越/跨任务串门全拒）。
+ * 纯函数，dashboard-routes 测试直测。
+ */
+export function workspaceFileGuardError(warRoot: string, ws: string, name: string): string | null {
+  if (ws.trim() === '' || name.trim() === '') return '缺少工作区或文件名参数'
+  // name 必须是相对路径：绝对路径（盘符/根斜杠）显式拒绝——join 不重置绝对段，
+  // 会拼出「ws/C:/x」这类怪路径（stat 必败），语义上仍按穿越面拒掉。
+  if (/^[a-zA-Z]:[\\/]/.test(name) || name.startsWith('/') || name.startsWith('\\')) return '文件路径越出工作区（拒绝路径穿越）'
+  const root = resolve(warRoot)
+  const wsAbs = resolve(ws)
+  const file = resolve(join(wsAbs, name))
+  const inside = (base: string, target: string): boolean => target === base || target.startsWith(base + sep)
+  if (!inside(root, wsAbs)) return '该工作区不在 war_root 管辖内，拒绝访问'
+  if (!inside(wsAbs, file)) return '文件路径越出工作区（拒绝路径穿越）'
+  return null
+}
+
 export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps): () => void {
   const handler = async (req: unknown, res: unknown): Promise<void> => {
     const r = req as ReqFace
@@ -392,6 +412,52 @@ export function registerDashboard(webServer: RouteRegistry, deps: DashboardDeps)
           return
         }
         send(200, { ok: true, workspaces })
+        return
+      }
+      if (r.method === 'GET' && pathname === '/warroom/api/workspace/file') {
+        // V19 战报可读性回流：产物板内预览（只读端点）。双重限界见 workspaceFileGuardError；
+        // 大小封顶 512KB；首 1KB 含 NUL 判二进制（板面不渲染，指路「打开所在文件夹」）。
+        const q = new URL(r.url ?? '/', 'http://local').searchParams
+        const ws = q.get('ws') ?? ''
+        const name = q.get('name') ?? ''
+        const guardErr = workspaceFileGuardError(deps.warRoot, ws, name)
+        if (guardErr !== null) { send(403, { ok: false, error: guardErr }); return }
+        const file = resolve(join(resolve(ws), name))
+        try {
+          const st = statSync(file)
+          if (!st.isFile()) { send(404, { ok: false, error: '不是文件（可能是目录）' }); return }
+          if (st.size > 512 * 1024) { send(413, { ok: false, error: '文件超过 512KB，请用「打开所在文件夹」查看' }); return }
+          const content = readFileSync(file, 'utf8')
+          const binary = content.slice(0, 1024).includes('\0')
+          send(200, { ok: true, path: file, name, size: st.size, binary, content: binary ? '' : content })
+        } catch {
+          send(404, { ok: false, error: '文件不存在或不可读' })
+        }
+        return
+      }
+      if (r.method === 'POST' && pathname === '/warroom/api/workspace/reveal') {
+        // V19 战报可读性回流：本机资源管理器落到产物所在目录（不开任何写通道
+        // ——账本零改动）。限界与 file 端点同一守卫；无 name=直接开工作区目录。
+        const body = JSON.parse(await readBody(r)) as { ws?: unknown; name?: unknown }
+        const ws = typeof body.ws === 'string' ? body.ws : ''
+        const name = typeof body.name === 'string' ? body.name : ''
+        const guardErr = workspaceFileGuardError(deps.warRoot, ws, name === '' ? 'x' : name)
+        if (guardErr !== null && name === '') {
+          if (ws.trim() === '') { send(403, { ok: false, error: '缺少工作区参数' }); return }
+          const root = resolve(deps.warRoot), wsAbs = resolve(ws)
+          if (!(wsAbs === root || wsAbs.startsWith(root + sep))) { send(403, { ok: false, error: '该工作区不在 war_root 管辖内，拒绝访问' }); return }
+        } else if (guardErr !== null) { send(403, { ok: false, error: guardErr }); return }
+        const target = name === '' ? resolve(ws) : resolve(join(resolve(ws), name))
+        let dir = target
+        try { if (statSync(target).isFile()) dir = join(target, '..') } catch { /* 目标缺席也允许开目录（资源管理器自己给反馈） */ }
+        const opener = process.platform === 'win32' ? 'explorer' : process.platform === 'darwin' ? 'open' : 'xdg-open'
+        try {
+          const p = spawn(opener, [dir], { detached: true, stdio: 'ignore' })
+          p.unref()
+          send(200, { ok: true, dir })
+        } catch (err) {
+          send(500, { ok: false, error: `打开目录失败：${err instanceof Error ? err.message : String(err)}` })
+        }
         return
       }
       if (r.method === 'POST' && pathname === '/warroom/api/planets') {

@@ -331,7 +331,7 @@ body[data-ds-dark-theme] .war-root{
 /* V5-R3 计划卡（命令详情浮层内） */
 .war-plan{margin-top:10px;border:1px solid var(--war-border);border-radius:var(--war-r-sm);padding:8px 10px}
 .war-plan-head{font-size:12px;font-weight:600;color:var(--war-text-1);margin-bottom:4px}
-.war-plan-body{font-size:12px;white-space:pre-wrap;color:var(--war-text-1);max-height:240px;overflow:auto}
+.war-plan-body{font-size:12px;color:var(--war-text-1);max-height:240px;overflow:auto} /* V19 铺面回流：pre-wrap 撤除（md 块管间距），段内换行保真移 .war-md-p */
 
 /* quality-tier palette（状态令牌族的刻意映射：common=中性/fine=绿/rare=蓝/
  * epic=琥珀/legendary=红——与 QUALITY_TIERS 对齐，皮肤随令牌走）。 */
@@ -442,6 +442,27 @@ body[data-ds-dark-theme] .war-root{
 .war-loot{display:flex;flex-wrap:wrap;gap:6px}
 .war-loot-item{font-size:12px;padding:4px 8px;border-radius:var(--war-r-sm);background:var(--war-well-bg);border:1px dashed var(--war-border);color:var(--war-text-2)}
 .war-loot-item.tests{color:var(--war-done);border-color:var(--war-done-border)}
+/* --- V19 战报可读性回流（stardeck 铺面轮）：md-lite 渲染 + 产物板内预览 ---------
+   war-md：战报/计划/任务书共用的渲染语言；unknown 形态一律段落（宁拙勿崩）。 */
+.war-md{display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.75;color:var(--war-text-1);word-break:break-word}
+.war-md-h{font-weight:700;color:var(--war-text-1)}
+.war-md-h1{font-size:15px}.war-md-h2{font-size:14px}.war-md-h3,.war-md-h4{font-size:13px}
+.war-md-p{margin:0;white-space:pre-wrap}
+.war-md-ul,.war-md-ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.war-md-code{margin:0;padding:10px 12px;border:1px solid var(--war-border-soft);border-radius:8px;background:var(--war-chart-bg);font-family:var(--war-font-code);font-size:11.5px;line-height:1.6;overflow-x:auto;white-space:pre}
+.war-md code{font-family:var(--war-font-code);font-size:11.5px;background:var(--war-chart-bg);border:1px solid var(--war-border-soft);border-radius:4px;padding:0 4px}
+.war-md-path{font-family:var(--war-font-code);font-size:11.5px;color:var(--war-focus);background:color-mix(in srgb, var(--war-focus) 9%, transparent);border:1px solid color-mix(in srgb, var(--war-focus) 32%, transparent);border-radius:4px;padding:0 5px;cursor:pointer}
+.war-md-path:hover{background:color-mix(in srgb, var(--war-focus) 16%, transparent)}
+.war-md-quote{margin:0;padding:4px 10px;border-left:2px solid var(--war-border);color:var(--war-text-2);white-space:pre-wrap}
+.war-loot-file{cursor:pointer;border-style:solid;color:var(--war-text-1)}
+.war-loot-file:hover{border-color:var(--war-focus);color:var(--war-focus)}
+.war-cd-band-plan{flex-basis:100%;margin-top:2px}
+.war-cd-band-plan summary{cursor:pointer;font-size:12px;color:var(--war-text-2)}
+.war-cd-band-plan .war-plan-body{margin-top:6px;max-height:340px;background:var(--war-card-bg);border:1px solid var(--war-border-soft);border-radius:var(--war-r-md);padding:8px 10px}
+.war-preview-modal{display:flex;flex-direction:column;max-width:820px;max-height:82vh;width:min(820px,92vw)}
+.war-preview-head{display:flex;align-items:center;gap:10px;padding:10px 14px 6px}
+.war-preview-head .war-modal-title{flex:1 1 auto}
+.war-preview-body{font-size:12.5px;padding:4px 14px 14px;overflow:auto}
 .war-evi{font-size:12px;display:flex;flex-direction:column;gap:2px;padding:4px 8px;border-radius:var(--war-r-sm);background:var(--war-well-bg)}
 .war-evi .ok{color:var(--war-done)}
 .war-evi .bad{color:var(--war-fail)}
